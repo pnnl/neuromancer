@@ -1,348 +1,209 @@
+from scipy.io import loadmat
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from linear import SVDLinear, PerronFrobeniusLinear, NonnegativeLinear
-from rnn import RNN
+from linear import SVDLinear, PerronFrobeniusLinear, NonnegativeLinear, SpectralLinear
 
 
-class SSM_black_con(nn.Module):
-    def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False):
+def heat_flow(m_flow, dT):
+    U = 1.1591509722222224 * m_flow * dT
+    return U
+
+
+class HeatFlow(nn.Module):
+
+    def __init__(self):
         super().__init__()
-        self.A = SVDLinear(nx, nx, 0.6, 1)
-        self.nlin = {'gelu': F.gelu, 'relu': F.relu, 'softplus': F.softplus}
-        self.x0_correct = torch.nn.Parameter(torch.zeros(1, nx))  # state initialization term, corresponding to G
-        self.E = PerronFrobeniusLinear(nd, nx, 0.05, 1)
-
-        self.B = NonnegativeLinear(nu, nx)
-        self.C = SVDLinear(nx, ny, 0.9, 1)
-
-        self.hf1 = nn.Linear(n_m + n_dT, n_hidden, bias=bias)
-        self.hf2 = nn.Linear(n_hidden, nu, bias=bias)
-        ###        state estim layers
-        self.Xestim1 = PerronFrobeniusLinear(ny, nx, 0.9, 1)
-        self.Xestim2 = PerronFrobeniusLinear(nx, nx, 0.9, 1)
-        self.nx = nx
-        #        KF init
-        self.Q_init = nn.Parameter(torch.eye(nx), requires_grad=False)
-        self.R_init = nn.Parameter(torch.eye(ny), requires_grad=False)
-        self.P_init = nn.Parameter(torch.eye(nx), requires_grad=False)
-        self.L_init = nn.Parameter(torch.zeros(nx, ny), requires_grad=False)
-        self.x0_estim = nn.Parameter(torch.zeros(1, nx), requires_grad=False)
-
-        self.rnn = RNN(ny, nx, args.num_rnn_layers, bias=args.rnn_bias,
-                       nonlinearity=self.nlin[args.rnn_activation], stable=args.rnn_type)
-        #  thresholds on maximal one-step change of rate of state variables through u and d
-        dxmax_val = 0.5
-        dxmin_val = -0.5
-        self.dxmax = nn.Parameter(dxmax_val * torch.ones(1, nx), requires_grad=False)
-        self.dxmin = nn.Parameter(dxmin_val * torch.ones(1, nx), requires_grad=False)
-
-    def forward(self, Ym, M_flow_p, DT_p, D_p, M_flow, DT, D, XMIN, XMAX, UMIN, UMAX):
-        """
-        """
-        X = []
-        Y = []
-        U = []
-        Sx_min = []
-        Sx_max = []
-        Su_min = []
-        Su_max = []
-        Sdx_x = []  # violations of max one-step difference of states
-        Sdx_u = []  # violations of max one-step influence of control inputs on states
-        Sdx_d = []  # violations of max one-step influence of disturbances on states
-        SpectErr = []
-        # P is estimation error covariance which can be set to be a diagonal matrix
-        x_estim = self.x0_estim
-        Q = self.Q_init
-        R = self.R_init
-        P = self.P_init
-        L = self.L_init  # KF gain
-
-        #        State estimation loop on past data
-        for ym, m_flow_p, dT_p, d_p in zip(Ym, M_flow_p, DT_p, D_p):
-            u_p = F.relu(self.hf2(F.relu(self.hf1(torch.cat([m_flow_p, dT_p], dim=1)))))
-            Ax_estim, spectralerror = self.A(x_estim)
-            x_estim = Ax_estim + self.B(u_p) + self.E(d_p)
-            y_estim, spectralerror = self.C(x_estim)
-            #           estimation error covariance
-            P = torch.mm(self.A.effective_W(), torch.mm(P, self.A.effective_W().T)) + Q
-
-            #     UPDATE STEP:
-            x_estim = x_estim + torch.mm((ym - y_estim), L.T)
-            L_inverse_part = torch.inverse(R + torch.mm(self.C.effective_W().T, torch.mm(P, self.C.effective_W())))
-            L = torch.mm(torch.mm(P, self.C.effective_W()), L_inverse_part)
-            P = torch.eye(self.nx) - torch.mm(L, torch.mm(self.C.effective_W().T, P))
-
-        #        past estimated state is our initial condition for prediction
-        x = x_estim
-
-        #        PREDICT STEP
-        for m_flow, dT, d, xmin, xmax, umin, umax in zip(M_flow, DT, D, XMIN, XMAX, UMIN, UMAX):
-            x_prev = x  # previous state memory
-            u = F.relu(self.hf2(F.relu(self.hf1(torch.cat([m_flow, dT], dim=1)))))
-            Ax, SpectralErrorA = self.A(x)
-            x = Ax + self.B(u) + self.E(d)
-            y, SpectralErrorC = self.C(x)
-            SpectralError = SpectralErrorA + SpectralErrorC
-            #  GEQ constraints  x>= xmin
-            sxmin = F.relu(-x + xmin)
-            #  LEQ constraints x <= xmax
-            sxmax = F.relu(x - xmax)
-
-            #  GEQ constraints  u>= umin
-            sumin = F.relu(-u + umin)
-            #  LEQ constraints u <= umax
-            sumax = F.relu(u - umax)
-
-            # smooth operator
-            dx_x = x - x_prev  # one step state residual to be penalized in the objective
-            # constraints on max one-step infuence of controls and disturbances on states
-            dx_u = F.relu(-self.B(u) + self.dxmin) + F.relu(self.B(u) - self.dxmax)
-            dx_d = F.relu(-self.E(d) + self.dxmin) + F.relu(self.E(d) - self.dxmax)
-
-            Sx_min.append(sxmin)
-            Sx_max.append(sxmax)
-            Su_min.append(sumin)
-            Su_max.append(sumax)
-            Sdx_x.append(dx_x)
-            Sdx_u.append(dx_u)
-            Sdx_d.append(dx_d)
-            X.append(x)
-            Y.append(y)
-            U.append(u)
-            SpectErr.append(SpectralError)
-
-        X_out = torch.stack(X)
-        Y_out = torch.stack(Y)
-        U_out = torch.stack(U)
-        Sx_min_out = torch.stack(Sx_min)
-        Sx_max_out = torch.stack(Sx_max)
-        Su_min_out = torch.stack(Su_min)
-        Su_max_out = torch.stack(Su_max)
-        Sdx_x_out = torch.stack(Sdx_x)
-        Sdx_u_out = torch.stack(Sdx_u)
-        Sdx_d_out = torch.stack(Sdx_d)
-        SpectErr_out = torch.stack(SpectErr)
-        return X_out, Y_out, U_out, Sx_min_out, Sx_max_out, Su_min_out, Su_max_out, Sdx_x_out, Sdx_u_out, Sdx_d_out, SpectErr_out
-
-
-class SSM_gray_con(nn.Module):
-    def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False):
-        super().__init__()
-        #        self.A = PerronFrobeniusIntervalWeight(nx, nx, 0.9, 1)
-        self.A = SpectralWeight(nx, nx, 0.1, 0.90)  # TODO explore different ranges as tuning factor
-        self.nlin = {'gelu': F.gelu, 'relu': F.relu, 'softplus': F.softplus}
-        self.x0_correct = torch.nn.Parameter(torch.zeros(1, nx))  # state initialization term, corresponding to G
-        #        self.E = nn.Linear(nd, nx, bias=bias)
-        self.E = PerronFrobeniusIntervalWeight(nd, nx, 0.05, 1)
-        self.B = Linear_nonNeg(nu, nx)
-        #        self.C = PerronFrobeniusIntervalWeight(nx, ny, 0.9, 1)
-        self.C = SpectralWeight(nx, ny, 0.9, 1)
-
-        self.hf = nn.Bilinear(n_m, n_dT, nu, bias=bias)
-
-        ###        state estim layer
-        self.Xestim1 = PerronFrobeniusIntervalWeight(ny, nx, 0.9, 1)
-        self.Xestim2 = PerronFrobeniusIntervalWeight(nx, nx, 0.9, 1)
-
-        #        self.rnn = torch.nn.RNN(ny, nx, 1, nonlinearity='relu')
-        self.rnn = RNN(ny, nx, args.num_rnn_layers, bias=args.rnn_bias,
-                       nonlinearity=self.nlin[args.rnn_activation], stable=args.rnn_type)
-
-        #  thresholds on maximal one-step change of rate of state variables through u and d
-        dxmax_val = 0.5
-        dxmin_val = -0.5
-        self.dxmax = nn.Parameter(dxmax_val * torch.ones(1, nx), requires_grad=False)
-        self.dxmin = nn.Parameter(dxmin_val * torch.ones(1, nx), requires_grad=False)
-
-    def forward(self, Ym, M_flow, DT, D, XMIN, XMAX, UMIN, UMAX):
-        """
-        """
-        X = []
-        Y = []
-        U = []
-        Sx_min = []
-        Sx_max = []
-        Su_min = []
-        Su_max = []
-        Sdx_x = []  # violations of max one-step difference of states
-        Sdx_u = []  # violations of max one-step influence of control inputs on states
-        Sdx_d = []  # violations of max one-step influence of disturbances on states
-        SpectErr = []
-
-        #        UPDATE STEP
-        RNN_out = self.rnn(Ym)
-        x = RNN_out[0][-1]
-        #        x = x + self.x0_correct # state initialization correction term
-
-        #        Pedict STEP
-        for m_flow, dT, d, xmin, xmax, umin, umax in zip(M_flow, DT, D, XMIN, XMAX, UMIN, UMAX):
-            x_prev = x  # previous state memory
-            x = x + self.x0_correct  # state correction term
-            u = self.hf(m_flow, dT)
-
-            Ax, SpectralErrorA = self.A(x)
-            x = Ax + self.B(u) + self.E(d)
-            y, SpectralErrorC = self.C(x)
-            SpectralError = SpectralErrorA + SpectralErrorC
-
-            #  GEQ constraints  x>= xmin
-            sxmin = F.relu(-x + xmin)
-            #  LEQ constraints x <= xmax
-            sxmax = F.relu(x - xmax)
-
-            #  GEQ constraints  u>= umin
-            sumin = F.relu(-u + umin)
-            #  LEQ constraints u <= umax
-            sumax = F.relu(u - umax)
-
-            # smooth operator
-            dx_x = x - x_prev  # one step state residual to be penalized in the objective
-            # constraints on max one-step infuence of controls and disturbances on states
-            dx_u = F.relu(-self.B(u) + self.dxmin) + F.relu(self.B(u) - self.dxmax)
-            dx_d = F.relu(-self.E(d) + self.dxmin) + F.relu(self.E(d) - self.dxmax)
-
-            Sx_min.append(sxmin)
-            Sx_max.append(sxmax)
-            Su_min.append(sumin)
-            Su_max.append(sumax)
-            Sdx_x.append(dx_x)
-            Sdx_u.append(dx_u)
-            Sdx_d.append(dx_d)
-            X.append(x)
-            Y.append(y)
-            U.append(u)
-            SpectErr.append(SpectralError)
-
-        X_out = torch.stack(X)
-        Y_out = torch.stack(Y)
-        U_out = torch.stack(U)
-        Sx_min_out = torch.stack(Sx_min)
-        Sx_max_out = torch.stack(Sx_max)
-        Su_min_out = torch.stack(Su_min)
-        Su_max_out = torch.stack(Su_max)
-        Sdx_x_out = torch.stack(Sdx_x)
-        Sdx_u_out = torch.stack(Sdx_u)
-        Sdx_d_out = torch.stack(Sdx_d)
-        SpectErr_out = torch.stack(SpectErr)
-        return X_out, Y_out, U_out, Sx_min_out, Sx_max_out, Su_min_out, Su_max_out, Sdx_x_out, Sdx_u_out, Sdx_d_out, SpectErr_out
-
-
-class SSM_white_con(nn.Module):
-    def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False):
-        super().__init__()
-        #        self.A = PerronFrobeniusIntervalWeight(nx, nx, 0.9, 1)
-        self.A = SpectralWeight(nx, nx, 0.1, 0.90)  # TODO explore different ranges as tuning factor
-        self.x0_correct = torch.nn.Parameter(torch.zeros(1, nx))  # state initialization term, corresponding to G
-        self.nlin = {'gelu': F.gelu, 'relu': F.relu, 'softplus': F.softplus}
-        #        self.E = nn.Linear(nd, nx, bias=bias)
-        self.E = PerronFrobeniusIntervalWeight(nd, nx, 0.05, 1)
-        self.B = Linear_nonNeg(nu, nx)
-        self.C = SpectralWeight(nx, ny, 0.9, 1)
-
         self.rho = torch.nn.Parameter(torch.tensor(0.997), requires_grad=False)  # density  of water kg/1l
         self.cp = torch.nn.Parameter(torch.tensor(4185.5),
                                      requires_grad=False)  # specific heat capacity of water J/(kg/K)
-        self.time_reg = torch.nn.Parameter(torch.tensor(1 / 3600),
-                                           requires_grad=False)  # time regularization of the mass flow 1 hour = 3600 seconds
+        self.time_reg = torch.nn.Parameter(torch.tensor(1 / 3600), requires_grad=False)
 
-        ###        state estim layer
-        self.Xestim1 = PerronFrobeniusIntervalWeight(ny, nx, 0.9, 1)
-        self.Xestim2 = PerronFrobeniusIntervalWeight(nx, nx, 0.9, 1)
+    def forward(self, m_flow, dT):
+        return m_flow * self.rho * self.cp * self.time_reg * dT
 
-        #        self.rnn = torch.nn.RNN(ny, nx, 1, nonlinearity='relu')
-        self.rnn = RNN(ny, nx, args.num_rnn_layers, bias=args.rnn_bias,
-                       nonlinearity=self.nlin[args.rnn_activation], stable=args.rnn_type)
 
-        #  thresholds on maximal one-step change of rate of state variables through u and d
+class MLPHeatFlow(nn.Module):
+    def __init__(self, insize, outsize, hiddensize, bias=False, nonlinearity=F.gelu):
+        super().__init__()
+        self.layer1 = nn.Linear(insize, hiddensize, bias=bias)
+        self.layer2 = nn.Linear(hiddensize, outsize, bias=bias)
+        self.nlin = nonlinearity
+
+    def __call__(self, m_flow, dT):
+        return self.nlin(self.layer2(self.nlin(self.layer1((torch.cat([m_flow, dT], dim=1))))))
+
+
+class SSM(nn.Module):
+    def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False, heatflow='white',
+                 xmin=0, xmax=35, umin=-5000, umax=5000,
+                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2):
+        super().__init__()
+        self.nx, self.ny, self.nu, self.nd = nx, ny, nu, nd
+        self.A = nn.Linear(nx, nx, bias=bias)
+        self.B = nn.Linear(nu, nx, bias=bias)
+        self.E = nn.Linear(nd, nx, bias=bias)
+        self.C = nn.Linear(nx, ny, bias=bias)
+        self.x0_correct = torch.nn.Parameter(torch.zeros(1, nx)) # state initialization term, corresponding to G
+
+        if heatflow == 'white':
+            self.heat_flow = heat_flow
+        elif heatflow == 'gray':
+            self.heat_flow = HeatFlow()
+        elif heatflow == 'black':
+            self.heat_flow = MLPHeatFlow(n_m + n_dT, nu, n_hidden, bias=self.bias)
+
+        #  Regularization Initialization
         dxmax_val = 0.5
         dxmin_val = -0.5
+        self.xmin, self.xmax, self.umin, self.umax = xmin, xmax, umin, umax
         self.dxmax = nn.Parameter(dxmax_val * torch.ones(1, nx), requires_grad=False)
         self.dxmin = nn.Parameter(dxmin_val * torch.ones(1, nx), requires_grad=False)
+        self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.Sdx_u, self.Sdx_d, self.spectral_error = [[] for i in range(8)]
+        # weights on one-step difference of states
+        self.Q_dx = Q_dx / n_hidden  # penalty on smoothening term dx
+        self.Q_dx_ud = Q_dx_ud / n_hidden  # penalty on constrained maximal influence of u and d on x
+        # state and input constraints weight
+        self.Q_con_x = Q_con_x / n_hidden
+        self.Q_con_u = Q_con_u / nu
+        # (For SVD) Weights on orthogonality violation of matrix decomposition factors
+        self.Q_spectral = Q_spectral
 
-    def heat_flow(self, m_flow, dT):
-        U = m_flow * self.rho * self.cp * self.time_reg * dT
-        return U
+    def regularize(self, x_0, x, u, d):
+        # Barrier penalties
+        self.sxmin.append(F.relu(-x + self.xmin))
+        self.sxmax.append(F.relu(x - self.xmax))
+        self.sumin.append(F.relu(-u + self.umin))
+        self.sumax.append(F.relu(u - self.umax))
+        # one step state residual penalty
+        self.sdx_x.append(x - x_0)
+        # penalties on max one-step infuence of controls and disturbances on states
+        self.dx_u.append(F.relu(-self.B(u) + self.dxmin) + F.relu(self.B(u) - self.dxmax))
+        self.dx_d.append(F.relu(-self.E(d) + self.dxmin) + F.relu(self.E(d) - self.dxmax))
 
-    def forward(self, Ym, M_flow, DT, D, XMIN, XMAX, UMIN, UMAX):
+    def regularization_error(self):
+        return 0.0
+        # state constraints limits
+        # xmin_val = 0
+        # xmax_val = 35
+        # XMIN = xmin_val * torch.ones(nsim - args.nsteps, args.nx_hidden)
+        # XMAX = xmax_val * torch.ones(nsim - args.nsteps, args.nx_hidden)
+        # umin_val = -5000
+        # umax_val = 5000
+        # UMIN = umin_val * torch.ones(nsim - args.nsteps, building.nu)
+        # UMAX = umax_val * torch.ones(nsim - args.nsteps, building.nu)
+        # # slack variables targets
+        # Sx = torch.zeros(nsim - args.nsteps, args.nx_hidden)
+        # Su = torch.zeros(nsim - args.nsteps, building.nu)
+        # F.mse_loss(input, target)
+
+    def forward(self, x, M_flow, DT, D):
         """
         """
-        X = []
-        Y = []
-        U = []
-        Sx_min = []
-        Sx_max = []
-        Su_min = []
-        Su_max = []
-        Sdx_x = []  # violations of max one-step difference of states
-        Sdx_u = []  # violations of max one-step influence of control inputs on states
-        Sdx_d = []  # violations of max one-step influence of disturbances on states
-        SpectErr = []
-        #            naive stable estimator, mapping ym onto x
-        #            TODO: extend mapping of ym,d,u onto x
-        #            TODO: moving horizon estimation, mapping Y history over N steps
-        #            x = self.Xestim2(F.relu(self.Xestim1(ym)))
-        #        x = self.Xestim1(ym)
-        #        x = x + self.x0_correct # state initialization correction term
-
-        #        UPDATE STEP
-        RNN_out = self.rnn(Ym)
-        x = RNN_out[0][-1]
-        #        x = x + self.x0_correct # state initialization correction term
-
-        #        PREDICT STEP
-        for m_flow, dT, d, xmin, xmax, umin, umax in zip(M_flow, DT, D, XMIN, XMAX, UMIN, UMAX):
+        X, Y, U = [], [], []
+        x = x + self.x0_correct
+        for m_flow, dT, d in zip(M_flow, DT, D):
             x_prev = x  # previous state memory
-            x = x + self.x0_correct  # state correction term
-            u = self.heat_flow(m_flow, dT)
-
-            #            Ax, SpectralError = self.A(x)
-            #            x = Ax + self.B(u) + self.E(d)
-            #            y = self.C(x)
-
-            Ax, SpectralErrorA = self.A(x)
-            x = Ax + self.B(u) + self.E(d)
-            y, SpectralErrorC = self.C(x)
-            SpectralError = SpectralErrorA + SpectralErrorC
-
-            #  GEQ constraints  x>= xmin
-            sxmin = F.relu(-x + xmin)
-            #  LEQ constraints x <= xmax
-            sxmax = F.relu(x - xmax)
-
-            #  GEQ constraints  u>= umin
-            sumin = F.relu(-u + umin)
-            #  LEQ constraints u <= umax
-            sumax = F.relu(u - umax)
-
-            # smooth operator
-            dx_x = x - x_prev  # one step state residual to be penalized in the objective
-            # constraints on max one-step infuence of controls and disturbances on states
-            dx_u = F.relu(-self.B(u) + self.dxmin) + F.relu(self.B(u) - self.dxmax)
-            dx_d = F.relu(-self.E(d) + self.dxmin) + F.relu(self.E(d) - self.dxmax)
-
-            Sx_min.append(sxmin)
-            Sx_max.append(sxmax)
-            Su_min.append(sumin)
-            Su_max.append(sumax)
-            Sdx_x.append(dx_x)
-            Sdx_u.append(dx_u)
-            Sdx_d.append(dx_d)
+            u = self.heatflow(torch.cat([m_flow, dT], dim=1))
+            x = self.A(x) + self.B(u) + self.E(d)
+            y = self.C(x)
             X.append(x)
             Y.append(y)
             U.append(u)
-            SpectErr.append(SpectralError)
+            self.regularize(x_prev, x, u, d)
+        return torch.stack(X), torch.stack(Y), torch.stack(U), self.regularization_error
 
-        X_out = torch.stack(X)
-        Y_out = torch.stack(Y)
-        U_out = torch.stack(U)
-        Sx_min_out = torch.stack(Sx_min)
-        Sx_max_out = torch.stack(Sx_max)
-        Su_min_out = torch.stack(Su_min)
-        Su_max_out = torch.stack(Su_max)
-        Sdx_x_out = torch.stack(Sdx_x)
-        Sdx_u_out = torch.stack(Sdx_u)
-        Sdx_d_out = torch.stack(Sdx_d)
-        SpectErr_out = torch.stack(SpectErr)
-        return X_out, Y_out, U_out, Sx_min_out, Sx_max_out, Su_min_out, Su_max_out, Sdx_x_out, Sdx_u_out, Sdx_d_out, SpectErr_out
+
+class SVDSSM(SSM):
+    def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False, heatflow='white',
+                 xmin=0, xmax=35, umin=-5000, umax=5000,
+                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2):
+        super().__init__(nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=bias, heatflow=heatflow,
+                         xmin=xmin, xmax=xmax, umin=umin, umax=umax,
+                         Q_dx=Q_dx, Q_dx_ud=Q_dx_ud, Q_con_x=Q_con_x, Q_con_u=Q_con_u, Q_spectral=Q_spectral)
+        # Module initialization
+        self.A = SVDLinear(nx, nx, bias=bias, sigma_min=0.6, sigma_max=1.0)
+        self.E = PerronFrobeniusLinear(nd, nx, bias=bias, sigma_min=0.05, sigma_max=1)
+        self.B = NonnegativeLinear(nu, nx, bias=bias)
+        self.C = SVDLinear(nx, ny, bias=bias, sigma_min=0.9, sigma_max=1)
+
+    def forward(self, x, M_flow, DT, D):
+        """
+        """
+        X, Y, U, regularization_error = super().forward(x, M_flow, DT, D)
+        spectral_error = self.A.spectral_error, self.C.spectral_error
+        return X, Y, U, self.regularization_error + spectral_error
+
+
+class PerronFrobeniusSSM(SSM):
+    def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False, heatflow='white',
+                 xmin=0, xmax=35, umin=-5000, umax=5000,
+                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2):
+        super().__init__(nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=bias, heatflow=heatflow,
+                         xmin=xmin, xmax=xmax, umin=umin, umax=umax,
+                         Q_dx=Q_dx, Q_dx_ud=Q_dx_ud, Q_con_x=Q_con_x, Q_con_u=Q_con_u, Q_spectral=Q_spectral)
+        # Module initialization
+        self.A = PerronFrobeniusLinear(nx, nx, bias=bias, sigma_min=0.95, sigma_max=1.0)
+        self.E = PerronFrobeniusLinear(nd, nx, bias=bias, sigma_min=0.05, sigma_max=1)
+        self.B = NonnegativeLinear(nu, nx, bias=bias)
+        self.C = PerronFrobeniusLinear(nx, ny, bias=bias, sigma_min=0.9, sigma_max=1)
+
+
+class SpectralSSM(PerronFrobeniusSSM):
+    def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False, heatflow='white',
+                 xmin=0, xmax=35, umin=-5000, umax=5000,
+                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2):
+        super().__init__(nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=bias, heatflow=heatflow,
+                         xmin=xmin, xmax=xmax, umin=umin, umax=umax,
+                         Q_dx=Q_dx, Q_dx_ud=Q_dx_ud, Q_con_x=Q_con_x, Q_con_u=Q_con_u, Q_spectral=Q_spectral)
+        self.A = SpectralLinear(nx, nx, bias=bias, reflector_size=1, sig_mean=0.8, r=0.2)
+
+
+class SSMGroundTruth(SSM):
+    # TODO: Test to see if corresponds with ground truth
+    def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False,
+                 heatflow='white', # dummy args for common API in training script
+                 xmin=0, xmax=35, umin=-5000, umax=5000,
+                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2):
+        super().__init__(nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=bias)
+        file = loadmat('./Matlab_matrices/Reno_model_for_py.mat')  # load disturbance file
+        # reduced order linear model
+        A = file['Ad_ROM']
+        B = file['Bd_ROM']
+        C = file['Cd_ROM']
+        E = file['Ed_ROM']
+        G = file['Gd_ROM']
+        F = file['Fd_ROM']
+        self.G = torch.tensor(G)
+        self.F = torch.tensor(F)
+
+        with torch.no_grad():
+            self.A.weight.copy_(torch.tensor(A))
+            self.B.weight.copy_(torch.tensor(B))
+            self.E.weight.copy_(torch.tensor(E))
+            self.C.weight.copy_(torch.tensor(C))
+
+        for p in self.parameters():
+            p.requires_grad = False
+
+    @property
+    def regularization_error(self):
+        return 0.0
+
+    def forward(self, x, M_flow, DT, D):
+        """
+        """
+        X, Y, U = [], [], []
+        for m_flow, dT, d in zip(M_flow, DT, D):
+            x_prev = x  # previous state memory
+            u = self.heatflow(torch.cat([m_flow, dT], dim=1))
+            x = self.A(x) + self.B(u) + self.E(d) + self.G
+            y = self.C(x) + self.F - 273.15
+            X.append(x)
+            Y.append(y)
+            U.append(u)
+            self.regularize(x_prev, x, u, d)
+        return torch.stack(X), torch.stack(Y), torch.stack(U), self.regularization_error
+
 

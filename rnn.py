@@ -114,6 +114,13 @@ class RNN(nn.Module):
         self.num_layers = len(rnn_cells)
         self.init_state = nn.Parameter(torch.zeros(self.num_layers, 1, rnn_cells[0].hidden_size))
 
+    @property
+    def spectral_error(self):
+        if type(self.rnn_cells[0]) is SVDCell:
+            return torch.sum(torch.cat([cell.spectral_error for cell in self.RNNCells]))
+        else:
+            return 0.0
+
     def forward(self, sequence):
         """
         :param sequence: a tensor(s) of shape (seq_len, batch, input_size)
@@ -132,16 +139,6 @@ class RNN(nn.Module):
             final_hiddens.append(h)
         final_hiddens = torch.cat(final_hiddens, 0)
         return states, final_hiddens
-
-
-class SVDRNN(RNN):
-    def __init__(self, input_size, hidden_size, num_layers=1, bias=False, nonlinearity=F.gelu):
-        super().__init__(input_size, hidden_size, num_layers=num_layers, bias=bias,
-                         nonlinearity=nonlinearity, cell=SVDCell)
-
-    @property
-    def spectral_error(self):
-        return torch.sum(torch.cat([cell.spectral_error for cell in self.RNNCells]))
 
 
 if __name__ == '__main__':

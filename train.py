@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 from plot import plot_trajectories
 from data import Building_DAE, make_dataset
-from ssm import SSM, PerronFrobeniusSSM, SVDSSM, SpectralSSM
+from ssm import SSM, PerronFrobeniusSSM, SVDSSM, SpectralSSM, SSMGroundTruth
 from state_estimators import LinearEstimator, PerronFrobeniusEstimator, MLPEstimator, RNNEstimator, KalmanFilterEstimator
 
 
@@ -142,7 +142,8 @@ if __name__ == '__main__':
     ####################################
     ###### DATA SETUP
     ####################################
-    models = {'vanilla': SSM, 'pf': PerronFrobeniusSSM, 'svd': SVDSSM, 'spectral': SpectralSSM}
+    models = {'true': SSMGroundTruth, 'vanilla': SSM, 'pf': PerronFrobeniusSSM,
+              'svd': SVDSSM, 'spectral': SpectralSSM}
     building = Building_DAE()
     nx, nu, nd, ny, n_m, n_dT = building.nx, building.nu, building.nd, building.ny, building.nu, 1
     Q_y = args.Q_y/ny

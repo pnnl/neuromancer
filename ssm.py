@@ -40,7 +40,7 @@ class SSM(nn.Module):
                  xmin=0, xmax=35, umin=-5000, umax=5000,
                  Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2):
         super().__init__()
-        self.nx, self.ny, self.nu, self.nd = nx, ny, nu, nd
+        self.nx, self.ny, self.nu, self.nd, self.n_hidden = nx, ny, nu, nd, n_hidden
         self.A = nn.Linear(nx, nx, bias=bias)
         self.B = nn.Linear(nu, nx, bias=bias)
         self.E = nn.Linear(nd, nx, bias=bias)
@@ -83,20 +83,17 @@ class SSM(nn.Module):
         self.dx_d.append(F.relu(-self.E(d) + self.dxmin) + F.relu(self.E(d) - self.dxmax))
 
     def regularization_error(self):
-        return 0.0
-        # state constraints limits
-        # xmin_val = 0
-        # xmax_val = 35
-        # XMIN = xmin_val * torch.ones(nsim - args.nsteps, args.nx_hidden)
-        # XMAX = xmax_val * torch.ones(nsim - args.nsteps, args.nx_hidden)
-        # umin_val = -5000
-        # umax_val = 5000
-        # UMIN = umin_val * torch.ones(nsim - args.nsteps, building.nu)
-        # UMAX = umax_val * torch.ones(nsim - args.nsteps, building.nu)
-        # # slack variables targets
-        # Sx = torch.zeros(nsim - args.nsteps, args.nx_hidden)
-        # Su = torch.zeros(nsim - args.nsteps, building.nu)
-        # F.mse_loss(input, target)
+        sxmin, sxmax, sumin, sumax = (torch.stack(self.sxmin), torch.stack(self.sxmax),
+                                      torch.stack(self.umin), torch.stack(self.sumax))
+        xmin_loss = self.Q_con_x*F.mse_loss(sxmin,  self.xmin * torch.ones(sxmin.shape))
+        xmax_loss = self.Q_con_x*F.mse_loss(sxmax,  self.xmax * torch.ones(sxmax.shape))
+        umin_loss = self.Q_con_u*F.mse_loss(sumin, self.umin * torch.ones(sumin.shape))
+        umax_loss = self.Q_con_u*F.mse_loss(sumax, self.umax * torch.ones(sumax.shape))
+        sdx, dx_u, dx_d = torch.stack(self.sdx_x), torch.stack(self.du_u), torch.stack(self.dx_d)
+        sdx_loss = self.Q_dx*F.mse_loss(sdx, torch.zeros(sdx.shape))
+        dx_u_loss = self.Q_dx_ud*F.mse_loss(dx_u, torch.zeros(dx_u.shape))
+        dx_d_loss = self.Q_dx_ud*F.mse_loss(dx_d, torch.zeros(dx_d.shape))
+        return torch.sum(torch.stack(xmin_loss, xmax_loss, umin_loss, umax_loss, sdx_loss, dx_u_loss, dx_d_loss))
 
     def forward(self, x, M_flow, DT, D):
         """
@@ -112,7 +109,7 @@ class SSM(nn.Module):
             Y.append(y)
             U.append(u)
             self.regularize(x_prev, x, u, d)
-        return torch.stack(X), torch.stack(Y), torch.stack(U), self.regularization_error
+        return torch.stack(X), torch.stack(Y), torch.stack(U), self.regularization_error()
 
 
 class SVDSSM(SSM):

@@ -66,7 +66,7 @@ def parse_args():
     # LOGGING PARAMETERS
     log_group = parser.add_argument_group('LOGGING PARAMETERS')
     log_group.add_argument('-savedir', type=str, default='test',
-                           help="Where should your trained model be saved")
+                           help="Where should your trained model and plots be saved (temp)")
     log_group.add_argument('-verbosity', type=int, default=1,
                            help="How many epochs in between status updates")
     log_group.add_argument('-exp', default='test',

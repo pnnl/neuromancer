@@ -22,7 +22,7 @@ import rnn
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gpu', type=int, default=None,
+    parser.add_argument('--gpu', type=int, default='cpu',
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     ###### DATA SETUP ##################
     ####################################
     device = 'cpu'
-    if args.gpu is not None:
+    if args.gpu is not 'cpu':
         device = f'cuda:{args.gpu}'
     models = {'true': SSMGroundTruth, 'vanilla': SSM, 'pf': PerronFrobeniusSSM,
               'svd': SVDSSM, 'spectral': SpectralSSM}
@@ -154,18 +154,18 @@ if __name__ == '__main__':
     model = models[args.ssm_type](nx, ny, n_m, n_dT, nu, nd, args.nx_hidden, bias=args.bias, heatflow=args.heatflow,
                                   xmin=0, xmax=35, umin=-5000, umax=5000,
                                   Q_dx=args.Q_dx, Q_dx_ud=args.Q_dx_ud,
-                                  Q_con_x=args.Q_con_x, Q_con_u=args.Q_con_u, Q_spectral=1e2)
+                                  Q_con_x=args.Q_con_x, Q_con_u=args.Q_con_u, Q_spectral=1e2).to(device)
     cells = {'rnn': rnn.RNNCell, 'rnn_constr': rnn.PerronFrobeniusCell, 'rnn_spectral': rnn.SpectralCell, 'rnn_svd': rnn.SVDCell}
     if args.state_estimator == 'linear':
-        state_estimator = se.LinearEstimator(ny, nx, bias=args.bias)
+        state_estimator = se.LinearEstimator(ny, nx, bias=args.bias).to(device)
     elif args.state_estimator == 'pf':
         state_estimator = se.PerronFrobeniusEstimator(ny, nx, bias=args.bias)
     elif args.state_estimator == 'mlp':
-        state_estimator = se.MLPEstimator(ny, nx, args.nx_hidden, bias=args.bias)
+        state_estimator = se.MLPEstimator(ny, nx, args.nx_hidden, bias=args.bias).to(device)
     elif args.state_estimator in ['rnn', 'rnn_constr', 'rnn_spectral', 'rnn_svd']:
-        state_estimator = se.RNNEstimator(ny, nx, bias=args.bias, cell=cells[args.state_estimator])
+        state_estimator = se.RNNEstimator(ny, nx, bias=args.bias, cell=cells[args.state_estimator]).to(device)
     elif args.state_estimator == 'kf':
-        state_estimator = se.KalmanFilterEstimator(model)
+        state_estimator = se.KalmanFilterEstimator(model).to(device)
     else:
         state_estimator = None
 

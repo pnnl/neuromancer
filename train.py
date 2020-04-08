@@ -157,17 +157,18 @@ if __name__ == '__main__':
                                   Q_con_x=args.Q_con_x, Q_con_u=args.Q_con_u, Q_spectral=1e2).to(device)
     cells = {'rnn': rnn.RNNCell, 'rnn_constr': rnn.PerronFrobeniusCell, 'rnn_spectral': rnn.SpectralCell, 'rnn_svd': rnn.SVDCell}
     if args.state_estimator == 'linear':
-        state_estimator = se.LinearEstimator(ny, nx, bias=args.bias).to(device)
+        state_estimator = se.LinearEstimator(ny, nx, bias=args.bias)
     elif args.state_estimator == 'pf':
         state_estimator = se.PerronFrobeniusEstimator(ny, nx, bias=args.bias)
     elif args.state_estimator == 'mlp':
-        state_estimator = se.MLPEstimator(ny, nx, args.nx_hidden, bias=args.bias).to(device)
+        state_estimator = se.MLPEstimator(ny, nx, args.nx_hidden, bias=args.bias)
     elif args.state_estimator in ['rnn', 'rnn_constr', 'rnn_spectral', 'rnn_svd']:
-        state_estimator = se.RNNEstimator(ny, nx, bias=args.bias, cell=cells[args.state_estimator]).to(device)
+        state_estimator = se.RNNEstimator(ny, nx, bias=args.bias, cell=cells[args.state_estimator])
     elif args.state_estimator == 'kf':
-        state_estimator = se.KalmanFilterEstimator(model).to(device)
+        state_estimator = se.KalmanFilterEstimator(model)
     else:
-        state_estimator = None
+        state_estimator = se.LinearEstimator(ny, nx, bias=args.bias)
+    state_estimator.to(device)
 
     nweights = sum([i.numel() for i in list(model.parameters()) if i.requires_grad])
     if args.state_estimator != 'true':

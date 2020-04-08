@@ -88,14 +88,14 @@ class SSM(nn.Module):
         if self.training:
             sxmin, sxmax, sumin, sumax = (torch.stack(self.sxmin), torch.stack(self.sxmax),
                                           torch.stack(self.sumin), torch.stack(self.sumax))
-            xmin_loss = self.Q_con_x*F.mse_loss(sxmin,  self.xmin * torch.ones(sxmin.shape))
-            xmax_loss = self.Q_con_x*F.mse_loss(sxmax,  self.xmax * torch.ones(sxmax.shape))
-            umin_loss = self.Q_con_u*F.mse_loss(sumin, self.umin * torch.ones(sumin.shape))
-            umax_loss = self.Q_con_u*F.mse_loss(sumax, self.umax * torch.ones(sumax.shape))
+            xmin_loss = self.Q_con_x*F.mse_loss(sxmin,  self.xmin * torch.ones(sxmin.shape).to(sxmin.device))
+            xmax_loss = self.Q_con_x*F.mse_loss(sxmax,  self.xmax * torch.ones(sxmax.shape).to(sxmax.device))
+            umin_loss = self.Q_con_u*F.mse_loss(sumin, self.umin * torch.ones(sumin.shape).to(sumin.device))
+            umax_loss = self.Q_con_u*F.mse_loss(sumax, self.umax * torch.ones(sumax.shape).to(sumax.device))
             sdx, dx_u, dx_d = torch.stack(self.sdx_x), torch.stack(self.dx_u), torch.stack(self.dx_d)
             sdx_loss = self.Q_dx*F.mse_loss(sdx, torch.zeros(sdx.shape))
-            dx_u_loss = self.Q_dx_ud*F.mse_loss(dx_u, torch.zeros(dx_u.shape))
-            dx_d_loss = self.Q_dx_ud*F.mse_loss(dx_d, torch.zeros(dx_d.shape))
+            dx_u_loss = self.Q_dx_ud*F.mse_loss(dx_u, torch.zeros(dx_u.shape).to(dx_u.device))
+            dx_d_loss = self.Q_dx_ud*F.mse_loss(dx_d, torch.zeros(dx_d.shape).to(dx_u.device))
             self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.spectral_error = [[] for i in range(8)]
             return torch.sum(torch.stack([xmin_loss, xmax_loss, umin_loss, umax_loss, sdx_loss, dx_u_loss, dx_d_loss]))
         else:

@@ -14,7 +14,6 @@ def plot_matrices(matrices, labels, figname):
             axes[i, j].axis('off')
     plt.tight_layout()
     plt.savefig(figname)
-    mlflow.log_artifact(figname)
 
 
 def plot_trajectories(traj1, traj2, labels, figname):
@@ -44,4 +43,3 @@ def plot_trajectories(traj1, traj2, labels, figname):
                bbox={'facecolor': 'grey', 'alpha': 0.5})
     plt.tight_layout()
     plt.savefig(figname)
-    mlflow.log_artifact(figname)

@@ -11,41 +11,15 @@ class NonnegativeLinear(nn.Module):
 
     def effective_W(self):
         w_LB = F.relu(self.weight)
-        return w_LB.T
+        return w_LB
 
     def forward(self, x):
-        return torch.mm(x, self.effective_W()) + self.bias
-
-
-class ConstrainedLinear(nn.Module):
-    # Initialize to identity as described in "A Simple Way to Initialize Recurrent Networks of Rectified Linear Units"
-    def __init__(self, inputsize, outputsize, bias=False, init='basic'):
-        super().__init__()
-        if init == 'basic':
-            self.weight = nn.Parameter(torch.rand(inputsize, outputsize))
-            self.scalar = nn.Parameter(torch.rand(inputsize, outputsize))  # matrix scaling to allow for different row sums
-        elif init == 'identity':
-            self.weight = nn.Parameter(-1000*torch.ones(inputsize, outputsize) + torch.eye(inputsize, outputsize)*1001)
-            self.scalar = nn.Parameter(-100*torch.ones(inputsize, outputsize))
-        self.bias = nn.Parameter(torch.zeros(1, outputsize), requires_grad=not bias)
-
-    def effective_W(self):
-        s_clapmed = 1 - 0.1 * torch.sigmoid(self.scalar)
-        w_sofmax = s_clapmed * F.softmax(self.weight, dim=1)
-        return w_sofmax
-
-    def forward(self, x):
-        """
-
-        :param x: (torch.Tensor, shape=(batchsize, inputsize))
-        :return: torch.Tensor shape=(batchsize, outputsize)
-        """
         return torch.matmul(x, self.effective_W()) + self.bias
 
 
 class PerronFrobeniusLinear(nn.Module):
 
-    def __init__(self, insize, outsize, bias=False, sigma_min=0.95, sigma_max=1.0):
+    def __init__(self, insize, outsize, bias=False, sigma_min=0.95, sigma_max=1.0, init='basic'):
         """
         Perron-Frobenius theorem based regularization of matrix
 
@@ -54,10 +28,17 @@ class PerronFrobeniusLinear(nn.Module):
         :param bias: (bool) Whether to add bias to linear transform
         :param sigma_min: (float) maximum allowed value of dominant eigenvalue
         :param sigma_max: (float)  minimum allowed value of dominant eigenvalue
+        :param init: (str) 'init' or 'basic'. Whether to use identity initialization for hidden transition
         """
         super().__init__()
         self.weight = nn.Parameter(torch.rand(insize, outsize))
         self.scaling = nn.Parameter(torch.rand(insize, outsize))  # matrix scaling to allow for different row sums
+        if init == 'basic':
+            self.weight = nn.Parameter(torch.rand(insize, outsize))
+            self.scalar = nn.Parameter(torch.rand(insize, outsize))  # matrix scaling to allow for different row sums
+        elif init == 'identity':
+            self.weight = nn.Parameter(-1000*torch.ones(insize, outsize) + torch.eye(insize, outsize)*1001)
+            self.scalar = nn.Parameter(-100*torch.ones(insize, outsize))
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
         self.do_bias = bias
@@ -66,10 +47,10 @@ class PerronFrobeniusLinear(nn.Module):
     def effective_W(self):
         s_clamped = self.sigma_max - (self.sigma_max - self.sigma_min) * torch.sigmoid(self.scaling)
         w_sofmax = s_clamped * F.softmax(self.weight, dim=1)
-        return w_sofmax.T
+        return w_sofmax
 
     def forward(self, x):
-        return torch.mm(x, self.effective_W()) + self.bias
+        return torch.matmul(x, self.effective_W()) + self.bias
 
 
 class OrthogonalWeight(nn.Module):
@@ -119,16 +100,16 @@ class SVDLinear(nn.Module):
         :return: Matrix for linear transformation with dominant eigenvalue between sigma_max and sigma_min
         """
         sigma_clapmed = self.sigma_max - (self.sigma_max - self.sigma_min) * torch.sigmoid(self.sigma)
-        Sigma_bounded = torch.eye(self.nx, self.nu).to(self.device) * sigma_clapmed
+        Sigma_bounded = torch.eye(self.insize, self.outsize).to(self.sigma.device) * sigma_clapmed
         w_svd = torch.mm(self.U.Q, torch.mm(Sigma_bounded, self.V.Q))
-        return w_svd.T
+        return w_svd
 
     @property
     def spectral_error(self):
         return self.U() + self.V()  # error of spectral regularization
 
     def forward(self, x):
-        return torch.mm(x, self.effective_W()) + self.bias
+        return torch.matmul(x, self.effective_W()) + self.bias
 
 
 class SpectralLinear(nn.Module):
@@ -164,8 +145,10 @@ class SpectralLinear(nn.Module):
         :return: bs X dim
         """
         alpha = 2 * torch.matmul(x[:, -k:], u[-k:]) / (u[-k:] * u[-k:]).sum()
-        x[:, -k:] -= torch.matmul(alpha.view(-1, 1), u[-k:].view(1, -1))  # Subtract outer product
-        return x
+        if k < x.shape[1]:
+            return torch.cat([x[:, :-k], x[:, -k:] - torch.matmul(alpha.view(-1, 1), u[-k:].view(1, -1))], dim=1)  # Subtract outer product
+        else:
+            return x[:, -k:] - torch.matmul(alpha.view(-1, 1), u[-k:].view(1, -1))
 
     def Vmultiply(self, x):
         """

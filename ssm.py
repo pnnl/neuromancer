@@ -93,7 +93,7 @@ class SSM(nn.Module):
             umin_loss = self.Q_con_u*F.mse_loss(sumin, self.umin * torch.ones(sumin.shape).to(sumin.device))
             umax_loss = self.Q_con_u*F.mse_loss(sumax, self.umax * torch.ones(sumax.shape).to(sumax.device))
             sdx, dx_u, dx_d = torch.stack(self.sdx_x), torch.stack(self.dx_u), torch.stack(self.dx_d)
-            sdx_loss = self.Q_dx*F.mse_loss(sdx, torch.zeros(sdx.shape))
+            sdx_loss = self.Q_dx*F.mse_loss(sdx, torch.zeros(sdx.shape).to(sdx.device))
             dx_u_loss = self.Q_dx_ud*F.mse_loss(dx_u, torch.zeros(dx_u.shape).to(dx_u.device))
             dx_d_loss = self.Q_dx_ud*F.mse_loss(dx_d, torch.zeros(dx_d.shape).to(dx_u.device))
             self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.spectral_error = [[] for i in range(8)]

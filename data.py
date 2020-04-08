@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.matlib as matlib
 from scipy.io import loadmat
 import torch
 
@@ -8,7 +9,7 @@ def min_max_norm(M):
     return np.nan_to_num(M_norm)
 
 
-def control_profile_DAE(file_path='../Models/Matlab_matrices/Reno_model_for_py.mat', dT_nominal_max=30,
+def control_profile_DAE(file_path='Reno_model_for_py.mat', dT_nominal_max=30,
                         dT_nominal_min=0, samples_day=288, sim_days=7):
     """
     m_nominal_max: maximal nominal mass flow l/h
@@ -23,20 +24,20 @@ def control_profile_DAE(file_path='../Models/Matlab_matrices/Reno_model_for_py.m
     m_flow_modulation_day = (
                 0.5 + 0.5 * np.sin(np.arange(0, 2 * np.pi, 2 * np.pi / samples_day)))  # modulation of the pump
     m_flow_day = m_nominal_min + m_nominal_max * m_flow_modulation_day  # daily control profile
-    M_flow = np.matlib.repmat(m_flow_day, 1, sim_days).T  # Sim_days control profile
+    M_flow = matlib.repmat(m_flow_day, 1, sim_days).T  # Sim_days control profile
     #    delta T
     dT_day = dT_nominal_min + (dT_nominal_max - dT_nominal_min) * (
                 0.5 + 0.5 * np.cos(np.arange(0, 2 * np.pi, 2 * np.pi / samples_day)))  # daily control profile
-    DT = np.matlib.repmat(dT_day, 1, sim_days).T  # Sim_days control profile
+    DT = matlib.repmat(dT_day, 1, sim_days).T  # Sim_days control profile
     return M_flow, DT
 
 
-def disturbance(file_path='../Models/Matlab_matrices/Reno_model_for_py.mat', n_sim=2016):
+def disturbance(file_path='Reno_model_for_py.mat', n_sim=2016):
     return loadmat(file_path)['disturb'][:n_sim, :]  # n_sim X 3
 
 
 class Building_DAE:
-    def __init__(self, file_path='../Models/Matlab_matrices/Reno_model_for_py.mat'):
+    def __init__(self, file_path='Reno_model_for_py.mat'):
         file = loadmat(file_path)
 
         #  full order model
@@ -127,9 +128,8 @@ class Building_DAE:
         return X, Y, X_ROM, Y_ROM
 
 
-def make_dataset(args, device):
+def make_dataset(nsteps, device):
     M_flow, DT = control_profile_DAE(samples_day=288, sim_days=28)
-
     #    manual turnoffs
     M_flow[:, 3] = 0 * M_flow[:, 3]
     M_flow[:, 4] = 0 * M_flow[:, 4]
@@ -145,19 +145,19 @@ def make_dataset(args, device):
     # TODO: we may want to try unscaled version especially for the white box SSM
     X, Y, X_ROM, Y_ROM = building.loop(nsim, M_flow, DT, D)
 
-    target_Xresponse = X[1:][args.nsteps:]
-    initial_states = X[:-1][args.nsteps:]
-    target_Yresponse = Y[1:][args.nsteps:]
-    initial_outputs = Y[:-1][:-args.nsteps]
+    target_Xresponse = X[1:][nsteps:]
+    initial_states = X[:-1][nsteps:]
+    target_Yresponse = Y[1:][nsteps:]
+    initial_outputs = Y[:-1][:-nsteps]
 
-    D_scale_p, M_flow_scale_p, DT_scale_p = D_scale[:-args.nsteps], M_flow_scale[:-args.nsteps], DT_scale[:-args.nsteps]
-    D_scale_f, M_flow_scale_f, DT_scale_f = D_scale[args.nsteps:], M_flow_scale[args.nsteps:], DT_scale[args.nsteps:]
+    D_scale_p, M_flow_scale_p, DT_scale_p = D_scale[:-nsteps], M_flow_scale[:-nsteps], DT_scale[:-nsteps]
+    D_scale_f, M_flow_scale_f, DT_scale_f = D_scale[nsteps:], M_flow_scale[nsteps:], DT_scale[nsteps:]
 
     data = np.concatenate(
         [initial_states, M_flow_scale_f, DT_scale_f, D_scale_f, target_Xresponse,
          target_Yresponse, initial_outputs, M_flow_scale_p, DT_scale_p, D_scale_p], axis=1)[2016:]
-    nsplits = (data.shape[0]) // args.nsteps
-    leftover = (data.shape[0]) % args.nsteps
+    nsplits = (data.shape[0]) // nsteps
+    leftover = (data.shape[0]) % nsteps
     data = np.stack(np.split(data[:data.shape[0] - leftover], nsplits))  # nchunks X nsteps X 14
     data = torch.tensor(data, dtype=torch.float32).transpose(0, 1).to(device)  # nsteps X nsamples X nfeatures
     train_idx = (data.shape[1] // 3)

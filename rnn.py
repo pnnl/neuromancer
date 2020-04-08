@@ -1,7 +1,8 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from linear import SpectralLinear, PerronFrobeniusLinear, SVDLinear, ConstrainedLinear
+from linear import SpectralLinear, PerronFrobeniusLinear, SVDLinear
 
 
 class RNNCell(nn.Module):
@@ -12,7 +13,7 @@ class RNNCell(nn.Module):
         self.lin_in = nn.Linear(input_size, hidden_size, bias=bias)
         self.lin_hidden = nn.Linear(hidden_size, hidden_size, bias=bias)
         torch.nn.init.kaiming_uniform_(self.lin_in.weight)
-        torch.nn.init.eye_(self.lin_hidden.weight)
+        torch.nn.init.eye_(self.lin_hidden.weight) + np.random.normal()*0.01
         if bias:
             torch.nn.init.zeros_(self.lin_in.bias)
 
@@ -25,7 +26,7 @@ class SSMCell(nn.Module):
     def __init__(self, nx, nu, nd, ny, stable=True, bias=False):
         super().__init__()
         if stable:
-            self.A = ConstrainedLinear(nx, nx)
+            self.A = PerronFrobeniusLinear(nx, nx, bias=bias, sigma_min=0.95, sigma_max=1.0)
         else:
             self.A = nn.Linear(nx, nx, bias=bias)
         self.B = nn.Linear(nu, nx, bias=bias)
@@ -54,8 +55,10 @@ class PerronFrobeniusCell(nn.Module):
         super().__init__()
         self.input_size, self.hidden_size = input_size, hidden_size
         self.nonlin = nonlinearity
-        self.lin_in = ConstrainedLinear(input_size, hidden_size, bias=bias, init='identity')
-        self.lin_hidden = ConstrainedLinear(hidden_size, hidden_size, bias=bias, init='identity')
+        self.lin_in = PerronFrobeniusLinear(input_size, hidden_size, bias=bias, init='identity',
+                                            sigma_min=0.95, sigma_max=1.0)
+        self.lin_hidden = PerronFrobeniusLinear(hidden_size, hidden_size, bias=bias, init='identity',
+                                                sigma_min=0.95, sigma_max=1.0)
 
     def forward(self, input, hidden):
         return self.nonlin(.5*self.lin_hidden(hidden) + .5*self.lin_in(input))
@@ -67,9 +70,8 @@ class SpectralCell(nn.Module):
         self.input_size, self.hidden_size = input_size, hidden_size
         self.nonlin = nonlinearity
         self.lin_in = nn.Linear(input_size, hidden_size, bias=bias)
-        torch.nn.init.kaiming_uniform_(self.lin_in.weight)
-        torch.nn.init.eye_(self.lin_hidden.weight)
         self.lin_hidden = SpectralLinear(hidden_size, hidden_size, bias=bias)
+        torch.nn.init.kaiming_uniform_(self.lin_in.weight)
         if bias:
             torch.nn.init.zeros_(self.lin_in.bias)
 
@@ -83,12 +85,11 @@ class SVDCell(nn.Module):
         self.input_size, self.hidden_size = input_size, hidden_size
         self.nonlin = nonlinearity
         self.lin_in = SVDLinear(input_size, hidden_size, bias=bias)
-        torch.nn.init.kaiming_uniform_(self.lin_in.weight)
-        torch.nn.init.eye_(self.lin_hidden.weight)
         self.lin_hidden = SVDLinear(hidden_size, hidden_size, bias=bias)
         if bias:
             torch.nn.init.zeros_(self.lin_in.bias)
 
+    @property
     def spectral_error(self):
         return self.lin_in.spectral_error + self.lin_hidden.spectral_error
 
@@ -117,7 +118,7 @@ class RNN(nn.Module):
     @property
     def spectral_error(self):
         if type(self.rnn_cells[0]) is SVDCell:
-            return torch.sum(torch.cat([cell.spectral_error for cell in self.RNNCells]))
+            return torch.mean(torch.stack([cell.spectral_error for cell in self.rnn_cells]))
         else:
             return 0.0
 

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from linear import ConstrainedLinear, PerronFrobeniusLinear
+from linear import PerronFrobeniusLinear
 from rnn import RNN, RNNCell
 
 
@@ -11,8 +11,12 @@ class LinearEstimator(nn.Module):
         super().__init__()
         self.linear = nn.Linear(insize, outsize, bias=bias)
 
-    def forward(self, y):
-        return self.linear(y[-1])
+    @property
+    def regularization_error(self):
+        return 0.0
+
+    def forward(self, Ym, M_flow, DT, D):
+        return self.linear(Ym[-1])
 
 
 class PerronFrobeniusEstimator(nn.Module):
@@ -20,8 +24,12 @@ class PerronFrobeniusEstimator(nn.Module):
         super().__init__()
         self.linear = PerronFrobeniusLinear(insize, outsize, bias=bias)
 
-    def forward(self, y):
-        return self.linear(y[-1])
+    @property
+    def regularization_error(self):
+        return 0.0
+
+    def forward(self, Ym, M_flow, DT, D):
+        return self.linear(Ym[-1])
 
 
 class MLPEstimator(nn.Module):
@@ -31,19 +39,27 @@ class MLPEstimator(nn.Module):
         self.layer2 = PerronFrobeniusLinear(hiddensize, outsize, bias=bias)
         self.nlin = nonlinearity
 
-    def forward(self, y):
-        return self.nlin(self.layer2(self.nlin(self.layer1(y[-1]))))
+    @property
+    def regularization_error(self):
+        return 0.0
+
+    def forward(self, Ym, M_flow, DT, D):
+        return self.nlin(self.layer2(self.nlin(self.layer1(Ym[-1]))))
 
 
-class RNNEstimator(nn.module):
+class RNNEstimator(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers=1,
                        bias=False, nonlinearity=F.gelu, cell=RNNCell):
         super().__init__()
         self.RNN = RNN(input_size, hidden_size, num_layers=num_layers,
                        bias=bias, nonlinearity=nonlinearity, cell=cell)
 
-    def forward(self, y):
-        return self.RNN(y)[0][-1]
+    @property
+    def regularization_error(self):
+        return self.RNN.spectral_error
+
+    def forward(self, Ym, M_flow, DT, D):
+        return self.RNN(Ym)[0][-1]
 
 
 class KalmanFilterEstimator(nn.Module):
@@ -56,6 +72,10 @@ class KalmanFilterEstimator(nn.Module):
         self.P_init = nn.Parameter(torch.eye(model.nx), requires_grad=False)
         self.L_init = nn.Parameter(torch.zeros(model.nx, model.ny), requires_grad=False)
         self.x0_estim = nn.Parameter(torch.zeros(1, model.nx), requires_grad=False)
+
+    @property
+    def regularization_error(self):
+        return 0.0
 
     def forward(self, Ym, M_flow, DT, D):
         x = self.x0_estim

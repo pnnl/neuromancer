@@ -9,6 +9,7 @@ def hprod(H, u, k):
     H_out[:, -k:] -= np.outer(alpha, u[-k:])
     return H_out
 
+
 def Hprod(x, u, k):
     """
 
@@ -41,6 +42,7 @@ def vmultiply(H,U):
         H_copy = hprod(H_copy, U[i], n_h-i)
     return H_copy
 
+
 class np_svd_linear():
     def __init__(self, U, V, Sigma):
         self.U = U
@@ -52,7 +54,6 @@ class np_svd_linear():
         x = x*Sigma
         x = vmultiply(x, self.U)
         return x
-
 
 
 def Vmultiply(x, V):
@@ -67,6 +68,7 @@ def Vmultiply(x, V):
         x = Hprod(x, V[i], n_h - i)
     return x
 
+
 def Umultiply(x, U):
     """
     :param x: bs X dim
@@ -78,15 +80,14 @@ def Umultiply(x, U):
         x = Hprod(x, U[i], n_h - i)
     return x
 
+
 if __name__ == '__main__':
     tlin = SpectralLinear(3, 3, reflector_size=3)
-    tx = torch.randn(2, 3)
+    tx = torch.randn(6, 3)
     Sigma = np.ones((1, 3))
-
 
     U = tlin.U.detach().numpy()
     V = tlin.V.detach().numpy()
-
 
     nlin = np_svd_linear(U, V, Sigma)
     print(nlin(tx.detach().numpy()))

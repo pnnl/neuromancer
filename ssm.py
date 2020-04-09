@@ -166,7 +166,6 @@ class SpectralSSM(PerronFrobeniusSSM):
 
 
 class SSMGroundTruth(SSM):
-    # TODO: Test to see if corresponds with ground truth
     def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False,
                  heatflow='white', # dummy args for common API in training script
                  xmin=0, xmax=35, umin=-5000, umax=5000,

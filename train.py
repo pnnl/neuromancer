@@ -1,5 +1,29 @@
 """
+This script can train building dynamics and state estimation models with the following
+cross-product of configurations
 
+Dynamics:
+    Ground truth, linear, Perron-Frobenius normalized linear, SVD decomposition normalized linear, Spectral linear
+Heat flow:
+    Black, grey, white
+State estimation:
+    Ground truth, linear, Perron-Frobenius linear, vanilla RNN,
+    Perron-Frobenius RNN, SVD decomposition RNN, Spectral RNN, Kalman Filter
+Ground Truth Model:
+    Large full building thermal model
+    Large reduced order building thermal model
+Bias:
+    Linear transformations
+    Affine transformations
+Constraints:
+    Training with constraint regularization
+    Training without regularization
+Normalization:
+    Training with input normalization
+    Training with state normalization
+    Training with no normalization
+
+Several hyperparameter choices are also available and described in the argparse.
 """
 # python imports
 import os
@@ -196,7 +220,7 @@ if __name__ == '__main__':
         X_pred, Y_pred, U_pred, loss = step(model, state_estimator, split_train_data)
         optimizer.zero_grad()
         try:
-            loss.backward()#retain_graph=True)   # originally loss.backward()
+            loss.backward()
             optimizer.step()
         except RuntimeError as e:
             pass
@@ -318,4 +342,4 @@ if __name__ == '__main__':
         ax[5].plot(np.concatenate([xtrue, devxtrue, testxtrue]))
         plt.savefig(os.path.join(args.savedir, 'Raw_U_D.png'))
         mlflow.log_artifacts(args.savedir)
-        # os.system(f'rm -rf {args.savedir}')
+        os.system(f'rm -rf {args.savedir}')

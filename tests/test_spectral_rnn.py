@@ -1,5 +1,5 @@
 import numpy as np
-from linear import SpectralLinear
+from linear import GeneralSpectralLinear
 import torch
 
 
@@ -82,13 +82,15 @@ def Umultiply(x, U):
 
 
 if __name__ == '__main__':
-    tlin = SpectralLinear(3, 3, reflector_size=3)
-    tx = torch.randn(6, 3)
+    # tlin = GeneralSpectralLinear(3, 3, reflector_size=3)
+    tlin = GeneralSpectralLinear(4, 3, bias=False, n_U_reflectors=3, n_V_reflectors=3, sigma_min=.9, sigma_max=1.1)
+
+    tx = torch.randn(6, 4)
     Sigma = np.ones((1, 3))
 
-    U = tlin.U.detach().numpy()
-    V = tlin.V.detach().numpy()
-
-    nlin = np_svd_linear(U, V, Sigma)
-    print(nlin(tx.detach().numpy()))
+    # U = tlin.U.detach().numpy()
+    # V = tlin.V.detach().numpy()
+    #
+    # nlin = np_svd_linear(V, U, Sigma)
+    # print(nlin(tx.detach().numpy()))
     print(tlin(tx))

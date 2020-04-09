@@ -127,9 +127,11 @@ class SVDLinear(nn.Module):
 class SpectralLinear(nn.Module):
     """
     Translated from tensorflow code: https://github.com/zhangjiong724/spectral-RNN/blob/master/code/spectral_rnn.py
+    SVD paramaterized linear map of form U\SigmaV. Singular values can be constrained to a range
     """
 
-    def __init__(self, insize, outsize, bias=False, reflector_size=1, sig_mean=1.0, r=0.01):
+    def __init__(self, insize, outsize, bias=False,
+                 n_U_reflectors=20, n_V_reflectors=20, sigma_min=0.6, sigma_max=1.0):
         """
 
         :param insize: (int) Dimension of input vectors
@@ -140,16 +142,20 @@ class SpectralLinear(nn.Module):
         :param r: singular margin, the allowed margin for singular values
         """
         super().__init__()
-        assert insize == outsize, "only implemented for square matrices"
-        assert reflector_size <= min(insize, outsize)
-        self.sig_mean, self.r = sig_mean, r
-        self.U = nn.Parameter(torch.triu(torch.randn(reflector_size, outsize)))
-        self.p = nn.Parameter(torch.zeros([1, outsize]))
-        self.V = nn.Parameter(torch.triu(torch.randn(reflector_size, outsize)))
+        self.n_U_reflectors, self.n_V_reflectors = n_U_reflectors, n_V_reflectors
+        self.insize, self.outsize = insize, outsize
+        self.r = (sigma_max - sigma_min)/2
+        self.sigma_mean = sigma_min + self.r
+        self.U = nn.Parameter(torch.triu(torch.randn(insize, insize)))
+        nsigma = min(insize, outsize)
+        self.p = nn.Parameter(torch.zeros(nsigma) + 0.001*torch.randn(nsigma))
+        self.V = nn.Parameter(torch.triu(torch.randn(outsize, outsize)))
         self.bias = nn.Parameter(torch.zeros(outsize), requires_grad=not bias)
 
     def Sigma(self):
-        return 2 * self.r * (torch.sigmoid(self.p) - 0.5) + self.sig_mean
+        sigmas = 2 * self.r * (torch.sigmoid(self.p) - 0.5) + self.sigma_mean
+        square_matrix = torch.diag(torch.cat([sigmas, torch.zeros(abs(self.insize - self.outsize))]))
+        return square_matrix[:self.insize, :self.outsize]
 
     def Hprod(self, x, u, k):
         """
@@ -165,28 +171,29 @@ class SpectralLinear(nn.Module):
         else:
             return x[:, -k:] - torch.matmul(alpha.view(-1, 1), u[-k:].view(1, -1))
 
-    def Vmultiply(self, x):
+    def Umultiply(self, x):
         """
 
-        :param x: BS X dim
+        :param x: BS X
         :return: BS X dim
         """
-        n_r, n_h = self.V.shape
-        assert x.shape[1] == n_h
-        for i in range(0, n_r):
-            x = self.Hprod(x, self.V[i], n_h - i)
+        assert x.shape[1] == self.insize
+        for i in range(0, self.n_U_reflectors):
+            x = self.Hprod(x, self.U[i], self.insize - i)
         return x
 
-    def Umultiply(self, x):
+    def Vmultiply(self, x):
         """
         :param x: bs X dim
         :return:
         """
-        n_r, n_h = self.U.shape
-        assert x.shape[1] == n_h
-        for i in range(n_r - 1, -1, -1):
-            x = self.Hprod(x, self.U[i], n_h - i)
+        assert x.shape[1] == self.outsize
+        for i in range(self.n_V_reflectors - 1, -1, -1):
+            x = self.Hprod(x, self.V[i], self.outsize - i)
         return x
+
+    def effective_W(self):
+        return self.forward(torch.eye(self.insize).to(self.p.device))
 
     def forward(self, x):
         """
@@ -195,9 +202,9 @@ class SpectralLinear(nn.Module):
         :param args:
         :return:
         """
-        x = self.Vmultiply(x)
-        x = x * self.Sigma()
         x = self.Umultiply(x)
+        x = torch.matmul(x, self.Sigma())
+        x = self.Vmultiply(x)
         if self.bias is not None:
             x += self.bias
         return x

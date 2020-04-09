@@ -162,7 +162,7 @@ class SpectralSSM(PerronFrobeniusSSM):
         super().__init__(nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=bias, heatflow=heatflow,
                          xmin=xmin, xmax=xmax, umin=umin, umax=umax,
                          Q_dx=Q_dx, Q_dx_ud=Q_dx_ud, Q_con_x=Q_con_x, Q_con_u=Q_con_u, Q_spectral=Q_spectral, rom=rom)
-        self.A = SpectralLinear(nx, nx, bias=bias, reflector_size=1, sig_mean=0.8, r=0.2)
+        self.A = SpectralLinear(nx, nx, bias=bias, n_U_reflectors=nx, n_V_reflectors=nx, sigma_min=0.6, sigma_max=1.0)
 
 
 class SSMGroundTruth(SSM):

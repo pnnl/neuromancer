@@ -68,8 +68,8 @@ class OrthogonalWeight(nn.Module):
         self.nx = nx
 
     def forward(self):
-        OrthoError = torch.norm(torch.norm(torch.eye(self.nx) - torch.mm(self.Q, torch.t(self.Q)), 2) + torch.norm(
-            torch.eye(self.nx) - torch.mm(torch.t(self.Q), self.Q), 2), 2)
+        OrthoError = torch.norm(torch.norm(torch.eye(self.nx).to(self.Q.device) - torch.mm(self.Q, torch.t(self.Q)), 2) + torch.norm(
+            torch.eye(self.nx).to(self.Q.device) - torch.mm(torch.t(self.Q), self.Q), 2), 2)
         return OrthoError
 
 
@@ -130,11 +130,14 @@ class SpectralLinear(nn.Module):
         super().__init__()
         assert insize == outsize, "only implemented for square matrices"
         assert reflector_size <= min(insize, outsize)
+        self.sig_mean, self.r = sig_mean, r
         self.U = nn.Parameter(torch.triu(torch.randn(reflector_size, outsize)))
         self.p = nn.Parameter(torch.zeros([1, outsize]))
-        self.Sig = 2 * r * (torch.sigmoid(self.p) - 0.5) + sig_mean  # begins as identity
         self.V = nn.Parameter(torch.triu(torch.randn(reflector_size, outsize)))
         self.bias = nn.Parameter(torch.zeros(outsize), requires_grad=not bias)
+
+    def Sigma(self):
+        return 2 * self.r * (torch.sigmoid(self.p) - 0.5) + self.sig_mean
 
     def Hprod(self, x, u, k):
         """
@@ -181,7 +184,7 @@ class SpectralLinear(nn.Module):
         :return:
         """
         x = self.Vmultiply(x)
-        x = x * self.Sig
+        x = x * self.Sigma()
         x = self.Umultiply(x)
         if self.bias is not None:
             x += self.bias

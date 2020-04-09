@@ -193,7 +193,7 @@ if __name__ == '__main__':
         model.train()
         X_pred, Y_pred, U_pred, loss = step(model, state_estimator, split_train_data)
         optimizer.zero_grad()
-        loss.backward(retain_graph=True)   # originally loss.backward()
+        loss.backward()#retain_graph=True)   # originally loss.backward()
         optimizer.step()
         ##################################
         # DEVELOPMENT SET EVALUATION

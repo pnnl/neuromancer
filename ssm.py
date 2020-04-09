@@ -179,8 +179,8 @@ class SSMGroundTruth(SSM):
         E = file['Ed']
         G = file['Gd']
         F = file['Fd']
-        self.G = torch.tensor(G, dtype=torch.float32)
-        self.F = torch.tensor(F, dtype=torch.float32)
+        self.G = nn.Parameter(torch.tensor(G, dtype=torch.float32), requires_grad=False)
+        self.F = nn.Parameter(torch.tensor(F, dtype=torch.float32), requires_grad=False)
 
         with torch.no_grad():
             self.A.weight.copy_(torch.tensor(A))

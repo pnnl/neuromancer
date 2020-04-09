@@ -1,9 +1,10 @@
-from scipy.io import loadmat
-
+# pytorch imports
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from linear import SVDLinear, PerronFrobeniusLinear, NonnegativeLinear, SpectralLinear
+# local imports
+from linear import Linear, SVDLinear, PerronFrobeniusLinear, NonnegativeLinear, SpectralLinear
+from data import BuildingDAE
 
 
 def heat_flow(m_flow, dT):
@@ -27,8 +28,8 @@ class HeatFlow(nn.Module):
 class MLPHeatFlow(nn.Module):
     def __init__(self, insize, outsize, hiddensize, bias=False, nonlinearity=F.gelu):
         super().__init__()
-        self.layer1 = nn.Linear(insize, hiddensize, bias=bias)
-        self.layer2 = nn.Linear(hiddensize, outsize, bias=bias)
+        self.layer1 = Linear(insize, hiddensize, bias=bias)
+        self.layer2 = Linear(hiddensize, outsize, bias=bias)
         self.nlin = nonlinearity
 
     def __call__(self, m_flow, dT):
@@ -38,13 +39,13 @@ class MLPHeatFlow(nn.Module):
 class SSM(nn.Module):
     def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False, heatflow='white',
                  xmin=0, xmax=35, umin=-5000, umax=5000,
-                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2):
+                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2, rom=True):
         super().__init__()
         self.nx, self.ny, self.nu, self.nd, self.n_hidden = nx, ny, nu, nd, n_hidden
-        self.A = nn.Linear(nx, nx, bias=bias)
-        self.B = nn.Linear(nu, nx, bias=bias)
-        self.E = nn.Linear(nd, nx, bias=bias)
-        self.C = nn.Linear(nx, ny, bias=bias)
+        self.A = Linear(nx, nx, bias=bias)
+        self.B = Linear(nu, nx, bias=bias)
+        self.E = Linear(nd, nx, bias=bias)
+        self.C = Linear(nx, ny, bias=bias)
         self.x0_correct = torch.nn.Parameter(torch.zeros(1, nx)) # state initialization term, corresponding to G
 
         if heatflow == 'white':
@@ -122,11 +123,11 @@ class SSM(nn.Module):
 class SVDSSM(SSM):
     def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False, heatflow='white',
                  xmin=0, xmax=35, umin=-5000, umax=5000,
-                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2):
+                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2, rom=True):
 
         super().__init__(nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=bias, heatflow=heatflow,
                          xmin=xmin, xmax=xmax, umin=umin, umax=umax,
-                         Q_dx=Q_dx, Q_dx_ud=Q_dx_ud, Q_con_x=Q_con_x, Q_con_u=Q_con_u, Q_spectral=Q_spectral)
+                         Q_dx=Q_dx, Q_dx_ud=Q_dx_ud, Q_con_x=Q_con_x, Q_con_u=Q_con_u, Q_spectral=Q_spectral, rom=rom)
         # Module initialization
         self.A = SVDLinear(nx, nx, bias=bias, sigma_min=0.6, sigma_max=1.0)
         self.E = PerronFrobeniusLinear(nd, nx, bias=bias, sigma_min=0.05, sigma_max=1)
@@ -143,10 +144,10 @@ class SVDSSM(SSM):
 class PerronFrobeniusSSM(SSM):
     def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False, heatflow='white',
                  xmin=0, xmax=35, umin=-5000, umax=5000,
-                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2):
+                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2, rom=True):
         super().__init__(nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=bias, heatflow=heatflow,
                          xmin=xmin, xmax=xmax, umin=umin, umax=umax,
-                         Q_dx=Q_dx, Q_dx_ud=Q_dx_ud, Q_con_x=Q_con_x, Q_con_u=Q_con_u, Q_spectral=Q_spectral)
+                         Q_dx=Q_dx, Q_dx_ud=Q_dx_ud, Q_con_x=Q_con_x, Q_con_u=Q_con_u, Q_spectral=Q_spectral, rom=rom)
         # Module initialization
         self.A = PerronFrobeniusLinear(nx, nx, bias=bias, sigma_min=0.95, sigma_max=1.0)
         self.E = PerronFrobeniusLinear(nd, nx, bias=bias, sigma_min=0.05, sigma_max=1)
@@ -157,10 +158,10 @@ class PerronFrobeniusSSM(SSM):
 class SpectralSSM(PerronFrobeniusSSM):
     def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False, heatflow='white',
                  xmin=0, xmax=35, umin=-5000, umax=5000,
-                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2):
+                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2, rom=True):
         super().__init__(nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=bias, heatflow=heatflow,
                          xmin=xmin, xmax=xmax, umin=umin, umax=umax,
-                         Q_dx=Q_dx, Q_dx_ud=Q_dx_ud, Q_con_x=Q_con_x, Q_con_u=Q_con_u, Q_spectral=Q_spectral)
+                         Q_dx=Q_dx, Q_dx_ud=Q_dx_ud, Q_con_x=Q_con_x, Q_con_u=Q_con_u, Q_spectral=Q_spectral, rom=rom)
         self.A = SpectralLinear(nx, nx, bias=bias, reflector_size=1, sig_mean=0.8, r=0.2)
 
 
@@ -169,24 +170,18 @@ class SSMGroundTruth(SSM):
     def __init__(self, nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=False,
                  heatflow='white', # dummy args for common API in training script
                  xmin=0, xmax=35, umin=-5000, umax=5000,
-                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2):
+                 Q_dx=1e2, Q_dx_ud=1e5, Q_con_x=1e1, Q_con_u=1e1, Q_spectral=1e2, rom=True):
         super().__init__(nx, ny, n_m, n_dT, nu, nd, n_hidden, bias=bias)
-        file = loadmat('Reno_model_for_py.mat')  # load disturbance file
-        # reduced order linear model
-        A = file['Ad']
-        B = file['Bd']
-        C = file['Cd']
-        E = file['Ed']
-        G = file['Gd']
-        F = file['Fd']
-        self.G = nn.Parameter(torch.tensor(G, dtype=torch.float32), requires_grad=False)
-        self.F = nn.Parameter(torch.tensor(F, dtype=torch.float32), requires_grad=False)
+        bd = BuildingDAE(rom=rom)
+
+        self.G = nn.Parameter(torch.tensor(bd.G, dtype=torch.float32), requires_grad=False)
+        self.F = nn.Parameter(torch.tensor(bd.F, dtype=torch.float32), requires_grad=False)
 
         with torch.no_grad():
-            self.A.weight.copy_(torch.tensor(A))
-            self.B.weight.copy_(torch.tensor(B))
-            self.E.weight.copy_(torch.tensor(E))
-            self.C.weight.copy_(torch.tensor(C))
+            self.A.linear.weight.copy_(torch.tensor(bd.A))
+            self.B.linear.weight.copy_(torch.tensor(bd.B))
+            self.E.linear.weight.copy_(torch.tensor(bd.E))
+            self.C.linear.weight.copy_(torch.tensor(bd.C))
 
         for p in self.parameters():
             p.requires_grad = False

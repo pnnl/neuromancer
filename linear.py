@@ -3,6 +3,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+class Linear(nn.Module):
+    def __init__(self, insize, outsize, bias=False):
+        super().__init__()
+        self.linear = nn.Linear(insize, outsize, bias=bias)
+
+    def effective_W(self):
+        return self.linear.weight.T
+
+    def forward(self, x):
+        return self.linear(x)
+
+
 class NonnegativeLinear(nn.Module):
     def __init__(self, insize, outsize, bias=False):
         super().__init__()

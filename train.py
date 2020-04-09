@@ -14,7 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 # local imports
 from plot import plot_trajectories
-from data import Building_DAE, make_dataset
+from data import BuildingDAE, make_dataset
 from ssm import SSM, PerronFrobeniusSSM, SVDSSM, SpectralSSM, SSMGroundTruth
 import state_estimators as se
 import rnn
@@ -22,7 +22,7 @@ import rnn
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gpu', type=int, default='cpu',
+    parser.add_argument('--gpu', type=str, default='cpu',
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
@@ -36,16 +36,18 @@ def parse_args():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=16,
                             help='Number of steps for open loop during training.')
+    data_group.add_argument('-fullmodel', action='store_true',
+                            help='Whether to use 40 variable reduced order model (opposed to 286 variable full model')
+    data_group.add_argument('-norm', type=str, choices=['all', 'env', 'none'], default=None)
 
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
-    # TODO: Add in parameters for additional model configurations to try.
-    model_group.add_argument('-ssm_type', type=str, choices=['true', 'vanilla', 'pf', 'svd', 'spectral'], default='vanilla')
+    model_group.add_argument('-ssm_type', type=str, choices=['true', 'linear', 'pf', 'svd', 'spectral'], default='linear')
     model_group.add_argument('-heatflow', type=str, choices=['black', 'grey', 'white'], default='white')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['true', 'linear', 'pf', 'mlp', 'rnn',
-                                      'rnn_constr', 'rnn_spectral', 'rnn_svd', 'kf'], default='pf')
+                                      'rnn_pf', 'rnn_spectral', 'rnn_svd', 'kf'], default='pf')
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-nx_hidden', type=int, default=40, help='Number of hidden states')
     model_group.add_argument('-constr', action='store_true', default=True,
@@ -136,14 +138,11 @@ if __name__ == '__main__':
     ###### DATA SETUP ##################
     ####################################
     device = 'cpu'
-    if args.gpu is not 'cpu':
+    if args.gpu != 'cpu':
         device = f'cuda:{args.gpu}'
-    models = {'true': SSMGroundTruth, 'vanilla': SSM, 'pf': PerronFrobeniusSSM,
-              'svd': SVDSSM, 'spectral': SpectralSSM}
-    building = Building_DAE()
+    building = BuildingDAE(rom=not args.fullmodel)
     nx, nu, nd, ny, n_m, n_dT = building.nx, building.nu, building.nd, building.ny, building.nu, 1
-    Q_y = args.Q_y/ny
-    train_data, dev_data, test_data = make_dataset(args.nsteps, device)
+    train_data, dev_data, test_data = make_dataset(args.nsteps, device, norm=args.norm, rom=not args.fullmodel)
     split_train_data, split_dev_data, split_test_data = (split_data(train_data),
                                                          split_data(dev_data),
                                                          split_data(test_data))
@@ -151,11 +150,13 @@ if __name__ == '__main__':
     ####################################################
     ##### DYNAMICS MODEL AND STATE ESTIMATION SETUP ####
     ####################################################
+    models = {'true': SSMGroundTruth, 'linear': SSM, 'pf': PerronFrobeniusSSM,
+              'svd': SVDSSM, 'spectral': SpectralSSM}
     model = models[args.ssm_type](nx, ny, n_m, n_dT, nu, nd, args.nx_hidden, bias=args.bias, heatflow=args.heatflow,
                                   xmin=0, xmax=35, umin=-5000, umax=5000,
-                                  Q_dx=args.Q_dx, Q_dx_ud=args.Q_dx_ud,
-                                  Q_con_x=args.Q_con_x, Q_con_u=args.Q_con_u, Q_spectral=1e2).to(device)
-    cells = {'rnn': rnn.RNNCell, 'rnn_constr': rnn.PerronFrobeniusCell, 'rnn_spectral': rnn.SpectralCell, 'rnn_svd': rnn.SVDCell}
+                                  Q_dx=args.Q_dx, Q_dx_ud=args.Q_dx_ud, Q_con_x=args.Q_con_x,
+                                  Q_con_u=args.Q_con_u, Q_spectral=1e2, rom=not args.fullmodel).to(device)
+    cells = {'rnn': rnn.RNNCell, 'rnn_pf': rnn.PerronFrobeniusCell, 'rnn_spectral': rnn.SpectralCell, 'rnn_svd': rnn.SVDCell}
     if args.state_estimator == 'linear':
         state_estimator = se.LinearEstimator(ny, nx, bias=args.bias)
     elif args.state_estimator == 'pf':
@@ -180,6 +181,7 @@ if __name__ == '__main__':
     ####################################
     ######OPTIMIZATION SETUP
     ####################################
+    Q_y = args.Q_y/ny
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
     #######################################
@@ -193,8 +195,11 @@ if __name__ == '__main__':
         model.train()
         X_pred, Y_pred, U_pred, loss = step(model, state_estimator, split_train_data)
         optimizer.zero_grad()
-        loss.backward()#retain_graph=True)   # originally loss.backward()
-        optimizer.step()
+        try:
+            loss.backward()#retain_graph=True)   # originally loss.backward()
+            optimizer.step()
+        except RuntimeError as e:
+            pass
         ##################################
         # DEVELOPMENT SET EVALUATION
         ###################################
@@ -313,4 +318,4 @@ if __name__ == '__main__':
         ax[5].plot(np.concatenate([xtrue, devxtrue, testxtrue]))
         plt.savefig(os.path.join(args.savedir, 'Raw_U_D.png'))
         mlflow.log_artifacts(args.savedir)
-        os.system(f'rm -rf {args.savedir}')
+        # os.system(f'rm -rf {args.savedir}')

@@ -1,7 +1,8 @@
+# pytorch imports
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+#local imports
 from linear import PerronFrobeniusLinear
 from rnn import RNN, RNNCell
 

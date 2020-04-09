@@ -1,7 +1,9 @@
+# ML imports
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+# local imports
 from linear import SpectralLinear, PerronFrobeniusLinear, SVDLinear
 
 
@@ -22,7 +24,6 @@ class RNNCell(nn.Module):
 
 
 class SSMCell(nn.Module):
-    """Cells all return 2 state values for common API with LSTM"""
     def __init__(self, nx, nu, nd, ny, stable=True, bias=False):
         super().__init__()
         if stable:

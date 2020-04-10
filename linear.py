@@ -29,6 +29,26 @@ class NonnegativeLinear(nn.Module):
         return torch.matmul(x, self.effective_W()) + self.bias
 
 
+class LassoLinear(nn.Module):
+    """
+    Use this for sparse id of non-linear dynamics (SINDy)
+    """
+    def __init__(self, insize, outsize, bias=False, gamma=1.0):
+        self.u_param = nn.Parameter(torch.rand(insize, outsize))
+        self.v_param = nn.Parameter(torch.rand(insize, outsize))
+        self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
+        self.gamma = 1.0
+
+    def effective_W(self):
+        return F.relu(self.u_param) - F.relu(self.v_param)
+
+    def regularization_error(self):
+        return self.gamma*(self.u_param.norm(p=1) + self.v_param.norm(p=1))
+
+    def forward(self, x):
+        return torch.matmul(x, self.effective_W) + self.bias
+
+
 class PerronFrobeniusLinear(nn.Module):
 
     def __init__(self, insize, outsize, bias=False, sigma_min=0.95, sigma_max=1.0, init='basic'):

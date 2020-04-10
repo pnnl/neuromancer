@@ -8,7 +8,7 @@ Heat flow:
     Black, grey, white
 State estimation:
     Ground truth, linear, Perron-Frobenius linear, vanilla RNN,
-    Perron-Frobenius RNN, SVD decomposition RNN, Spectral RNN, Kalman Filter
+    Perron-Frobenius RNN, SVD decomposition RNN, Spectral RNN, linear Kalman Filter
 Ground Truth Model:
     Large full building thermal model
     Large reduced order building thermal model
@@ -67,10 +67,10 @@ def parse_args():
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
-    model_group.add_argument('-ssm_type', type=str, choices=['true', 'linear', 'pf', 'svd', 'spectral'], default='linear')
+    model_group.add_argument('-ssm_type', type=str, choices=['GT', 'linear', 'pf', 'svd', 'spectral'], default='linear')
     model_group.add_argument('-heatflow', type=str, choices=['black', 'grey', 'white'], default='white')
     model_group.add_argument('-state_estimator', type=str,
-                             choices=['true', 'linear', 'pf', 'mlp', 'rnn',
+                             choices=['GT', 'linear', 'pf', 'mlp', 'rnn',
                                       'rnn_pf', 'rnn_spectral', 'rnn_svd', 'kf'], default='pf')
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-nx_hidden', type=int, default=40, help='Number of hidden states')
@@ -129,20 +129,17 @@ def split_data(train_data):
 
 def step(model, state_estimator, split_data):
     x0_in, M_flow_in, DT_in, D_in, x_response, Y_target, y0_in, M_flow_in_p, DT_in_p, D_in_p = split_data
-    if args.state_estimator != 'true':
+    if args.state_estimator != 'GT':
         x0_in = state_estimator(y0_in, M_flow_in_p, DT_in_p, D_in_p)
     else:
         x0_in = x0_in[0]
     X_pred, Y_pred, U_pred, regularization_error = model(x0_in, M_flow_in, DT_in, D_in)
-    if args.state_estimator != 'true':
+    if args.state_estimator != 'GT':
         loss = Q_y * F.mse_loss(Y_pred.squeeze(), Y_target.squeeze())
-        loss += args.Q_estim * state_estimator.regularization_error
+        regularization_error += args.Q_estim * state_estimator.regularization_error
     else:
         loss = F.mse_loss(X_pred.squeeze(), x_response.squeeze())
-    if args.constr:
-        loss += regularization_error
-    return X_pred, Y_pred, U_pred, loss
-
+    return X_pred, Y_pred, U_pred, loss, regularization_error
 
 if __name__ == '__main__':
     ####################################
@@ -174,7 +171,7 @@ if __name__ == '__main__':
     ####################################################
     ##### DYNAMICS MODEL AND STATE ESTIMATION SETUP ####
     ####################################################
-    models = {'true': SSMGroundTruth, 'linear': SSM, 'pf': PerronFrobeniusSSM,
+    models = {'GT': SSMGroundTruth, 'linear': SSM, 'pf': PerronFrobeniusSSM,
               'svd': SVDSSM, 'spectral': SpectralSSM}
     model = models[args.ssm_type](nx, ny, n_m, n_dT, nu, nd, args.nx_hidden, bias=args.bias, heatflow=args.heatflow,
                                   xmin=0, xmax=35, umin=-5000, umax=5000,
@@ -196,7 +193,7 @@ if __name__ == '__main__':
     state_estimator.to(device)
 
     nweights = sum([i.numel() for i in list(model.parameters()) if i.requires_grad])
-    if args.state_estimator != 'true':
+    if args.state_estimator != 'GT':
         nweights += sum([i.numel() for i in list(state_estimator.parameters()) if i.requires_grad])
     print(nweights, "parameters in the neural net.")
     if args.mlflow:    
@@ -217,10 +214,11 @@ if __name__ == '__main__':
 
     for i in range(args.epochs):
         model.train()
-        X_pred, Y_pred, U_pred, loss = step(model, state_estimator, split_train_data)
+        X_pred, Y_pred, U_pred, loss, train_reg = step(model, state_estimator, split_train_data)
         optimizer.zero_grad()
         try:
-            loss.backward()
+            losses = loss + train_reg
+            losses.backward()
             optimizer.step()
         except RuntimeError as e:
             pass
@@ -229,13 +227,15 @@ if __name__ == '__main__':
         ###################################
         with torch.no_grad():
             model.eval()
-            X_pred, Y_pred, U_pred, dev_loss = step(model, state_estimator, split_dev_data)
+            X_pred, Y_pred, U_pred, dev_loss, dev_reg = step(model, state_estimator, split_dev_data)
             if dev_loss < best_dev:
                 best_model = deepcopy(model.state_dict())
                 best_dev = dev_loss
             if args.mlflow:    
                 mlflow.log_metrics({'trainloss': loss.item(),
+                                    'train_reg': train_reg.item(),
                                     'devloss': dev_loss.item(),
+                                    'dev_reg': dev_reg.item(),
                                     'bestdev': best_dev.item()}, step=i)
         if i % args.verbosity == 0:
             elapsed_time = time.time() - start_time
@@ -250,9 +250,9 @@ if __name__ == '__main__':
         args.constr = False
         Q_y = 1.0
         #    TRAIN SET
-        X_out, Y_out, U_out, train_loss = step(model, state_estimator, split_train_data)
+        X_out, Y_out, U_out, train_loss, train_reg = step(model, state_estimator, split_train_data)
         if args.mlflow:
-            mlflow.log_metric('nstep_train_loss', train_loss.item())
+            mlflow.log_metric({'nstep_train_loss': train_loss.item(),'nstep_train_reg': train_reg.item()})
         x_response, Y_target = split_train_data[4:6]
         xpred = X_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nx)
         xtrue = x_response.transpose(0, 1).detach().cpu().numpy().reshape(-1, nx)
@@ -261,9 +261,9 @@ if __name__ == '__main__':
         upred = U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nu)
 
         #   DEV SET
-        X_out, Y_out, U_out, dev_loss = step(model, state_estimator, split_dev_data)
+        X_out, Y_out, U_out, dev_loss, dev_reg = step(model, state_estimator, split_dev_data)
         if args.mlflow:
-            mlflow.log_metric('nstep_dev_loss', dev_loss.item())
+            mlflow.log_metric({'nstep_dev_loss': dev_loss.item(),'nstep_dev_reg': dev_reg.item()})
         x_response_dev, Y_target_dev = split_dev_data[4:6]
         devxpred = X_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nx)
         devxtrue = x_response_dev.transpose(0, 1).detach().cpu().numpy().reshape(-1, nx)
@@ -272,9 +272,9 @@ if __name__ == '__main__':
         devupred = U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nu)
 
         #   TEST SET
-        X_out, Y_out, U_out, test_loss = step(model, state_estimator, split_test_data)
+        X_out, Y_out, U_out, test_loss, test_reg = step(model, state_estimator, split_test_data)
         if args.mlflow:
-            mlflow.log_metric('nstep_train_loss', train_loss.item())
+            mlflow.log_metric({'nstep_train_loss': train_loss.item(),'nstep_test_reg': test_reg.item()})
         x_response_tst, Y_target_tst = split_test_data[4:6]
         testxpred = X_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nx)
         testxtrue = x_response_tst.transpose(0, 1).detach().cpu().numpy().reshape(-1, nx)

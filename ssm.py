@@ -6,11 +6,22 @@ import torch.nn.functional as F
 from linear import Linear, SVDLinear, PerronFrobeniusLinear, NonnegativeLinear, SpectralLinear
 from data import BuildingDAE
 
+# unstructured dynamical models
+# x+ = f(x,u,d)
+# y =  m(x)
+# x = estim(y,u,d)
+    
+# Block dynamical models 
+# x+ = f(x) o g(u) o h(d)
+# y =  m(x)
+# x = estim(y,u,d)
+# u = policy(x,u,d)
+# o = operator, e.g., +, or *
+# any operation perserving dimensions
 
 def heat_flow(m_flow, dT):
     U = 1.1591509722222224 * m_flow * dT
     return U
-
 
 class HeatFlow(nn.Module):
 
@@ -62,52 +73,47 @@ class SSM(nn.Module):
         self.xmin, self.xmax, self.umin, self.umax = xmin, xmax, umin, umax
         self.dxmax = nn.Parameter(dxmax_val * torch.ones(1, nx), requires_grad=False)
         self.dxmin = nn.Parameter(dxmin_val * torch.ones(1, nx), requires_grad=False)
-        self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.spectral_error = [[] for i in range(8)]
+        self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d = [0.0]*7
         # weights on one-step difference of states
-        self.Q_dx = Q_dx / n_hidden  # penalty on smoothening term dx
-        self.Q_dx_ud = Q_dx_ud / n_hidden  # penalty on constrained maximal influence of u and d on x
+        self.Q_dx = Q_dx / nx  # penalty on smoothening term dx
+        self.Q_dx_ud = Q_dx_ud / nx  # penalty on constrained maximal influence of u and d on x
         # state and input constraints weight
-        self.Q_con_x = Q_con_x / n_hidden
+        self.Q_con_x = Q_con_x / nx
         self.Q_con_u = Q_con_u / nu
         # (For SVD) Weights on orthogonality violation of matrix decomposition factors
         self.Q_spectral = Q_spectral
 
-    def regularize(self, x_0, x, u, d):
+    def running_mean(self, mu, x, n):
+        return mu + (1/n)*(x - mu)
+    
+    
+    def regularize(self, x_0, x, u, d, N):
         # Barrier penalties
-        self.sxmin.append(F.relu(-x + self.xmin))
-        self.sxmax.append(F.relu(x - self.xmax))
-        self.sumin.append(F.relu(-u + self.umin))
-        self.sumax.append(F.relu(u - self.umax))
+        self.sxmin  = self.running_mean(self.sxmin, torch.mean(F.relu(-x + self.xmin)), N)  #self.sxmin*(n-1)/n + self.Q_con_x*F.relu(-x + self.xmin)
+        self.sxmax  = self.running_mean(self.sxmax, torch.mean(F.relu(x - self.xmax)), N)
+        self.sumin  = self.running_mean(self.sumin, torch.mean(F.relu(-u + self.umin)), N)
+        self.sumax  = self.running_mean(self.sumax, torch.mean(F.relu(u - self.umax)), N)
         # one step state residual penalty
-        self.sdx_x.append(x - x_0)
+        self.sdx_x  = self.running_mean(self.sdx_x, torch.mean((x - x_0)*(x - x_0)), N)
         # penalties on max one-step infuence of controls and disturbances on states
-        self.dx_u.append(F.relu(-self.B(u) + self.dxmin) + F.relu(self.B(u) - self.dxmax))
-        self.dx_d.append(F.relu(-self.E(d) + self.dxmin) + F.relu(self.E(d) - self.dxmax))
+        self.dx_u  = self.running_mean(self.dx_u,  torch.mean(F.relu(-self.B(u) + self.dxmin) + F.relu(self.B(u) - self.dxmax)), N)
+        self.dx_d  = self.running_mean(self.dx_d,  torch.mean(F.relu(-self.E(d) + self.dxmin) + F.relu(self.E(d) - self.dxmax)), N)
 
     @property
     def regularization_error(self):
-        if self.training:
-            sxmin, sxmax, sumin, sumax = (torch.stack(self.sxmin), torch.stack(self.sxmax),
-                                          torch.stack(self.sumin), torch.stack(self.sumax))
-            xmin_loss = self.Q_con_x*F.mse_loss(sxmin,  self.xmin * torch.ones(sxmin.shape).to(sxmin.device))
-            xmax_loss = self.Q_con_x*F.mse_loss(sxmax,  self.xmax * torch.ones(sxmax.shape).to(sxmax.device))
-            umin_loss = self.Q_con_u*F.mse_loss(sumin, self.umin * torch.ones(sumin.shape).to(sumin.device))
-            umax_loss = self.Q_con_u*F.mse_loss(sumax, self.umax * torch.ones(sumax.shape).to(sumax.device))
-            sdx, dx_u, dx_d = torch.stack(self.sdx_x), torch.stack(self.dx_u), torch.stack(self.dx_d)
-            sdx_loss = self.Q_dx*F.mse_loss(sdx, torch.zeros(sdx.shape).to(sdx.device))
-            dx_u_loss = self.Q_dx_ud*F.mse_loss(dx_u, torch.zeros(dx_u.shape).to(dx_u.device))
-            dx_d_loss = self.Q_dx_ud*F.mse_loss(dx_d, torch.zeros(dx_d.shape).to(dx_u.device))
-            self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.spectral_error = [[] for i in range(8)]
-            return torch.sum(torch.stack([xmin_loss, xmax_loss, umin_loss, umax_loss, sdx_loss, dx_u_loss, dx_d_loss]))
-        else:
-            return 0
+        error = torch.sum(torch.stack([self.Q_con_x*self.sxmin, self.Q_con_x*self.sxmax, self.Q_con_u*self.sumin, self.Q_con_u*self.sumax, 
+                                          self.Q_dx*self.sdx_x, self.Q_dx_ud*self.dx_u, self.Q_dx_ud*self.dx_d]))
+        self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d= [0.0]*7
+        return error
 
     def forward(self, x, M_flow, DT, D):
         """
         """
         X, Y, U = [], [], []
         x = x + self.x0_correct
+        N = 0
         for m_flow, dT, d in zip(M_flow, DT, D):
+            N += 1
             x_prev = x  # previous state memory
             u = self.heat_flow(m_flow, dT)
             x = self.A(x) + self.B(u) + self.E(d)
@@ -115,8 +121,7 @@ class SSM(nn.Module):
             X.append(x)
             Y.append(y)
             U.append(u)
-            if self.training:
-                self.regularize(x_prev, x, u, d)
+            self.regularize(x_prev, x, u, d, N)
         return torch.stack(X), torch.stack(Y), torch.stack(U), self.regularization_error
 
 
@@ -138,7 +143,7 @@ class SVDSSM(SSM):
         """
         """
         X, Y, U, regularization_error = super().forward(x, M_flow, DT, D)
-        return X, Y, U, regularization_error + self.A.spectral_error + self.C.spectral_error
+        return X, Y, U, regularization_error + self.Q_spectral*(self.A.spectral_error + self.C.spectral_error)
 
 
 class PerronFrobeniusSSM(SSM):

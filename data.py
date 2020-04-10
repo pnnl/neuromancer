@@ -132,7 +132,7 @@ class BuildingDAE:
             y = self.C * np.asmatrix(X[k + 1, :]).T + self.F - 273.15
             Y[k + 1, :] = y.flatten()
 
-        # X = X + 20  # update states trajectories with initial condition of linearization
+        X = X + 20  # update states trajectories with initial condition of linearization
         return X, Y
 
 

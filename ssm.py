@@ -1,11 +1,9 @@
-# pytorch imports
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-# local imports
-from linear import Linear, SVDLinear, PerronFrobeniusLinear, NonnegativeLinear, SpectralLinear
-from data import BuildingDAE
+"""
+SSM of the building envelope dynamics
+TODO: generalize 
+"""
 
+"""
 # unstructured dynamical models
 # x+ = f(x,u,d)
 # y =  m(x)
@@ -18,6 +16,16 @@ from data import BuildingDAE
 # u = policy(x,u,d)
 # o = operator, e.g., +, or *
 # any operation perserving dimensions
+"""
+
+# pytorch imports
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+# local imports
+from linear import Linear, SVDLinear, PerronFrobeniusLinear, NonnegativeLinear, SpectralLinear
+from data import BuildingDAE
+
 
 def heat_flow(m_flow, dT):
     U = 1.1591509722222224 * m_flow * dT

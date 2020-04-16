@@ -7,15 +7,17 @@ TODO: generalize
 # unstructured dynamical models
 # x+ = f(x,u,d)
 # y =  m(x)
-# x = estim(y,u,d)
     
 # Block dynamical models 
 # x+ = f(x) o g(u) o h(d)
 # y =  m(x)
-# x = estim(y,u,d)
-# u = policy(x,u,d)
+
 # o = operator, e.g., +, or *
 # any operation perserving dimensions
+
+# estimator and policy - possibly structured
+# x = estim(y,u,d)
+# u = policy(x,u,d)
 """
 
 # pytorch imports

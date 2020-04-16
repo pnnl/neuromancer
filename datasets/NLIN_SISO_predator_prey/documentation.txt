@@ -1,0 +1,4 @@
+https://www.mathworks.com/help/ident/ug/forecasting-predator-prey-populations.html
+
+https://www.mathworks.com/help/ident/examples/three-ecological-population-systems-matlab-and-c-mex-file-modeling-of-time-series.html
+

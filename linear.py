@@ -198,7 +198,7 @@ class InvertibleLinear(nn.Module):
 
     def forward(self):
         OrthoError = torch.norm(torch.norm(torch.eye(self.insize).to(self.weight.device) - torch.mm(self.weight, self.B), 2) + torch.norm(
-            torch.eye(self.nx).to(self.weight.device) - torch.mm(self.B, self.weight), 2), 2)
+            torch.eye(self.insize).to(self.weight.device) - torch.mm(self.B, self.weight), 2), 2)
         return OrthoError
 
 
@@ -211,14 +211,14 @@ class OrthogonalLinear(nn.Module):
     https://en.wikipedia.org/wiki/Orthogonal_matrix
     """
 
-    def __init__(self, nx):
+    def __init__(self, insize):
         super().__init__()
-        self.weight = nn.Parameter(torch.eye(nx, nx) + 0.01 * torch.randn(nx, nx))  # identity matrix with small noise
-        self.nx = nx
+        self.weight = nn.Parameter(torch.eye(insize, insize) + 0.01 * torch.randn(insize, insize))  # identity matrix with small noise
+        self.insize = insize
 
     def forward(self):
-        OrthoError = torch.norm(torch.norm(torch.eye(self.nx).to(self.weight.device) - torch.mm(self.weight, torch.t(self.weight)), 2) + torch.norm(
-            torch.eye(self.nx).to(self.weight.device) - torch.mm(torch.t(self.weight), self.weight), 2), 2)
+        OrthoError = torch.norm(torch.norm(torch.eye(self.insize).to(self.weight.device) - torch.mm(self.weight, torch.t(self.weight)), 2) + torch.norm(
+            torch.eye(self.insize).to(self.weight.device) - torch.mm(torch.t(self.weight), self.weight), 2), 2)
         return OrthoError
 
 

@@ -1,0 +1,11 @@
+This example shows the grey-box modeling of a large and complex nonlinear system. 
+The purpose is to show the ability to use the IDNLGREY model to estimate a large number of parameters (16) 
+in a system having many inputs (10) and outputs (5). The system is an aerodynamic body. 
+We create a model that predicts the acceleration and velocity of the body using 
+the measurements of its velocities (translational and angular) 
+and various angles related to its control surfaces.
+
+This file contains a uniformly sampled data set with 501 samples in the variables u and y. The sample time is 0.02 seconds. 
+
+https://www.mathworks.com/help/ident/examples/modeling-an-aerodynamic-body.html
+

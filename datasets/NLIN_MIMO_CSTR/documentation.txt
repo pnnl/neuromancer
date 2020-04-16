@@ -1,0 +1,16 @@
+% Put together, the CSTR has three input signals:
+%
+%    u_1(t) = C_Af(t)  Concentration of A in inlet feed stream [kgmol/m^3].
+%    u_2(t) = T_f(t)   Inlet feed stream temperature [K].
+%    u_3(t) = T_j(t)   Jacket coolant temperature [K].
+%
+% and two output signals:
+%
+%    y_1(t) = C_A(t)   Concentration of A in reactor tank [kgmol/m^3].
+%    y_2(t) = T(t)     Reactor temperature [K].
+%
+% which also are the natural model states, i.e., y_1(t) = x_1(t) and
+% y_2(t) = x_2(t).
+% Ts = 0.1;   % 10 samples per hour!
+
+https://www.mathworks.com/help/ident/examples/non-adiabatic-continuous-stirred-tank-reactor-matlab-file-modeling-with-simulations-in-simulink.html

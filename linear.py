@@ -48,6 +48,50 @@ class LassoLinear(nn.Module):
     def forward(self, x):
         return torch.matmul(x, self.effective_W) + self.bias
 
+class RightStochasticLinear(nn.Module):
+    """
+    A right stochastic matrix is a real square matrix, with each row summing to 1.
+    https://en.wikipedia.org/wiki/Stochastic_matrix
+    """
+    def __init__(self, insize, outsize, bias=False):
+        super().__init__()
+        self.weight = nn.Parameter(torch.rand(insize, outsize)) 
+        self.do_bias = bias
+        self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
+        
+    def effective_W(self):
+        w_rStochastic = F.softmax(self.weight, dim=1)
+        return w_rStochastic      
+        
+    def forward(self, x):
+        return torch.matmul(x, self.effective_W) + self.bias
+
+class LeftStochasticLinear(nn.Module):
+    """
+    A left stochastic matrix is a real square matrix, with each column summing to 1.
+    https://en.wikipedia.org/wiki/Stochastic_matrix
+    """
+    def __init__(self, insize, outsize, bias=False):
+        super().__init__()
+        self.weight = nn.Parameter(torch.rand(insize, outsize)) 
+        self.do_bias = bias
+        self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
+        
+    def effective_W(self):
+        w_rStochastic = F.softmax(self.weight.T, dim=1)
+        return w_rStochastic.T      
+        
+    def forward(self, x):
+        return torch.matmul(x, self.effective_W) + self.bias
+
+
+class DoublyStochasticLinear(nn.Module):
+    """
+    A left stochastic matrix is a real square matrix, with each column summing to 1.
+    https://en.wikipedia.org/wiki/Doubly_stochastic_matrix
+    """
+    pass
+
 
 class PerronFrobeniusLinear(nn.Module):
 
@@ -67,10 +111,10 @@ class PerronFrobeniusLinear(nn.Module):
         self.scaling = nn.Parameter(torch.rand(insize, outsize))  # matrix scaling to allow for different row sums
         if init == 'basic':
             self.weight = nn.Parameter(torch.rand(insize, outsize))
-            self.scalar = nn.Parameter(torch.rand(insize, outsize))  # matrix scaling to allow for different row sums
+            self.scaling = nn.Parameter(torch.rand(insize, outsize))  # matrix scaling to allow for different row sums
         elif init == 'identity':
             self.weight = nn.Parameter(-1000*torch.ones(insize, outsize) + torch.eye(insize, outsize)*1001)
-            self.scalar = nn.Parameter(-100*torch.ones(insize, outsize))
+            self.scaling = nn.Parameter(-100*torch.ones(insize, outsize))
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
         self.do_bias = bias
@@ -85,23 +129,96 @@ class PerronFrobeniusLinear(nn.Module):
         return torch.matmul(x, self.effective_W()) + self.bias
 
 
-class OrthogonalWeight(nn.Module):
+class SymmetricLinear(nn.Module):
     """
-    an orthogonal matrix is a square matrix whose columns and rows are orthogonal unit vectors (orthonormal vectors).
+    symmetric matrix A (effective_W) is a square matrix that is equal to its transpose.
+    A = A^T
+    https://en.wikipedia.org/wiki/Symmetric_matrix
+    """
+    def __init__(self, insize, bias=False):
+        super().__init__()
+        self.weight = nn.Parameter(torch.rand(insize, insize)) # identity matrix with small noise    
+        self.do_bias = bias
+        self.bias = nn.Parameter(torch.zeros(1, insize), requires_grad=not bias)
+
+    def effective_W(self):
+         sym_weight = (self.weight + torch.t(self.weight))/2
+         return sym_weight
+        
+    def forward(self, x):  
+        return torch.matmul(x, self.effective_W()) + self.bias
+ 
+class SkewSymmetricLinear(nn.Module):
+    """
+    skew-symmetric (or antisymmetric) matrix A (effective_W) is a square matrix whose transpose equals its negative. 
+    A = -A^T
+    https://en.wikipedia.org/wiki/Skew-symmetric_matrix
+    """
+    def __init__(self, insize, bias=False):
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(insize, insize)) # identity matrix with small noise    
+        self.do_bias = bias
+        self.bias = nn.Parameter(torch.zeros(1, insize), requires_grad=not bias)
+
+    def effective_W(self):
+         skewsym_weight = self.weight.triu() - self.weight.triu().T
+         return skewsym_weight
+        
+    def forward(self, x):  
+        return torch.matmul(x, self.effective_W()) + self.bias
+ 
+class HamiltonianLinear(nn.Module):  
+    """
+    https://en.wikipedia.org/wiki/Hamiltonian_matrix
+    """
+    pass     
+
+class SympleticLinear(nn.Module):  
+    """
+    https://en.wikipedia.org/wiki/Symplectic_matrix
+    """
+    pass     
+    
+    
+
+class InvertibleLinear(nn.Module):
+    """
+    an invertible matrix is a square matrix A (weight), for which following holds:
+    A*B = B*A = I
+    return transformation: A*x
+    invertibility error to be penalized in the loss: err = ||I - A*B||^2 + ||I - B*A ||^2
+    https://en.wikipedia.org/wiki/Invertible_matrix
+    """
+
+    def __init__(self, insize):
+        super().__init__()
+        self.weight = nn.Parameter(torch.eye(insize, insize) + 0.01 * torch.randn(insize, insize))  # identity matrix with small noise
+        self.B = nn.Parameter(torch.eye(insize, insize) + 0.01 * torch.randn(insize, insize))  # identity matrix with small noise
+        self.insize = insize
+
+    def forward(self):
+        OrthoError = torch.norm(torch.norm(torch.eye(self.insize).to(self.weight.device) - torch.mm(self.weight, self.B), 2) + torch.norm(
+            torch.eye(self.nx).to(self.weight.device) - torch.mm(self.B, self.weight), 2), 2)
+        return OrthoError
+
+
+class OrthogonalLinear(nn.Module):
+    """
+    an orthogonal matrix Q (weight) is a square matrix whose columns and rows are orthogonal unit vectors (orthonormal vectors).
     Q*Q^T = Q^T*Q = I
     return transformation: Q*x
-    and orthogonality error to be penalized in the loss: err = ||I - Q*Q^T||^2 + ||I - Q^T*Q||^2
+    orthogonality error to be penalized in the loss: err = ||I - Q*Q^T||^2 + ||I - Q^T*Q||^2
     https://en.wikipedia.org/wiki/Orthogonal_matrix
     """
 
     def __init__(self, nx):
         super().__init__()
-        self.Q = nn.Parameter(torch.eye(nx, nx) + 0.01 * torch.randn(nx, nx))  # identity matrix with small noise
+        self.weight = nn.Parameter(torch.eye(nx, nx) + 0.01 * torch.randn(nx, nx))  # identity matrix with small noise
         self.nx = nx
 
     def forward(self):
-        OrthoError = torch.norm(torch.norm(torch.eye(self.nx).to(self.Q.device) - torch.mm(self.Q, torch.t(self.Q)), 2) + torch.norm(
-            torch.eye(self.nx).to(self.Q.device) - torch.mm(torch.t(self.Q), self.Q), 2), 2)
+        OrthoError = torch.norm(torch.norm(torch.eye(self.nx).to(self.weight.device) - torch.mm(self.weight, torch.t(self.weight)), 2) + torch.norm(
+            torch.eye(self.nx).to(self.weight.device) - torch.mm(torch.t(self.weight), self.weight), 2), 2)
         return OrthoError
 
 
@@ -118,8 +235,8 @@ class SVDLinear(nn.Module):
         sigma_max = maximum allowed value of eigenvalues
         """
         super().__init__()
-        self.U = OrthogonalWeight(insize)
-        self.V = OrthogonalWeight(outsize)
+        self.U = OrthogonalLinear(insize)
+        self.V = OrthogonalLinear(outsize)
         self.sigma = nn.Parameter(torch.rand(insize, 1))  # scaling of singular values
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
@@ -133,7 +250,7 @@ class SVDLinear(nn.Module):
         """
         sigma_clapmed = self.sigma_max - (self.sigma_max - self.sigma_min) * torch.sigmoid(self.sigma)
         Sigma_bounded = torch.eye(self.insize, self.outsize).to(self.sigma.device) * sigma_clapmed
-        w_svd = torch.mm(self.U.Q, torch.mm(Sigma_bounded, self.V.Q))
+        w_svd = torch.mm(self.U.weight, torch.mm(Sigma_bounded, self.V.weight))
         return w_svd
 
     @property

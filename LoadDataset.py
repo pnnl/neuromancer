@@ -159,7 +159,8 @@ if __name__ == '__main__':
     
     train_data, dev_data, test_data  = make_dataset(Y, U, D, Ts, nsteps = 6,device ='cpu')
 
-
+# Q: do we want to separate U and D at this stage? for system ID it does not matter
+#    we could separate them only in the contol loop
 #   TODO: save trained benchmark models from Matlab's System ID 
     
     

@@ -126,7 +126,7 @@ def split_data(train_data):
     ends = np.cumsum([nx, n_m, n_dT, nd, nx, ny, ny, n_m, n_dT, nd])
     return [train_data[:, :, start:end] for start, end in zip(starts, ends)]
 
-
+# single training step
 def step(model, state_estimator, split_data):
     x0_in, M_flow_in, DT_in, D_in, x_response, Y_target, y0_in, M_flow_in_p, DT_in_p, D_in_p = split_data
     if args.state_estimator != 'GT':

@@ -9,11 +9,17 @@ import scipy.misc
 
 
 def expand(x):
+    """
+    square expansion of tensor x
+    """
     expansion = torch.matmul(x.unsqueeze(-1), x.unsqueeze(1)).view(-1, x.shape[1]**2)
     return torch.cat([x, expansion], dim=1)
 
 
 class Bilinear(nn.Module):
+    """
+    bilinear term: why expansion and not nn.Bilinear?
+    """
     def init(self, insize, outsize, bias=False, lin_cls=linear.Linear):
         self.insize, self.outsize, = insize, outsize
         self.linear = lin_cls(insize**2, outsize, bias=bias)
@@ -38,7 +44,7 @@ class Polynomial(nn.Module):
 
 
 class Multinomial(nn.Module):
-
+    
     def init(self, inputsize, outputsize, p=2, bias=False, lin_cls=linear.Linear):
         self.p = p
         for i in range(p-1):

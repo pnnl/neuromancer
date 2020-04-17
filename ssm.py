@@ -9,7 +9,7 @@ TODO: generalize
 # y =  m(x)
     
 # Block dynamical models 
-# x+ = f(x) o g(u) o h(d)
+# x+ = f1(x) o f2(x)  o g(u) o h(d)
 # y =  m(x)
 
 # o = operator, e.g., +, or *

@@ -156,7 +156,7 @@ class SkewSymmetricLinear(nn.Module):
     """
     def __init__(self, insize, bias=False):
         super().__init__()
-        self.weight = nn.Parameter(torch.randn(insize, insize)) # identity matrix with small noise    
+        self.weight = nn.Parameter(torch.randn(insize, insize))   
         self.do_bias = bias
         self.bias = nn.Parameter(torch.zeros(1, insize), requires_grad=not bias)
 
@@ -179,7 +179,68 @@ class SympleticLinear(nn.Module):
     """
     pass     
     
+
+class DiagDominantLinear(nn.Module):  
+    """
+    A strictly diagonally dominant matrix is non-singular.
+    https://en.wikipedia.org/wiki/Diagonally_dominant_matrix
+    """
+    pass     
+
+
+class SplitLinear(nn.Module):  
+    """
+    A = B − C, with B ≥ 0 and C ≥ 0.
+    https://en.wikipedia.org/wiki/Matrix_splitting
+    """
+    def __init__(self, insize, outsize, bias=False):
+        super().__init__()     
+        self.B = NonnegativeLinear(insize, outsize,bias)  
+        self.C = NonnegativeLinear(insize, outsize,bias)  
+        self.do_bias = bias
+        self.bias = nn.Parameter(torch.zeros(1, insize), requires_grad=not bias)
+
+    def effective_W(self):
+         A = self.B.effective_W() - self.C.effective_W() 
+         return A
+        
+    def forward(self, x):
+        return torch.matmul(x, self.effective_W()) + self.bias
+
+class StableSplitLinear(nn.Module):  
+    """
+    A = B − C, with stable B and stable C
+    https://en.wikipedia.org/wiki/Matrix_splitting
+    """
+    def __init__(self, insize, outsize, bias=False, sigma_min=0.1, sigma_max=1.0):
+        super().__init__()     
+        self.B = PerronFrobeniusLinear(insize, outsize, bias, sigma_max, sigma_max)  
+        self.C = PerronFrobeniusLinear(insize, outsize, bias, 0, sigma_max-sigma_min)  
+        self.do_bias = bias
+        self.bias = nn.Parameter(torch.zeros(1, insize), requires_grad=not bias)
+
+    def effective_W(self):
+         A = self.B.effective_W() - self.C.effective_W() 
+         return A
+        
+    def forward(self, x):
+        return torch.matmul(x, self.effective_W()) + self.bias
     
+    
+class RegularSplitLinear(nn.Module):  
+    """
+    Definition: A = B − C is a regular splitting of A if B^−1 ≥ 0 and C ≥ 0.
+    https://en.wikipedia.org/wiki/Matrix_splitting
+    """
+    pass      
+    
+class DiagSplitLinear(nn.Module):  
+    """
+    https://en.wikipedia.org/wiki/Matrix_splitting
+    https://en.wikipedia.org/wiki/Jacobi_method
+    """
+    pass    
+
 
 class InvertibleLinear(nn.Module):
     """

@@ -38,8 +38,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 # local imports
 from plot import plot_trajectories
-from data import make_dataset
-from ssm import BlockSSM, SSM, PerronFrobeniusSSM, SVDSSM, SpectralSSM, SSMGroundTruth
+from data_building import BuildingDAE, make_dataset
+from ssm_building import SSM, PerronFrobeniusSSM, SVDSSM, SpectralSSM, SSMGroundTruth
 import state_estimators as se
 import rnn
 
@@ -68,10 +68,12 @@ def parse_args():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['GT', 'linear', 'pf', 'svd', 'spectral'], default='linear')
+    model_group.add_argument('-heatflow', type=str, choices=['black', 'grey', 'white'], default='white')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['GT', 'linear', 'pf', 'mlp', 'rnn',
                                       'rnn_pf', 'rnn_spectral', 'rnn_svd', 'kf'], default='pf')
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
+    model_group.add_argument('-nx_hidden', type=int, default=40, help='Number of hidden states')
     model_group.add_argument('-constr', action='store_true', default=True,
                              help='Whether to use constraints in the neural network models.')
 

@@ -1,12 +1,18 @@
-import numpy as np
-import numpy.matlib as matlib
+"""
+Loading system ID datasets from mat files
+"""
+
+from scipy import stats
 from scipy.io import loadmat
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
+import pandas as pd
 import torch
 
 
 def min_max_norm(M):
     """
-
     :param M:
     :return:
     """
@@ -14,164 +20,119 @@ def min_max_norm(M):
     return np.nan_to_num(M_norm)
 
 
-def control_profile_DAE(file_path='Reno_model_for_py.mat', dT_nominal_max=30,
-                        dT_nominal_min=0, samples_day=288, sim_days=7):
+def Load_data_sysID(file_path='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',norm='all'):
     """
-
-    :param file_path:
-    :param dT_nominal_max:
-    :param dT_nominal_min:
-    :param samples_day:
-    :param sim_days:
+    :param file_path: path to .mat file with dataset: y,u,d,Ts
     :return:
     """
-    file = loadmat(file_path)
-    #    mass flow
-    umax = file['umax']  # max heat per zone
-    umin = file['umin']  # min heat per zone
-    m_nominal_max = umax / 20  # maximal nominal mass flow l/h
-    m_nominal_min = umin / 20  # minimal nominal mass flow
-    m_flow_modulation_day = (
-                0.5 + 0.5 * np.sin(np.arange(0, 2 * np.pi, 2 * np.pi / samples_day)))  # modulation of the pump
-    m_flow_day = m_nominal_min + m_nominal_max * m_flow_modulation_day  # daily control profile
-    M_flow = matlib.repmat(m_flow_day, 1, sim_days).T  # Sim_days control profile
-    #    delta T
-    dT_day = dT_nominal_min + (dT_nominal_max - dT_nominal_min) * (
-                0.5 + 0.5 * np.cos(np.arange(0, 2 * np.pi, 2 * np.pi / samples_day)))  # daily control profile
-    DT = matlib.repmat(dT_day, 1, sim_days).T  # Sim_days control profile
-    return M_flow, DT
-
-
-def disturbance(file_path='Reno_model_for_py.mat', n_sim=2016):
-    """
-
-    :param file_path:
-    :param n_sim:
-    :return:
-    """
-    return loadmat(file_path)['disturb'][:n_sim, :]  # n_sim X 3
-
-
-class BuildingDAE:
-    """
-
-    """
-    def __init__(self, file_path='Reno_model_for_py.mat', rom=False):
-        """
-
-        :param file_path: Location of matlab file with model parameters
-        :param rom: (bool) Whether to run reduced order of full model
-        """
-        file = loadmat(file_path)
-        self.Ts = file['Ts']  # sampling time
-        self.TSup = file['TSup']  # supply temperature
-        self.umax = file['umax']  # max heat per zone
-        self.umin = file['umin']  # min heat per zone
-
-        if rom:
-            # reduced order linear model
-            self.A = file['Ad_ROM']
-            self.B = file['Bd_ROM']
-            self.C = file['Cd_ROM']
-            self.D = file['Dd_ROM']
-            self.E = file['Ed_ROM']
-            self.G = file['Gd_ROM']
-            self.F = file['Fd_ROM']
-
-        else:
-            #  full order model
-            self.A = file['Ad']
-            self.B = file['Bd']
-            self.C = file['Cd']
-            self.D = file['Dd']
-            self.E = file['Ed']
-            self.G = file['Gd']
-            self.F = file['Fd']
-
-        self.nx = self.A.shape[0]
-        self.ny = self.C.shape[0]
-        self.nu = self.B.shape[1]
-        self.nd = self.E.shape[1]
-        self.x = 0 * np.ones(self.nx, dtype=np.float32)  # initial conditions
-        #         heat flow equation constants
-        self.rho = 0.997  # density  of water kg/1l
-        self.cp = 4185.5  # specific heat capacity of water J/(kg/K)
-        self.time_reg = 1 / 3600  # time regularization of the mass flow 1 hour = 3600 seconds
-
-    def heat_flow(self, m_flow, dT):
-        """
-
-        :param m_flow:
-        :param dT:
-        :return:
-        """
-        U = m_flow * self.rho * self.cp * self.time_reg * dT
-        return U
-
-    def loop(self, nsim, M_flow, DT, D):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param U: (ndarray, shape=(nsim, self.nu)) Control profile matrix
-        :param D: (ndarray, shape=(nsim, self.nd)) Disturbance matrix
-        :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
-        :return: The response matrices are aligned, i.e. X[k] is the state of the system that Y[k] is indicating
-        """
-        U = self.heat_flow(M_flow, DT)
-        X = np.zeros((nsim + 1, self.nx))
-        X[0] = self.x
-
-        Y = np.zeros((nsim + 1, self.ny))  # output trajectory placeholders
-        y = self.C * np.asmatrix(X[0, :]).T + self.F - 273.15
-        Y[0, :] = y.flatten()
-
-        for k in range(nsim):
-            d = np.asmatrix(D[k, :]).T
-            u = np.asmatrix(U[k, :]).T
-            x = self.A * np.asmatrix(X[k, :]).T + self.B * u + self.E * d + self.G
-            X[k + 1, :] = x.flatten()
-            y = self.C * np.asmatrix(X[k + 1, :]).T + self.F - 273.15
-            Y[k + 1, :] = y.flatten()
-
-        X = X + 20  # update states trajectories with initial condition of linearization
-        return X, Y
-
-
-def make_dataset(nsteps, device, norm='env', rom=False):
-    """
-
-    :param nsteps:
-    :param device:
-    :param norm:
-    :param rom:
-    :return:
-    """
-    M_flow, DT = control_profile_DAE(samples_day=288, sim_days=28)
-    #    manual turnoffs
-    M_flow[:, 3] = 0
-    M_flow[:, 4] = 0
-    M_flow[:, 5] = 0
-    nsim = M_flow.shape[0]
-    D = disturbance(n_sim=nsim)
-    # TODO: select only subset of D
-
-    building = BuildingDAE(rom=rom)
-    X, Y = building.loop(nsim, M_flow, DT, D)
-
-    if norm in ['env', 'all']:
-        D, M_flow, DT = min_max_norm(D), min_max_norm(M_flow), min_max_norm(DT)
+    file = loadmat(file_path)  
+    Y =  file.get("y", None)  # outputs
+    U  = file.get("u", None)  # inputs
+    D = file.get("d", None)  # disturbances
+    Ts  = file.get("Ts",None)   # sampling time
+       
+    if norm == 'U' and U is not None:
+        U = min_max_norm(U)      
+    if norm == 'Y' and Y is not None:
+        Y = min_max_norm(Y)
+    if norm == 'D' and D is not None:    
+        D = min_max_norm(D)
     if norm == 'all':
-        X, Y = min_max_norm(X), min_max_norm(Y)
-    target_Xresponse = X[1:][nsteps:]
-    initial_states = X[:-1][nsteps:]
-    target_Yresponse = Y[1:][nsteps:]
-    initial_outputs = Y[:-1][:-nsteps]
+        if  U is not None:
+            U = min_max_norm(U)  
+        if  D is not None:
+            D = min_max_norm(D)  
+        if  Y is not None:
+            Y = min_max_norm(Y)      
+    if norm == False:   
+        pass
+        
+    
+    return Y, U, D, Ts
 
-    D_p, M_flow_p, DT_p = D[:-nsteps], M_flow[:-nsteps], DT[:-nsteps]
-    D_f, M_flow_f, DT_f = D[nsteps:], M_flow[nsteps:], DT[nsteps:]
+def Plot_data_sysID(Y,U,D,Ts):
+    
+    nrows = 3
+    if U is None:
+        nrows-=1
+    if D is None:
+        nrows-=1    
+        
+    fig, ax = plt.subplots(nrows, 1,figsize=(20, 16))
+    
+    if nrows == 1:
+        ax.plot(Y, linewidth = 3)
+        ax.grid(True)
+        ax.set_title('Outputs', fontsize=24)
+        ax.set_xlabel('Time', fontsize=24)
+        ax.set_ylabel('Y', fontsize=24)
+        ax.tick_params(axis='x', labelsize=22)
+        ax.tick_params(axis='y', labelsize=22)    
+    else:
+        ax[0].plot(Y, linewidth = 3)
+        ax[0].grid(True)
+        ax[0].set_title('Outputs', fontsize=24)
+        ax[0].set_xlabel('Time', fontsize=24)
+        ax[0].set_ylabel('Y', fontsize=24)
+        ax[0].tick_params(axis='x', labelsize=22)
+        ax[0].tick_params(axis='y', labelsize=22)
+    
+    if U is not None:
+        ax[1].plot(U, linewidth = 3)
+        ax[1].grid(True)
+        ax[1].set_title('Inputs', fontsize=24)
+        ax[1].set_xlabel('Time', fontsize=24)
+        ax[1].set_ylabel('U', fontsize=24)
+        ax[1].tick_params(axis='x', labelsize=22)
+        ax[1].tick_params(axis='y', labelsize=22)
+    
+    if D is not None:
+        idx = 2
+        if U is None:
+            idx -=1        
+        ax[idx].plot(D, linewidth = 3)
+        ax[idx].grid(True)
+        ax[idx].set_title('Disturbances', fontsize=24)
+        ax[idx].set_xlabel('Time', fontsize=24)
+        ax[idx].set_ylabel('D', fontsize=24)
+        ax[idx].tick_params(axis='x', labelsize=22)
+        ax[idx].tick_params(axis='y', labelsize=22)
+     
+     
+def make_dataset(Y, U, D, Ts, nsteps, device):
+    """
+    :param U: inputs
+    :param Y: outputs
+    :param Ts: sampling time
+    :param nsteps: prediction step
+    :param device:
+    :param norm: 
+    :return:
+    """
+    
+    # Outputs: data for past and future moving horizons 
+    Y_p = Y[:-nsteps]
+    Y_f = Y[nsteps:]
 
-    # skip first week of data
-    data = np.concatenate([initial_states, M_flow_f, DT_f, D_f, target_Xresponse,
-                           target_Yresponse, initial_outputs, M_flow_p, DT_p, D_p], axis=1)[2016:]
+    # INPUTS: data for past and future moving horizons
+    if U is not None:
+        U_p = U[:-nsteps]
+        U_f = U[nsteps:]
+     
+    # Disturbances: data for past and future moving horizons    
+    if D is not None:
+        D_p = D[:-nsteps]
+        D_f = D[nsteps:]
+
+    if U is not None and D is not None:
+        data = np.concatenate([U_p, U_f, D_p, D_f, Y_p, Y_f], axis=1)
+    elif U is not None:
+        data = np.concatenate([U_p, U_f, Y_p, Y_f], axis=1)
+    elif D is not None:
+        data = np.concatenate([D_p, D_f, Y_p, Y_f], axis=1)
+    else:
+        data = np.concatenate([Y_p, Y_f], axis=1)
+        
     nsplits = (data.shape[0]) // nsteps
     leftover = (data.shape[0]) % nsteps
     data = np.stack(np.split(data[:data.shape[0] - leftover], nsplits))  # nchunks X nsteps X 14
@@ -182,6 +143,25 @@ def make_dataset(nsteps, device, norm='env', rom=False):
     dev_data = data[:, train_idx:dev_idx, :]
     test_data = data[:, dev_idx:, :]
 
-    return train_data, dev_data, test_data
+    return train_data, dev_data, test_data     
+     
 
+if __name__ == '__main__':
+    
+#    file_path='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat'
+#    file_path = './datasets/NLIN_SISO_predator_prey/PredPreyCrowdingData.mat'
+#    file_path = './datasets/NLIN_TS_pendulum/NLIN_TS_Pendulum.mat'
+#    file_path = './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat'
+#    file_path = './datasets/NLIN_MIMO_CSTR/NLIN_MIMO_CSTR2.mat'
+    file_path = './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'
+    Y,U,D,Ts = Load_data_sysID(file_path)
+    Plot_data_sysID(Y, U, D, Ts)   
+    
+    train_data, dev_data, test_data  = make_dataset(Y, U, D, Ts, nsteps = 6,device ='cpu')
 
+# Q: do we want to separate U and D at this stage? for system ID it does not matter
+#    we could separate them only in the contol loop
+#   TODO: save trained benchmark models from Matlab's System ID 
+    
+    
+    

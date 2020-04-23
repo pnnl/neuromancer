@@ -38,7 +38,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 # local imports
 from plot import plot_trajectories
-from data import make_dataset
+from data import make_dataset, Load_data_sysID
 from ssm import BlockSSM, SSM, PerronFrobeniusSSM, SVDSSM, SpectralSSM, SSMGroundTruth
 import state_estimators as se
 import rnn
@@ -68,6 +68,7 @@ def parse_args():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['GT', 'linear', 'pf', 'svd', 'spectral'], default='linear')
+    model_group.add_argument('-nx_hidden', type=int, default=40, help='Number of hidden states')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['GT', 'linear', 'pf', 'mlp', 'rnn',
                                       'rnn_pf', 'rnn_spectral', 'rnn_svd', 'kf'], default='pf')
@@ -103,7 +104,7 @@ def parse_args():
                            help='Using mlflow or not.')
     return parser.parse_args()
 
-
+# TODO: make this part of  make_dataset() in data.py
 def split_data(train_data):
     """
 
@@ -124,11 +125,13 @@ def split_data(train_data):
     ends = np.cumsum([nx, n_m, n_dT, nd, nx, ny, ny, n_m, n_dT, nd])
     return [train_data[:, :, start:end] for start, end in zip(starts, ends)]
 
+# TODO: generalize data part
+
 # single training step
 def step(model, state_estimator, split_data):
     x0_in, M_flow_in, DT_in, D_in, x_response, Y_target, y0_in, M_flow_in_p, DT_in_p, D_in_p = split_data
     if args.state_estimator != 'GT':
-        x0_in = state_estimator(y0_in, M_flow_in_p, DT_in_p, D_in_p)
+        x0_in = state_estimator(Y_p,U_p,D_p)
     else:
         x0_in = x0_in[0]
     X_pred, Y_pred, U_pred, regularization_error = model(x0_in, M_flow_in, DT_in, D_in)
@@ -159,12 +162,28 @@ if __name__ == '__main__':
     device = 'cpu'
     if args.gpu != 'cpu':
         device = f'cuda:{args.gpu}'
-    building = BuildingDAE(rom=not args.fullmodel)
-    nx, nu, nd, ny, n_m, n_dT = building.nx, building.nu, building.nd, building.ny, building.nu, 1
-    train_data, dev_data, test_data = make_dataset(args.nsteps, device, norm=args.norm, rom=not args.fullmodel)
+
+    file_path = './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'
+    Y,U,D,Ts = Load_data_sysID(file_path)
+    ny, nu  = Y.shape[1], U.shape[1]
+    if D is not None:
+        nd =  D.shape[1]
+    nx = args.nx_hidden
+    
+    train_data, dev_data, test_data = make_dataset(Y, U, D, Ts, args.nsteps, device)
     split_train_data, split_dev_data, split_test_data = (split_data(train_data),
                                                          split_data(dev_data),
                                                          split_data(test_data))
+    
+    ####################################################
+    ##### DYNAMICS MODEL AND STATE ESTIMATION SETUP ####
+    ####################################################
+    model = BlockSSM(nx, ny, nu, nd, bias=args.bias, 
+                     xmin=-1, xmax=1, umin=-1, umax=1,  dxmax = 1, dxmin = -1,
+                     Q_dx=args.Q_dx, Q_dx_ud=args.Q_dx_ud, Q_con_x=args.Q_con_x,
+                     Q_con_u=args.Q_con_u, Q_spectral=1e2, ).to(device)
+    
+#    TODO: continue here
 
     ####################################################
     ##### DYNAMICS MODEL AND STATE ESTIMATION SETUP ####

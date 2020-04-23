@@ -30,7 +30,7 @@ from linear import Linear, SVDLinear, PerronFrobeniusLinear, NonnegativeLinear, 
 # TODO: generic HW-SSM
 
 class BlockSSM(nn.Module):
-    def __init__(self, nx, ny, nu, nd, observable='full', bias=False, 
+    def __init__(self, nx, ny, nu, nd, bias=False, 
                  xmin=-1, xmax=1, umin=-1, umax=1,  dxmax = 1, dxmin = -1,
                  Q_dx=1e1, Q_dx_ud=1e2, Q_con_x=1e0, Q_con_u=1e0, Q_spectral=1e1):
         """
@@ -46,9 +46,10 @@ class BlockSSM(nn.Module):
         self.f_u = Linear(nu, nx, bias=bias)
         self.f_d = Linear(nd, nx, bias=bias)
         self.f_y = Linear(nx, ny, bias=bias)
-        if observable == 'partial':
-            self.estim = Linear(ny+nu+nd, nx, bias=bias) #  have here different options
-        self.observable = observable            
+        
+#        if observable == 'partial':
+#            self.estim = Linear(ny+nu+nd, nx, bias=bias) #  have here different options
+#        self.observable = observable            
         
         #  Regularization Initialization     
         self.xmin, self.xmax, self.umin, self.umax = xmin, xmax, umin, umax
@@ -87,20 +88,21 @@ class BlockSSM(nn.Module):
         self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d= [0.0]*7
         return error
 
-    def forward(self, Y_p, U_p, D_p, U_f, D_f):
+#    def forward(self, Y_p, U_p, D_p, U_f, D_f):
+    def forward(self, x, U, D):
         """
         """
         
-        #  estimation on past moving window
-        if self.observable == 'full':
-            x = Y_p
-        elif self.observable == 'partial':
-            x = self.estim(torch.cat([Y_p,U_p,D_p]))
-          
+#        #  estimation on past moving window
+#        if self.observable == 'full':
+#            x = Y_p
+#        elif self.observable == 'partial':
+#            x = self.estim(torch.cat([Y_p,U_p,D_p]))
+#          
         # prediction on future moving window    
         X, Y = [], []
         N = 0
-        for u, d in zip(U_f, D_f):
+        for u, d in zip(U, D):
             N += 1
             x_prev = x  # previous state memory
             x = self.f_x(x) + self.f_u(u) + self.f_d(d)

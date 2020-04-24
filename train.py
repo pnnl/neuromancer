@@ -127,6 +127,9 @@ def split_data(train_data):
 
 # TODO: generalize data part
 
+# TODO: modular structure of the closed loop dynamics
+#    main modules: system model + estimator + policy
+    
 # single training step
 def step(model, state_estimator, split_data):
     x0_in, M_flow_in, DT_in, D_in, x_response, Y_target, y0_in, M_flow_in_p, DT_in_p, D_in_p = split_data

@@ -1,6 +1,5 @@
 """
-SSM of the building envelope dynamics
-TODO: generalize 
+SSM 
 """
 
 """
@@ -20,6 +19,22 @@ TODO: generalize
 # u = policy(x,u,d)
 """
 
+
+        """
+        generic closed-loop dynamics: 
+            
+        #    SSM
+        # x+ = f_x(x) o f_u(u) o f_d(d)
+        # y =  f_y(x)
+        
+#         state_estimators.py
+        # x = estim(y_p,u_p,d_p)
+        
+#        policies.py
+        # x = policy(x,d)
+        """
+
+
 # pytorch imports
 import torch
 import torch.nn as nn
@@ -29,47 +44,47 @@ from linear import Linear, SVDLinear, PerronFrobeniusLinear, NonnegativeLinear, 
 
 # TODO: generic HW-SSM
 
+# smart ways of initializing the weights?
 class BlockSSM(nn.Module):
-    def __init__(self, nx, ny, nu, nd, bias=False, 
-                 xmin=-1, xmax=1, umin=-1, umax=1,  dxmax = 1, dxmin = -1,
-                 Q_dx=1e1, Q_dx_ud=1e2, Q_con_x=1e0, Q_con_u=1e0, Q_spectral=1e1):
+    def __init__(self, nx, ny, nu, nd, bias=False, f_x=Linear, f_u=Linear, f_d=Linear, f_y=Linear, xou=torch.add, xod=torch.add):
         """
+        generic system dynamics:   
         # x+ = f_x(x) o f_u(u) o f_d(d)
         # y =  f_y(x)
-        # x = estim(y_p,u_p,d_p)
         """
         super().__init__()
         self.nx, self.ny, self.nu, self.nd = nx, ny, nu, nd
         
 #       TODO: select here model parametrizations - how to do this in a generic way?
-        self.f_x = Linear(nx, nx, bias=bias)
-        self.f_u = Linear(nu, nx, bias=bias)
-        self.f_d = Linear(nd, nx, bias=bias)
-        self.f_y = Linear(nx, ny, bias=bias)
+        self.f_x = f_x(nx, nx, bias=bias)
+        self.f_u = f_u(nu, nx, bias=bias)
+        self.f_d = f_d(nd, nx, bias=bias)
+        self.f_y = f_y(nx, ny, bias=bias)
         
-#        if observable == 'partial':
-#            self.estim = Linear(ny+nu+nd, nx, bias=bias) #  have here different options
-#        self.observable = observable            
+#       block operators
+        self.xou = xou
+        self.xod = xod       
         
         #  Regularization Initialization     
-        self.xmin, self.xmax, self.umin, self.umax = xmin, xmax, umin, umax
-        self.dxmax = nn.Parameter(dxmax * torch.ones(1, nx), requires_grad=False)
-        self.dxmin = nn.Parameter(dxmin * torch.ones(1, nx), requires_grad=False)
-        self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d = [0.0]*7
-        # weights on one-step difference of states
-        self.Q_dx = Q_dx / nx  # penalty on smoothening term dx
-        self.Q_dx_ud = Q_dx_ud / nx  # penalty on constrained maximal influence of u and d on x
-        # state and input constraints weight
-        self.Q_con_x = Q_con_x / nx
-        self.Q_con_u = Q_con_u / nu
-        # (For SVD) Weights on orthogonality violation of matrix decomposition factors
-        self.Q_spectral = Q_spectral
+        self.xmin, self.xmax, self.umin, self.umax, self.uxmin, self.uxmax, self.dxmin, self.dxmax = con_init()
+        self.Q_dx, self.Q_dx_ud, self.Q_con_x, self.Q_con_u, self.Q_sub = reg_weight_init()
+      
+#        slack variables for calculating constraints violations/ regularization error
+        self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.d_sub = [0.0]*8
+
+    
+    def con_init(self):
+            return [-1,1,-1,1,-1,1,-1,1]  
+        
+    def reg_weight_init(self):
+        return [0.2]*5
 
     def running_mean(self, mu, x, n):
         return mu + (1/n)*(x - mu)
     
-    
-    def regularize(self, x_prev, x, u, d, N):
+#    include regularization in each module in the framework
+    def regularize(self, x_prev, x, f_u, f_d, N):
+        
         # Barrier penalties
         self.sxmin  = self.running_mean(self.sxmin, torch.mean(F.relu(-x + self.xmin)), N)  #self.sxmin*(n-1)/n + self.Q_con_x*F.relu(-x + self.xmin)
         self.sxmax  = self.running_mean(self.sxmax, torch.mean(F.relu(x - self.xmax)), N)
@@ -78,39 +93,37 @@ class BlockSSM(nn.Module):
         # one step state residual penalty
         self.sdx_x  = self.running_mean(self.sdx_x, torch.mean((x - x_prev)*(x - x_prev)), N)
         # penalties on max one-step infuence of controls and disturbances on states
-        self.dx_u  = self.running_mean(self.dx_u,  torch.mean(F.relu(-self.f_u(u) + self.dxmin) + F.relu(self.f_u(u) - self.dxmax)), N)
-        self.dx_d  = self.running_mean(self.dx_d,  torch.mean(F.relu(-self.f_d(d) + self.dxmin) + F.relu(self.f_d(d) - self.dxmax)), N)
+        self.dx_u  = self.running_mean(self.dx_u,  torch.mean(F.relu(-f_u + uxmin) + F.relu(f_u - self.uxmax)), N)
+        self.dx_d  = self.running_mean(self.dx_d,  torch.mean(F.relu(-f_d + dxmin) + F.relu(f_d - self.dxmax)), N)
+        self.d_sub = self.running_mean(torch.sum([k.reg_error() for k in self.modules]))  # TODO: add reg_error in submodules
 
     @property
-    def regularization_error(self):
+    def reg_error(self):
         error = torch.sum(torch.stack([self.Q_con_x*self.sxmin, self.Q_con_x*self.sxmax, self.Q_con_u*self.sumin, self.Q_con_u*self.sumax, 
                                           self.Q_dx*self.sdx_x, self.Q_dx_ud*self.dx_u, self.Q_dx_ud*self.dx_d]))
-        self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d= [0.0]*7
+        error += self.Q_sub*self.d_sub   # error of elements in the list of all submodules
+        self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.d_sub = [0.0]*8
         return error
 
-#    def forward(self, Y_p, U_p, D_p, U_f, D_f):
     def forward(self, x, U, D):
         """
-        """
-        
-#        #  estimation on past moving window
-#        if self.observable == 'full':
-#            x = Y_p
-#        elif self.observable == 'partial':
-#            x = self.estim(torch.cat([Y_p,U_p,D_p]))
-#          
+        """      
         # prediction on future moving window    
         X, Y = [], []
         N = 0
         for u, d in zip(U, D):
             N += 1
             x_prev = x  # previous state memory
-            x = self.f_x(x) + self.f_u(u) + self.f_d(d)
+            f_u = self.f_u(u)
+            f_d = self.f_d(d)
+            x = self.f_x(x)     
+            x = self.xou(x,f_u)
+            x = self.xod(x,f_d)
             y = self.f_y(x)
             X.append(x)
             Y.append(y)
-            self.regularize(x_prev, x, u, d, N)
-        return torch.stack(X), torch.stack(Y), self.regularization_error
+            self.regularize(x_prev, x, f_u, f_d, N)
+        return torch.stack(X), torch.stack(Y), self.reg_error
 
 
 

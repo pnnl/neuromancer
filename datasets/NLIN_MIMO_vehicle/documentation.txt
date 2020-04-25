@@ -1,0 +1,10 @@
+% At this point, we load the available input-output data. This file
+% contains data from three different experiments:
+%
+%    A. Simulated data with high stiffness tires [y1 u1].
+%    B. Simulated data with low stiffness tires  [y2 u2].
+%    C. Measured data from a Volvo V70           [y3 u3].
+%
+% In all cases, the sample time Ts = 0.1 seconds.
+
+https://www.mathworks.com/help/ident/examples/modeling-a-vehicle-dynamics-system.html

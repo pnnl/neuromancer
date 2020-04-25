@@ -1,3 +1,8 @@
+"""
+state estimators for SSM model of the building dynamics
+TODO: generalize
+"""
+
 # pytorch imports
 import torch
 import torch.nn as nn

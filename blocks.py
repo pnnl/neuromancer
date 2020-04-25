@@ -9,6 +9,8 @@ import scipy.misc
 
 import linear
 
+def get_modules(model):
+    return {name: module for name, module in model.named_modules() if len(list(module.named_children())) == 0}
 
 def expand(x):
     """
@@ -95,7 +97,9 @@ class MLP(nn.Module):
                                             **linargs) for k in range(self.nhidden+1)])
 
     def reg_error(self):
-        return torch.mean([l.regularization_error() for l in self.linear])
+        return torch.sum([k.reg_error()
+                          for k in get_modules(self).values()
+                          if hasattr(k, 'reg_error')])
 
     def forward(self, x):
         for lin, nlin in zip(self.linear, self.nonlin):
@@ -104,48 +108,24 @@ class MLP(nn.Module):
 
 
 class ResMLP(MLP):
-    def __init__(self, layers, Linear=linear.Linear, nonlin=F.relu, bias=True, skip=2, **linargs):
-        """
+    def __init__(self,  insize, outsize, bias=True,
+                 Linear=linear.Linear, nonlin=F.relu, hsizes=[64], skip=1, **linargs):
 
-        :param layers: list of ints (insize, h1size, h2size, ..., hnsize, outsize)
-        :param nonlin: Activation function
-        :param bias: Whether to use bias
-        """
-        super().__init__(layers, Linear=Linear, nonlin=nonlin, bias=bias, **linargs)
+        super().__init__(insize, outsize, bias=bias,
+                         Linear=Linear, nonlin=nonlin, hsizes=hsizes, **linargs)
+        assert len(set(hsizes)) == 1, 'All hidden sizes should be equal for residual network'
         self.skip = skip
-        self.residual = [nn.Identity()]*(self.nlayers+1)
-        for k in range(self.nlayers, skip-1, -1):
-            self.residual[k] = Linear(layers[k-skip], layers[k], bias=False)
-        for k in range(skip-1, 0, -1):
-            self.residual[k] = Linear(layers[0], layers[k], bias=False)
-
-        # self.residual[0] = nn.Identity()
-
-        # pshape = layers[0]
-        # for k in range(self.nlayers-skip+1):
-        #     print(k)
-        #     if k % skip == 0 or k + skip >= self.nlayers:
-        #         self.residual.append(Linear(pshape, layers[k + skip], bias=False, **linargs))
-        #         pshape = layers[k + skip]
-        #     else:
-        #         self.residual.append(nn.Identity())
-        print(self.residual)
-
-    def regularization_error(self):
-        return super.regularization_error + torch.mean([l.regularization_error()
-                                                        for l in self.residual.values()
-                                                        if type(l) is linear.LinearBase])
+        self.inmap = Linear(insize, hsizes[0], bias=False, **linargs)
+        self.outmap = Linear(hsizes[0], outsize, bias=False, **linargs)
 
     def forward(self, x):
-        px = x
-        for layer, (lin, nlin) in enumerate(zip(self.linear, self.nonlin)):
-            if (layer % self.skip == 0 or layer == self.nlayers-1) and layer != 0:
-                self.residual[layer]
-                x = x + self.residual[layer](px)
-                px = x
+        px = self.inmap(x)
+        for layer, (lin, nlin) in enumerate(zip(self.linear[:-1], self.nonlin[:-1])):
             x = nlin(lin(x))
-        return x
-
+            if layer % self.skip == 0:
+                x = x + px
+                px = x
+        return self.linear[-1](x) + self.outmap(px)
 
 
 class RNN():
@@ -153,11 +133,11 @@ class RNN():
 
 if __name__ == '__main__':
 
-    block = MLP([5, 10, 2, 7], bias=True)
+    block = MLP(5, 7, bias=True, hsizes=[5, 10, 2, 7])
     y = torch.randn([25, 5])
     print(block(y).shape)
 
-    block = ResMLP([5, 10, 2, 7, 8, 11], skip=3, bias=True)
+    block = ResMLP(5, 7, hsizes=[64, 64, 64,64,64,64], skip=3, bias=True)
     y = torch.randn([25, 5])
     print(block(y).shape)
 

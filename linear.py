@@ -3,9 +3,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Linear(nn.Module):
+class LinearBase(nn.Module):
     def __init__(self, insize, outsize, bias=False):
         super().__init__()
+        self.in_features, self.out_features = insize, outsize
+
+    def regularization_error(self):
+        return 0.0
+
+
+class Linear(LinearBase):
+    def __init__(self, insize, outsize, bias=False, **kwargs):
+        super().__init__(insize, outsize, bias)
         self.linear = nn.Linear(insize, outsize, bias=bias)
 
     def effective_W(self):
@@ -15,8 +24,8 @@ class Linear(nn.Module):
         return self.linear(x)
 
 
-class NonnegativeLinear(nn.Module):
-    def __init__(self, insize, outsize, bias=False):
+class NonnegativeLinear(LinearBase):
+    def __init__(self, insize, outsize, bias=False, **kwargs):
         super().__init__()
         self.weight = nn.Parameter(torch.rand(insize, outsize))
         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
@@ -29,29 +38,33 @@ class NonnegativeLinear(nn.Module):
         return torch.matmul(x, self.effective_W()) + self.bias
 
 
-class LassoLinear(nn.Module):
+class LassoLinear(LinearBase):
     """
     Use this for sparse id of non-linear dynamics (SINDy)
+    From https://leon.bottou.org/publications/pdf/compstat-2010.pdf
     """
-    def __init__(self, insize, outsize, bias=False, gamma=1.0):
+    def __init__(self, insize, outsize, bias=False, gamma=1.0, **kwargs):
         self.u_param = nn.Parameter(torch.rand(insize, outsize))
         self.v_param = nn.Parameter(torch.rand(insize, outsize))
         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
-        self.gamma = 1.0
+        self.gamma = gamma
 
     def effective_W(self):
+        # Thresholding for sparsity
         return F.relu(self.u_param) - F.relu(self.v_param)
 
     def regularization_error(self):
-        return self.gamma*(self.u_param.norm(p=1) + self.v_param.norm(p=1))
+        # shrinkage
+        return self.gamma*self.effective_W.norm(p=1)
 
     def forward(self, x):
         return torch.matmul(x, self.effective_W) + self.bias
 
 
-class PerronFrobeniusLinear(nn.Module):
+class PerronFrobeniusLinear(LinearBase):
 
-    def __init__(self, insize, outsize, bias=False, sigma_min=0.95, sigma_max=1.0, init='basic'):
+    def __init__(self, insize, outsize, bias=False, sigma_min=0.95, sigma_max=1.0,
+                 init='basic', **kwargs):
         """
         Perron-Frobenius theorem based regularization of matrix
 
@@ -105,8 +118,8 @@ class OrthogonalWeight(nn.Module):
         return OrthoError
 
 
-class SVDLinear(nn.Module):
-    def __init__(self, insize, outsize, bias=False, sigma_min=0.1, sigma_max=1):
+class SVDLinear(LinearBase):
+    def __init__(self, insize, outsize, bias=False, sigma_min=0.1, sigma_max=1, **kwargs):
         """
         SVD based regularization of matrix A
         A = U*Sigma*V
@@ -144,14 +157,14 @@ class SVDLinear(nn.Module):
         return torch.matmul(x, self.effective_W()) + self.bias
 
 
-class SpectralLinear(nn.Module):
+class SpectralLinear(LinearBase):
     """
     Translated from tensorflow code: https://github.com/zhangjiong724/spectral-RNN/blob/master/code/spectral_rnn.py
     SVD paramaterized linear map of form U\SigmaV. Singular values can be constrained to a range
     """
 
     def __init__(self, insize, outsize, bias=False,
-                 n_U_reflectors=20, n_V_reflectors=20, sigma_min=0.6, sigma_max=1.0):
+                 n_U_reflectors=20, n_V_reflectors=20, sigma_min=0.6, sigma_max=1.0, **kwargs):
         """
 
         :param insize: (int) Dimension of input vectors

@@ -11,6 +11,9 @@ import linear
 
 
 def expand(x):
+    """
+    square expansion of tensor x
+    """
     expansion = torch.matmul(x.unsqueeze(-1), x.unsqueeze(1)).view(-1, x.shape[1]**2)
     return torch.cat([x, expansion], dim=1)
 
@@ -26,6 +29,9 @@ class DeepBasisNetwork(nn.Module):
 
 class Bilinear(nn.Module):
     def init(self, insize, outsize, bias=False, Linear=linear.Linear):
+        """
+        bilinear term: why expansion and not nn.Bilinear?
+        """
         self.insize, self.outsize, = insize, outsize
         self.linear = Linear(insize**2, outsize, bias=bias)
         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
@@ -50,7 +56,7 @@ class Polynomial(nn.Module):
 
 
 class Multinomial(nn.Module):
-
+    
     def init(self, inputsize, outputsize, p=2, bias=False, lin_cls=linear.Linear):
         self.p = p
         for i in range(p-1):

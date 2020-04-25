@@ -1,0 +1,18 @@
+% The dynamics of it has been studied in numerous books and articles and
+% are well understood. If we choose x1(t) as the angular position [rad] and
+% x2(t) as the angular velocity [rad/s] of the pendulum, then it is rather
+% straightforward to set up a state-space structure of the following kind:
+%
+%    d/dt x1(t) = x2(t)
+%    d/dt x2(t) = -(g/l)*sin(x1(t)) - (b/(m*l^2))*x2(t)
+%
+%          y(t) = x1(t)
+%
+% having parameters (or constants)
+%
+%    g - the gravity constant [m/s^2]
+%    l - the length of the rod of the pendulum [m]
+%    b - viscous friction coefficient [Nms/rad]
+%    m - the mass of the bob of the pendulum [kg]
+
+https://www.mathworks.com/help/ident/examples/classical-pendulum-some-algorithm-related-issues.html

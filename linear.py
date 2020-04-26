@@ -1,21 +1,29 @@
+from abc import ABC, abstractmethod
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from matrix import SoftOrthogonal, SoftInvertible
 
 
-class LinearBase(nn.Module):
-    def __init__(self, insize, outsize, bias=False):
+class LinearBase(nn.Module, ABC):
+    """
+    """
+    def __init__(self, insize, outsize):
         super().__init__()
         self.in_features, self.out_features = insize, outsize
 
     def reg_error(self):
         return 0.0
 
+    @abstractmethod
+    def effective_W(self):
+        pass
+
 
 class Linear(LinearBase):
     def __init__(self, insize, outsize, bias=False, **kwargs):
-        super().__init__(insize, outsize, bias)
+        super().__init__(insize, outsize)
         self.linear = nn.Linear(insize, outsize, bias=bias)
 
     def effective_W(self):
@@ -27,7 +35,7 @@ class Linear(LinearBase):
 
 class NonnegativeLinear(LinearBase):
     def __init__(self, insize, outsize, bias=False, **kwargs):
-        super().__init__(insize, outsize, bias)
+        super().__init__(insize, outsize)
         self.weight = nn.Parameter(torch.rand(insize, outsize))
         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
 
@@ -44,7 +52,7 @@ class LassoLinear(LinearBase):
     From https://leon.bottou.org/publications/pdf/compstat-2010.pdf
     """
     def __init__(self, insize, outsize, bias=False, gamma=1.0, **kwargs):
-        super().__init__(insize, outsize, bias)
+        super().__init__(insize, outsize)
         self.u_param = nn.Parameter(torch.rand(insize, outsize))
         self.v_param = nn.Parameter(torch.rand(insize, outsize))
         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
@@ -59,7 +67,7 @@ class LassoLinear(LinearBase):
         return self.gamma*self.effective_W.norm(p=1)
 
     def forward(self, x):
-        return torch.matmul(x, self.effective_W) + self.bias
+        return torch.matmul(x, self.effective_W()) + self.bias
 
 
 class RightStochasticLinear(LinearBase):
@@ -68,9 +76,8 @@ class RightStochasticLinear(LinearBase):
     https://en.wikipedia.org/wiki/Stochastic_matrix
     """
     def __init__(self, insize, outsize, bias=False):
-        super().__init__(insize, outsize, bias)
+        super().__init__(insize, outsize)
         self.weight = nn.Parameter(torch.rand(insize, outsize))
-        self.do_bias = bias
         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
         
     def effective_W(self):
@@ -78,7 +85,7 @@ class RightStochasticLinear(LinearBase):
         return w_rStochastic      
         
     def forward(self, x):
-        return torch.matmul(x, self.effective_W) + self.bias
+        return torch.matmul(x, self.effective_W()) + self.bias
 
 
 class LeftStochasticLinear(LinearBase):
@@ -87,7 +94,7 @@ class LeftStochasticLinear(LinearBase):
     https://en.wikipedia.org/wiki/Stochastic_matrix
     """
     def __init__(self, insize, outsize, bias=False):
-        super().__init__(insize, outsize, bias)
+        super().__init__(insize, outsize)
         self.weight = nn.Parameter(torch.rand(insize, outsize)) 
         self.do_bias = bias
         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
@@ -97,16 +104,7 @@ class LeftStochasticLinear(LinearBase):
         return w_rStochastic.T      
         
     def forward(self, x):
-        return torch.matmul(x, self.effective_W) + self.bias
-
-
-class DoublyStochasticLinear(LinearBase):
-    """
-    A doubly stochastic matrix is a real square matrix, with each column and each row summing to 1.
-    https://en.wikipedia.org/wiki/Doubly_stochastic_matrix
-    """
-    def __init__(self, insize, outsize, bias, **kwargs):
-        super().__init__(insize, outsize, bias)
+        return torch.matmul(x, self.effective_W()) + self.bias
 
 
 class PerronFrobeniusLinear(LinearBase):
@@ -123,7 +121,7 @@ class PerronFrobeniusLinear(LinearBase):
         :param sigma_max: (float)  minimum allowed value of dominant eigenvalue
         :param init: (str) 'init' or 'basic'. Whether to use identity initialization for hidden transition
         """
-        super().__init__(insize, outsize, bias)
+        super().__init__(insize, outsize)
         self.weight = nn.Parameter(torch.rand(insize, outsize))
         self.scaling = nn.Parameter(torch.rand(insize, outsize))  # matrix scaling to allow for different row sums
         if init == 'basic':
@@ -154,7 +152,7 @@ class SymmetricLinear(LinearBase):
     """
     def __init__(self, insize, outsize, bias=False):
         assert insize == outsize, 'skew-symmetric matrices must be square'
-        super().__init__(insize, outsize, bias)
+        super().__init__(insize, outsize)
         self.weight = nn.Parameter(torch.rand(insize, insize)) # identity matrix with small noise
         self.do_bias = bias
         self.bias = nn.Parameter(torch.zeros(1, insize), requires_grad=not bias)
@@ -175,7 +173,7 @@ class SkewSymmetricLinear(LinearBase):
     """
     def __init__(self, insize, outsize, bias=False):
         assert insize == outsize, 'skew-symmetric matrices must be square'
-        super().__init__(insize, outsize, bias)
+        super().__init__(insize, outsize)
         self.weight = nn.Parameter(torch.randn(insize, outsize))
         self.do_bias = bias
         self.bias = nn.Parameter(torch.zeros(1, insize), requires_grad=not bias)
@@ -188,42 +186,16 @@ class SkewSymmetricLinear(LinearBase):
         return torch.matmul(x, self.effective_W()) + self.bias
 
 
-class HamiltonianLinear(LinearBase):
-    """
-    https://en.wikipedia.org/wiki/Hamiltonian_matrix
-    """
-    def __init__(self, insize, outsize, bias, **kwargs):
-        super().__init__(insize, outsize, bias)
-
-
-class SympleticLinear(LinearBase):
-    """
-    https://en.wikipedia.org/wiki/Symplectic_matrix
-    """
-    def __init__(self, insize, outsize, bias, **kwargs):
-        super().__init__(insize, outsize, bias)
-    
-
-class DiagDominantLinear(LinearBase):
-    """
-    A strictly diagonally dominant matrix is non-singular.
-    https://en.wikipedia.org/wiki/Diagonally_dominant_matrix
-    """
-    def __init__(self, insize, outsize, bias, **kwargs):
-        super().__init__(insize, outsize, bias)
-
-
 class SplitLinear(LinearBase):
     """
     A = B − C, with B ≥ 0 and C ≥ 0.
     https://en.wikipedia.org/wiki/Matrix_splitting
     """
     def __init__(self, insize, outsize, bias=False):
-        super().__init__(insize, outsize, bias)
-        self.B = NonnegativeLinear(insize, outsize,bias)
-        self.C = NonnegativeLinear(insize, outsize,bias)  
-        self.do_bias = bias
-        self.bias = nn.Parameter(torch.zeros(1, insize), requires_grad=not bias)
+        super().__init__(insize, outsize)
+        self.B = NonnegativeLinear(insize, outsize, bias)
+        self.C = NonnegativeLinear(insize, outsize, bias)
+        self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
 
     def effective_W(self):
          A = self.B.effective_W() - self.C.effective_W() 
@@ -239,37 +211,19 @@ class StableSplitLinear(LinearBase):
     https://en.wikipedia.org/wiki/Matrix_splitting
     """
     def __init__(self, insize, outsize, bias=False, sigma_min=0.1, sigma_max=1.0):
-        super().__init__(insize, outsize, bias)
+        super().__init__(insize, outsize)
         self.B = PerronFrobeniusLinear(insize, outsize, bias, sigma_max, sigma_max)
-        self.C = PerronFrobeniusLinear(insize, outsize, bias, 0, sigma_max-sigma_min)  
-        self.do_bias = bias
-        self.bias = nn.Parameter(torch.zeros(1, insize), requires_grad=not bias)
+        self.C = PerronFrobeniusLinear(insize, outsize, bias, 0, sigma_max-sigma_min)
+        self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
 
     def effective_W(self):
-         A = self.B.effective_W() - self.C.effective_W() 
+         A = self.B.effective_W() - self.C.effective_W()
+         print(A.shape)
          return A
         
     def forward(self, x):
         return torch.matmul(x, self.effective_W()) + self.bias
     
-    
-class RegularSplitLinear(LinearBase):
-    """
-    Definition: A = B − C is a regular splitting of A if B^−1 ≥ 0 and C ≥ 0.
-    https://en.wikipedia.org/wiki/Matrix_splitting
-    """
-    def __init__(self, insize, outsize, bias, **kwargs):
-        super().__init__(insize, outsize, bias)
-
-
-class DiagSplitLinear(LinearBase):
-    """
-    https://en.wikipedia.org/wiki/Matrix_splitting
-    https://en.wikipedia.org/wiki/Jacobi_method
-    """
-    def __init__(self, insize, outsize, bias, **kwargs):
-        super().__init__(insize, outsize, bias)
-
 
 class SVDLinear(LinearBase):
     def __init__(self, insize, outsize, bias=False, sigma_min=0.1, sigma_max=1, **kwargs):
@@ -283,7 +237,7 @@ class SVDLinear(LinearBase):
         sigma_min = minum allowed value of  eigenvalues
         sigma_max = maximum allowed value of eigenvalues
         """
-        super().__init__(insize, outsize, bias)
+        super().__init__(insize, outsize)
         self.U = SoftOrthogonal(insize)
         self.V = SoftOrthogonal(outsize)
         self.sigma = nn.Parameter(torch.rand(insize, 1))  # scaling of singular values
@@ -316,7 +270,7 @@ class SpectralLinear(LinearBase):
     """
 
     def __init__(self, insize, outsize, bias=False,
-                 n_U_reflectors=20, n_V_reflectors=20, sigma_min=0.6, sigma_max=1.0, **kwargs):
+                 n_U_reflectors=3, n_V_reflectors=3, sigma_min=0.6, sigma_max=1.0):
         """
 
         :param insize: (int) Dimension of input vectors
@@ -326,7 +280,9 @@ class SpectralLinear(LinearBase):
         :param sig_mean: initial and "mean" value of singular values, usually set to 1.0
         :param r: singular margin, the allowed margin for singular values
         """
-        super().__init__(insize, outsize, bias)
+        super().__init__(insize, outsize)
+        assert n_U_reflectors <= insize, 'Too many reflectors'
+        assert n_V_reflectors <= outsize, 'Too may reflectors'
         self.n_U_reflectors, self.n_V_reflectors = n_U_reflectors, n_V_reflectors
         self.insize, self.outsize = insize, outsize
         self.r = (sigma_max - sigma_min)/2
@@ -393,5 +349,102 @@ class SpectralLinear(LinearBase):
         if self.bias is not None:
             x += self.bias
         return x
+
+
+class DoublyStochasticLinear(LinearBase):
+    """
+    A doubly stochastic matrix is a real square matrix, with each column and each row summing to 1.
+    https://en.wikipedia.org/wiki/Doubly_stochastic_matrix
+    https://github.com/btaba/sinkhorn_knopp
+    https://github.com/HeddaCohenIndelman/Learning-Gumbel-Sinkhorn-Permutations-w-Pytorch
+    """
+    def __init__(self, insize, outsize, bias, **kwargs):
+        super().__init__(insize, outsize)
+
+
+class HamiltonianLinear(LinearBase):
+    """
+    https://en.wikipedia.org/wiki/Hamiltonian_matrix
+    """
+
+    def __init__(self, insize, outsize, bias, **kwargs):
+        super().__init__(insize, outsize)
+
+
+class SympleticLinear(LinearBase):
+    """
+    https://en.wikipedia.org/wiki/Symplectic_matrix
+    """
+
+    def __init__(self, insize, outsize, bias, **kwargs):
+        super().__init__(insize, outsize)
+
+
+class DiagDominantLinear(LinearBase):
+    """
+    A strictly diagonally dominant matrix is non-singular.
+    https://en.wikipedia.org/wiki/Diagonally_dominant_matrix
+    """
+
+    def __init__(self, insize, outsize, bias, **kwargs):
+        super().__init__(insize, outsize)
+
+
+class RegularSplitLinear(LinearBase):
+    """
+    Definition: A = B − C is a regular splitting of A if B^−1 ≥ 0 and C ≥ 0.
+    https://en.wikipedia.org/wiki/Matrix_splitting
+    """
+
+    def __init__(self, insize, outsize, bias, **kwargs):
+        super().__init__(insize, outsize)
+
+
+class DiagSplitLinear(LinearBase):
+    """
+    https://en.wikipedia.org/wiki/Matrix_splitting
+    https://en.wikipedia.org/wiki/Jacobi_method
+    """
+
+    def __init__(self, insize, outsize, bias, **kwargs):
+        super().__init__(insize, outsize)
+
+
+if __name__ == '__main__':
+    """
+    Tests
+    """
+    square = torch.rand(7, 7)
+    long = torch.rand(3, 7)
+    tall = torch.rand(7, 3)
+
+    done_linear = [Linear, NonnegativeLinear, LassoLinear,
+                   LeftStochasticLinear, RightStochasticLinear, PerronFrobeniusLinear,
+                   SymmetricLinear, SkewSymmetricLinear, SplitLinear, StableSplitLinear,
+                   SpectralLinear, SVDLinear]
+    square_linear = {SymmetricLinear, SkewSymmetricLinear, DoublyStochasticLinear}
+    for linear in done_linear:
+        print(linear)
+        map = linear(7, 7)
+        x = map(square)
+        assert (x.shape[0], x.shape[1]) == (7, 7)
+        x = map(long)
+        assert (x.shape[0], x.shape[1]) == (3, 7)
+
+    for linear in set(done_linear) - square_linear:
+        print(linear)
+        map = linear(3, 5)
+        x = map(tall)
+        assert (x.shape[0], x.shape[1]) == (7, 5)
+        map = linear(7, 3)
+        x = map(long)
+        assert (x.shape[0], x.shape[1]) == (3, 3)
+
+
+
+
+
+
+
 
 

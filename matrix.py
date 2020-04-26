@@ -22,7 +22,7 @@ class SoftOrthogonal(nn.Module):
         return OrthoError
 
 
-class InvertibleLinear(nn.Module):
+class SoftInvertible(nn.Module):
     """
     an invertible matrix is a square matrix A (weight), for which following holds:
     A*B = B*A = I

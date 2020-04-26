@@ -9,8 +9,10 @@ import scipy.misc
 
 import linear
 
+
 def get_modules(model):
     return {name: module for name, module in model.named_modules() if len(list(module.named_children())) == 0}
+
 
 def expand(x):
     """
@@ -88,6 +90,7 @@ class MLP(nn.Module):
         :param bias: Whether to use bias
         """
         super().__init__()
+        self.in_features, self.out_features = insize, outsize
         self.nhidden = len(hsizes)
         sizes = [insize] + hsizes + [outsize]
         self.nonlin = [nonlin]*self.nhidden + [nn.Identity()]
@@ -130,6 +133,7 @@ class ResMLP(MLP):
 
 class RNN():
     pass
+
 
 if __name__ == '__main__':
 

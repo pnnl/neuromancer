@@ -1,105 +1,31 @@
 # ML imports
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 # local imports
-from linear import SpectralLinear, PerronFrobeniusLinear, SVDLinear
+import linear
 
 
 class RNNCell(nn.Module):
-    def __init__(self, input_size, hidden_size, bias=True, nonlinearity=F.gelu):
+    def __init__(self, input_size, hidden_size, bias=True, nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
         super().__init__()
         self.input_size, self.hidden_size = input_size, hidden_size
         self.nonlin = nonlinearity
-        self.lin_in = nn.Linear(input_size, hidden_size, bias=bias)
-        self.lin_hidden = nn.Linear(hidden_size, hidden_size, bias=bias)
-        torch.nn.init.kaiming_uniform_(self.lin_in.weight)
-        torch.nn.init.eye_(self.lin_hidden.weight) + np.random.normal()*0.01
-        if bias:
-            torch.nn.init.zeros_(self.lin_in.bias)
+        self.lin_in = Linear(input_size, hidden_size, bias=bias, **linargs)
+        self.lin_hidden = Linear(hidden_size, hidden_size, bias=bias, **linargs)
+        if type(Linear) is linear.Linear():
+            torch.nn.init.orthogonal_(self.lin_hidden.linear.weight)
 
-    def forward(self, input, hidden):
-        return self.nonlin(self.lin_hidden(hidden) + self.lin_in(input))
-
-
-class SSMCell(nn.Module):
-    def __init__(self, nx, nu, nd, ny, stable=True, bias=False):
-        super().__init__()
-        if stable:
-            self.A = PerronFrobeniusLinear(nx, nx, bias=bias, sigma_min=0.95, sigma_max=1.0)
-        else:
-            self.A = nn.Linear(nx, nx, bias=bias)
-        self.B = nn.Linear(nu, nx, bias=bias)
-        self.E = nn.Linear(nd, nx, bias=bias)
-        self.C = nn.Linear(nx, ny, bias=bias)
-        self.hidden_size = nx + ny
-
-        with torch.no_grad():
-            self.C.weight.copy_(torch.tensor([[0.0, 0.0, 0.0, 1.0]]))
-
-        for param in self.C.parameters():
-            param.requires_grad = False
-
-    def forward(self, u_d, x_y):
-        u, d = u_d[:, :1], u_d[:, 1:]
-        x, y = x_y[:, :4], x_y[:, 4:]
-        x = self.A(x) + self.B(u) + self.E(d)
-        y = self.C(x)
-        x_y = torch.cat([x, y], dim=1)
-        return x_y
-
-
-class PerronFrobeniusCell(nn.Module):
-
-    def __init__(self, input_size, hidden_size, bias=True, nonlinearity=F.gelu):
-        super().__init__()
-        self.input_size, self.hidden_size = input_size, hidden_size
-        self.nonlin = nonlinearity
-        self.lin_in = PerronFrobeniusLinear(input_size, hidden_size, bias=bias, init='identity',
-                                            sigma_min=0.95, sigma_max=1.0)
-        self.lin_hidden = PerronFrobeniusLinear(hidden_size, hidden_size, bias=bias, init='identity',
-                                                sigma_min=0.95, sigma_max=1.0)
-
-    def forward(self, input, hidden):
-        return self.nonlin(.5*self.lin_hidden(hidden) + .5*self.lin_in(input))
-
-
-class SpectralCell(nn.Module):
-    def __init__(self, input_size, hidden_size, bias=True, nonlinearity=F.gelu):
-        super().__init__()
-        self.input_size, self.hidden_size = input_size, hidden_size
-        self.nonlin = nonlinearity
-        self.lin_in = nn.Linear(input_size, hidden_size, bias=bias)
-        self.lin_hidden = SpectralLinear(hidden_size, hidden_size, bias=bias)
-        torch.nn.init.kaiming_uniform_(self.lin_in.weight)
-        if bias:
-            torch.nn.init.zeros_(self.lin_in.bias)
-
-    def forward(self, input, hidden):
-        return self.nonlin(self.lin_hidden(hidden) + self.lin_in(input))
-
-
-class SVDCell(nn.Module):
-    def __init__(self, input_size, hidden_size, bias=True, nonlinearity=F.gelu):
-        super().__init__()
-        self.input_size, self.hidden_size = input_size, hidden_size
-        self.nonlin = nonlinearity
-        self.lin_in = SVDLinear(input_size, hidden_size, bias=bias)
-        self.lin_hidden = SVDLinear(hidden_size, hidden_size, bias=bias)
-        if bias:
-            torch.nn.init.zeros_(self.lin_in.bias)
-
-    @property
-    def spectral_error(self):
-        return self.lin_in.spectral_error + self.lin_hidden.spectral_error
+    def reg_error(self):
+        return (self.lin_in.reg_error() + self.lin_hidden.reg_error())/2.0
 
     def forward(self, input, hidden):
         return self.nonlin(self.lin_hidden(hidden) + self.lin_in(input))
 
 
 class RNN(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers=1, bias=False, nonlinearity=F.gelu, cell=RNNCell):
+    def __init__(self, input_size, hidden_size, num_layers=1,
+                 bias=False, nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
         """
 
         :param input_size:
@@ -109,6 +35,8 @@ class RNN(nn.Module):
         :param stable:
         """
         super().__init__()
+        cell = RNNCell(input_size, hidden_size, bias=bias, nonlinearity=nonlinearity,
+                       Linear=Linear, **linargs)
         rnn_cells = [cell(input_size, hidden_size, bias=bias, nonlinearity=nonlinearity)]
         rnn_cells += [cell(hidden_size, hidden_size, bias=bias, nonlinearity=nonlinearity)
                       for k in range(num_layers-1)]
@@ -116,12 +44,8 @@ class RNN(nn.Module):
         self.num_layers = len(rnn_cells)
         self.init_state = nn.Parameter(torch.zeros(self.num_layers, 1, rnn_cells[0].hidden_size))
 
-    @property
-    def spectral_error(self):
-        if type(self.rnn_cells[0]) is SVDCell:
-            return torch.mean(torch.stack([cell.spectral_error for cell in self.rnn_cells]))
-        else:
-            return 0.0
+    def reg_error(self):
+        return torch.mean(torch.stack([cell.reg_error() for cell in self.rnn_cells]))
 
     def forward(self, sequence):
         """

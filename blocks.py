@@ -100,9 +100,9 @@ class MLP(nn.Module):
                                             **linargs) for k in range(self.nhidden+1)])
 
     def reg_error(self):
-        return torch.sum([k.reg_error()
-                          for k in get_modules(self).values()
-                          if hasattr(k, 'reg_error')])
+        return sum([k.reg_error()
+                    for k in self.linear
+                    if hasattr(k, 'reg_error')])
 
     def forward(self, x):
         for lin, nlin in zip(self.linear, self.nonlin):
@@ -141,7 +141,7 @@ if __name__ == '__main__':
     y = torch.randn([25, 5])
     print(block(y).shape)
 
-    block = ResMLP(5, 7, hsizes=[64, 64, 64,64,64,64], skip=3, bias=True)
+    block = ResMLP(5, 7, hsizes=[64, 64, 64, 64, 64, 64], skip=3, bias=True)
     y = torch.randn([25, 5])
     print(block(y).shape)
 

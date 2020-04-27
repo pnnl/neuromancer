@@ -218,7 +218,6 @@ class StableSplitLinear(LinearBase):
 
     def effective_W(self):
          A = self.B.effective_W() - self.C.effective_W()
-         print(A.shape)
          return A
         
     def forward(self, x):
@@ -410,6 +409,12 @@ class DiagSplitLinear(LinearBase):
         super().__init__(insize, outsize)
 
 
+maps = [Linear, NonnegativeLinear, LassoLinear,
+        LeftStochasticLinear, RightStochasticLinear, PerronFrobeniusLinear,
+        SymmetricLinear, SkewSymmetricLinear, SplitLinear, StableSplitLinear,
+        SpectralLinear, SVDLinear]
+square_maps = {SymmetricLinear, SkewSymmetricLinear, DoublyStochasticLinear}
+
 if __name__ == '__main__':
     """
     Tests
@@ -418,12 +423,7 @@ if __name__ == '__main__':
     long = torch.rand(3, 7)
     tall = torch.rand(7, 3)
 
-    done_linear = [Linear, NonnegativeLinear, LassoLinear,
-                   LeftStochasticLinear, RightStochasticLinear, PerronFrobeniusLinear,
-                   SymmetricLinear, SkewSymmetricLinear, SplitLinear, StableSplitLinear,
-                   SpectralLinear, SVDLinear]
-    square_linear = {SymmetricLinear, SkewSymmetricLinear, DoublyStochasticLinear}
-    for linear in done_linear:
+    for linear in maps:
         print(linear)
         map = linear(7, 7)
         x = map(square)
@@ -431,7 +431,7 @@ if __name__ == '__main__':
         x = map(long)
         assert (x.shape[0], x.shape[1]) == (3, 7)
 
-    for linear in set(done_linear) - square_linear:
+    for linear in set(maps) - square_maps:
         print(linear)
         map = linear(3, 5)
         x = map(tall)

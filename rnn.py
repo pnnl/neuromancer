@@ -13,7 +13,7 @@ class RNNCell(nn.Module):
         self.nonlin = nonlinearity
         self.lin_in = Linear(input_size, hidden_size, bias=bias, **linargs)
         self.lin_hidden = Linear(hidden_size, hidden_size, bias=bias, **linargs)
-        if type(Linear) is linear.Linear():
+        if type(Linear) is linear.Linear:
             torch.nn.init.orthogonal_(self.lin_hidden.linear.weight)
 
     def reg_error(self):
@@ -35,14 +35,14 @@ class RNN(nn.Module):
         :param stable:
         """
         super().__init__()
-        cell = RNNCell(input_size, hidden_size, bias=bias, nonlinearity=nonlinearity,
-                       Linear=Linear, **linargs)
-        rnn_cells = [cell(input_size, hidden_size, bias=bias, nonlinearity=nonlinearity)]
-        rnn_cells += [cell(hidden_size, hidden_size, bias=bias, nonlinearity=nonlinearity)
+        rnn_cells = [RNNCell(input_size, hidden_size, bias=bias, nonlinearity=nonlinearity,
+                     Linear=Linear, **linargs)]
+        rnn_cells += [RNNCell(hidden_size, hidden_size, bias=bias, nonlinearity=nonlinearity,
+                      Linear=Linear, **linargs)
                       for k in range(num_layers-1)]
         self.rnn_cells = nn.ModuleList(rnn_cells)
         self.num_layers = len(rnn_cells)
-        self.init_state = nn.Parameter(torch.zeros(self.num_layers, 1, rnn_cells[0].hidden_size))
+        self.init_states = [nn.Parameter(torch.zeros(1, cell.hidden_size)) for cell in self.rnn_cells]
 
     def reg_error(self):
         return torch.mean(torch.stack([cell.reg_error() for cell in self.rnn_cells]))
@@ -56,12 +56,35 @@ class RNN(nn.Module):
         - h_n: (num_layers, batch, hidden_size)
         """
         final_hiddens = []
-        for h, cell in zip(self.init_state, self.rnn_cells):
+        for h, cell in zip(self.init_states, self.rnn_cells):
             states = []
             for seq_idx, cell_input in enumerate(sequence):
                 h = cell(cell_input, h)
                 states.append(h.unsqueeze(0))
-            states = torch.cat(states, 0)
+            sequence = torch.cat(states, 0)
             final_hiddens.append(h)
         final_hiddens = torch.cat(final_hiddens, 0)
-        return states, final_hiddens
+        return sequence, final_hiddens
+
+
+if __name__ == '__main__':
+    x = torch.rand(20, 5, 7)
+    for map in linear.maps:
+        rnn = RNN(7, 7, num_layers=1, Linear=map)
+        out = rnn(x)
+        print(out[0].shape, out[1].shape)
+
+    for map in set(linear.maps) - linear.square_maps:
+        rnn = RNN(7, 64, num_layers=1, Linear=map)
+        out = rnn(x)
+        print(out[0].shape, out[1].shape)
+
+    for map in linear.maps:
+        rnn = RNN(7, 7, num_layers=5, Linear=map)
+        out = rnn(x)
+        print(out[0].shape, out[1].shape)
+
+    for map in set(linear.maps) - linear.square_maps:
+        rnn = RNN(7, 64, num_layers=5, Linear=map)
+        out = rnn(x)
+        print(out[0].shape, out[1].shape)

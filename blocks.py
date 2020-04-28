@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import scipy.misc
-
 import linear
 
 
@@ -47,6 +46,10 @@ class Bilinear(nn.Module):
         return self.linear(expand(x))
 
 
+class SoftExponential(nn.Module):
+    pass
+# https://arxiv.org/abs/1602.01321
+
 class Fourier(nn.Module):
     pass
 
@@ -57,7 +60,6 @@ class Chebyshev(nn.Module):
 
 class Polynomial(nn.Module):
     pass
-
 
 class Multinomial(nn.Module):
     
@@ -134,6 +136,10 @@ class ResMLP(MLP):
 class RNN():
     pass
 
+
+# Some other options for activation functions
+# https://towardsdatascience.com/extending-pytorch-with-custom-activation-functions-2d8b065ef2fa
+# https://github.com/Lexie88rus/Activation-functions-examples-pytorch/blob/master/custom_activations_example.py
 
 if __name__ == '__main__':
 

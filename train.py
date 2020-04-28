@@ -25,6 +25,17 @@ Normalization:
 
 Several hyperparameter choices are also available and described in the argparse.
 """
+"""
+TODO: training options:
+1, control via closed loop model
+        trainable modules: SSM + estim + policy
+        choices: fully/partially observable, w/wo measured disturbances d, SSM given or learned
+2, sytem ID via open loop model
+        trainable modules: SSM + estim
+        choices: fully/partially observable, w/wo measured disturbances d
+3, time series
+        trainable modules: SSM + estim
+"""
 # python imports
 import os
 import argparse
@@ -40,7 +51,8 @@ import matplotlib.pyplot as plt
 from plot import plot_trajectories
 from data import make_dataset, Load_data_sysID
 from ssm import BlockSSM
-import state_estimator as se
+import estimators as se
+# import policies as pol
 from linear import Linear
 import rnn
 

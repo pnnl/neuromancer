@@ -1,34 +1,20 @@
 """
-SSM
-"""
+state space models (SSM)
+x: states
+y: predicted outputs
+u: control inputs
+d: uncontrolled inputs (measured disturbances)
 
-"""
-unstructured dynamical models
+unstructured dynamical models:
 x+ = f(x,u,d)
-y =  m(x)
-    
-Block dynamical models 
-x+ = f1(x) o f2(x)  o g(u) o h(d)
-y =  m(x)
+y =  fy(x)
+
+Block dynamical models:
+x+ = fx(x) o fu(u) o fd(d)
+y =  fy(x)
 
 o = operator, e.g., +, or *
 any operation perserving dimensions
-
-estimator and policy - possibly structured
-x = estim(y,u,d)
-u = policy(x,u,d)
-
-generic closed-loop dynamics: 
-    
-SSM
-x+ = fx(x) o fu(u) o fd(d)
-y =  fy(x)
-        
-state_estimators.py
-x = estim(y_p,u_p,d_p)
-        
-policies.py
-x = policy(x,d)
 """
 # pytorch imports
 import torch
@@ -38,7 +24,6 @@ import torch.nn.functional as F
 from blocks import MLP
 
 
-# TODO: generic HW-SSM
 def get_modules(model):
     return {name: module for name, module in model.named_modules()
             if len(list(module.named_children())) == 0}
@@ -62,7 +47,7 @@ class BlockSSM(nn.Module):
         :param xod: Shape preserving binary operator (e.g. +, -, *)
         """
         """
-        generic system dynamics:   
+        generic structured system dynamics:   
         # x+ = fx(x) o fu(u) o fd(d)
         # y =  fy(x)
         """
@@ -97,7 +82,11 @@ class BlockSSM(nn.Module):
 
     def running_mean(self, mu, x, n):
         return mu + (1/n)*(x - mu)
-    
+
+#   TODO: shall we create separate module called constraints as a wrapper for the SSM?
+#   by doing so we can avoid   con_init and reg_weight_init within SSM and move it out
+#   moreover we could use the same constraints modules on policies and estimators
+
 #    include regularization in each module in the framework
     def regularize(self, x_prev, x, fu, fd, N):
         
@@ -143,6 +132,16 @@ class BlockSSM(nn.Module):
             Y.append(y)
             self.regularize(x_prev, x, fu, fd, N)
         return torch.stack(X), torch.stack(Y), self.reg_error()
+
+
+class BlackSSM(nn.Module):
+    """
+    generic unstructured system dynamics:
+    # x+ = fx(x,u,d)
+    # y =  fy(x)
+    """
+    pass
+
 
 
 if __name__ == '__main__':

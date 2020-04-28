@@ -227,6 +227,7 @@ class StableSplitLinear(LinearBase):
 class SVDLinear(LinearBase):
     def __init__(self, insize, outsize, bias=False, sigma_min=0.1, sigma_max=1, **kwargs):
         """
+        
         SVD based regularization of matrix A
         A = U*Sigma*V
         U,V = unitary matrices (orthogonal for real matrices A)

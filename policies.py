@@ -1,0 +1,113 @@
+"""
+policies for SSM models
+x: states
+u: control inputs
+d: uncontrolled inputs (measured disturbances)
+r: reference signals
+
+generic mapping:
+u = policy(x,u,d,r)
+"""
+
+# pytorch imports
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import linear
+from blocks import MLP
+from rnn import RNN, RNNCell
+from ssm import BlockSSM
+
+
+# this option could be used for system ID with given U
+class StaticPolicy(nn.Module):
+    pass
+
+class LinearPolicy(nn.Module):
+    def __init__(self, nx, nu, nd, ny, N=1, bias=False,
+                 Linear=linear.Linear, **linargs):
+        """
+
+        :param nx: (int) dimension of state
+        :param nu: (int) dimension of inputs
+        :param nd: (int) dimension of disturbances
+        :param ny: (int) dimension of observation/reference
+        :param N: (int) prediction horizon
+        """
+        super().__init__()
+        self.nx, self.nu, self.nd, self.ny, self.N = nx, nu, nd, ny, N
+        self.linear = Linear(nx+N*(nd+ny), N*nu, bias=bias, **linargs)
+
+#   shall we create separate module called constraints and passing various options as arguments here?
+    def regularize(self):
+        pass
+
+    def reg_error(self):
+        return self.linear.reg_error()
+
+    def forward(self, x, D, R, *args):
+        D = D.reshape(-1, self.N * self.nd)
+        R = R.reshape(-1, self.N * self.ny)
+        x = x.reshape(-1, self.nx)
+        xi = torch.cat((x, D, R), 1)
+        return self.linear(xi)
+
+
+class MLPPolicy(nn.Module):
+    def __init__(self, nx, nu, nd, ny, N=1, bias=True,
+                 Linear=linear.Linear, nonlin=F.relu, hsizes=[64], **linargs):
+        super().__init__()
+        self.nx, self.nu, self.nd, self.ny, self.N = nx, nu, nd, ny, N
+        self.net = MLP(nx+N*(nd+ny), N*nu, bias=bias,
+                       Linear=Linear, nonlin=nonlin, hsizes=hsizes, **linargs)
+
+    def reg_error(self):
+        return self.net.reg_error()
+
+    def forward(self, x, D, R, *args):
+        D = D.reshape(-1, self.N * self.nd)
+        R = R.reshape(-1, self.N * self.ny)
+        x = x.reshape(-1, self.nx)
+        xi = torch.cat((x, D, R), 1)
+        return self.net(xi)
+
+
+
+class RNNPolicy(nn.Module):
+    def __init__(self, nx, nu, nd, ny, N=1, bias=False, num_layers=1,
+                 nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
+        super().__init__()
+        self.nx, self.nu, self.nd, self.ny, self.N = nx, nu, nd, ny, N
+        self.RNN = RNN(nx+N*(nd+ny), N*nu, num_layers=num_layers,
+                       bias=bias, nonlinearity=nonlinearity, Linear=Linear, **linargs)
+
+    def reg_error(self):
+        return self.RNN.reg_error()
+
+    def forward(self, x, D, R, *args):
+        D = D.reshape(-1, self.N * self.nd)
+        R = R.reshape(-1, self.N * self.ny)
+        x = x.reshape(-1, self.nx)
+        xi = torch.cat((x, D, R), 1)
+        return self.RNN(xi)[0].reshape(-1, self.N * self.nu)
+
+
+# similar structure to Linear Kalman Filter
+class LQRPolicy(nn.Module):
+    pass
+
+
+
+policies = [LinearPolicy, MLPPolicy, RNNPolicy]
+
+
+if __name__ == '__main__':
+    nx, ny, nu, nd = 15, 7, 5, 3
+    N = 40
+    R = torch.rand(100, N, ny)
+    D = torch.rand(100, N, nd)
+    x = torch.rand(100, 1, nx)
+
+    for pol in policies:
+        p = pol(nx, nu, nd, ny, N)
+        print(p(x, D, R).shape)

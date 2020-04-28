@@ -25,6 +25,7 @@ def Load_data_sysID(file_path='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.
     Y = file.get("y", None)  # outputs
     U = file.get("u", None)  # inputs
     D = file.get("d", None)  # disturbances
+    U, D = Y, Y  # TODO: remove this when we generalize
     Ts = file.get("Ts", None)  # sampling time
 
     if 'U' in norm and U is not None:
@@ -102,10 +103,18 @@ def make_dataset(Y, U, D, Ts, nsteps, device):
     if U is not None:
         data += [U[:-nsteps], U[nsteps:]]
         sizes += [U.shape[1], U.shape[1]]
+    else: # TODO: remove
+        data += [Y[:-nsteps], Y[nsteps:]]
+        sizes += [Y.shape[1], Y.shape[1]]
     # Disturbances: data for past and future moving horizons    
     if D is not None:
         data += [D[:-nsteps], D[nsteps:]]
         sizes += [D.shape[1], D.shape[1]]
+    else: # TODO: remove
+        data += [Y[:-nsteps], Y[nsteps:]]
+        sizes += [Y.shape[1], Y.shape[1]]
+
+
 
     data = np.concatenate(data, axis=1)
 

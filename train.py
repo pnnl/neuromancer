@@ -40,7 +40,7 @@ import matplotlib.pyplot as plt
 from plot import plot_trajectories
 from data import make_dataset, Load_data_sysID
 from ssm import BlockSSM
-import state_estimators as se
+import state_estimator as se
 from linear import Linear
 import rnn
 
@@ -70,10 +70,9 @@ def parse_args():
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     # model_group.add_argument('-ssm_type', type=str, choices=['GT', 'linear', 'pf', 'svd', 'spectral'], default='linear')
     model_group.add_argument('-nx_hidden', type=int, default=40, help='Number of hidden states')
-    # model_group.add_argument('-state_estimator', type=str,
-    #                          choices=['GT', 'linear', 'pf', 'mlp', 'rnn',
-    #                                   'rnn_pf', 'rnn_spectral', 'rnn_svd', 'kf'], default='pf')
-    # model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
+    model_group.add_argument('-state_estimator', type=str,
+                             choices=['linear', 'mlp', 'rnn', 'kf'], default='linear')
+    model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-constr', action='store_true', default=True,
                              help='Whether to use constraints in the neural network models.')
 
@@ -113,10 +112,11 @@ def step(model, state_estimator, data):
         x0_in = state_estimator(Y_p, U_p, D_p)
     else:
         x0_in = Y_p[0]  # TODO: Is this what we want here?
-    Y_pred, U_pred, regularization_error = model(x0_in, U_p, D_p)
-    loss = Q_y * F.mse_loss(Y_pred.squeeze(), Y_target.squeeze())
+    X_pred, Y_pred, regularization_error = model(x0_in, U_p, D_p)
+    print(Y_pred.shape, Y_f.shape)
+    loss = Q_y * F.mse_loss(Y_pred.squeeze(), Y_f.squeeze())
     regularization_error += args.Q_estim * state_estimator.reg_error()
-    return Y_pred, U_pred, loss, regularization_error
+    return X_pred, Y_pred, loss, regularization_error
 
 
 if __name__ == '__main__':
@@ -140,12 +140,8 @@ if __name__ == '__main__':
     if args.gpu != 'cpu':
         device = f'cuda:{args.gpu}'
 
-    Y, U, D, Ts = Load_data_sysID(args.datapath)
-    ny, nu = Y.shape[1], U.shape[1]
-    if D is not None:
-        nd = D.shape[1]
-    nx = args.nx_hidden
-
+    Y, U, D, Ts = Load_data_sysID(args.datafile)
+    nx, nu, nd, ny = args.nx_hidden, U.shape[1], D.shape[1], Y.shape[1]
     train_data, dev_data, test_data = make_dataset(Y, U, D, Ts, args.nsteps, device)
 
 
@@ -200,7 +196,7 @@ if __name__ == '__main__':
         ###################################
         with torch.no_grad():
             model.eval()
-            Y_pred, U_pred, dev_loss, dev_reg = step(model, state_estimator, dev_data)
+            X_pred, Y_pred, dev_loss, dev_reg = step(model, state_estimator, dev_data)
             if dev_loss < best_dev:
                 best_model = deepcopy(model.state_dict())
                 best_dev = dev_loss
@@ -223,31 +219,28 @@ if __name__ == '__main__':
         args.constr = False
         Q_y = 1.0
         #    TRAIN SET
-        Y_out, U_out, train_loss, train_reg = step(model, state_estimator, train_data)
+        X_out, Y_out, train_loss, train_reg = step(model, state_estimator, train_data)
         if args.mlflow:
             mlflow.log_metric({'nstep_train_loss': train_loss.item(), 'nstep_train_reg': train_reg.item()})
         Y_target = train_data[1]
         ypred = Y_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)
         ytrue = Y_target.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)
-        upred = U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nu)
 
         #   DEV SET
-        Y_out, U_out, dev_loss, dev_reg = step(model, state_estimator, dev_data)
+        X_out, Y_out, dev_loss, dev_reg = step(model, state_estimator, dev_data)
         if args.mlflow:
             mlflow.log_metric({'nstep_dev_loss': dev_loss.item(),'nstep_dev_reg': dev_reg.item()})
         Y_target_dev = dev_data[1]
         devypred = Y_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)
         devytrue = Y_target_dev.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)
-        devupred = U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nu)
 
         #   TEST SET
-        Y_out, U_out, test_loss, test_reg = step(model, state_estimator, test_data)
+        X_out, Y_out, test_loss, test_reg = step(model, state_estimator, test_data)
         if args.mlflow:
             mlflow.log_metric({'nstep_train_loss': train_loss.item(),'nstep_test_reg': test_reg.item()})
         Y_target_tst = test_data[1]
         testypred = Y_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)
         testytrue = Y_target_tst.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)
-        testupred = U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nu)
 
         plot_trajectories([np.concatenate([ytrue[:, k], devytrue[:, k], testytrue[:, k]])
                            for k in range(ypred.shape[1])],

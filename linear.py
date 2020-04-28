@@ -75,7 +75,7 @@ class RightStochasticLinear(LinearBase):
     A right stochastic matrix is a real square matrix, with each row summing to 1.
     https://en.wikipedia.org/wiki/Stochastic_matrix
     """
-    def __init__(self, insize, outsize, bias=False):
+    def __init__(self, insize, outsize, bias=False, **kwargs):
         super().__init__(insize, outsize)
         self.weight = nn.Parameter(torch.rand(insize, outsize))
         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
@@ -93,7 +93,7 @@ class LeftStochasticLinear(LinearBase):
     A left stochastic matrix is a real square matrix, with each column summing to 1.
     https://en.wikipedia.org/wiki/Stochastic_matrix
     """
-    def __init__(self, insize, outsize, bias=False):
+    def __init__(self, insize, outsize, bias=False, **kwargs):
         super().__init__(insize, outsize)
         self.weight = nn.Parameter(torch.rand(insize, outsize)) 
         self.do_bias = bias
@@ -150,7 +150,7 @@ class SymmetricLinear(LinearBase):
     A = A^T
     https://en.wikipedia.org/wiki/Symmetric_matrix
     """
-    def __init__(self, insize, outsize, bias=False):
+    def __init__(self, insize, outsize, bias=False, **kwargs):
         assert insize == outsize, 'skew-symmetric matrices must be square'
         super().__init__(insize, outsize)
         self.weight = nn.Parameter(torch.rand(insize, insize)) # identity matrix with small noise
@@ -171,7 +171,7 @@ class SkewSymmetricLinear(LinearBase):
     A = -A^T
     https://en.wikipedia.org/wiki/Skew-symmetric_matrix
     """
-    def __init__(self, insize, outsize, bias=False):
+    def __init__(self, insize, outsize, bias=False, **kwargs):
         assert insize == outsize, 'skew-symmetric matrices must be square'
         super().__init__(insize, outsize)
         self.weight = nn.Parameter(torch.randn(insize, outsize))
@@ -191,7 +191,7 @@ class SplitLinear(LinearBase):
     A = B − C, with B ≥ 0 and C ≥ 0.
     https://en.wikipedia.org/wiki/Matrix_splitting
     """
-    def __init__(self, insize, outsize, bias=False):
+    def __init__(self, insize, outsize, bias=False, **kwargs):
         super().__init__(insize, outsize)
         self.B = NonnegativeLinear(insize, outsize, bias)
         self.C = NonnegativeLinear(insize, outsize, bias)
@@ -210,7 +210,7 @@ class StableSplitLinear(LinearBase):
     A = B − C, with stable B and stable C
     https://en.wikipedia.org/wiki/Matrix_splitting
     """
-    def __init__(self, insize, outsize, bias=False, sigma_min=0.1, sigma_max=1.0):
+    def __init__(self, insize, outsize, bias=False, sigma_min=0.1, sigma_max=1.0, **kwargs):
         super().__init__(insize, outsize)
         self.B = PerronFrobeniusLinear(insize, outsize, bias, sigma_max, sigma_max)
         self.C = PerronFrobeniusLinear(insize, outsize, bias, 0, sigma_max-sigma_min)
@@ -269,7 +269,7 @@ class SpectralLinear(LinearBase):
     """
 
     def __init__(self, insize, outsize, bias=False,
-                 n_U_reflectors=3, n_V_reflectors=3, sigma_min=0.6, sigma_max=1.0):
+                 n_U_reflectors=3, n_V_reflectors=3, sigma_min=0.6, sigma_max=1.0, **kwargs):
         """
 
         :param insize: (int) Dimension of input vectors

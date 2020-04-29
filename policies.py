@@ -50,7 +50,7 @@ class LinearPolicy(nn.Module):
         R = R.reshape(-1, self.N * self.ny)
         x = x.reshape(-1, self.nx)
         xi = torch.cat((x, D, R), 1)
-        return self.linear(xi)
+        return self.linear(xi), self.reg_error()
 
 
 class MLPPolicy(nn.Module):
@@ -69,7 +69,7 @@ class MLPPolicy(nn.Module):
         R = R.reshape(-1, self.N * self.ny)
         x = x.reshape(-1, self.nx)
         xi = torch.cat((x, D, R), 1)
-        return self.net(xi)
+        return self.net(xi), self.reg_error()
 
 
 
@@ -89,7 +89,7 @@ class RNNPolicy(nn.Module):
         R = R.reshape(-1, self.N * self.ny)
         x = x.reshape(-1, self.nx)
         xi = torch.cat((x, D, R), 1)
-        return self.RNN(xi)[0].reshape(-1, self.N * self.nu)
+        return self.RNN(xi)[0].reshape(-1, self.N * self.nu), self.reg_error()
 
 
 # similar structure to Linear Kalman Filter
@@ -110,4 +110,5 @@ if __name__ == '__main__':
 
     for pol in policies:
         p = pol(nx, nu, nd, ny, N)
-        print(p(x, D, R).shape)
+        p_out = p(x, D, R)
+        print(p_out[0].shape, p_out[1].shape)

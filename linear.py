@@ -14,7 +14,7 @@ class LinearBase(nn.Module, ABC):
         self.in_features, self.out_features = insize, outsize
 
     def reg_error(self):
-        return 0.0
+        return torch.zeros(1)
 
     @abstractmethod
     def effective_W(self):

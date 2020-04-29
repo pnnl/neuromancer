@@ -146,11 +146,12 @@ class BlackSSM(nn.Module):
 
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 3
+    N = 25
     fx, fu, fd = [MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx, nu, nd]]
     fy = MLP(nx, ny, hsizes=[64, 64, 64])
-    ssm = BlockSSM(nx, nu, nd, ny, fx, fu, fd, fy)
-    x = torch.rand(25, nx)
-    U = torch.rand(100, 25, nu)
-    D = torch.rand(100, 25, nd)
-    output = ssm(x, U, D)
+    model = BlockSSM(nx, nu, nd, ny, fx, fu, fd, fy)
+    x = torch.rand(N, nx)
+    U = torch.rand(100, N, nu)
+    D = torch.rand(100, N, nd)
+    output = model(x, U, D)
     print(output[0].shape, output[1].shape, output[2])

@@ -124,7 +124,7 @@ def step(model, state_estimator, data):
         x0_in = state_estimator(Y_p, U_p, D_p)
     else:
         x0_in = Y_p[0]  # TODO: Is this what we want here?
-    X_pred, Y_pred, regularization_error = model(x0_in, U_p, D_p)
+    X_pred, Y_pred, regularization_error = model(x0_in, U_f, D_f)
     print(Y_pred.shape, Y_f.shape)
     loss = Q_y * F.mse_loss(Y_pred.squeeze(), Y_f.squeeze())
     regularization_error += args.Q_estim * state_estimator.reg_error()

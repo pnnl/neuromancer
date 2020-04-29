@@ -77,6 +77,12 @@ class dxPenalty(nn.Module):
         return dx
 
 
+
+class QuadraticPenalty(nn.Module):
+    pass
+# https://en.wikipedia.org/wiki/Quadratically_constrained_quadratic_program
+# do we need this? or can we just use the min max constraints on the outputs of Polynomial block?
+
 constraints = [MinPenalty, MaxPenalty, MinMaxPenalty, dxPenalty]
 
 

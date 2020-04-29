@@ -13,10 +13,10 @@ u = policy(x,u,d,r)
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+#local imports
 import linear
 from blocks import MLP
 from rnn import RNN, RNNCell
-from ssm import BlockSSM
 
 
 # this option could be used for system ID with given U
@@ -103,10 +103,12 @@ policies = [LinearPolicy, MLPPolicy, RNNPolicy]
 
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 3
-    N = 40
-    R = torch.rand(100, N, ny)
-    D = torch.rand(100, N, nd)
-    x = torch.rand(100, 1, nx)
+    N = 10
+    samples = 100
+    # Data format: (N,samples,dim)
+    x = torch.rand(samples, nx)
+    D = torch.rand(N, samples, nd)
+    R = torch.rand(N, samples, ny)
 
     for pol in policies:
         p = pol(nx, nu, nd, ny, N)

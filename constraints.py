@@ -18,8 +18,12 @@ Types of constaints:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import linear
+#local imports
 
+
+# TODO: should we define the constraints as functions instead of modules?
+# would make sense as they have no learnable parameters
+# alternatively we could create a learnable variants where bounds would be parameters and not inputs
 
 class MinPenalty(nn.Module):
     def __init__(self, penalty=F.relu, **linargs):
@@ -88,11 +92,13 @@ constraints = [MinPenalty, MaxPenalty, MinMaxPenalty, dxPenalty]
 
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 3
-    N = 40
-    x = torch.rand(100, N, nx)
-    x_prev = torch.rand(100, N, nx)
-    x_min = 0.25*torch.ones(100, N, nx)
-    x_max = 0.75*torch.rand(100, N, nx)
+    N = 10
+    samples = 100
+    # Data format: (N,samples,dim)
+    x = torch.rand(N, samples, nx)
+    x_prev = torch.rand(N, samples, nx)
+    x_min = 0.25*torch.ones(N, samples, nx)
+    x_max = 0.75 * torch.ones(N, samples, nx)
 
     xmin_con = MinPenalty()
     xmax_con = MaxPenalty()

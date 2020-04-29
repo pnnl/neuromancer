@@ -22,13 +22,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 # local imports
 from blocks import MLP
+import constraints
 
 
 def get_modules(model):
     return {name: module for name, module in model.named_modules()
             if len(list(module.named_children())) == 0}
 
-
+# TODO: shall we have a flexible definition of the blocks?
+#  e.g. if fu and fd are not defined they are assigned None
+#  and the forward pass changes accordingly
 # smart ways of initializing the weights?
 class BlockSSM(nn.Module):
     def __init__(self, nx, nu, nd, ny, fx, fu, fd, fy,
@@ -135,28 +138,33 @@ class BlockSSM(nn.Module):
 
 
 class BlackSSM(nn.Module):
-    def __init__(self, nx, nu, nd, ny, fx, fy,
+    def __init__(self, nx, nu, nd, ny, fxud, fy,
                  xou=torch.add, xod=torch.add):
         """
         :param nx: (int) dimension of state
         :param nu: (int) dimension of inputs
         :param nd: (int) dimension of disturbances
         :param ny: (int) dimension of observation
-        :param fx: function R^{nx} -> R^(nx}
+        :param fxud: function R^{nx+nu+nd} -> R^(nx}
         :param fy: function R^{nx} -> R^(ny}
 
         generic unstructured system dynamics:
-        # x+ = fx(x,u,d)
+        # x+ = fxud(x,u,d)
         # y =  fy(x)
         """
         super().__init__()
-        assert fx.in_features == nx+nu+nd, "Mismatch in input function size"
-        assert fx.out_features == nx, "Mismatch in input function size"
+        # TODO: instead of assert on fxud input features dims, we can have if else statement
+        #  and change the forward pass accordingly
+        # if fxud.in_features == nx: time series problem
+        # if fxud.in_features == nx+nu: system ID problem without disturbances
+        # if fxud.in_features == nx+nu+d: system ID problem with disturbances
+        assert fxud.in_features == nx+nu+nd, "Mismatch in input function size"
+        assert fxud.out_features == nx, "Mismatch in input function size"
         assert fy.in_features == nx, "Mismatch in observable output function size"
         assert fy.out_features == ny, "Mismatch in observable output function size"
 
         self.nx, self.nu, self.nd, self.ny = nx, nu, nd, ny
-        self.fx, self.fy = fx, fy
+        self.fxud, self.fy = fxud, fy
 
         # Regularization Initialization
         self.xmin, self.xmax, self.umin, self.umax = self.con_init()
@@ -185,7 +193,7 @@ class BlackSSM(nn.Module):
         self.sdx_x = self.running_mean(self.sdx_x, torch.mean((x - x_prev) * (x - x_prev)), N)
         # submodules regularization penalties
         self.s_sub = self.running_mean(self.s_sub, sum([k.reg_error() for k in
-                                                        [self.fx, self.fy]
+                                                        [self.fxud, self.fy]
                                                         if hasattr(k, 'reg_error')]), N)
     def reg_error(self):
         error = sum([self.Q_con_x * self.sxmin, self.Q_con_x * self.sxmax,
@@ -203,7 +211,7 @@ class BlackSSM(nn.Module):
             N += 1
             x_prev = x
             xi = torch.cat([x, u, d], dim=1)
-            x = self.fx(xi)
+            x = self.fxud(xi)
             y = self.fy(x)
             X.append(x)
             Y.append(y)
@@ -213,10 +221,12 @@ class BlackSSM(nn.Module):
 
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 3
-    N = 25
-    x = torch.rand(N, nx)
-    U = torch.rand(100, N, nu)
-    D = torch.rand(100, N, nd)
+    N = 10
+    samples = 100
+    # Data format: (N,samples,dim)
+    x = torch.rand(samples, nx)
+    U = torch.rand(N, samples, nu)
+    D = torch.rand(N, samples, nd)
 
     # block SSM
     fx, fu, fd = [MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx, nu, nd]]
@@ -225,7 +235,7 @@ if __name__ == '__main__':
     output = model(x, U, D)
     print(output[0].shape, output[1].shape, output[2])
     # black box SSM
-    fx = MLP(nx+nu+nd, nx, hsizes=[64, 64, 64])
-    model = BlackSSM(nx, nu, nd, ny, fx, fy)
+    fxud = MLP(nx+nu+nd, nx, hsizes=[64, 64, 64])
+    model = BlackSSM(nx, nu, nd, ny, fxud, fy)
     output = model(x, U, D)
     print(output[0].shape, output[1].shape, output[2])

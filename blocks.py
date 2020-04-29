@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import scipy.misc
+#local imports
 import linear
 
 
@@ -132,14 +133,10 @@ class ResMLP(MLP):
                 px = x
         return self.linear[-1](x) + self.outmap(px)
 
-
+# TODO: shall we move rnn.py here?
 class RNN():
     pass
 
-
-# Some other options for activation functions
-# https://towardsdatascience.com/extending-pytorch-with-custom-activation-functions-2d8b065ef2fa
-# https://github.com/Lexie88rus/Activation-functions-examples-pytorch/blob/master/custom_activations_example.py
 
 if __name__ == '__main__':
 

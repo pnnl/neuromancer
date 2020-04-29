@@ -19,6 +19,19 @@ from rnn import RNN, RNNCell
 from ssm import BlockSSM
 
 
+
+class FullyObservable(nn.Module):
+    def __init__(self, *args, **linargs):
+        super().__init__()
+
+    def reg_error(self):
+        return torch.zeros(1)
+
+    def forward(self, Ym, *args):
+        return Ym[-1], self.reg_error()
+
+
+
 class LinearEstimator(nn.Module):
     def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, **linargs):
         super().__init__()
@@ -44,7 +57,7 @@ class MLPEstimator(nn.Module):
     def forward(self, Ym, *args):
         return self.net(Ym[-1]), self.reg_error()
 
-
+# TODO: issue with the RNNestimator returning zero dimensional vector for self.reg_error()
 class RNNEstimator(nn.Module):
     def __init__(self, input_size, hidden_size, bias=False, num_layers=1,
                  nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
@@ -111,24 +124,33 @@ class ExtendedKalmanFilter(nn.Module):
 
 
 
-estimators = [LinearEstimator, MLPEstimator, RNNEstimator]
+estimators = [FullyObservable, LinearEstimator, MLPEstimator, RNNEstimator]
 
 
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 3
     N = 40
-    Y = torch.rand(100, N, ny)
-    U = torch.rand(100, N, nu)
-    D = torch.rand(100, N, nd)
+    samples = 100
+    # Data format: (N,samples,dim)
+    Y = torch.rand(N, samples, ny)
+    U = torch.rand(N, samples, nu)
+    D = torch.rand(N, samples, nd)
 
     for est in estimators:
-        for lin in set(linear.maps) - linear.square_maps:
-            e = est(ny, 15)
-            e_out = e(Y, U, D)
-            print(e_out[0].shape, e_out[1].shape)
-            e = est(ny, 3)
-            e_out = e(Y, U, D)
-            print(e_out[0].shape, e_out[1].shape)
+        e = est(ny, 15)
+        e_out = e(Y, U, D)
+        print(e_out[0].shape, e_out[1].shape)
+        e = est(ny, 3)
+        e_out = e(Y, U, D)
+        print(e_out[0].shape, e_out[1].shape)
+        # TODO: error in some linear maps
+        # for lin in set(linear.maps) - linear.square_maps:
+        #     e = est(ny, 15, False, lin)
+        #     e_out = e(Y, U, D)
+        #     print(e_out[0].shape, e_out[1].shape)
+        #     e = est(ny, 3, False, lin)
+        #     e_out = e(Y, U, D)
+        #     print(e_out[0].shape, e_out[1].shape)
 
     fx, fu, fd = [linear.Linear(insize, nx) for insize in [nx, nu, nd]]
     fy = linear.Linear(nx, ny)
@@ -136,7 +158,6 @@ if __name__ == '__main__':
     est = LinearKalmanFilter(model)
     est_out = est(Y, U, D)
     print(est_out[0].shape, est_out[1].shape)
-# TODO: issue with the estimator switching 0th index with 1st index
 
 
 

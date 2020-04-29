@@ -21,8 +21,7 @@ policy from  policies.py
 # pytorch imports
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import linear
+#local imports
 import estimators
 import policies
 import ssm
@@ -73,9 +72,11 @@ class ClosedLoop(nn.Module):
         self.policy = policy
 
     def forward(self, Yp, Up, Dp, Df, Rf):
-
         x0, reg_error_estim = self.estim(Yp, Up, Dp)
         Uf, reg_error_policy = self.policy(x0, Df, Rf)
+        Uf = Uf.unsqueeze(2).reshape(Uf.shape[0], self.model.nu, -1)
+        Uf = Uf.permute(2,0,1)
+        # Uf = Uf.reshape(Rf.shape[0], -1, self.model.nu)  # not sure if it does not shuffle
         Xf, Yf, reg_error_model = self.model(x0, Uf, Df)
         reg_error = reg_error_model + reg_error_policy + reg_error_estim
         return Xf, Yf, Uf, reg_error
@@ -83,14 +84,17 @@ class ClosedLoop(nn.Module):
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 3
     Np = 2
-    Nf = 2
-    Yp = torch.rand(100, Np, ny)
-    Up = torch.rand(100, Np, nu)
-    Uf = torch.rand(100, Nf, nu)
-    Dp = torch.rand(100, Np, nd)
-    Df = torch.rand(100, Nf, nd)
-    Rf = torch.rand(100, Nf, ny)
-    x0 = torch.rand(100, 1, nx)
+    Nf = 10
+    samples = 100
+    # Data format: (N,samples,dim)
+    x = torch.rand(samples, nx)
+    Yp = torch.rand(Np, samples, ny)
+    Up = torch.rand(Np, samples, nu)
+    Uf = torch.rand(Nf, samples, nu)
+    Dp = torch.rand(Np, samples, nd)
+    Df = torch.rand(Nf, samples, nd)
+    Rf = torch.rand(Nf, samples, ny)
+    x0 = torch.rand(samples, nx)
 
     fx, fu, fd = [MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx, nu, nd]]
     fy = MLP(nx, ny, hsizes=[64, 64, 64])
@@ -98,6 +102,8 @@ if __name__ == '__main__':
     est = estimators.LinearEstimator(ny,nx)
     pol = policies.LinearPolicy(nx, nu, nd, ny, Nf)
 
+    model_out = model(x0, Uf, Df)
+    print(model_out[0].shape, model_out[1].shape, model_out[2])
     # TODO: issue with the estimator switching 0th index with 1st index
     est_out = est(Yp, Up, Dp)
     print(est_out[0].shape, est_out[1].shape)
@@ -105,11 +111,10 @@ if __name__ == '__main__':
     print(pol_out[0].shape, pol_out[1].shape)
 
     ol = OpenLoop(model,est)
-    cl = ClosedLoop(model,est,pol)
-
-
-
     ol_out = ol(Yp, Up, Uf, Dp, Df)
     print(ol_out[0].shape, ol_out[1].shape, ol_out[2].shape)
+
+    # todo: fix error in cl forward pass
+    cl = ClosedLoop(model, est, pol)
     cl_out = cl(Yp, Up, Dp, Df, Rf)
     print(cl_out[0].shape, cl_out[1].shape, cl_out[2].shape, cl_out[3].shape)

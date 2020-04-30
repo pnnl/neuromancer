@@ -28,7 +28,7 @@ import ssm
 from blocks import MLP
 
 # TODO: solve the issue with non-uniform forward pass definition among the estimators and policies
-# either via wrapper or via standardized foward pass
+# either via wrapper or via standardized foward pass through *args
 
 class OpenLoop(nn.Module):
     def __init__(self, model=ssm.BlockSSM, estim=estimators.LinearEstimator, **linargs):
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     fx, fu, fd = [MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx, nu, nd]]
     fy = MLP(nx, ny, hsizes=[64, 64, 64])
-    model = ssm.BlockSSM(nx, nu, nd, ny, fx, fu, fd, fy)
+    model = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
     est = estimators.LinearEstimator(ny,nx)
     pol = policies.LinearPolicy(nx, nu, nd, ny, Nf)
 
@@ -114,7 +114,6 @@ if __name__ == '__main__':
     ol_out = ol(Yp, Up, Uf, Dp, Df)
     print(ol_out[0].shape, ol_out[1].shape, ol_out[2].shape)
 
-    # todo: fix error in cl forward pass
     cl = ClosedLoop(model, est, pol)
     cl_out = cl(Yp, Up, Dp, Df, Rf)
     print(cl_out[0].shape, cl_out[1].shape, cl_out[2].shape, cl_out[3].shape)

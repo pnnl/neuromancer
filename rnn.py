@@ -5,7 +5,8 @@ import torch.nn.functional as F
 # local imports
 import linear
 
-
+# TODO: shall we merge rnn.py with blocks.py?
+# TODO: RNN cells are returning zero dimension tensor with reg_error
 class RNNCell(nn.Module):
     def __init__(self, input_size, hidden_size, bias=True, nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
         super().__init__()

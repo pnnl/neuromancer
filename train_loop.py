@@ -49,10 +49,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 # local imports
 from plot import plot_trajectories
-from dataset import make_dataset, Load_data_sysID
-from ssm import BlockSSM
-import estimators as se
 from linear import Linear
+import dataset
+import ssm
+import estimators
+import policies
 import loops
 import rnn
 
@@ -64,7 +65,7 @@ def parse_args():
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
     opt_group.add_argument('-batchsize', type=int, default=-1)
-    opt_group.add_argument('-epochs', type=int, default=5)
+    opt_group.add_argument('-epochs', type=int, default=500)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
@@ -80,7 +81,9 @@ def parse_args():
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
-    # model_group.add_argument('-ssm_type', type=str, choices=['GT', 'linear', 'pf', 'svd', 'spectral'], default='linear')
+    model_group.add_argument('-loop', type=str,
+                             choices=['open', 'closed'], default='open')
+    model_group.add_argument('-ssm_type', type=str, choices=['GT', 'BlockSSM', 'BlackSSM'], default='BlockSSM')
     model_group.add_argument('-nx_hidden', type=int, default=40, help='Number of hidden states')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['linear', 'mlp', 'rnn', 'kf'], default='linear')
@@ -104,7 +107,7 @@ def parse_args():
     log_group = parser.add_argument_group('LOGGING PARAMETERS')
     log_group.add_argument('-savedir', type=str, default='test',
                            help="Where should your trained model and plots be saved (temp)")
-    log_group.add_argument('-verbosity', type=int, default=1,
+    log_group.add_argument('-verbosity', type=int, default=100,
                            help="How many epochs in between status updates")
     log_group.add_argument('-exp', default='test',
                            help='Will group all run under this experiment name.')
@@ -116,18 +119,21 @@ def parse_args():
                            help='Using mlflow or not.')
     return parser.parse_args()
 
-# TODO: update the step function
-def step(model, state_estimator, data):
-    Y_p, Y_f, U_p, U_f, D_p, D_f = data
-    if args.state_estimator != 'GT':
-        x0_in = state_estimator(Y_p, U_p, D_p)
-    else:
-        x0_in = Y_p[0]  # TODO: Is this what we want here?
-    X_pred, Y_pred, regularization_error = model(x0_in, U_f, D_f)
-    print(Y_pred.shape, Y_f.shape)
-    loss = Q_y * F.mse_loss(Y_pred.squeeze(), Y_f.squeeze())
-    regularization_error += args.Q_estim * state_estimator.reg_error()
-    return X_pred, Y_pred, loss, regularization_error
+# single training step
+def step(loop, data):
+    if type(loop) is loops.OpenLoop:
+        Yp, Yf, Up, Uf, Dp, Df = data
+        X_pred, Y_pred, reg_error = loop(Yp, Up, Uf, Dp, Df)
+        U_pred = None
+    elif type(loop) is loops.ClosedLoop:
+        Yp, Yf, Up, Dp, Df, Rf = data
+        X_pred, Y_pred, U_pred, reg_error = loop(Yp, Up, Dp, Df, Rf)
+
+    # print(Y_pred.shape, Yf.shape)
+    # TODO: shall we create separate file losses.py with various types of loss functions?
+    loss = Q_y * F.mse_loss(Y_pred.squeeze(), Yf.squeeze())
+
+    return loss, reg_error, X_pred, Y_pred, U_pred
 
 if __name__ == '__main__':
     ####################################
@@ -150,7 +156,26 @@ if __name__ == '__main__':
     if args.gpu != 'cpu':
         device = f'cuda:{args.gpu}'
 
-    Y, U, D, Ts = Load_data_sysID(args.datafile)
+    Y, U, D, Ts = dataset.Load_data_sysID(args.datafile)  # load data from file
+
+    if args.loop == 'open':
+        # system ID dataset
+        Yp, Yf, Up, Uf, Dp, Df = dataset.make_dataset_ol(Y, U, D, nsteps=args.nsteps, device=device)
+        train_data = [dataset.split_train_test_dev(data)[0] for data in [Yp, Yf, Up, Uf, Dp, Df]]
+        dev_data = [dataset.split_train_test_dev(data)[1] for data in [Yp, Yf, Up, Uf, Dp, Df]]
+        test_data = [dataset.split_train_test_dev(data)[2] for data in [Yp, Yf, Up, Uf, Dp, Df]]
+
+    elif args.loop == 'closed':
+        # control dataset
+        R = np.ones(Y.shape)
+        Yp, Yf, Up, Dp, Df, Rf = dataset.make_dataset_cl(Y, U, D, R, nsteps=args.nsteps, device=device)
+        train_data = [dataset.split_train_test_dev(data)[0] for data in [Yp, Yf, Up, Dp, Df, Rf]]
+        dev_data = [dataset.split_train_test_dev(data)[1] for data in [Yp, Yf, Up, Dp, Df, Rf]]
+        test_data = [dataset.split_train_test_dev(data)[2] for data in [Yp, Yf, Up, Dp, Df, Rf]]
+
+    ####################################
+    ###### DIMS SETUP ##################
+    ####################################
     nx, ny = args.nx_hidden, Y.shape[1]
     if U is not None:
         nu = U.shape[1]
@@ -160,36 +185,48 @@ if __name__ == '__main__':
         nd = D.shape[1]
     else:
         nd = 0
-    train_data, dev_data, test_data = make_dataset(Y, U, D, Ts, args.nsteps, device)
-
 
     ####################################################
-    ##### DYNAMICS MODEL AND STATE ESTIMATION SETUP ####
+    #####        OPEN / CLOSED LOOP MODEL           ####
     ####################################################
-    fx = Linear(nx, nx)
-    fy = Linear(nx, ny)
-    if nu != 0:
-        fu = Linear(nu, nx)
-    if nd != 0:
-        fd = Linear(nd, nx)
+
     #     TODO: fix the issue when fu and fd are not defined
-    model = BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd).to(device)
-    if args.state_estimator == 'linear':
-        state_estimator = se.LinearEstimator(ny, nx, bias=args.bias)
-    elif args.state_estimator == 'mlp':
-        state_estimator = se.MLPEstimator(ny, nx, bias=args.bias, hsizes=[args.nx_hidden])
-    elif args.state_estimator == 'rnn':
-        state_estimator = se.RNNEstimator(ny, nx, bias=args.bias)
-    elif args.state_estimator == 'kf':
-        state_estimator = se.KalmanFilterEstimator(model)
-    else:
-        state_estimator = se.LinearEstimator(ny, nx, bias=args.bias)
-    state_estimator.to(device)
+    if args.ssm_type == 'BlockSSM':
+        fx = Linear(nx, nx)
+        fy = Linear(nx, ny)
+        if nu != 0:
+            fu = Linear(nu, nx)
+        else:
+            fu = None
+        if nd != 0:
+            fd = Linear(nd, nx)
+        else:
+            fd = None
+        model = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd).to(device)
+    elif args.ssm_type == 'BlackSSM':
+        fxud = Linear(nx+nu+nd, nx)
+        fy = Linear(nx, ny)
+        model = ssm.BlackSSM(nx, nu, nd, ny, fxud, fy).to(device)
 
-    nweights = sum([i.numel() for i in list(model.parameters()) if i.requires_grad])
-    if args.state_estimator != 'GT':
-        nweights += sum([i.numel() for i in list(state_estimator.parameters()) if i.requires_grad])
-    print(nweights, "parameters in the neural net.")
+    if args.state_estimator == 'linear':
+        estimator = estimators.LinearEstimator(ny, nx, bias=args.bias)
+    elif args.state_estimator == 'mlp':
+        estimator = estimators.MLPEstimator(ny, nx, bias=args.bias, hsizes=[args.nx_hidden])
+    elif args.state_estimator == 'rnn':
+        estimator = estimators.RNNEstimator(ny, nx, bias=args.bias)
+    elif args.state_estimator == 'kf':
+        estimator = estimators.LinearKalmanFilter(model)
+    else:
+        estimator = estimators.FullyObservable()
+    estimator.to(device)
+
+    if args.loop == 'open':
+        loop = loops.OpenLoop(model, estimator).to(device)
+    elif args.loop == 'closed':
+        policy = policies.LinearPolicy(nx, nu, nd, ny, args.nsteps).to(device)
+        loop = loops.ClosedLoop(model, estimator, policy).to(device)
+
+    nweights = sum([i.numel() for i in list(loop.parameters()) if i.requires_grad])
     if args.mlflow:
         mlflow.log_param('Parameters', nweights)
 
@@ -197,7 +234,7 @@ if __name__ == '__main__':
     ######OPTIMIZATION SETUP
     ####################################
     Q_y = args.Q_y/ny
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(loop.parameters(), lr=args.lr)
 
     #######################################
     ### N-STEP AHEAD TRAINING
@@ -208,7 +245,7 @@ if __name__ == '__main__':
 
     for i in range(args.epochs):
         model.train()
-        _, _, loss, train_reg = step(model, state_estimator, train_data)
+        loss, train_reg, _, _, _ = step(loop, train_data)
         optimizer.zero_grad()
         losses = loss + train_reg
         losses.backward()
@@ -219,7 +256,7 @@ if __name__ == '__main__':
         ###################################
         with torch.no_grad():
             model.eval()
-            X_pred, Y_pred, dev_loss, dev_reg = step(model, state_estimator, dev_data)
+            dev_loss, dev_reg, X_pred, Y_pred, U_pred = step(loop, dev_data)
             if dev_loss < best_dev:
                 best_model = deepcopy(model.state_dict())
                 best_dev = dev_loss
@@ -232,7 +269,7 @@ if __name__ == '__main__':
         if i % args.verbosity == 0:
             elapsed_time = time.time() - start_time
             print(f'epoch: {i:2}  loss: {loss.item():10.8f}\tdevloss: {dev_loss.item():10.8f}'
-                  f'\tbestdev: {best_dev.item()}\teltime: {elapsed_time:5.2f}s')
+                  f'\tbestdev: {best_dev.item():10.8f}\teltime: {elapsed_time:5.2f}s')
 
     with torch.no_grad():
         ########################################
@@ -242,7 +279,7 @@ if __name__ == '__main__':
         args.constr = False
         Q_y = 1.0
         #    TRAIN SET
-        X_out, Y_out, train_loss, train_reg = step(model, state_estimator, train_data)
+        train_loss, train_reg, X_out, Y_out, U_out = step(loop, train_data)
         if args.mlflow:
             mlflow.log_metric({'nstep_train_loss': train_loss.item(), 'nstep_train_reg': train_reg.item()})
         Y_target = train_data[1]
@@ -250,7 +287,7 @@ if __name__ == '__main__':
         ytrue = Y_target.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)
 
         #   DEV SET
-        X_out, Y_out, dev_loss, dev_reg = step(model, state_estimator, dev_data)
+        dev_loss, dev_reg, X_out, Y_out, U_out = step(loop, dev_data)
         if args.mlflow:
             mlflow.log_metric({'nstep_dev_loss': dev_loss.item(),'nstep_dev_reg': dev_reg.item()})
         Y_target_dev = dev_data[1]
@@ -258,9 +295,9 @@ if __name__ == '__main__':
         devytrue = Y_target_dev.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)
 
         #   TEST SET
-        X_out, Y_out, test_loss, test_reg = step(model, state_estimator, test_data)
+        test_loss, test_reg, X_out, Y_out, U_out = step(loop, test_data)
         if args.mlflow:
-            mlflow.log_metric({'nstep_train_loss': train_loss.item(),'nstep_test_reg': test_reg.item()})
+            mlflow.log_metric({'nstep_test_loss': test_loss.item(),'nstep_test_reg': test_reg.item()})
         Y_target_tst = test_data[1]
         testypred = Y_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)
         testytrue = Y_target_tst.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)
@@ -271,58 +308,3 @@ if __name__ == '__main__':
                            for k in range(ypred.shape[1])],
                           ['$Y_1$', '$Y_2$', '$Y_3$', '$Y_4$', '$Y_5$', '$Y_6$'],
                           os.path.join(args.savedir, 'Y_nstep_large.png'))
-        # TODO: Open loop response
-        # ########################################
-        # ########## OPEN LOOP RESPONSE ##########
-        # ########################################
-        # def open_loop(model, data):
-        #     data = torch.cat([data[:, k, :] for k in range(data.shape[1])]).unsqueeze(1)
-        #     x0_in, M_flow_in, DT_in, D_in, x_response, Y_target, y0_in, M_flow_in_p, DT_in_p, D_in_p = split_data(data)
-        #     if args.state_estimator == 'true':
-        #         x0_in = x0_in[0]
-        #     else:
-        #         x0_in = state_estimator(y0_in, M_flow_in_p, DT_in_p, D_in_p)
-        #     X_pred, Y_pred, U_pred, regularization_error = model(x0_in, M_flow_in, DT_in, D_in)
-        #     open_loss = F.mse_loss(Y_pred.squeeze(), Y_target.squeeze())
-        #     return (open_loss.item(),
-        #             X_pred.squeeze().detach().cpu().numpy(),
-        #             Y_pred.squeeze().detach().cpu().numpy(),
-        #             U_pred.squeeze().detach().cpu().numpy(),
-        #             x_response.squeeze().detach().cpu().numpy(),
-        #             Y_target.squeeze().detach().cpu().numpy(),
-        #             M_flow_in.squeeze().detach().cpu().numpy(),
-        #             DT_in.squeeze().detach().cpu().numpy(),
-        #             D_in.squeeze().detach().cpu().numpy())
-        #
-        #
-        # openloss, xpred, ypred, upred, xtrue, ytrue, mflow_train, dT_train, d_train = open_loop(model, train_data)
-        # print(f'Train_open_loss: {openloss}')
-        # if args.mlflow:
-        #     mlflow.log_metric('train_openloss', openloss)
-        #
-        # devopenloss, devxpred, devypred, devupred, devxtrue, devytrue, mflow_dev, dT_dev, d_dev = open_loop(model, dev_data)
-        # print(f'Dev_open_loss: {devopenloss}')
-        # if args.mlflow:
-        #     mlflow.log_metric('dev_openloss', devopenloss)
-        #
-        # testopenloss, testxpred, testypred, testupred, testxtrue, testytrue, mflow_test, dT_test, d_test = open_loop(model, test_data)
-        # print(f'Test_open_loss: {testopenloss}')
-        # if args.mlflow:
-        #     mlflow.log_metric('Test_openloss', testopenloss)
-        #
-        # plot_trajectories([np.concatenate([ytrue[:, k], devytrue[:, k], testytrue[:, k]])
-        #                    for k in range(ypred.shape[1])],
-        #                   [np.concatenate([ypred[:, k], devypred[:, k], testypred[:, k]])
-        #                    for k in range(ypred.shape[1])], ['$Y_1$', '$Y_2$', '$Y_3$', '$Y_4$', '$Y_5$', '$Y_6$'],
-        #                   os.path.join(args.savedir, 'y_open_test_large.png'))
-        #
-        # fig, ax = plt.subplots(6, 1, figsize=(32, 32))
-        # ax[0].plot(np.concatenate([d_train, d_dev, d_test]))
-        # ax[1].plot(np.concatenate([mflow_train, mflow_dev, mflow_test]))
-        # ax[2].plot(np.concatenate([dT_train, dT_dev, dT_test]))
-        # ax[3].plot(np.concatenate([upred, devupred, testupred]))
-        # ax[4].plot(np.concatenate([xpred, devxpred, testxpred]))
-        # ax[5].plot(np.concatenate([xtrue, devxtrue, testxtrue]))
-        # plt.savefig(os.path.join(args.savedir, 'Raw_U_D.png'))
-        # mlflow.log_artifacts(args.savedir)
-        # os.system(f'rm -rf {args.savedir}')

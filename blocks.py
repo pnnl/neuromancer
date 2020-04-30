@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import scipy.misc
-
+#local imports
 import linear
 
 
@@ -47,6 +47,10 @@ class Bilinear(nn.Module):
         return self.linear(expand(x))
 
 
+class SoftExponential(nn.Module):
+    pass
+# https://arxiv.org/abs/1602.01321
+
 class Fourier(nn.Module):
     pass
 
@@ -57,7 +61,6 @@ class Chebyshev(nn.Module):
 
 class Polynomial(nn.Module):
     pass
-
 
 class Multinomial(nn.Module):
     
@@ -130,7 +133,7 @@ class ResMLP(MLP):
                 px = x
         return self.linear[-1](x) + self.outmap(px)
 
-
+# TODO: shall we move rnn.py here?
 class RNN():
     pass
 

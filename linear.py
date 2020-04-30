@@ -14,7 +14,7 @@ class LinearBase(nn.Module, ABC):
         self.in_features, self.out_features = insize, outsize
 
     def reg_error(self):
-        return 0.0
+        return torch.zeros(1)
 
     @abstractmethod
     def effective_W(self):
@@ -227,6 +227,7 @@ class StableSplitLinear(LinearBase):
 class SVDLinear(LinearBase):
     def __init__(self, insize, outsize, bias=False, sigma_min=0.1, sigma_max=1, **kwargs):
         """
+        
         SVD based regularization of matrix A
         A = U*Sigma*V
         U,V = unitary matrices (orthogonal for real matrices A)

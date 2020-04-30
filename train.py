@@ -25,6 +25,17 @@ Normalization:
 
 Several hyperparameter choices are also available and described in the argparse.
 """
+"""
+TODO: training options:
+1, control via closed loop model
+        trainable modules: SSM + estim + policy
+        choices: fully/partially observable, w/wo measured disturbances d, SSM given or learned
+2, sytem ID via open loop model
+        trainable modules: SSM + estim
+        choices: fully/partially observable, w/wo measured disturbances d
+3, time series
+        trainable modules: SSM + estim
+"""
 # python imports
 import os
 import argparse
@@ -38,10 +49,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 # local imports
 from plot import plot_trajectories
-from data import make_dataset, Load_data_sysID
+from dataset import make_dataset, Load_data_sysID
 from ssm import BlockSSM
-import state_estimator as se
+import estimators as se
 from linear import Linear
+import loops
 import rnn
 
 
@@ -104,20 +116,18 @@ def parse_args():
                            help='Using mlflow or not.')
     return parser.parse_args()
 
-
-# single training step
+# TODO: update the step function
 def step(model, state_estimator, data):
     Y_p, Y_f, U_p, U_f, D_p, D_f = data
     if args.state_estimator != 'GT':
         x0_in = state_estimator(Y_p, U_p, D_p)
     else:
         x0_in = Y_p[0]  # TODO: Is this what we want here?
-    X_pred, Y_pred, regularization_error = model(x0_in, U_p, D_p)
+    X_pred, Y_pred, regularization_error = model(x0_in, U_f, D_f)
     print(Y_pred.shape, Y_f.shape)
     loss = Q_y * F.mse_loss(Y_pred.squeeze(), Y_f.squeeze())
     regularization_error += args.Q_estim * state_estimator.reg_error()
     return X_pred, Y_pred, loss, regularization_error
-
 
 if __name__ == '__main__':
     ####################################
@@ -141,16 +151,29 @@ if __name__ == '__main__':
         device = f'cuda:{args.gpu}'
 
     Y, U, D, Ts = Load_data_sysID(args.datafile)
-    nx, nu, nd, ny = args.nx_hidden, U.shape[1], D.shape[1], Y.shape[1]
+    nx, ny = args.nx_hidden, Y.shape[1]
+    if U is not None:
+        nu = U.shape[1]
+    else:
+        nu = 0
+    if D is not None:
+        nd = D.shape[1]
+    else:
+        nd = 0
     train_data, dev_data, test_data = make_dataset(Y, U, D, Ts, args.nsteps, device)
 
 
     ####################################################
     ##### DYNAMICS MODEL AND STATE ESTIMATION SETUP ####
     ####################################################
-    fx, fu, fd = [Linear(nk, nx) for nk in [nx, nu, nd]]
+    fx = Linear(nx, nx)
     fy = Linear(nx, ny)
-    model = BlockSSM(nx, nu, nd, ny, fx, fu, fd, fy).to(device)
+    if nu != 0:
+        fu = Linear(nu, nx)
+    if nd != 0:
+        fd = Linear(nd, nx)
+    #     TODO: fix the issue when fu and fd are not defined
+    model = BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd).to(device)
     if args.state_estimator == 'linear':
         state_estimator = se.LinearEstimator(ny, nx, bias=args.bias)
     elif args.state_estimator == 'mlp':

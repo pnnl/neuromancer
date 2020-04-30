@@ -35,7 +35,7 @@ def get_modules(model):
 # smart ways of initializing the weights?
 class BlockSSM(nn.Module):
     def __init__(self, nx, nu, nd, ny, fx, fy, fu=None, fd=None,
-                 xou=torch.add, xod=torch.add):
+                 xou=torch.add, xod=torch.add, residual=True):
         """
 
         :param nx: (int) dimension of state
@@ -71,7 +71,9 @@ class BlockSSM(nn.Module):
         self.fx, self.fu, self.fd, self.fy = fx, fu, fd, fy
         # block operators
         self.xou = xou
-        self.xod = xod       
+        self.xod = xod
+        # residual network
+        self.residual = residual
         
         # Regularization Initialization
         self.xmin, self.xmax, self.umin, self.umax, self.uxmin, self.uxmax, self.dxmin, self.dxmax = self.con_init()
@@ -121,23 +123,36 @@ class BlockSSM(nn.Module):
         self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.s_sub = [0.0]*8
         return error
 
-    def forward(self, x, U, D):
+    def forward(self, x,  U=None, D=None, nsamples=16):
         """
-        """      
+        """
+        if U is not None:
+            nsamples = U.shape[0]
+        elif D is not None:
+            nsamples = D.shape[0]
+
         X, Y = [], []
-        N = 0
-        for u, d in zip(U, D):
-            N += 1
+        for i in range(nsamples):
             x_prev = x
-            fu = self.fu(u)
-            fd = self.fd(d)
-            x = self.fx(x)     
-            x = self.xou(x, fu)
-            x = self.xod(x, fd)
+            x = self.fx(x)
+            if U is not None:
+                u = U[i]
+                fu = self.fu(u)
+                x = self.xou(x, fu)
+            else:
+                u = 0.0
+                fu = 0.0
+            if D is not None:
+                fd = self.fd(D[i])
+                x = x + self.xod(x, fd)
+            if self.residual:
+                x = x + x_prev
             y = self.fy(x)
             X.append(x)
             Y.append(y)
-            self.regularize(x_prev, x, u, fu, fd, N)
+
+            # ALARMA!!
+            self.regularize(x_prev, x, u, fu, fd, i+1)
         return torch.stack(X), torch.stack(Y), self.reg_error()
 
 

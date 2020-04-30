@@ -16,6 +16,10 @@ def min_max_norm(M):
     return np.nan_to_num(M_norm)
 
 
+# TODO: extend this function to load csv files pre defined format as well
+#  frame= load_data_sysID(file_path, type='csv')
+# make data generation based on pandas df as inputs
+#  Data_sysID(identifier='pandas', data_file='frame', norm)
 def Load_data_sysID(file_path='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat', norm='UDY'):
     """
     :param file_path: path to .mat file with dataset: y,u,d,Ts

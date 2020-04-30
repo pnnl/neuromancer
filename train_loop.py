@@ -65,7 +65,7 @@ def parse_args():
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
     opt_group.add_argument('-batchsize', type=int, default=-1)
-    opt_group.add_argument('-epochs', type=int, default=5)
+    opt_group.add_argument('-epochs', type=int, default=500)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
@@ -83,7 +83,7 @@ def parse_args():
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-loop', type=str,
                              choices=['open', 'closed'], default='open')
-    # model_group.add_argument('-ssm_type', type=str, choices=['GT', 'linear', 'pf', 'svd', 'spectral'], default='linear')
+    model_group.add_argument('-ssm_type', type=str, choices=['GT', 'BlockSSM', 'BlackSSM'], default='BlockSSM')
     model_group.add_argument('-nx_hidden', type=int, default=40, help='Number of hidden states')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['linear', 'mlp', 'rnn', 'kf'], default='linear')
@@ -107,7 +107,7 @@ def parse_args():
     log_group = parser.add_argument_group('LOGGING PARAMETERS')
     log_group.add_argument('-savedir', type=str, default='test',
                            help="Where should your trained model and plots be saved (temp)")
-    log_group.add_argument('-verbosity', type=int, default=1,
+    log_group.add_argument('-verbosity', type=int, default=100,
                            help="How many epochs in between status updates")
     log_group.add_argument('-exp', default='test',
                            help='Will group all run under this experiment name.')
@@ -129,8 +129,7 @@ def step(loop, data):
         Yp, Yf, Up, Dp, Df, Rf = data
         X_pred, Y_pred, U_pred, reg_error = loop(Yp, Up, Dp, Df, Rf)
 
-    print(Y_pred.shape, Yf.shape)
-
+    # print(Y_pred.shape, Yf.shape)
     # TODO: shall we create separate file losses.py with various types of loss functions?
     loss = Q_y * F.mse_loss(Y_pred.squeeze(), Yf.squeeze())
 
@@ -190,19 +189,24 @@ if __name__ == '__main__':
     ####################################################
     #####        OPEN / CLOSED LOOP MODEL           ####
     ####################################################
-    fx = Linear(nx, nx)
-    fy = Linear(nx, ny)
-    if nu != 0:
-        fu = Linear(nu, nx)
-    else:
-        fu = None
-    if nd != 0:
-        fd = Linear(nd, nx)
-    else:
-        fd = None
 
     #     TODO: fix the issue when fu and fd are not defined
-    model = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd).to(device)
+    if args.ssm_type == 'BlockSSM':
+        fx = Linear(nx, nx)
+        fy = Linear(nx, ny)
+        if nu != 0:
+            fu = Linear(nu, nx)
+        else:
+            fu = None
+        if nd != 0:
+            fd = Linear(nd, nx)
+        else:
+            fd = None
+        model = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd).to(device)
+    elif args.ssm_type == 'BlackSSM':
+        fxud = Linear(nx+nu+nd, nx)
+        fy = Linear(nx, ny)
+        model = ssm.BlackSSM(nx, nu, nd, ny, fxud, fy).to(device)
 
     if args.state_estimator == 'linear':
         estimator = estimators.LinearEstimator(ny, nx, bias=args.bias)
@@ -265,7 +269,7 @@ if __name__ == '__main__':
         if i % args.verbosity == 0:
             elapsed_time = time.time() - start_time
             print(f'epoch: {i:2}  loss: {loss.item():10.8f}\tdevloss: {dev_loss.item():10.8f}'
-                  f'\tbestdev: {best_dev.item()}\teltime: {elapsed_time:5.2f}s')
+                  f'\tbestdev: {best_dev.item():10.8f}\teltime: {elapsed_time:5.2f}s')
 
     with torch.no_grad():
         ########################################

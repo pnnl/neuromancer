@@ -223,6 +223,8 @@ class BlackSSM(nn.Module):
         return torch.stack(X), torch.stack(Y), self.reg_error()
 
 
+ssm_models = [BlockSSM, BlackSSM]
+
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 3
     N = 10

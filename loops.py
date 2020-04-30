@@ -96,24 +96,40 @@ if __name__ == '__main__':
     Rf = torch.rand(Nf, samples, ny)
     x0 = torch.rand(samples, nx)
 
+    # block  SSM
     fx, fu, fd = [MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx, nu, nd]]
     fy = MLP(nx, ny, hsizes=[64, 64, 64])
-    model = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
-    est = estimators.LinearEstimator(ny,nx)
-    pol = policies.LinearPolicy(nx, nu, nd, ny, Nf)
-
-    model_out = model(x0, Uf, Df)
+    model1 = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
+    model_out = model1(x0, Uf, Df)
     print(model_out[0].shape, model_out[1].shape, model_out[2])
+
+    # black box SSM
+    fxud = MLP(nx + nu + nd, nx, hsizes=[64, 64, 64])
+    model2 = ssm.BlackSSM(nx, nu, nd, ny, fxud, fy)
+    model_out = model2(x0, Uf, Df)
+    print(model_out[0].shape, model_out[1].shape, model_out[2])
+
     # TODO: issue with the estimator switching 0th index with 1st index
+    est = estimators.LinearEstimator(ny, nx)
     est_out = est(Yp, Up, Dp)
     print(est_out[0].shape, est_out[1].shape)
+
+    pol = policies.LinearPolicy(nx, nu, nd, ny, Nf)
     pol_out = pol(x0, Df, Rf)
     print(pol_out[0].shape, pol_out[1].shape)
 
-    ol = OpenLoop(model,est)
+    ol = OpenLoop(model1,est)
     ol_out = ol(Yp, Up, Uf, Dp, Df)
     print(ol_out[0].shape, ol_out[1].shape, ol_out[2].shape)
 
-    cl = ClosedLoop(model, est, pol)
+    cl = ClosedLoop(model1, est, pol)
+    cl_out = cl(Yp, Up, Dp, Df, Rf)
+    print(cl_out[0].shape, cl_out[1].shape, cl_out[2].shape, cl_out[3].shape)
+
+    ol = OpenLoop(model2, est)
+    ol_out = ol(Yp, Up, Uf, Dp, Df)
+    print(ol_out[0].shape, ol_out[1].shape, ol_out[2].shape)
+
+    cl = ClosedLoop(model2, est, pol)
     cl_out = cl(Yp, Up, Dp, Df, Rf)
     print(cl_out[0].shape, cl_out[1].shape, cl_out[2].shape, cl_out[3].shape)

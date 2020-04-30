@@ -34,7 +34,7 @@ def get_modules(model):
 #  and the forward pass changes accordingly
 # smart ways of initializing the weights?
 class BlockSSM(nn.Module):
-    def __init__(self, nx, nu, nd, ny, fx, fu, fd, fy,
+    def __init__(self, nx, nu, nd, ny, fx, fy, fu=None, fd=None,
                  xou=torch.add, xod=torch.add):
         """
 
@@ -56,12 +56,16 @@ class BlockSSM(nn.Module):
         super().__init__()
         assert fx.in_features == nx, "Mismatch in input function size"
         assert fx.out_features == nx, "Mismatch in input function size"
-        assert fd.in_features == nd, "Mismatch in disturbance function size"
-        assert fd.out_features == nx, "Mismatch in disturbance function size"
-        assert fu.in_features == nu, "Mismatch in control input function size"
-        assert fu.out_features == nx, "Mismatch in control input function size"
         assert fy.in_features == nx, "Mismatch in observable output function size"
         assert fy.out_features == ny, "Mismatch in observable output function size"
+
+        # TODO: update the code to match cases when fu and fd are None
+        if fu is not None:
+            assert fu.in_features == nu, "Mismatch in control input function size"
+            assert fu.out_features == nx, "Mismatch in control input function size"
+        if fd is not None:
+            assert fd.in_features == nd, "Mismatch in disturbance function size"
+            assert fd.out_features == nx, "Mismatch in disturbance function size"
 
         self.nx, self.nu, self.nd, self.ny = nx, nu, nd, ny
         self.fx, self.fu, self.fd, self.fy = fx, fu, fd, fy
@@ -231,7 +235,7 @@ if __name__ == '__main__':
     # block SSM
     fx, fu, fd = [MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx, nu, nd]]
     fy = MLP(nx, ny, hsizes=[64, 64, 64])
-    model = BlockSSM(nx, nu, nd, ny, fx, fu, fd, fy)
+    model = BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
     output = model(x, U, D)
     print(output[0].shape, output[1].shape, output[2])
     # black box SSM

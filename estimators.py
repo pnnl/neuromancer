@@ -154,7 +154,7 @@ if __name__ == '__main__':
 
     fx, fu, fd = [linear.Linear(insize, nx) for insize in [nx, nu, nd]]
     fy = linear.Linear(nx, ny)
-    model = BlockSSM(nx, nu, nd, ny, fx, fu, fd, fy)
+    model = BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
     est = LinearKalmanFilter(model)
     est_out = est(Y, U, D)
     print(est_out[0].shape, est_out[1].shape)

@@ -25,8 +25,14 @@ def Load_data_sysID(file_path='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.
     Y = file.get("y", None)  # outputs
     U = file.get("u", None)  # inputs
     D = file.get("d", None)  # disturbances
-    U, D = Y, Y  # TODO: remove this when we generalize
+    # U, D = Y, Y  # TODO: remove this when we generalize
     Ts = file.get("Ts", None)  # sampling time
+
+    # TODO: temporary fix
+    if U is None:
+        U = np.zeros([Y.shape[0], 1])
+    if D is None:
+        D = np.zeros([Y.shape[0], 1])
 
     if 'U' in norm and U is not None:
         U = min_max_norm(U)
@@ -98,11 +104,14 @@ def split_train_test_dev(data):
     # Yp_train, Yp_dev, Yp_test = split_train_test_dev(Yp)
     # Yf_train, Yf_dev, Yf_test = split_train_test_dev(Yf)
     """
-    train_idx = (data.shape[1] // 3)
-    dev_idx = train_idx * 2
-    train_data = data[:, :train_idx, :]
-    dev_data = data[:, train_idx:dev_idx, :]
-    test_data = data[:, dev_idx:, :]
+    if data is not None:
+        train_idx = (data.shape[1] // 3)
+        dev_idx = train_idx * 2
+        train_data = data[:, :train_idx, :]
+        dev_data = data[:, train_idx:dev_idx, :]
+        test_data = data[:, dev_idx:, :]
+    else:
+        train_data, dev_data, test_data = None, None, None
     return train_data, dev_data, test_data
 
 def make_dataset_ol(Y, U, D, nsteps, device):
@@ -124,10 +133,14 @@ def make_dataset_ol(Y, U, D, nsteps, device):
     # Inputs: data for past and future moving horizons
     if U is not None:
         Up, Uf = [data_batches(U[:-nsteps], nsteps).to(device), data_batches(U[nsteps:], nsteps).to(device)]
+    else:
+        Up, Uf = None, None
 
     # Disturbances: data for past and future moving horizons
     if D is not None:
         Dp, Df = [data_batches(D[:-nsteps], nsteps).to(device), data_batches(D[nsteps:], nsteps).to(device)]
+    else:
+        Dp, Df = None, None
 
     return Yp, Yf, Up, Uf, Dp, Df
 
@@ -151,14 +164,20 @@ def make_dataset_cl(Y, U, D, R, nsteps, device):
     # Inputs: data for past moving horizons
     if U is not None:
         Up, Uf = [data_batches(U[:-nsteps], nsteps).to(device), data_batches(U[nsteps:], nsteps).to(device)]
+    else:
+        Up, Uf = None, None
 
     # Disturbances: data for past and future moving horizons
     if D is not None:
         Dp, Df = [data_batches(D[:-nsteps], nsteps).to(device), data_batches(D[nsteps:], nsteps).to(device)]
+    else:
+        Dp, Df = None, None
 
     # References: data for future moving horizons
     if R is not None:
         Rp, Rf = [data_batches(R[:-nsteps], nsteps).to(device), data_batches(R[nsteps:], nsteps).to(device)]
+    else:
+        Rp, Rf = None, None
 
     return Yp, Yf, Up, Dp, Df, Rf
 

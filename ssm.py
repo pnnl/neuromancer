@@ -97,19 +97,21 @@ class BlockSSM(nn.Module):
 
 #    include regularization in each module in the framework
     def regularize(self, x_prev, x, u, fu, fd, N):
-        
+
         # Barrier penalties
         self.sxmin = self.running_mean(self.sxmin, torch.mean(F.relu(-x + self.xmin)), N)
         self.sxmax = self.running_mean(self.sxmax, torch.mean(F.relu(x - self.xmax)), N)
-        self.sumin = self.running_mean(self.sumin, torch.mean(F.relu(-u + self.umin)), N)
-        self.sumax = self.running_mean(self.sumax, torch.mean(F.relu(u - self.umax)), N)
+        if u is not None:
+            self.sumin = self.running_mean(self.sumin, torch.mean(F.relu(-u + self.umin)), N)
+            self.sumax = self.running_mean(self.sumax, torch.mean(F.relu(u - self.umax)), N)
+            self.dx_u = self.running_mean(self.dx_u,
+                                          torch.mean(F.relu(-fu + self.uxmin) + F.relu(fu - self.uxmax)), N)
         # one step state residual penalty
         self.sdx_x = self.running_mean(self.sdx_x, torch.mean((x - x_prev)*(x - x_prev)), N)
         # penalties on max one-step infuence of controls and disturbances on states
-        self.dx_u = self.running_mean(self.dx_u,
-                                      torch.mean(F.relu(-fu + self.uxmin) + F.relu(fu - self.uxmax)), N)
-        self.dx_d = self.running_mean(self.dx_d,
-                                      torch.mean(F.relu(-fd + self.dxmin) + F.relu(fd - self.dxmax)), N)
+        if fd is not None:
+            self.dx_d = self.running_mean(self.dx_d,
+                                          torch.mean(F.relu(-fd + self.dxmin) + F.relu(fd - self.dxmax)), N)
         # submodules regularization penalties
         self.s_sub = self.running_mean(self.s_sub, sum([k.reg_error() for k in
                                                         [self.fx, self.fu, self.fd, self.fy]
@@ -131,17 +133,15 @@ class BlockSSM(nn.Module):
         elif D is not None:
             nsamples = D.shape[0]
 
-        X, Y = [], []
+        X, Y, reg = [], [], []
         for i in range(nsamples):
+            u, fu, fd = None, None, None
             x_prev = x
             x = self.fx(x)
             if U is not None:
                 u = U[i]
-                fu = self.fu(u)
+                fu = self.fu(U[i])
                 x = self.xou(x, fu)
-            else:
-                u = 0.0
-                fu = 0.0
             if D is not None:
                 fd = self.fd(D[i])
                 x = x + self.xod(x, fd)
@@ -150,8 +150,6 @@ class BlockSSM(nn.Module):
             y = self.fy(x)
             X.append(x)
             Y.append(y)
-
-            # ALARMA!!
             self.regularize(x_prev, x, u, fu, fd, i+1)
         return torch.stack(X), torch.stack(Y), self.reg_error()
 

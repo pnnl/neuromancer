@@ -24,17 +24,17 @@ Normalization:
     Training with no normalization
 
 Several hyperparameter choices are also available and described in the argparse.
-"""
-"""
-TODO: training options:
+
+training options:
 1, control via closed loop model
         trainable modules: SSM + estim + policy
         choices: fully/partially observable, w/wo measured disturbances d, SSM given or learned
 2, sytem ID via open loop model
         trainable modules: SSM + estim
-        choices: fully/partially observable, w/wo measured disturbances d
-3, time series
+        choices: fully/partially observable, w/wo measured disturbances D
+3, time series via open loop model
         trainable modules: SSM + estim
+        no inputs U and disturbances D
 """
 # python imports
 import os
@@ -65,7 +65,7 @@ def parse_args():
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
     opt_group.add_argument('-batchsize', type=int, default=-1)
-    opt_group.add_argument('-epochs', type=int, default=500)
+    opt_group.add_argument('-epochs', type=int, default=20000)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
@@ -129,9 +129,10 @@ def step(loop, data):
         Yp, Yf, Up, Dp, Df, Rf = data
         X_pred, Y_pred, U_pred, reg_error = loop(Yp, Up, Dp, Df, Rf)
 
-    # print(Y_pred.shape, Yf.shape)
-    # TODO: shall we create separate file losses.py with various types of loss functions?
+    # TODO: extent this to two control options: w/wo given model
     loss = Q_y * F.mse_loss(Y_pred.squeeze(), Yf.squeeze())
+
+    # TODO: shall we create separate file losses.py with various types of loss functions?
 
     return loss, reg_error, X_pred, Y_pred, U_pred
 
@@ -159,14 +160,14 @@ if __name__ == '__main__':
     Y, U, D, Ts = dataset.Load_data_sysID(args.datafile)  # load data from file
 
     if args.loop == 'open':
-        # system ID dataset
+        # system ID or time series dataset
         Yp, Yf, Up, Uf, Dp, Df = dataset.make_dataset_ol(Y, U, D, nsteps=args.nsteps, device=device)
         train_data = [dataset.split_train_test_dev(data)[0] for data in [Yp, Yf, Up, Uf, Dp, Df]]
         dev_data = [dataset.split_train_test_dev(data)[1] for data in [Yp, Yf, Up, Uf, Dp, Df]]
         test_data = [dataset.split_train_test_dev(data)[2] for data in [Yp, Yf, Up, Uf, Dp, Df]]
 
     elif args.loop == 'closed':
-        # control dataset
+        # control loop dataset
         R = np.ones(Y.shape)
         Yp, Yf, Up, Dp, Df, Rf = dataset.make_dataset_cl(Y, U, D, R, nsteps=args.nsteps, device=device)
         train_data = [dataset.split_train_test_dev(data)[0] for data in [Yp, Yf, Up, Dp, Df, Rf]]
@@ -189,8 +190,6 @@ if __name__ == '__main__':
     ####################################################
     #####        OPEN / CLOSED LOOP MODEL           ####
     ####################################################
-
-    #     TODO: fix the issue when fu and fd are not defined
     if args.ssm_type == 'BlockSSM':
         fx = Linear(nx, nx)
         fy = Linear(nx, ny)
@@ -302,6 +301,7 @@ if __name__ == '__main__':
         testypred = Y_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)
         testytrue = Y_target_tst.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)
 
+        # TODO: make this function generic to arbitraty dimensions + plot also inputs U,D if they are present
         plot_trajectories([np.concatenate([ytrue[:, k], devytrue[:, k], testytrue[:, k]])
                            for k in range(ypred.shape[1])],
                           [np.concatenate([ypred[:, k], devypred[:, k], testypred[:, k]])

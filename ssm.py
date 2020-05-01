@@ -29,13 +29,11 @@ def get_modules(model):
     return {name: module for name, module in model.named_modules()
             if len(list(module.named_children())) == 0}
 
-# TODO: shall we have a flexible definition of the blocks?
-#  e.g. if fu and fd are not defined they are assigned None
-#  and the forward pass changes accordingly
+
 # smart ways of initializing the weights?
 class BlockSSM(nn.Module):
     def __init__(self, nx, nu, nd, ny, fx, fy, fu=None, fd=None,
-                 xou=torch.add, xod=torch.add, residual=True):
+                 xou=torch.add, xod=torch.add, residual=False):
         """
 
         :param nx: (int) dimension of state
@@ -59,7 +57,6 @@ class BlockSSM(nn.Module):
         assert fy.in_features == nx, "Mismatch in observable output function size"
         assert fy.out_features == ny, "Mismatch in observable output function size"
 
-        # TODO: update the code to match cases when fu and fd are None
         if fu is not None:
             assert fu.in_features == nu, "Mismatch in control input function size"
             assert fu.out_features == nx, "Mismatch in control input function size"
@@ -133,7 +130,7 @@ class BlockSSM(nn.Module):
         elif D is not None:
             nsamples = D.shape[0]
 
-        X, Y, reg = [], [], []
+        X, Y = [], []
         for i in range(nsamples):
             u, fu, fd = None, None, None
             x_prev = x
@@ -155,8 +152,7 @@ class BlockSSM(nn.Module):
 
 
 class BlackSSM(nn.Module):
-    def __init__(self, nx, nu, nd, ny, fxud, fy,
-                 xou=torch.add, xod=torch.add):
+    def __init__(self, nx, nu, nd, ny, fxud, fy):
         """
         :param nx: (int) dimension of state
         :param nu: (int) dimension of inputs
@@ -170,11 +166,6 @@ class BlackSSM(nn.Module):
         # y =  fy(x)
         """
         super().__init__()
-        # TODO: instead of assert on fxud input features dims, we can have if else statement
-        #  and change the forward pass accordingly
-        # if fxud.in_features == nx: time series problem
-        # if fxud.in_features == nx+nu: system ID problem without disturbances
-        # if fxud.in_features == nx+nu+d: system ID problem with disturbances
         assert fxud.in_features == nx+nu+nd, "Mismatch in input function size"
         assert fxud.out_features == nx, "Mismatch in input function size"
         assert fy.in_features == nx, "Mismatch in observable output function size"
@@ -219,20 +210,29 @@ class BlackSSM(nn.Module):
         self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.s_sub = [0.0] * 6
         return error
 
-    def forward(self, x, U, D):
+    def forward(self, x, U = None, D = None, nsamples = 16):
         """
         """
+        if U is not None:
+            nsamples = U.shape[0]
+        elif D is not None:
+            nsamples = D.shape[0]
+
         X, Y = [], []
-        N = 0
-        for u, d in zip(U, D):
-            N += 1
+        for i in range(nsamples):
+            xi = x
+            if U is not None:
+                u = U[i]
+                xi = torch.cat([xi, u], dim=1)
+            if D is not None:
+                d = D[i]
+                xi = torch.cat([xi, d], dim=1)
             x_prev = x
-            xi = torch.cat([x, u, d], dim=1)
             x = self.fxud(xi)
             y = self.fy(x)
             X.append(x)
             Y.append(y)
-            self.regularize(x_prev, x, u, N)
+            self.regularize(x_prev, x, u, i+1)
         return torch.stack(X), torch.stack(Y), self.reg_error()
 
 

@@ -32,11 +32,11 @@ def Load_data_sysID(file_path='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.
     # U, D = Y, Y  # TODO: remove this when we generalize
     Ts = file.get("Ts", None)  # sampling time
 
-    # TODO: temporary fix
-    if U is None:
-        U = np.zeros([Y.shape[0], 1])
-    if D is None:
-        D = np.zeros([Y.shape[0], 1])
+    # # TODO: temporary fix
+    # if U is None:
+    #     U = np.zeros([Y.shape[0], 1])
+    # if D is None:
+    #     D = np.zeros([Y.shape[0], 1])
 
     if 'U' in norm and U is not None:
         U = min_max_norm(U)
@@ -252,6 +252,4 @@ if __name__ == '__main__':
         Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=6, device='cpu')
 
 
-# Q: do we want to separate U and D at this stage? for system ID it does not matter
-#    we could separate them only in the control loop
 #   TODO: save trained benchmark models from Matlab's System ID

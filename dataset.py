@@ -5,7 +5,7 @@ from scipy.io import loadmat
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-
+import plot
 
 def min_max_norm(M):
     """
@@ -46,53 +46,6 @@ def Load_data_sysID(file_path='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.
         D = min_max_norm(D)
     return Y, U, D, Ts
 
-
-def Plot_data_sysID(Y, U, D, Ts):
-    nrows = 3
-    if U is None:
-        nrows -= 1
-    if D is None:
-        nrows -= 1
-
-    fig, ax = plt.subplots(nrows, 1, figsize=(20, 16))
-
-    if nrows == 1:
-        ax.plot(Y, linewidth=3)
-        ax.grid(True)
-        ax.set_title('Outputs', fontsize=24)
-        ax.set_xlabel('Time', fontsize=24)
-        ax.set_ylabel('Y', fontsize=24)
-        ax.tick_params(axis='x', labelsize=22)
-        ax.tick_params(axis='y', labelsize=22)
-    else:
-        ax[0].plot(Y, linewidth=3)
-        ax[0].grid(True)
-        ax[0].set_title('Outputs', fontsize=24)
-        ax[0].set_xlabel('Time', fontsize=24)
-        ax[0].set_ylabel('Y', fontsize=24)
-        ax[0].tick_params(axis='x', labelsize=22)
-        ax[0].tick_params(axis='y', labelsize=22)
-
-    if U is not None:
-        ax[1].plot(U, linewidth=3)
-        ax[1].grid(True)
-        ax[1].set_title('Inputs', fontsize=24)
-        ax[1].set_xlabel('Time', fontsize=24)
-        ax[1].set_ylabel('U', fontsize=24)
-        ax[1].tick_params(axis='x', labelsize=22)
-        ax[1].tick_params(axis='y', labelsize=22)
-
-    if D is not None:
-        idx = 2
-        if U is None:
-            idx -= 1
-        ax[idx].plot(D, linewidth=3)
-        ax[idx].grid(True)
-        ax[idx].set_title('Disturbances', fontsize=24)
-        ax[idx].set_xlabel('Time', fontsize=24)
-        ax[idx].set_ylabel('D', fontsize=24)
-        ax[idx].tick_params(axis='x', labelsize=22)
-        ax[idx].tick_params(axis='y', labelsize=22)
 
 
 def data_batches(data, nsteps):
@@ -245,7 +198,7 @@ if __name__ == '__main__':
     for path in datapaths:
         Y, U, D, Ts = Load_data_sysID(path)
 
-        Plot_data_sysID(Y, U, D, Ts)
+        plot.pltOL(Y, U, D)
         train_data, dev_data, test_data = make_dataset(Y, U, D, Ts, nsteps=6, device='cpu')
         Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=6, device='cpu')
         R = np.ones(Y.shape)

@@ -272,57 +272,57 @@ if __name__ == '__main__':
                           ['$Y_1$', '$Y_2$', '$Y_3$', '$Y_4$', '$Y_5$', '$Y_6$'],
                           os.path.join(args.savedir, 'Y_nstep_large.png'))
         # TODO: Open loop response
-        # ########################################
-        # ########## OPEN LOOP RESPONSE ##########
-        # ########################################
-        # def open_loop(model, data):
-        #     data = torch.cat([data[:, k, :] for k in range(data.shape[1])]).unsqueeze(1)
-        #     x0_in, M_flow_in, DT_in, D_in, x_response, Y_target, y0_in, M_flow_in_p, DT_in_p, D_in_p = split_data(data)
-        #     if args.state_estimator == 'true':
-        #         x0_in = x0_in[0]
-        #     else:
-        #         x0_in = state_estimator(y0_in, M_flow_in_p, DT_in_p, D_in_p)
-        #     X_pred, Y_pred, U_pred, regularization_error = model(x0_in, M_flow_in, DT_in, D_in)
-        #     open_loss = F.mse_loss(Y_pred.squeeze(), Y_target.squeeze())
-        #     return (open_loss.item(),
-        #             X_pred.squeeze().detach().cpu().numpy(),
-        #             Y_pred.squeeze().detach().cpu().numpy(),
-        #             U_pred.squeeze().detach().cpu().numpy(),
-        #             x_response.squeeze().detach().cpu().numpy(),
-        #             Y_target.squeeze().detach().cpu().numpy(),
-        #             M_flow_in.squeeze().detach().cpu().numpy(),
-        #             DT_in.squeeze().detach().cpu().numpy(),
-        #             D_in.squeeze().detach().cpu().numpy())
-        #
-        #
-        # openloss, xpred, ypred, upred, xtrue, ytrue, mflow_train, dT_train, d_train = open_loop(model, train_data)
-        # print(f'Train_open_loss: {openloss}')
-        # if args.mlflow:
-        #     mlflow.log_metric('train_openloss', openloss)
-        #
-        # devopenloss, devxpred, devypred, devupred, devxtrue, devytrue, mflow_dev, dT_dev, d_dev = open_loop(model, dev_data)
-        # print(f'Dev_open_loss: {devopenloss}')
-        # if args.mlflow:
-        #     mlflow.log_metric('dev_openloss', devopenloss)
-        #
-        # testopenloss, testxpred, testypred, testupred, testxtrue, testytrue, mflow_test, dT_test, d_test = open_loop(model, test_data)
-        # print(f'Test_open_loss: {testopenloss}')
-        # if args.mlflow:
-        #     mlflow.log_metric('Test_openloss', testopenloss)
-        #
-        # plot_trajectories([np.concatenate([ytrue[:, k], devytrue[:, k], testytrue[:, k]])
-        #                    for k in range(ypred.shape[1])],
-        #                   [np.concatenate([ypred[:, k], devypred[:, k], testypred[:, k]])
-        #                    for k in range(ypred.shape[1])], ['$Y_1$', '$Y_2$', '$Y_3$', '$Y_4$', '$Y_5$', '$Y_6$'],
-        #                   os.path.join(args.savedir, 'y_open_test_large.png'))
-        #
-        # fig, ax = plt.subplots(6, 1, figsize=(32, 32))
-        # ax[0].plot(np.concatenate([d_train, d_dev, d_test]))
-        # ax[1].plot(np.concatenate([mflow_train, mflow_dev, mflow_test]))
-        # ax[2].plot(np.concatenate([dT_train, dT_dev, dT_test]))
-        # ax[3].plot(np.concatenate([upred, devupred, testupred]))
-        # ax[4].plot(np.concatenate([xpred, devxpred, testxpred]))
-        # ax[5].plot(np.concatenate([xtrue, devxtrue, testxtrue]))
-        # plt.savefig(os.path.join(args.savedir, 'Raw_U_D.png'))
-        # mlflow.log_artifacts(args.savedir)
-        # os.system(f'rm -rf {args.savedir}')
+        ########################################
+        ########## OPEN LOOP RESPONSE ##########
+        ########################################
+        def open_loop(model, data):
+            data = torch.cat([data[:, k, :] for k in range(data.shape[1])]).unsqueeze(1)
+            x0_in, M_flow_in, DT_in, D_in, x_response, Y_target, y0_in, M_flow_in_p, DT_in_p, D_in_p = split_data(data)
+            if args.state_estimator == 'true':
+                x0_in = x0_in[0]
+            else:
+                x0_in = state_estimator(y0_in, M_flow_in_p, DT_in_p, D_in_p)
+            X_pred, Y_pred, U_pred, regularization_error = model(x0_in, M_flow_in, DT_in, D_in)
+            open_loss = F.mse_loss(Y_pred.squeeze(), Y_target.squeeze())
+            return (open_loss.item(),
+                    X_pred.squeeze().detach().cpu().numpy(),
+                    Y_pred.squeeze().detach().cpu().numpy(),
+                    U_pred.squeeze().detach().cpu().numpy(),
+                    x_response.squeeze().detach().cpu().numpy(),
+                    Y_target.squeeze().detach().cpu().numpy(),
+                    M_flow_in.squeeze().detach().cpu().numpy(),
+                    DT_in.squeeze().detach().cpu().numpy(),
+                    D_in.squeeze().detach().cpu().numpy())
+
+
+        openloss, xpred, ypred, upred, xtrue, ytrue, mflow_train, dT_train, d_train = open_loop(model, train_data)
+        print(f'Train_open_loss: {openloss}')
+        if args.mlflow:
+            mlflow.log_metric('train_openloss', openloss)
+
+        devopenloss, devxpred, devypred, devupred, devxtrue, devytrue, mflow_dev, dT_dev, d_dev = open_loop(model, dev_data)
+        print(f'Dev_open_loss: {devopenloss}')
+        if args.mlflow:
+            mlflow.log_metric('dev_openloss', devopenloss)
+
+        testopenloss, testxpred, testypred, testupred, testxtrue, testytrue, mflow_test, dT_test, d_test = open_loop(model, test_data)
+        print(f'Test_open_loss: {testopenloss}')
+        if args.mlflow:
+            mlflow.log_metric('Test_openloss', testopenloss)
+
+        plot_trajectories([np.concatenate([ytrue[:, k], devytrue[:, k], testytrue[:, k]])
+                           for k in range(ypred.shape[1])],
+                          [np.concatenate([ypred[:, k], devypred[:, k], testypred[:, k]])
+                           for k in range(ypred.shape[1])], ['$Y_1$', '$Y_2$', '$Y_3$', '$Y_4$', '$Y_5$', '$Y_6$'],
+                          os.path.join(args.savedir, 'y_open_test_large.png'))
+
+        fig, ax = plt.subplots(6, 1, figsize=(32, 32))
+        ax[0].plot(np.concatenate([d_train, d_dev, d_test]))
+        ax[1].plot(np.concatenate([mflow_train, mflow_dev, mflow_test]))
+        ax[2].plot(np.concatenate([dT_train, dT_dev, dT_test]))
+        ax[3].plot(np.concatenate([upred, devupred, testupred]))
+        ax[4].plot(np.concatenate([xpred, devxpred, testxpred]))
+        ax[5].plot(np.concatenate([xtrue, devxtrue, testxtrue]))
+        plt.savefig(os.path.join(args.savedir, 'Raw_U_D.png'))
+        mlflow.log_artifacts(args.savedir)
+        os.system(f'rm -rf {args.savedir}')

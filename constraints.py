@@ -25,65 +25,73 @@ import torch.nn.functional as F
 # would make sense as they have no learnable parameters
 # alternatively we could create a learnable variants where bounds would be parameters and not inputs
 
-class MinPenalty(nn.Module):
-    def __init__(self, penalty=F.relu, **linargs):
+class Penalty(nn.Module):
+    def __init__(self, penalty=F.relu, weight=1.0):
+        super().__init__()
+        self.penalty = penalty
+        self.weight = weight
+
+
+class MinPenalty(Penalty):
+    def __init__(self, penalty=F.relu, weight=1.0):
         """
         penalty on violating minimum threshold inequality constraint:  x \ge xmin
         admissible penalty functions: relu, relu6, softplus, SoftExponential
         """
-        super().__init__()
-        self.penalty = penalty
+        super().__init__(penalty, weight)
 
     def forward(self, x, xmin):
-        return self.penalty(-x + xmin)
+        return self.weight*self.penalty(-x + xmin)
 
-class MaxPenalty(nn.Module):
-    def __init__(self, penalty=F.relu, **linargs):
+
+class MaxPenalty(Penalty):
+    def __init__(self, penalty=F.relu, weight=1.0):
         """
         penalty on violating maximum threshold inequality constraint: x \le xmax
         admissible penalty functions: relu, relu6, softplus, SoftExponential
         """
-        super().__init__()
-        self.penalty = penalty
+        super().__init__(penalty, weight)
 
     def forward(self, x, xmax):
-        return self.penalty(x - xmax)
+        return self.weight*self.penalty(x - xmax)
 
-class MinMaxPenalty(nn.Module):
-    def __init__(self, penalty=F.relu, **linargs):
+
+class MinMaxPenalty(Penalty):
+    def __init__(self, penalty=F.relu, weight=1.0):
         """
         penalty on violating thresholds inequality constraints:
         x \ge xmin
         x \le xmax
         admissible penalty functions: relu, relu6, softplus, SoftExponential
         """
-        super().__init__()
-        self.penalty = penalty
+        super().__init__(penalty, weight)
 
     def forward(self, x, xmin, xmax):
-        return self.penalty(-x + xmin) + self.penalty(x - xmax)
+        return self.weight*self.penalty(-x + xmin) + self.penalty(x - xmax)
 
-class dxPenalty(nn.Module):
-    def __init__(self, penalty='square', **linargs):
+
+class dxPenalty(Penalty):
+    def __init__(self, penalty='square', weight=1.0):
         """
         one time step residual penalty
         residual: dx_k = penalty(x_k- x_{k-1})
         admissible penalties: square, abs
         """
-        super().__init__()
-        self.penalty = penalty
+        super().__init__(penalty, weight)
 
     def forward(self, x, x_prev):
         if self.penalty == 'square':
             dx = (x - x_prev) * (x - x_prev)
         elif self.penalty == 'abs':
             dx = (x - x_prev).abs()
-        return dx
+        return self.weight*dx
 
 
+class QuadraticPenalty(Penalty):
+    def __init(self, penalty='quadratic', weight=1.0):
+        super().__init__(penalty, weight)
 
-class QuadraticPenalty(nn.Module):
-    pass
+
 # https://en.wikipedia.org/wiki/Quadratically_constrained_quadratic_program
 # do we need this? or can we just use the min max constraints on the outputs of Polynomial block?
 

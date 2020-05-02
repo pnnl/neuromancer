@@ -27,7 +27,7 @@ def pltCL(Y, U, D, R):
     """
     pass
 
-def pltOL_train(Ytrue, Ytrain, U=None, D=None):
+def pltOL_train(Ytrue, Ytrain, U=None, D=None, figname=None):
     """
     plot trained open loop dataset
     Ytrue: ground truth training signal
@@ -80,6 +80,9 @@ def pltOL_train(Ytrue, Ytrain, U=None, D=None):
         ax[idx].set_ylabel('D', fontsize=24)
         ax[idx].tick_params(axis='x', labelsize=22)
         ax[idx].tick_params(axis='y', labelsize=22)
+    if figname is not None:
+        plt.savefig(figname)
+
 
 
 

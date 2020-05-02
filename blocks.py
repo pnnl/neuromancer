@@ -85,7 +85,7 @@ class SINDy():
 
 class MLP(nn.Module):
     def __init__(self,  insize, outsize, bias=True,
-                 Linear=linear.Linear, nonlin=F.relu, hsizes=[64], **linargs):
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], **linargs):
         """
 
         :param layers: list of ints (insize, h1size, h2size, ..., hnsize, outsize)
@@ -115,7 +115,7 @@ class MLP(nn.Module):
 
 class ResMLP(MLP):
     def __init__(self,  insize, outsize, bias=True,
-                 Linear=linear.Linear, nonlin=F.relu, hsizes=[64], skip=1, **linargs):
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], skip=1, **linargs):
 
         super().__init__(insize, outsize, bias=bias,
                          Linear=Linear, nonlin=nonlin, hsizes=hsizes, **linargs)

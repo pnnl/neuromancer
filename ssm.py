@@ -80,10 +80,10 @@ class BlockSSM(nn.Module):
         self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.s_sub = [0.0]*8
 
     def con_init(self):
-            return [-1, 1, -1, 1, -1, 1, -1, 1]
+            return [-1, 2, -1, 2, -1, 2, -1, 2]
         
     def reg_weight_init(self):
-        return [0.2]*5
+        return 0.0, 0.0, 0.0, 0.0, 1.0
 
     def running_mean(self, mu, x, n):
         return mu + (1/n)*(x - mu)

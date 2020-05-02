@@ -29,14 +29,7 @@ def Load_data_sysID(file_path='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.
     Y = file.get("y", None)  # outputs
     U = file.get("u", None)  # inputs
     D = file.get("d", None)  # disturbances
-    # U, D = Y, Y  # TODO: remove this when we generalize
     Ts = file.get("Ts", None)  # sampling time
-
-    # # TODO: temporary fix
-    # if U is None:
-    #     U = np.zeros([Y.shape[0], 1])
-    # if D is None:
-    #     D = np.zeros([Y.shape[0], 1])
 
     if 'U' in norm and U is not None:
         U = min_max_norm(U)

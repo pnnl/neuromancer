@@ -109,7 +109,7 @@ class LeftStochasticLinear(LinearBase):
 
 class PerronFrobeniusLinear(LinearBase):
 
-    def __init__(self, insize, outsize, bias=False, sigma_min=0.95, sigma_max=1.0,
+    def __init__(self, insize, outsize, bias=False, sigma_min=0.9, sigma_max=1.0,
                  init='basic', **kwargs):
         """
         Perron-Frobenius theorem based regularization of matrix
@@ -270,7 +270,7 @@ class SpectralLinear(LinearBase):
     """
 
     def __init__(self, insize, outsize, bias=False,
-                 n_U_reflectors=3, n_V_reflectors=3, sigma_min=0.6, sigma_max=1.0, **kwargs):
+                 n_U_reflectors=None, n_V_reflectors=None, sigma_min=0.1, sigma_max=1.0, **kwargs):
         """
 
         :param insize: (int) Dimension of input vectors
@@ -281,9 +281,13 @@ class SpectralLinear(LinearBase):
         :param r: singular margin, the allowed margin for singular values
         """
         super().__init__(insize, outsize)
-        assert n_U_reflectors <= insize, 'Too many reflectors'
-        assert n_V_reflectors <= outsize, 'Too may reflectors'
-        self.n_U_reflectors, self.n_V_reflectors = n_U_reflectors, n_V_reflectors
+        if n_U_reflectors is not None and n_U_reflectors is not None:
+            assert n_U_reflectors <= insize, 'Too many reflectors'
+            assert n_V_reflectors <= outsize, 'Too may reflectors'
+            self.n_U_reflectors, self.n_V_reflectors = n_U_reflectors, n_V_reflectors
+        else:
+            self.n_U_reflectors, self.n_V_reflectors = min(insize, outsize), min(insize, outsize)
+
         self.insize, self.outsize = insize, outsize
         self.r = (sigma_max - sigma_min)/2
         self.sigma_mean = sigma_min + self.r

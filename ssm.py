@@ -21,7 +21,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 # local imports
-from blocks import MLP
+import linear
+import blocks
 import constraints
 
 
@@ -248,13 +249,14 @@ if __name__ == '__main__':
     D = torch.rand(N, samples, nd)
 
     # block SSM
-    fx, fu, fd = [MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx, nu, nd]]
-    fy = MLP(nx, ny, hsizes=[64, 64, 64])
+    fx, fu, fd = [blocks.MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx, nu, nd]]
+    fy = blocks.MLP(nx, ny, hsizes=[64, 64, 64])
     model = BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
     output = model(x, U, D)
     print(output[0].shape, output[1].shape, output[2])
     # black box SSM
-    fxud = MLP(nx+nu+nd, nx, hsizes=[64, 64, 64])
+    fxud = blocks.MLP(nx+nu+nd, nx, hsizes=[64, 64, 64])
+    fy = linear.Linear(nx, ny)
     model = BlackSSM(nx, nu, nd, ny, fxud, fy)
     output = model(x, U, D)
     print(output[0].shape, output[1].shape, output[2])

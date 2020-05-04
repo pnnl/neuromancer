@@ -36,7 +36,8 @@ class Bilinear(nn.Module):
         """
         bilinear term: why expansion and not nn.Bilinear?
         """
-        self.insize, self.outsize, = insize, outsize
+        # self.insize, self.outsize, = insize, outsize
+        self.in_features, self.out_features = insize, outsize
         self.linear = Linear(insize**2, outsize, bias=bias)
         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
 
@@ -64,11 +65,12 @@ class Polynomial(nn.Module):
 
 class Multinomial(nn.Module):
     
-    def init(self, inputsize, outputsize, p=2, bias=False, lin_cls=linear.Linear):
+    def init(self, insize, outsize, p=2, bias=False, lin_cls=linear.Linear):
         self.p = p
+        self.in_features, self.out_features = insize, outsize
         for i in range(p-1):
-            inputsize += inputsize**2
-        self.linear = lin_cls(scipy.misc.comb(inputsize + p, p + 1), outputsize, bias=bias)
+            insize += insize**2
+        self.linear = lin_cls(scipy.misc.comb(insize + p, p + 1), outsize, bias=bias)
 
     def regularization(self):
         return self.linear.regularization
@@ -123,6 +125,7 @@ class ResMLP(MLP):
         self.skip = skip
         self.inmap = Linear(insize, hsizes[0], bias=False, **linargs)
         self.outmap = Linear(hsizes[0], outsize, bias=False, **linargs)
+        self.in_features, self.out_features = insize, outsize
 
     def forward(self, x):
         px = self.inmap(x)

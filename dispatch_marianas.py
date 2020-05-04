@@ -47,7 +47,8 @@ for path in datapaths:
             for nsteps in [2, 4, 8, 16, 32]:
                 for i in range(args.nsamples): # 10 samples for each configuration
                     cmd = 'python train_loop.py ' +\
-                          '--gpu 0 -epochs 30000 ' +\
+                          '-gpu 0 ' \
+                          '-epochs 30000 ' +\
                           '-location %s ' % args.results + \
                           '-datafile %s' % path + \
                           '-linear_map %s ' % linear + \

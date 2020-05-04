@@ -6,11 +6,14 @@ import torch.nn.functional as F
 import linear
 
 # TODO: shall we merge rnn.py with blocks.py?
+#  I would vote for the same I/O properties as blocks
 # TODO: RNN cells are returning zero dimension tensor with reg_error
 class RNNCell(nn.Module):
     def __init__(self, input_size, hidden_size, bias=True, nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
         super().__init__()
+        # TODO: uniform notation
         self.input_size, self.hidden_size = input_size, hidden_size
+        self.in_features, self.out_features = input_size, hidden_size
         self.nonlin = nonlinearity
         self.lin_in = Linear(input_size, hidden_size, bias=bias, **linargs)
         self.lin_hidden = Linear(hidden_size, hidden_size, bias=bias, **linargs)
@@ -36,6 +39,7 @@ class RNN(nn.Module):
         :param stable:
         """
         super().__init__()
+        self.in_features, self.out_features = input_size, hidden_size
         rnn_cells = [RNNCell(input_size, hidden_size, bias=bias, nonlinearity=nonlinearity,
                      Linear=Linear, **linargs)]
         rnn_cells += [RNNCell(hidden_size, hidden_size, bias=bias, nonlinearity=nonlinearity,
@@ -65,8 +69,8 @@ class RNN(nn.Module):
             sequence = torch.cat(states, 0)
             final_hiddens.append(h)
         final_hiddens = torch.cat(final_hiddens, 0)
+        # return sequence # TODO: temporary fix
         return sequence, final_hiddens
-
 
 if __name__ == '__main__':
     x = torch.rand(20, 5, 7)

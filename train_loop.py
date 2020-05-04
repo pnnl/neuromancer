@@ -84,16 +84,17 @@ def parse_args():
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-loop', type=str,
                              choices=['open', 'closed'], default='open')
-    model_group.add_argument('-ssm_type', type=str, choices=['GT', 'BlockSSM', 'BlackSSM'], default='BlockSSM')
-    model_group.add_argument('-fu', type=str, choices=['linear', 'mlp', 'sparse_mlp', 'sparse_residual_mlp'], default='linear')
-    model_group.add_argument('-nx_hidden', type=int, default=40, help='Number of hidden states')
+    model_group.add_argument('-ssm_type', type=str, choices=['GT', 'BlockSSM', 'BlackSSM'], default='BlackSSM')
+    model_group.add_argument('-nx_hidden', type=int, default=10, help='Number of hidden states per output')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
     model_group.add_argument('-linear_map', type=str,
-                             choices=['pf', 'spectral', 'vanilla'], default='pf')
+                             choices=['pf', 'spectral', 'linear'], default='linear')
+    model_group.add_argument('-nonlinear_map', type=str,
+                             choices=['mlp', 'resnet', 'sparse_mlp', 'sparse_residual_mlp', 'linear'], default='mlp')
     model_group.add_argument('-nonlin', type=str,
                              choices=['relu', 'gelu'], default='gelu')
-    model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
+    model_group.add_argument('-bias', action='store_false', help='Whether to use bias in the neural network models.')
 
 
     ##################
@@ -184,7 +185,7 @@ if __name__ == '__main__':
     ####################################
     ###### DIMS SETUP ##################
     ####################################
-    nx, ny = args.nx_hidden, Y.shape[1]
+    nx, ny = Y.shape[1]*args.nx_hidden, Y.shape[1]
     if U is not None:
         nu = U.shape[1]
     else:
@@ -200,13 +201,27 @@ if __name__ == '__main__':
     linmap = {'linear': linear.Linear,
               'spectral': linear.SpectralLinear,
               'pf': linear.PerronFrobeniusLinear}[args.linear_map]
+
     if args.ssm_type == 'BlockSSM':
         fx = linmap(nx, nx, bias=args.bias)
-        fy = blocks.ResMLP(ny, nx, bias=args.bias, hsizes=[args.nx_hidden]*2,
+        if args.nonlinear_map == 'linear':
+            fy = linmap(nx, ny, bias=args.bias)
+        elif args.nonlinear_map == 'sparse_residual_mlp':
+            fy = blocks.ResMLP(nx, ny, bias=args.bias, hsizes=[nx]*2,
                                Linear=linear.LassoLinear, skip=1)
+        elif args.nonlinear_map == 'mlp':
+            fy = blocks.MLP(nx, ny, bias=args.bias, hsizes=[nx]*2,
+                               Linear=linmap)
+
         if nu != 0:
-            fu = blocks.ResMLP(ny, nx, bias=args.bias, hsizes=[args.nx_hidden]*2,
-                               Linear=linear.LassoLinear, skip=1)
+            if args.nonlinear_map == 'linear':
+                fu = linmap(nu, nx, bias=args.bias)
+            elif args.nonlinear_map == 'sparse_residual_mlp':
+                fu = blocks.ResMLP(nu, nx, bias=args.bias, hsizes=[nx]*2,
+                                   Linear=linear.LassoLinear, skip=1)
+            elif args.nonlinear_map == 'mlp':
+                fu = blocks.MLP(nu, nx, bias=args.bias, hsizes=[nx]*2,
+                                   Linear=linear.LassoLinear)
         else:
             fu = None
         if nd != 0:
@@ -215,15 +230,18 @@ if __name__ == '__main__':
             fd = None
         model = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd).to(device)
     elif args.ssm_type == 'BlackSSM':
-        fxud = rnn.RNN(nx+nu+nd, args.nx_hidden, num_layers=3,
-                       bias=args.bias, nonlinearity=F.gelu)
+        # TODO: there is an error with RNN due to different output format than blocks
+        # fxud = rnn.RNN(nx+nu+nd, nx, num_layers=3,
+        #                bias=args.bias, nonlinearity=F.gelu)
+        fxud = blocks.MLP(nx + nu + nd, nx, hsizes=[nx]*3,
+                       bias=args.bias, nonlin=F.gelu)
         fy = Linear(nx, ny, bias=args.bias)
         model = ssm.BlackSSM(nx, nu, nd, ny, fxud, fy).to(device)
 
     if args.state_estimator == 'linear':
         estimator = estimators.LinearEstimator(ny, nx, bias=args.bias)
     elif args.state_estimator == 'mlp':
-        estimator = estimators.MLPEstimator(ny, nx, bias=args.bias, hsizes=[args.nx_hidden]*2,
+        estimator = estimators.MLPEstimator(ny, nx, bias=args.bias, hsizes=[nx]*2,
                                             Linear=linear.LassoLinear, skip=1)
     elif args.state_estimator == 'rnn':
         estimator = estimators.RNNEstimator(ny, nx, bias=args.bias, num_layers=2,
@@ -280,7 +298,7 @@ if __name__ == '__main__':
             print(f'epoch: {i:2}  loss: {loss.item():10.8f}\tdevloss: {dev_loss.item():10.8f}'
                   f'\tbestdev: {best_dev.item():10.8f}\teltime: {elapsed_time:5.2f}s')
         optimizer.zero_grad()
-        loss += train_reg
+        loss += train_reg.squeeze()
         loss.backward()
         optimizer.step()
 
@@ -302,14 +320,14 @@ if __name__ == '__main__':
         Ytrue, Ypred = [], []
         for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
             data = [d.transpose(0, 1).view(1, -1, d.shape[-1]) if d is not None else d for d in dset]
-            print('true', [k.shape for k in data if k is not None])
+            # print('true', [k.shape for k in data if k is not None])
             openloss, reg_error, X_out, Y_out, U_out = step(loop, data)
             print(f'{dname}_open_loss: {openloss}')
             if args.mlflow:
                 mlflow.log_metrics({f'open_{dname}_loss': openloss, f'open_{dname}_reg': reg_error})
             Y_target = data[1]
-            print('true', Y_target.shape)
-            print('pred', Y_out.shape)
+            # print('true', Y_target.shape)
+            # print('pred', Y_out.shape)
             Ypred.append(Y_out.detach().cpu().numpy().reshape(-1, ny))
             Ytrue.append(Y_target.detach().cpu().numpy().reshape(-1, ny))
         plot.pltOL_train(np.concatenate(Ytrue), np.concatenate(Ypred), figname=os.path.join(args.savedir, 'open.png'))

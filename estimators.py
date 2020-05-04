@@ -70,7 +70,7 @@ class RNNEstimator(nn.Module):
 
     def forward(self, Ym, *args):
         return self.RNN(Ym)[0][-1], self.reg_error()
-
+        # return self.RNN(Ym)[-1], self.reg_error()  # TODO: temporary fix
 
 class LinearKalmanFilter(nn.Module):
     """

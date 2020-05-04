@@ -64,7 +64,7 @@ class LassoLinear(LinearBase):
 
     def reg_error(self):
         # shrinkage
-        return self.gamma*self.effective_W.norm(p=1)
+        return self.gamma*self.effective_W().norm(p=1)
 
     def forward(self, x):
         return torch.matmul(x, self.effective_W()) + self.bias

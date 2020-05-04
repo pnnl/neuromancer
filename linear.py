@@ -252,7 +252,8 @@ class SVDLinear(LinearBase):
         :return: Matrix for linear transformation with dominant eigenvalue between sigma_max and sigma_min
         """
         sigma_clapmed = self.sigma_max - (self.sigma_max - self.sigma_min) * torch.sigmoid(self.sigma)
-        Sigma_bounded = torch.eye(self.insize, self.outsize).to(self.sigma.device) * sigma_clapmed
+        # Sigma_bounded = torch.eye(self.insize, self.outsize).to(self.sigma.device) * sigma_clapmed
+        Sigma_bounded = torch.eye(self.insize, self.outsize)* sigma_clapmed
         w_svd = torch.mm(self.U.weight, torch.mm(Sigma_bounded, self.V.weight))
         return w_svd
 
@@ -338,7 +339,8 @@ class SpectralLinear(LinearBase):
         return x
 
     def effective_W(self):
-        return self.forward(torch.eye(self.insize).to(self.p.device))
+        return self.forward(torch.eye(self.insize))
+        # return self.forward(torch.eye(self.insize).to(self.p.device))
 
     def forward(self, x):
         """

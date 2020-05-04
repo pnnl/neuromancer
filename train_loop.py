@@ -203,29 +203,29 @@ if __name__ == '__main__':
               'pf': linear.PerronFrobeniusLinear}[args.linear_map]
 
     if args.ssm_type == 'BlockSSM':
-        fx = linmap(nx, nx, bias=args.bias)
+        fx = linmap(nx, nx, bias=args.bias).to(device)
         if args.nonlinear_map == 'linear':
-            fy = linmap(nx, ny, bias=args.bias)
+            fy = linmap(nx, ny, bias=args.bias).to(device)
         elif args.nonlinear_map == 'sparse_residual_mlp':
             fy = blocks.ResMLP(nx, ny, bias=args.bias, hsizes=[nx]*2,
-                               Linear=linear.LassoLinear, skip=1)
+                               Linear=linear.LassoLinear, skip=1).to(device)
         elif args.nonlinear_map == 'mlp':
             fy = blocks.MLP(nx, ny, bias=args.bias, hsizes=[nx]*2,
-                               Linear=linmap)
+                               Linear=linmap).to(device)
 
         if nu != 0:
             if args.nonlinear_map == 'linear':
-                fu = linmap(nu, nx, bias=args.bias)
+                fu = linmap(nu, nx, bias=args.bias).to(device)
             elif args.nonlinear_map == 'sparse_residual_mlp':
                 fu = blocks.ResMLP(nu, nx, bias=args.bias, hsizes=[nx]*2,
-                                   Linear=linear.LassoLinear, skip=1)
+                                   Linear=linear.LassoLinear, skip=1).to(device)
             elif args.nonlinear_map == 'mlp':
                 fu = blocks.MLP(nu, nx, bias=args.bias, hsizes=[nx]*2,
-                                   Linear=linear.LassoLinear)
+                                   Linear=linear.LassoLinear).to(device)
         else:
             fu = None
         if nd != 0:
-            fd = Linear(nd, nx)
+            fd = Linear(nd, nx).to(device)
         else:
             fd = None
         model = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd).to(device)

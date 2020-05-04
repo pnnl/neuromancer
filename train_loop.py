@@ -62,7 +62,7 @@ import rnn
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-gpu', type=str, default='cpu',
+    parser.add_argument('-gpu', type=str, default=None,
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
@@ -162,7 +162,7 @@ if __name__ == '__main__':
     ###### DATA SETUP ##################
     ####################################
     device = 'cpu'
-    if args.gpu != 'cpu':
+    if args.gpu is not None:
         device = f'cuda:{args.gpu}'
 
     Y, U, D, Ts = dataset.Load_data_sysID(args.datafile)  # load data from file

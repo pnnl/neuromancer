@@ -301,7 +301,7 @@ class SpectralLinear(LinearBase):
 
     def Sigma(self):
         sigmas = 2 * self.r * (torch.sigmoid(self.p) - 0.5) + self.sigma_mean
-        square_matrix = torch.diag(torch.cat([sigmas, torch.zeros(abs(self.insize - self.outsize))]))
+        square_matrix = torch.diag(torch.cat([sigmas, torch.zeros(abs(self.insize - self.outsize)).to(sigmas.device)]))
         return square_matrix[:self.insize, :self.outsize]
 
     def Hprod(self, x, u, k):

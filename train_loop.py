@@ -138,9 +138,6 @@ def step(loop, data):
 
     # TODO: extent this to two control options: w/wo given model
     # TODO: Library of custom loss functions??
-    print(Y_pred)
-    print(Yf)
-    print(reg_error)
     criterion = torch.nn.MSELoss()
     loss = criterion(Y_pred.squeeze(), Yf.squeeze())
 
@@ -325,14 +322,11 @@ if __name__ == '__main__':
         Ytrue, Ypred = [], []
         for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
             data = [d.transpose(0, 1).view(1, -1, d.shape[-1]) if d is not None else d for d in dset]
-            # print('true', [k.shape for k in data if k is not None])
             openloss, reg_error, X_out, Y_out, U_out = step(loop, data)
             print(f'{dname}_open_loss: {openloss}')
             if args.mlflow:
                 mlflow.log_metrics({f'open_{dname}_loss': openloss, f'open_{dname}_reg': reg_error})
             Y_target = data[1]
-            # print('true', Y_target.shape)
-            # print('pred', Y_out.shape)
             Ypred.append(Y_out.detach().cpu().numpy().reshape(-1, ny))
             Ytrue.append(Y_target.detach().cpu().numpy().reshape(-1, ny))
         plot.pltOL_train(np.concatenate(Ytrue), np.concatenate(Ypred), figname=os.path.join(args.savedir, 'open.png'))

@@ -137,7 +137,12 @@ def step(loop, data):
         X_pred, Y_pred, U_pred, reg_error = loop(Yp, Up, Dp, Df, Rf)
 
     # TODO: extent this to two control options: w/wo given model
-    loss = F.mse_loss(Y_pred.squeeze(), Yf.squeeze())
+    # TODO: Library of custom loss functions??
+    print(Y_pred)
+    print(Yf)
+    print(reg_error)
+    criterion = torch.nn.MSELoss()
+    loss = criterion(Y_pred.squeeze(), Yf.squeeze())
 
     # TODO: shall we create separate file losses.py with various types of loss functions?
 

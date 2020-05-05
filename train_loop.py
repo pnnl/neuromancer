@@ -234,8 +234,8 @@ if __name__ == '__main__':
         # fxud = rnn.RNN(nx+nu+nd, nx, num_layers=3,
         #                bias=args.bias, nonlinearity=F.gelu)
         fxud = blocks.MLP(nx + nu + nd, nx, hsizes=[nx]*3,
-                       bias=args.bias, nonlin=F.gelu)
-        fy = Linear(nx, ny, bias=args.bias)
+                       bias=args.bias, nonlin=F.gelu).to(device)
+        fy = Linear(nx, ny, bias=args.bias).to(device)
         model = ssm.BlackSSM(nx, nu, nd, ny, fxud, fy).to(device)
 
     if args.state_estimator == 'linear':
@@ -250,7 +250,7 @@ if __name__ == '__main__':
         estimator = estimators.LinearKalmanFilter(model)
     else:
         estimator = estimators.FullyObservable()
-    estimator.to(device)
+    estimator = estimator.to(device)
 
     if args.loop == 'open':
         loop = loops.OpenLoop(model, estimator).to(device)

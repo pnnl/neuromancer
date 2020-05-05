@@ -47,7 +47,7 @@ class RNN(nn.Module):
                       for k in range(num_layers-1)]
         self.rnn_cells = nn.ModuleList(rnn_cells)
         self.num_layers = len(rnn_cells)
-        self.init_states = [nn.Parameter(torch.zeros(1, cell.hidden_size)) for cell in self.rnn_cells]
+        self.init_states = nn.ModuleList([nn.Parameter(torch.zeros(1, cell.hidden_size)) for cell in self.rnn_cells])
 
     def reg_error(self):
         return torch.mean(torch.stack([cell.reg_error() for cell in self.rnn_cells]))

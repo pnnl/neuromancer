@@ -12,9 +12,10 @@ class LinearBase(nn.Module, ABC):
     def __init__(self, insize, outsize):
         super().__init__()
         self.in_features, self.out_features = insize, outsize
+        self.error_matrix = nn.Parameter(torch.zeros(1), requires_grad=False)
 
     def reg_error(self):
-        return torch.zeros(1)
+        return self.error_matrix
 
     @abstractmethod
     def effective_W(self):

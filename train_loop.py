@@ -321,7 +321,7 @@ if __name__ == '__main__':
 
         Ytrue, Ypred = [], []
         for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
-            data = [d.transpose(0, 1).view(1, -1, d.shape[-1]) if d is not None else d for d in dset]
+            data = [d.transpose(0, 1).reshape(1, -1, d.shape[-1]) if d is not None else d for d in dset]
             openloss, reg_error, X_out, Y_out, U_out = step(loop, data)
             print(f'{dname}_open_loss: {openloss}')
             if args.mlflow:

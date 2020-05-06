@@ -5,10 +5,12 @@ External Emulators - third party models
 """
 
 from scipy.io import loadmat
+from scipy import signal
 from abc import ABC, abstractmethod
 import numpy as np
 import plot
 import matplotlib.pyplot as plt
+
 
 ####################################
 ###### Internal Emulators ##########
@@ -179,29 +181,46 @@ class Building_hf(EmulatorBase):
 ##########################################################
 # TODO: functions generating baseline control signals or noise used for exciting the system for system ID and RL
 
-def PRBS(nx,nsim):
-    """
-    pseudo random binary signal
-    :param nx: (int) Number signals
-    :param nsim: (int) Number time steps
-    """
-    pass
 
-def WhiteNoise():
+
+def WhiteNoise(nx=1, nsim=100, xmax=1, xmin=0):
     """
     White Noise
     :param nx: (int) Number signals
     :param nsim: (int) Number time steps
+    :param xmax: (int/list/ndarray) signal maximum value
+    :param xmin: (int/list/ndarray) signal minimum value
     """
-    pass
+    if type(xmax) is not np.ndarray:
+        xmax = np.asarray([xmax]).ravel()
+    if type(xmin) is not np.ndarray:
+        xmin = np.asarray([xmin]).ravel()
+    Signal = []
+    for k in range(nx):
+        signal = xmin[k] + (xmax[k] - xmin[k])*np.random.rand(nsim)
+        Signal.append(signal)
+    return np.asarray(Signal).T
 
-def Step():
+def Step(nx=1, nsim=100, tstep = 50, xmax=1, xmin=0):
     """
     step change
     :param nx: (int) Number signals
     :param nsim: (int) Number time steps
+    :param tstep: (int) time of the step
+    :param xmax: (int/list/ndarray) signal maximum value
+    :param xmin: (int/list/ndarray) signal minimum value
     """
-    pass
+    if type(xmax) is not np.ndarray:
+        xmax = np.asarray([xmax]).ravel()
+    if type(xmin) is not np.ndarray:
+        xmin = np.asarray([xmin]).ravel()
+    Signal = []
+    for k in range(nx):
+        signal = np.ones(nsim)
+        signal[0:tstep] = xmin[k]
+        signal[tstep:] = xmax[k]
+        Signal.append(signal)
+    return np.asarray(Signal).T
 
 def Ramp():
     """
@@ -216,12 +235,15 @@ def Periodic(nx=1, nsim=100, numPeriods=1, xmax=1, xmin=0, form='sin'):
     periodic signals, sine, cosine
     :param nx: (int) Number signals
     :param nsim: (int) Number time steps
-    :param periods: (int) Number of periods
+    :param numPeriods: (int) Number of periods
+    :param xmax: (int/list/ndarray) signal maximum value
+    :param xmin: (int/list/ndarray) signal minimum value
+    :param form: (str) form of the periodic signal 'sin' or 'cos'
     """
     if type(xmax) is not np.ndarray:
-        xmax = np.asarray([xmax])
+        xmax = np.asarray([xmax]).ravel()
     if type(xmin) is not np.ndarray:
-        xmin = np.asarray([xmin])
+        xmin = np.asarray([xmin]).ravel()
 
     samples_period = nsim// numPeriods
     leftover = nsim % numPeriods
@@ -236,6 +258,9 @@ def Periodic(nx=1, nsim=100, numPeriods=1, xmax=1, xmin=0, form='sin'):
         Signal.append(signal)
     return np.asarray(Signal).T
 
+
+# TODO: wrapper for scipy signal functions
+# https://docs.scipy.org/doc/scipy/reference/signal.html#module-scipy.signal
 
 def SignalComposite():
     """

@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import plot
+import emulators
 
 def min_max_norm(M):
     """
@@ -146,6 +147,25 @@ if __name__ == '__main__':
         Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=6, device='cpu')
         R = np.ones(Y.shape)
         Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=6, device='cpu')
+
+
+#   TESTING dataset creation from the emulator
+    ninit = 0
+    nsim = 1000
+    building = emulators.Building_hf()   # instantiate building class
+    building.parameters()      # load model parameters
+    # generate input data
+    M_flow = emulators.Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min, form='sin')
+    DT = emulators.Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min, form='cos')
+    D = building.D[ninit:nsim,:]
+    # simulate open loop building
+    U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
+    # plot trajectories
+    plot.pltOL(Y, U, D, X)
+    # create datasets
+    Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=12, device='cpu')
+    R = 25*np.ones(Y.shape)
+    Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=12, device='cpu')
 
 
 #   TODO: save trained benchmark models from Matlab's System ID

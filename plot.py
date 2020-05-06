@@ -27,7 +27,7 @@ def pltCL(Y, U, D, R):
     """
     pass
 
-def pltOL_train(Ytrue, Ytrain, X=None, U=None, D=None, figname=None):
+def pltOL_train(Ytrue, Ytrain, U=None, D=None, X=None, figname=None):
     """
     plot trained open loop dataset
     Ytrue: ground truth training signal
@@ -38,9 +38,9 @@ def pltOL_train(Ytrue, Ytrain, X=None, U=None, D=None, figname=None):
         nrows -= 1
     if D is None:
         nrows -= 1
-
+    if X is None:
+        nrows -= 1
     fig, ax = plt.subplots(nrows, 1, figsize=(20, 16))
-
     if nrows == 1:
         ax.plot(Ytrue, linewidth=3)
         ax.plot(Ytrain, '--', linewidth=3)
@@ -59,7 +59,6 @@ def pltOL_train(Ytrue, Ytrain, X=None, U=None, D=None, figname=None):
         ax[0].set_ylabel('Y', fontsize=24)
         ax[0].tick_params(axis='x', labelsize=22)
         ax[0].tick_params(axis='y', labelsize=22)
-
     if X is not None:
         ax[1].plot(X, linewidth=3)
         ax[1].grid(True)
@@ -68,7 +67,6 @@ def pltOL_train(Ytrue, Ytrain, X=None, U=None, D=None, figname=None):
         ax[1].set_ylabel('X', fontsize=24)
         ax[1].tick_params(axis='x', labelsize=22)
         ax[1].tick_params(axis='y', labelsize=22)
-
     if U is not None:
         idx = 2
         if X is None:
@@ -80,7 +78,6 @@ def pltOL_train(Ytrue, Ytrain, X=None, U=None, D=None, figname=None):
         ax[idx].set_ylabel('U', fontsize=24)
         ax[idx].tick_params(axis='x', labelsize=22)
         ax[idx].tick_params(axis='y', labelsize=22)
-
     if D is not None:
         idx = 3
         if U is None:
@@ -94,23 +91,23 @@ def pltOL_train(Ytrue, Ytrain, X=None, U=None, D=None, figname=None):
         ax[idx].set_ylabel('D', fontsize=24)
         ax[idx].tick_params(axis='x', labelsize=22)
         ax[idx].tick_params(axis='y', labelsize=22)
+    if figname is not None:
+        plt.tight_layout()
+        plt.savefig(figname)
 
 
-
-def pltOL(Y, U=None, D=None, X=None):
+def pltOL(Y, U=None, D=None, X=None, figname=None):
     """
     plot input output open loop dataset
     """
     nrows = 4
-    if X is None:
-        nrows -= 1
     if U is None:
         nrows -= 1
     if D is None:
         nrows -= 1
-
+    if X is None:
+        nrows -= 1
     fig, ax = plt.subplots(nrows, 1, figsize=(20, 16))
-
     if nrows == 1:
         ax.plot(Y, linewidth=3)
         ax.grid(True)
@@ -127,7 +124,6 @@ def pltOL(Y, U=None, D=None, X=None):
         ax[0].set_ylabel('Y', fontsize=24)
         ax[0].tick_params(axis='x', labelsize=22)
         ax[0].tick_params(axis='y', labelsize=22)
-
     if X is not None:
         ax[1].plot(X, linewidth=3)
         ax[1].grid(True)
@@ -136,7 +132,6 @@ def pltOL(Y, U=None, D=None, X=None):
         ax[1].set_ylabel('X', fontsize=24)
         ax[1].tick_params(axis='x', labelsize=22)
         ax[1].tick_params(axis='y', labelsize=22)
-
     if U is not None:
         idx = 2
         if X is None:
@@ -148,7 +143,6 @@ def pltOL(Y, U=None, D=None, X=None):
         ax[idx].set_ylabel('U', fontsize=24)
         ax[idx].tick_params(axis='x', labelsize=22)
         ax[idx].tick_params(axis='y', labelsize=22)
-
     if D is not None:
         idx = 3
         if U is None:
@@ -162,7 +156,9 @@ def pltOL(Y, U=None, D=None, X=None):
         ax[idx].set_ylabel('D', fontsize=24)
         ax[idx].tick_params(axis='x', labelsize=22)
         ax[idx].tick_params(axis='y', labelsize=22)
-
+    if figname is not None:
+        plt.tight_layout()
+        plt.savefig(figname)
 
 
 def plot_trajectories(traj1, traj2, labels, figname):

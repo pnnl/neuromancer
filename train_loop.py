@@ -58,6 +58,7 @@ import loops
 import linear
 import blocks
 import rnn
+import emulators
 
 
 def parse_args():
@@ -131,7 +132,7 @@ def step(loop, data):
     if type(loop) is loops.OpenLoop:
         Yp, Yf, Up, Uf, Dp, Df = data
         X_pred, Y_pred, reg_error = loop(Yp, Up, Uf, Dp, Df)
-        U_pred = None
+        U_pred = Uf
     elif type(loop) is loops.ClosedLoop:
         Yp, Yf, Up, Dp, Df, Rf = data
         X_pred, Y_pred, U_pred, reg_error = loop(Yp, Up, Dp, Df, Rf)
@@ -168,6 +169,20 @@ if __name__ == '__main__':
         device = f'cuda:{args.gpu}'
 
     Y, U, D, Ts = dataset.Load_data_sysID(args.datafile)  # load data from file
+
+    #  TESTING dataset creation from the emulator
+    ninit = 0
+    nsim = 1000
+    building = emulators.Building_hf()  # instantiate building class
+    building.parameters()  # load model parameters
+    M_flow = emulators.Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min,
+                                form='sin')
+    DT = emulators.Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min,
+                            form='cos')
+    D = building.D[ninit:nsim, :]
+    U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
+    plot.pltOL(Y, U, D, X)
+
 
     if args.loop == 'open':
         # system ID or time series dataset
@@ -309,17 +324,18 @@ if __name__ == '__main__':
         ########## NSTEP TRAIN RESPONSE ########
         ########################################
         model.load_state_dict(best_model)
-        Ytrue, Ypred = [], []
+        Ytrue, Ypred, Upred = [], [], []
         for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
             loss, reg, X_out, Y_out, U_out = step(loop, dset)
             if args.mlflow:
                 mlflow.log_metric({f'nstep_{dname}_loss': loss.item(), 'nstep_{dname}_reg': reg.item()})
             Y_target = dset[1]
+            Upred.append(U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
             Ypred.append(Y_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
             Ytrue.append(Y_target.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
-        plot.pltOL_train(np.concatenate(Ytrue), np.concatenate(Ypred), figname=os.path.join(args.savedir, 'nstep.png'))
+        plot.pltOL_train(np.concatenate(Ytrue), np.concatenate(Ypred), np.concatenate(Upred), figname=os.path.join(args.savedir, 'nstep.png'))
 
-        Ytrue, Ypred = [], []
+        Ytrue, Ypred, Upred = [], [], []
         for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
             data = [d.transpose(0, 1).reshape(1, -1, d.shape[-1]) if d is not None else d for d in dset]
             openloss, reg_error, X_out, Y_out, U_out = step(loop, data)
@@ -327,9 +343,10 @@ if __name__ == '__main__':
             if args.mlflow:
                 mlflow.log_metrics({f'open_{dname}_loss': openloss, f'open_{dname}_reg': reg_error})
             Y_target = data[1]
+            Upred.append(U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
             Ypred.append(Y_out.detach().cpu().numpy().reshape(-1, ny))
             Ytrue.append(Y_target.detach().cpu().numpy().reshape(-1, ny))
-        plot.pltOL_train(np.concatenate(Ytrue), np.concatenate(Ypred), figname=os.path.join(args.savedir, 'open.png'))
+        plot.pltOL_train(np.concatenate(Ytrue), np.concatenate(Ypred), np.concatenate(Upred), figname=os.path.join(args.savedir, 'open.png'))
         torch.save(best_model, os.path.join(args.savedir, 'best_model.pth'))
         if args.mlflow:
             mlflow.log_artifacts(args.savedir)

@@ -8,6 +8,7 @@ from scipy.io import loadmat
 from abc import ABC, abstractmethod
 import numpy as np
 import plot
+import matplotlib.pyplot as plt
 
 ####################################
 ###### Internal Emulators ##########
@@ -80,8 +81,9 @@ class LPVSSM(EmulatorBase):
 
 class Building_hf(EmulatorBase):
     """
-    building model with linear state dynamics and bilinear heat flow input dynamics
-    parameters obtained from the original white-box Modelica model
+    building heat transfer model with linear state dynamics and bilinear heat flow input dynamics
+    represents building envelope with radiator for zone heating
+    parameters obtained from the original white-box model from Modelica
     """
     def __init__(self):
         super().__init__()
@@ -103,6 +105,10 @@ class Building_hf(EmulatorBase):
         self.TSup = file['TSup']  # supply temperature
         self.umax = file['umax']  # max heat per zone
         self.umin = file['umin']  # min heat per zone
+        self.mf_max = self.umax / 20  # maximal nominal mass flow l/h
+        self.mf_min = self.umin / 20  # minimal nominal mass flow l/h
+        self.dT_max = 40  # maximal temperature difference deg C
+        self.dT_min = 0  # minimal temperature difference deg C
 
         #         heat flow equation constants
         self.rho = 0.997  # density  of water kg/1l
@@ -205,34 +211,31 @@ def Ramp():
     """
     pass
 
-def Periodic(nx, nsim, numPeriods=1, xmax=1, xmin=0, type='sine'):
+def Periodic(nx=1, nsim=100, numPeriods=1, xmax=1, xmin=0, form='sin'):
     """
     periodic signals, sine, cosine
     :param nx: (int) Number signals
     :param nsim: (int) Number time steps
     :param periods: (int) Number of periods
     """
+    if type(xmax) is not np.ndarray:
+        xmax = np.asarray([xmax])
+    if type(xmin) is not np.ndarray:
+        xmin = np.asarray([xmin])
 
-    # x = np.linspace(0, numPeriods, nsim)
-    # freq = nsim / numPeriods
-    # ampl = xmax-xmin
-    # freq = 1
-    # f1 = lambda x: ampl* np.sin(freq * 2 * np.pi * x)
-    # sampled_f1 = np.asarray([f1(i) for i in x])
-
-    # TODO: finish
     samples_period = nsim// numPeriods
     leftover = nsim % numPeriods
+    Signal = []
+    for k in range(nx):
+        if form == 'sin':
+            base = xmin[k] + (xmax[k] - xmin[k])*(0.5 + 0.5 * np.sin(np.arange(0, 2 * np.pi, 2 * np.pi / samples_period)))
+        elif form == 'cos':
+            base = xmin[k] + (xmax[k] - xmin[k])*(0.5 + 0.5 * np.cos(np.arange(0, 2 * np.pi, 2 * np.pi / samples_period)))
+        signal = np.tile(base, numPeriods)
+        signal = np.append(signal, base[0:leftover])
+        Signal.append(signal)
+    return np.asarray(Signal).T
 
-    if type == 'sin':
-        base_wave = (0.5 + 0.5 * np.sin(np.arange(0, 2 * np.pi, 2 * np.pi / samples_period)))
-    elif type == 'cos':
-        base_wave = (0.5 + 0.5 * np.cos(np.arange(0, 2 * np.pi, 2 * np.pi / samples_period)))
-
-    # X = Xmin + Xmax * base_wave
-    # M_flow = np.matlib.repmat(m_flow_day, 1, sim_days).T
-    # return X
-    pass
 
 def SignalComposite():
     """
@@ -259,11 +262,13 @@ if __name__ == '__main__':
     building = Building_hf()   # instantiate building class
     building.parameters()      # load model parameters
 
-    M_flow = np.ones([100,building.n_mf])
-    DT = np.ones([100,building.n_dT])
+    # generate input data
+    M_flow = Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min, form='sin')
+    DT = Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min, form='cos')
     D = building.D[ninit:nsim,:]
-    U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
 
+    # simulate open loop building
+    U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
+    # plot trajectories
     plot.pltOL(Y, U, D, X)
-    plot.pltOL(Y, U, D)
 

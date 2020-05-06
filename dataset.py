@@ -40,7 +40,6 @@ def Load_data_sysID(file_path='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.
     return Y, U, D, Ts
 
 
-
 def data_batches(data, nsteps):
     nsplits = (data.shape[0]) // nsteps
     leftover = (data.shape[0]) % nsteps
@@ -132,54 +131,6 @@ def make_dataset_cl(Y, U, D, R, nsteps, device):
     return Yp, Yf, Up, Dp, Df, Rf
 
 
-def make_dataset(Y, U, D, Ts, nsteps, device):
-    """
-    :param U: inputs
-    :param Y: outputs
-    :param Ts: sampling time
-    :param nsteps: prediction step
-    :param device:
-    :param norm:
-    :return:
-    """
-
-    # Outputs: data for past and future moving horizons
-    data = [Y[:-nsteps], Y[nsteps:]]
-    sizes = [Y.shape[1], Y.shape[1]]
-    # Inputs: data for past and future moving horizons
-    if U is not None:
-        data += [U[:-nsteps], U[nsteps:]]
-        sizes += [U.shape[1], U.shape[1]]
-    else: # TODO: remove
-        data += [Y[:-nsteps], Y[nsteps:]]
-        sizes += [Y.shape[1], Y.shape[1]]
-    # Disturbances: data for past and future moving horizons
-    if D is not None:
-        data += [D[:-nsteps], D[nsteps:]]
-        sizes += [D.shape[1], D.shape[1]]
-    else: # TODO: remove
-        data += [Y[:-nsteps], Y[nsteps:]]
-        sizes += [Y.shape[1], Y.shape[1]]
-
-    data = np.concatenate(data, axis=1)
-
-    nsplits = (data.shape[0]) // nsteps
-    leftover = (data.shape[0]) % nsteps
-    data = np.stack(np.split(data[:data.shape[0] - leftover], nsplits))  # nchunks X nsteps X 14
-    data = torch.tensor(data, dtype=torch.float32).transpose(0, 1).to(device)  # nsteps X nsamples X nfeatures
-    train_idx = (data.shape[1] // 3)
-    dev_idx = train_idx * 2
-    train_data = data[:, :train_idx, :]
-    dev_data = data[:, train_idx:dev_idx, :]
-    test_data = data[:, dev_idx:, :]
-
-    starts = np.cumsum([0] + sizes[:-1])
-    ends = np.cumsum(sizes)
-    return ([train_data[:, :, start:end] for start, end in zip(starts, ends)],
-            [dev_data[:, :, start:end] for start, end in zip(starts, ends)],
-            [test_data[:, :, start:end] for start, end in zip(starts, ends)])
-
-
 if __name__ == '__main__':
     datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
                  './datasets/NLIN_SISO_predator_prey/PredPreyCrowdingData.mat',
@@ -190,9 +141,8 @@ if __name__ == '__main__':
 
     for path in datapaths:
         Y, U, D, Ts = Load_data_sysID(path)
-
         plot.pltOL(Y, U, D)
-        train_data, dev_data, test_data = make_dataset(Y, U, D, Ts, nsteps=6, device='cpu')
+
         Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=6, device='cpu')
         R = np.ones(Y.shape)
         Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=6, device='cpu')

@@ -27,13 +27,13 @@ def pltCL(Y, U, D, R):
     """
     pass
 
-def pltOL_train(Ytrue, Ytrain, U=None, D=None, figname=None):
+def pltOL_train(Ytrue, Ytrain, X=None, U=None, D=None, figname=None):
     """
     plot trained open loop dataset
     Ytrue: ground truth training signal
     Ytrain: trained model response
     """
-    nrows = 3
+    nrows = 4
     if U is None:
         nrows -= 1
     if D is None:
@@ -60,18 +60,32 @@ def pltOL_train(Ytrue, Ytrain, U=None, D=None, figname=None):
         ax[0].tick_params(axis='x', labelsize=22)
         ax[0].tick_params(axis='y', labelsize=22)
 
-    if U is not None:
-        ax[1].plot(U, linewidth=3)
+    if X is not None:
+        ax[1].plot(X, linewidth=3)
         ax[1].grid(True)
-        ax[1].set_title('Inputs', fontsize=24)
+        ax[1].set_title('States', fontsize=24)
         ax[1].set_xlabel('Time', fontsize=24)
-        ax[1].set_ylabel('U', fontsize=24)
+        ax[1].set_ylabel('X', fontsize=24)
         ax[1].tick_params(axis='x', labelsize=22)
         ax[1].tick_params(axis='y', labelsize=22)
 
-    if D is not None:
+    if U is not None:
         idx = 2
+        if X is None:
+            idx -= 1
+        ax[idx].plot(U, linewidth=3)
+        ax[idx].grid(True)
+        ax[idx].set_title('Inputs', fontsize=24)
+        ax[idx].set_xlabel('Time', fontsize=24)
+        ax[idx].set_ylabel('U', fontsize=24)
+        ax[idx].tick_params(axis='x', labelsize=22)
+        ax[idx].tick_params(axis='y', labelsize=22)
+
+    if D is not None:
+        idx = 3
         if U is None:
+            idx -= 1
+        if X is None:
             idx -= 1
         ax[idx].plot(D, linewidth=3)
         ax[idx].grid(True)
@@ -80,17 +94,16 @@ def pltOL_train(Ytrue, Ytrain, U=None, D=None, figname=None):
         ax[idx].set_ylabel('D', fontsize=24)
         ax[idx].tick_params(axis='x', labelsize=22)
         ax[idx].tick_params(axis='y', labelsize=22)
-    if figname is not None:
-        plt.savefig(figname)
 
 
 
-
-def pltOL(Y, U=None, D=None):
+def pltOL(Y, U=None, D=None, X=None):
     """
     plot input output open loop dataset
     """
-    nrows = 3
+    nrows = 4
+    if X is None:
+        nrows -= 1
     if U is None:
         nrows -= 1
     if D is None:
@@ -115,18 +128,32 @@ def pltOL(Y, U=None, D=None):
         ax[0].tick_params(axis='x', labelsize=22)
         ax[0].tick_params(axis='y', labelsize=22)
 
-    if U is not None:
-        ax[1].plot(U, linewidth=3)
+    if X is not None:
+        ax[1].plot(X, linewidth=3)
         ax[1].grid(True)
-        ax[1].set_title('Inputs', fontsize=24)
+        ax[1].set_title('States', fontsize=24)
         ax[1].set_xlabel('Time', fontsize=24)
-        ax[1].set_ylabel('U', fontsize=24)
+        ax[1].set_ylabel('X', fontsize=24)
         ax[1].tick_params(axis='x', labelsize=22)
         ax[1].tick_params(axis='y', labelsize=22)
 
-    if D is not None:
+    if U is not None:
         idx = 2
+        if X is None:
+            idx -= 1
+        ax[idx].plot(U, linewidth=3)
+        ax[idx].grid(True)
+        ax[idx].set_title('Inputs', fontsize=24)
+        ax[idx].set_xlabel('Time', fontsize=24)
+        ax[idx].set_ylabel('U', fontsize=24)
+        ax[idx].tick_params(axis='x', labelsize=22)
+        ax[idx].tick_params(axis='y', labelsize=22)
+
+    if D is not None:
+        idx = 3
         if U is None:
+            idx -= 1
+        if X is None:
             idx -= 1
         ax[idx].plot(D, linewidth=3)
         ax[idx].grid(True)

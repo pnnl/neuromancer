@@ -7,8 +7,7 @@ External Emulators - third party models
 from scipy.io import loadmat
 from abc import ABC, abstractmethod
 import numpy as np
-import matplotlib.pyplot as plt
-
+import plot
 
 ####################################
 ###### Internal Emulators ##########
@@ -21,26 +20,25 @@ class EmulatorBase(ABC):
     def __init__(self):
         super().__init__()
 
-    # TODO: not sure we need inputs/outputs as separate functions
-
-    # inputs of the dynamical system
-    @abstractmethod
-    def inputs(self):
-        pass
-
-    # outputs of the dynamical system
-    @abstractmethod
-    def outputs(self):
-        pass
+    # # TODO: not sure we need inputs/outputs as separate functions
+    # # inputs of the dynamical system
+    # @abstractmethod
+    # def inputs(self):
+    #     pass
+    #
+    # # outputs of the dynamical system
+    # @abstractmethod
+    # def outputs(self):
+    #     pass
 
     # parameters of the dynamical system
     @abstractmethod
-    def parameters(self):
+    def parameters(self, **kwargs):
         pass
 
     # equations defining the dynamical system
     @abstractmethod
-    def equations(self):
+    def equations(self, **kwargs):
         pass
 
     # # single forward time step of the dynamical system
@@ -50,7 +48,7 @@ class EmulatorBase(ABC):
 
     # N-step forward simulation of the dynamical system
     @abstractmethod
-    def simulate(self):
+    def simulate(self, **kwargs):
         pass
 
 
@@ -83,17 +81,10 @@ class LPVSSM(EmulatorBase):
 class Building_hf(EmulatorBase):
     """
     building model with linear state dynamics and bilinear heat flow input dynamics
+    parameters obtained from the original white-box Modelica model
     """
     def __init__(self):
         super().__init__()
-
-    # inputs of the dynamical system
-    def inputs(self):
-        pass
-
-    # outputs of the dynamical system
-    def outputs(self):
-        pass
 
     # parameters of the dynamical system
     def parameters(self, file_path='./emulators/buildings/Reno_model_for_py.mat'):
@@ -128,26 +119,22 @@ class Building_hf(EmulatorBase):
 
         self.x0 = 0 * np.ones(self.nx, dtype=np.float32)  # initial conditions
         self.D = file['disturb'] # pre-defined disturbance profiles
+    #     TODO: pre defined inputs?
 
-    def heat_flow(self, m_flow, dT):
-        u = m_flow * self.rho * self.cp * self.time_reg * dT
-        return u
-
-    # TODO: fix bug here
     # equations defining single step of the dynamical system
     def equations(self, x, m_flow, dT, d):
-        u = self.heat_flow(m_flow, dT)
-        x = self.A*x.T + self.B*u + self.E*d + self.G
-        y = self.C*x + self.F - 273.15
+        u = m_flow * self.rho * self.cp * self.time_reg * dT
+        x = np.matmul(self.A, x) + np.matmul(self.B, u) + np.matmul(self.E, d) + self.G.ravel()
+        y = np.matmul(self.C, x) + self.F.ravel()
         return u, x, y
 
     # N-step forward simulation of the dynamical system
-    def simulate(self, ninit, nsim, M_flow, DT, D = None, x0 = None):
+    def simulate(self, ninit, nsim, M_flow, DT, D=None, x0=None):
         """
         :param nsim: (int) Number of steps for open loop response
         :param M_flow: (ndarray, shape=(nsim, self.n_mf)) mass flow profile matrix
         :param DT: (ndarray, shape=(nsim, self.n_dT)) temperature difference profile matrix
-        :param D: (ndarray, shape=(nsim, self.nd)) Disturbance matrix
+        :param D: (ndarray, shape=(nsim, self.nd)) measured disturbance signals
         :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
         :return: The response matrices, i.e. U, X, Y, for heat flows, states, and output ndarrays
         """
@@ -165,12 +152,12 @@ class Building_hf(EmulatorBase):
         for m_flow, dT, d in zip(M_flow, DT, D):
             N += 1
             u, x, y = self.equations(x, m_flow, dT, d)
-            U.append(x)
+            U.append(u)
             X.append(x + 20)  # updated states trajectories with initial condition 20 deg C of linearization
-            Y.append(y)
+            Y.append(y - 273.15)  # updated input trajectories from K to deg C
             if N == nsim:
                 break
-        return U, X, Y
+        return np.asarray(U), np.asarray(X), np.asarray(Y)
 
 
 
@@ -184,7 +171,7 @@ class Building_hf(EmulatorBase):
 ##########################################################
 ###### Base Control Profiles for System excitation #######
 ##########################################################
-# TODO: functions generating baseline control signals used for exciting the system for system ID and RL
+# TODO: functions generating baseline control signals or noise used for exciting the system for system ID and RL
 
 def PRBS(nx,nsim):
     """
@@ -262,25 +249,21 @@ def SignalSeries():
     pass
 
 
-
 if __name__ == '__main__':
     """
     Tests
     """
     ninit = 0
-    nsim = 100
+    nsim = 1000
 
-    building = Building_hf()
-    building.parameters()
+    building = Building_hf()   # instantiate building class
+    building.parameters()      # load model parameters
 
     M_flow = np.ones([100,building.n_mf])
     DT = np.ones([100,building.n_dT])
     D = building.D[ninit:nsim,:]
-    building.simulate(ninit, nsim, M_flow, DT, D)
+    U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
 
-
-
-
-
-
+    plot.pltOL(Y, U, D, X)
+    plot.pltOL(Y, U, D)
 

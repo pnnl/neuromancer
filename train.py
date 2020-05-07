@@ -98,7 +98,6 @@ def parse_args():
                              choices=['relu', 'gelu'], default='gelu')
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
 
-
     ##################
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS') # TODO: These are not doing anything

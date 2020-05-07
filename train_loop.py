@@ -76,8 +76,9 @@ def parse_args():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=16,
                             help='Number of steps for open loop during training.')
+    data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='emulator')
     data_group.add_argument('-datafile', default='./datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat',
-                            help='Whether to use 40 variable reduced order model (opposed to 286 variable full model')
+                            help='source of the dataset')
     data_group.add_argument('-norm', type=str, default='UDY')
 
     ##################
@@ -168,21 +169,22 @@ if __name__ == '__main__':
     if args.gpu is not None:
         device = f'cuda:{args.gpu}'
 
-    Y, U, D, Ts = dataset.Load_data_sysID(args.datafile)  # load data from file
-
-    #  TESTING dataset creation from the emulator
-    ninit = 0
-    nsim = 1000
-    building = emulators.Building_hf()  # instantiate building class
-    building.parameters()  # load model parameters
-    M_flow = emulators.Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min,
-                                form='sin')
-    DT = emulators.Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min,
-                            form='cos')
-    D = building.D[ninit:nsim, :]
-    U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
-    plot.pltOL(Y, U, D, X)
-
+    if args.system_data is 'datafile':
+        Y, U, D, Ts = dataset.Load_data_sysID(args.datafile)  # load data from file
+        plot.pltOL(Y, U, D)
+    elif args.system_data is 'emulator':
+        #  dataset creation from the emulator
+        ninit = 0
+        nsim = 1000
+        building = emulators.Building_hf()  # instantiate building class
+        building.parameters()  # load model parameters
+        M_flow = emulators.Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min,
+                                    form='sin')
+        DT = emulators.Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min,
+                                form='cos')
+        D = building.D[ninit:nsim, :]
+        U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
+        plot.pltOL(Y, U, D, X)
 
     if args.loop == 'open':
         # system ID or time series dataset
@@ -199,9 +201,6 @@ if __name__ == '__main__':
         dev_data = [dataset.split_train_test_dev(data)[1] for data in [Yp, Yf, Up, Dp, Df, Rf]]
         test_data = [dataset.split_train_test_dev(data)[2] for data in [Yp, Yf, Up, Dp, Df, Rf]]
 
-    ####################################
-    ###### DIMS SETUP ##################
-    ####################################
     nx, ny = Y.shape[1]*args.nx_hidden, Y.shape[1]
     if U is not None:
         nu = U.shape[1]

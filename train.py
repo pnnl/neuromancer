@@ -123,7 +123,7 @@ def parse_args():
                            help='Where to write mlflow experiment tracking stuff')
     log_group.add_argument('-run', default='test',
                            help='Some name to tell what the experiment run was about.')
-    log_group.add_argument('-mlflow', default=True,
+    log_group.add_argument('-mlflow', action='store_true',
                            help='Using mlflow or not.')
     return parser.parse_args()
 

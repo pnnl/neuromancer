@@ -54,6 +54,7 @@ for path in datapaths:
                           '-linear_map %s ' % linear + \
                           '-nonlinear_map %s ' % nonlinear + \
                           '-nsteps %s ' % nsteps + \
+                          '-mlflow ' + \
                           '-exp %s_%s_%s ' % (linear, nonlinear, nsteps) # group experiments with same configuration together - TODO: add more params
                     with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s.slurm' % (linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
                         cmdfile.write(template + cmd)

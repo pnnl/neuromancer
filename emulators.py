@@ -23,17 +23,6 @@ class EmulatorBase(ABC):
     def __init__(self):
         super().__init__()
 
-    # # TODO: not sure we need inputs/outputs as separate functions
-    # # inputs of the dynamical system
-    # @abstractmethod
-    # def inputs(self):
-    #     pass
-    #
-    # # outputs of the dynamical system
-    # @abstractmethod
-    # def outputs(self):
-    #     pass
-
     # parameters of the dynamical system
     @abstractmethod
     def parameters(self, **kwargs):
@@ -43,11 +32,6 @@ class EmulatorBase(ABC):
     @abstractmethod
     def equations(self, **kwargs):
         pass
-
-    # # single forward time step of the dynamical system
-    # @abstractmethod
-    # def step(self):
-    #     pass
 
     # N-step forward simulation of the dynamical system
     @abstractmethod
@@ -102,7 +86,7 @@ class Building_hf(EmulatorBase):
         self.E = file['Ed']
         self.G = file['Gd']
         self.F = file['Fd']
-
+        #  constraints bounds
         self.Ts = file['Ts']  # sampling time
         self.TSup = file['TSup']  # supply temperature
         self.umax = file['umax']  # max heat per zone
@@ -111,12 +95,10 @@ class Building_hf(EmulatorBase):
         self.mf_min = self.umin / 20  # minimal nominal mass flow l/h
         self.dT_max = 40  # maximal temperature difference deg C
         self.dT_min = 0  # minimal temperature difference deg C
-
         #         heat flow equation constants
         self.rho = 0.997  # density  of water kg/1l
         self.cp = 4185.5  # specific heat capacity of water J/(kg/K)
         self.time_reg = 1 / 3600  # time regularization of the mass flow 1 hour = 3600 seconds
-
         # problem dimensions
         self.nx = self.A.shape[0]
         self.ny = self.C.shape[0]
@@ -124,10 +106,9 @@ class Building_hf(EmulatorBase):
         self.nd = self.E.shape[1]
         self.n_mf = self.B.shape[1]
         self.n_dT = 1
-
+        # initial conditions and disturbance profiles
         self.x0 = 0 * np.ones(self.nx, dtype=np.float32)  # initial conditions
         self.D = file['disturb'] # pre-defined disturbance profiles
-    #     TODO: pre defined inputs?
 
     # equations defining single step of the dynamical system
     def equations(self, x, m_flow, dT, d):

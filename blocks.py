@@ -48,9 +48,11 @@ class Bilinear(nn.Module):
         return self.linear(expand(x))
 
 
+# TODO: shall we create new file with custom activation functions?
 class SoftExponential(nn.Module):
     pass
 # https://arxiv.org/abs/1602.01321
+
 
 class Fourier(nn.Module):
     pass

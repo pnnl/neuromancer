@@ -37,25 +37,50 @@ datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
                  './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
                  './datasets/NLIN_MIMO_CSTR/NLIN_MIMO_CSTR2.mat',
                  './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']
+
+systems = ['tank','vehicle3','reactor','aero']
+
 ssm_type=['BlockSSM', 'BlackSSM']
 linear_map=['pf', 'spectral', 'linear']
 nonlinear_map= ['mlp', 'sparse_residual_mlp', 'linear']
 
-for path in datapaths:
-    for linear in linear_map:
-        for nonlinear in nonlinear_map:
-            for nsteps in [2, 4, 8, 16, 32]:
-                for i in range(args.nsamples): # 10 samples for each configuration
-                    cmd = 'python train_loop.py ' +\
-                          '-gpu 0 ' +\
-                          '-epochs 30000 ' + \
-                          '-location %s ' % args.results + \
-                          '-datafile %s ' % path + \
-                          '-linear_map %s ' % linear + \
-                          '-nonlinear_map %s ' % nonlinear + \
-                          '-nsteps %s ' % nsteps + \
-                          '-mlflow ' + \
-                          '-exp %s_%s_%s ' % (linear, nonlinear, nsteps) # group experiments with same configuration together - TODO: add more params
-                    with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s.slurm' % (linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
-                        cmdfile.write(template + cmd)
+# Block SSM without bias
+for path, system in zip(datapaths, systems):
+    for bias in ['-bias', '']:
+        for linear in linear_map:
+            for nonlinear in nonlinear_map:
+                for nsteps in [2, 4, 8, 16, 32]:
+                    for i in range(args.nsamples): # 10 samples for each configuration
+                        cmd = 'python train_loop.py ' +\
+                              '-gpu 0 ' +\
+                              '-epochs 30000 ' + \
+                              '-location %s ' % args.results + \
+                              '-datafile %s ' % path + \
+                              '-linear_map %s ' % linear + \
+                              '-nonlinear_map %s ' % nonlinear + \
+                              '-nsteps %s ' % nsteps + \
+                              '-mlflow ' + \
+                              '-ssm_type BlockSSM ' + \
+                              '%s ' % bias + \
+                              '-exp BlockSSM_%s_%s_%s_%s_%s ' % (system, linear, nonlinear, bias, nsteps) # group experiments with same configuration together - TODO: add more params
+                        with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s.slurm' % (linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
+                            cmdfile.write(template + cmd)
 
+for path in datapaths:
+    for bias in ['-bias', '']:
+        for nsteps in [2, 4, 8, 16, 32]:
+            for i in range(args.nsamples): # 10 samples for each configuration
+                cmd = 'python train_loop.py ' +\
+                      '-gpu 0 ' +\
+                      '-epochs 30000 ' + \
+                      '-location %s ' % args.results + \
+                      '-datafile %s ' % path + \
+                      '-linear_map %s ' % linear + \
+                      '-nonlinear_map %s ' % nonlinear + \
+                      '-nsteps %s ' % nsteps + \
+                      '-mlflow ' + \
+                      '-ssm_type BlackSSM ' + \
+                      '%s ' % bias + \
+                      '-exp BlackSSM_%s_%s_%s ' % (system, bias, nsteps) # group experiments with same configuration together - TODO: add more params
+                with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s.slurm' % (linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
+                    cmdfile.write(template + cmd)

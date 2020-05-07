@@ -96,7 +96,7 @@ def parse_args():
                              choices=['mlp', 'resnet', 'sparse_mlp', 'sparse_residual_mlp', 'linear'], default='mlp')
     model_group.add_argument('-nonlin', type=str,
                              choices=['relu', 'gelu'], default='gelu')
-    model_group.add_argument('-bias', action='store_false', help='Whether to use bias in the neural network models.')
+    model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
 
 
     ##################
@@ -247,7 +247,7 @@ if __name__ == '__main__':
         # TODO: there is an error with RNN due to different output format than blocks
         # fxud = rnn.RNN(nx+nu+nd, nx, num_layers=3,
         #                bias=args.bias, nonlinearity=F.gelu)
-        fxud = blocks.MLP(nx + nu + nd, nx, hsizes=[nx]*3,
+        fxud = blocks.ResMLP(nx + nu + nd, nx, hsizes=[nx]*3,
                        bias=args.bias, nonlin=F.gelu).to(device)
         fy = Linear(nx, ny, bias=args.bias).to(device)
         model = ssm.BlackSSM(nx, nu, nd, ny, fxud, fy).to(device)

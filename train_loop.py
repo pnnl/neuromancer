@@ -67,7 +67,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=20)
+    opt_group.add_argument('-epochs', type=int, default=10000)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
@@ -134,15 +134,14 @@ def step(loop, data):
         Yp, Yf, Up, Uf, Dp, Df = data
         X_pred, Y_pred, reg_error = loop(Yp, Up, Uf, Dp, Df)
         U_pred = Uf
+        criterion = torch.nn.MSELoss()
+        loss = criterion(Y_pred.squeeze(), Yf.squeeze())
     elif type(loop) is loops.ClosedLoop:
         Yp, Yf, Up, Dp, Df, Rf = data
         X_pred, Y_pred, U_pred, reg_error = loop(Yp, Up, Dp, Df, Rf)
-
+        loss = None
     # TODO: extent this to two control options: w/wo given model
     # TODO: Library of custom loss functions??
-    criterion = torch.nn.MSELoss()
-    loss = criterion(Y_pred.squeeze(), Yf.squeeze())
-
     # TODO: shall we create separate file losses.py with various types of loss functions?
 
     return loss, reg_error, X_pred, Y_pred, U_pred
@@ -228,7 +227,6 @@ if __name__ == '__main__':
         elif args.nonlinear_map == 'mlp':
             fy = blocks.MLP(nx, ny, bias=args.bias, hsizes=[nx]*2,
                                Linear=linmap).to(device)
-
         if nu != 0:
             if args.nonlinear_map == 'linear':
                 fu = linmap(nu, nx, bias=args.bias).to(device)
@@ -273,6 +271,8 @@ if __name__ == '__main__':
     elif args.loop == 'closed':
         policy = policies.LinearPolicy(nx, nu, nd, ny, args.nsteps).to(device)
         loop = loops.ClosedLoop(model, estimator, policy).to(device)
+    #     TODO: shall we include constraints as an argument to loops
+    #      or rather individually to model estimator and policy?
 
     nweights = sum([i.numel() for i in list(loop.parameters()) if i.requires_grad])
     if args.mlflow:

@@ -20,7 +20,7 @@ bias=False
 for path in datapaths:
     for linear in linear_map:
         for nonlinear in nonlinear_map:
-            os.system(f'python train_loop.py -datafile {path} -ssm_type BlockSSM -linear_map {linear} '
+            os.system(f'python train.py -datafile {path} -ssm_type BlockSSM -linear_map {linear} '
                       f'-nonlinear_map {nonlinear} -state_estimator rnn -bias')
 
 

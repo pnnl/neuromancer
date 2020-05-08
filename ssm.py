@@ -210,6 +210,7 @@ class BlackSSM(nn.Module):
         self.s_sub = self.running_mean(self.s_sub, sum([k.reg_error() for k in
                                                         [self.fxud, self.fy]
                                                         if hasattr(k, 'reg_error')]), N)
+
     def reg_error(self):
         error = sum([self.Q_con_x * self.sxmin, self.Q_con_x * self.sxmax,
                      self.Q_con_u * self.sumin, self.Q_con_u * self.sumax,

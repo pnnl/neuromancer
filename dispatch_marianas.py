@@ -51,7 +51,7 @@ for path, system in zip(datapaths, systems):
             for nonlinear in nonlinear_map:
                 for nsteps in [2, 4, 8, 16, 32]:
                     for i in range(args.nsamples): # 10 samples for each configuration
-                        cmd = 'python train_loop.py ' +\
+                        cmd = 'python train.py ' +\
                               '-gpu 0 ' +\
                               '-epochs 30000 ' + \
                               '-location %s ' % args.results + \
@@ -70,7 +70,7 @@ for path in datapaths:
     for bias in ['-bias', '']:
         for nsteps in [2, 4, 8, 16, 32]:
             for i in range(args.nsamples): # 10 samples for each configuration
-                cmd = 'python train_loop.py ' +\
+                cmd = 'python train.py ' +\
                       '-gpu 0 ' +\
                       '-epochs 30000 ' + \
                       '-location %s ' % args.results + \

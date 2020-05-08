@@ -123,6 +123,11 @@ class BlockSSM(nn.Module):
         self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.s_sub = [0.0]*8
         return error
 
+    def reset(self):
+        for mod in self.modules():
+            if hasattr(mod, 'reset') and mod is not self:
+                mod.reset()
+
     def forward(self, x,  U=None, D=None, nsamples=16):
         """
         """
@@ -149,6 +154,7 @@ class BlockSSM(nn.Module):
             X.append(x)
             Y.append(y)
             self.regularize(x_prev, x, u, fu, fd, i+1)
+        self.reset()
         return torch.stack(X), torch.stack(Y), self.reg_error()
 
 
@@ -211,6 +217,11 @@ class BlackSSM(nn.Module):
         self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.s_sub = [0.0] * 6
         return error
 
+    def reset(self):
+        for mod in self.modules():
+            if hasattr(mod, 'reset') and mod is not self:
+                mod.reset()
+
     def forward(self, x, U = None, D = None, nsamples = 16):
         """
         """
@@ -234,6 +245,7 @@ class BlackSSM(nn.Module):
             X.append(x)
             Y.append(y)
             self.regularize(x_prev, x, u, i+1)
+        self.reset()
         return torch.stack(X), torch.stack(Y), self.reg_error()
 
 
@@ -260,3 +272,8 @@ if __name__ == '__main__':
     model = BlackSSM(nx, nu, nd, ny, fxud, fy)
     output = model(x, U, D)
     print(output[0].shape, output[1].shape, output[2])
+    fxud = blocks.RNN(nx + nu + nd, nx, hsizes=[64, 64, 64])
+    model = BlackSSM(nx, nu, nd, ny, fxud, fy)
+    output = model(x, U, D)
+    print(output[0].shape, output[1].shape, output[2])
+

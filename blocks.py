@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import scipy.misc
 #local imports
 import linear
+import rnn
 
 
 def get_modules(model):
@@ -125,8 +126,8 @@ class ResMLP(MLP):
                          Linear=Linear, nonlin=nonlin, hsizes=hsizes, **linargs)
         assert len(set(hsizes)) == 1, 'All hidden sizes should be equal for residual network'
         self.skip = skip
-        self.inmap = Linear(insize, hsizes[0], bias=False, **linargs)
-        self.outmap = Linear(hsizes[0], outsize, bias=False, **linargs)
+        self.inmap = Linear(insize, hsizes[0], bias=bias, **linargs)
+        self.outmap = Linear(hsizes[0], outsize, bias=bias, **linargs)
         self.in_features, self.out_features = insize, outsize
 
     def forward(self, x):
@@ -138,9 +139,26 @@ class ResMLP(MLP):
                 px = x
         return self.linear[-1](x) + self.outmap(px)
 
-# TODO: shall we move rnn.py here?
-class RNN():
-    pass
+
+class RNN(nn.Module):
+    def __init__(self, insize, outsize, bias=False,
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[1], **linargs):
+        super().__init__()
+        assert len(set(hsizes)) == 1
+        self.in_features, self.out_features = insize, outsize
+        self.rnn = rnn.RNN(insize, hsizes[0], num_layers=len(hsizes),
+                           bias=bias, nonlinearity=nonlin, Linear=Linear, **linargs)
+        self.output = Linear(hsizes[0], outsize, bias=bias, **linargs)
+        self.init_states = None
+
+    def reset(self):
+        self.init_states = self.rnn.init_states
+
+    def forward(self, x):
+        _, hiddens = self.rnn(x.reshape(1, *x.shape), init_states=self.init_states)
+        hidden = hiddens[-1]
+        self.init_states = hiddens
+        return self.output(hidden)
 
 
 if __name__ == '__main__':
@@ -149,9 +167,14 @@ if __name__ == '__main__':
     y = torch.randn([25, 5])
     print(block(y).shape)
 
-    block = ResMLP(5, 7, hsizes=[64, 64, 64, 64, 64, 64], skip=3, bias=True)
+    block = ResMLP(5, 7, bias=True, hsizes=[64, 64, 64, 64, 64, 64], skip=3)
     y = torch.randn([25, 5])
     print(block(y).shape)
 
+    block = RNN(5, 7, bias=True, hsizes=[64, 64, 64, 64, 64, 64])
+    y = torch.randn([25, 5])
+    print(block(y).shape)
+    print(block(y).shape)
+    print(block(y).shape)
 
 

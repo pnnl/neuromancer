@@ -52,7 +52,7 @@ class RNN(nn.Module):
     def reg_error(self):
         return torch.mean(torch.stack([cell.reg_error() for cell in self.rnn_cells]))
 
-    def forward(self, sequence):
+    def forward(self, sequence, init_states=None):
         """
         :param sequence: a tensor(s) of shape (seq_len, batch, input_size)
         :param init_state: h_0 (num_layers, batch, hidden_size)
@@ -60,17 +60,20 @@ class RNN(nn.Module):
         - output: (seq_len, batch, hidden_size)
         - h_n: (num_layers, batch, hidden_size)
         """
+        if init_states is None:
+            init_states = self.init_states
         final_hiddens = []
-        for h, cell in zip(self.init_states, self.rnn_cells):
+        for h, cell in zip(init_states, self.rnn_cells):
             states = []
             for seq_idx, cell_input in enumerate(sequence):
                 h = cell(cell_input, h)
                 states.append(h.unsqueeze(0))
             sequence = torch.cat(states, 0)
             final_hiddens.append(h)
-        final_hiddens = torch.cat(final_hiddens, 0)
-        # return sequence # TODO: temporary fix
+        final_hiddens = torch.stack(final_hiddens, 0)
+        # print('sequence', sequence.shape)
         return sequence, final_hiddens
+
 
 if __name__ == '__main__':
     x = torch.rand(20, 5, 7)

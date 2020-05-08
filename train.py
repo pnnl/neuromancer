@@ -329,7 +329,7 @@ if __name__ == '__main__':
         for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
             loss, reg, X_out, Y_out, U_out = step(loop, dset)
             if args.mlflow:
-                mlflow.log_metric({f'nstep_{dname}_loss': loss.item(), 'nstep_{dname}_reg': reg.item()})
+                mlflow.log_metrics({f'nstep_{dname}_loss': loss.item(), f'nstep_{dname}_reg': reg.item()})
             Y_target = dset[1]
             Upred.append(U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
             Ypred.append(Y_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
@@ -342,7 +342,7 @@ if __name__ == '__main__':
             openloss, reg_error, X_out, Y_out, U_out = step(loop, data)
             print(f'{dname}_open_loss: {openloss}')
             if args.mlflow:
-                mlflow.log_metrics({f'open_{dname}_loss': openloss, f'open_{dname}_reg': reg_error})
+                mlflow.log_metrics({f'open_{dname}_loss': openloss.item(), f'open_{dname}_reg': reg_error.item()})
             Y_target = data[1]
             Upred.append(U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
             Ypred.append(Y_out.detach().cpu().numpy().reshape(-1, ny))
@@ -351,4 +351,6 @@ if __name__ == '__main__':
         torch.save(best_model, os.path.join(args.savedir, 'best_model.pth'))
         if args.mlflow:
             mlflow.log_artifacts(args.savedir)
+        os.system(f'rm -rf {args.savedir}')
+
 # TODO: we have some issue with logging of the artifacts

@@ -41,13 +41,14 @@ datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
 systems = ['tank','vehicle3','reactor','aero']
 
 ssm_type=['BlockSSM', 'BlackSSM']
-linear_map=['pf', 'spectral', 'linear']
+linear_map=['pf', 'linear', 'spectral']
 nonlinear_map= ['mlp', 'sparse_residual_mlp', 'linear']
 
+os.system('mkdir temp')
 # Block SSM without bias
-for path, system in zip(datapaths, systems):
-    for bias in ['-bias', '']:
-        for linear in linear_map:
+for linear in linear_map:
+    for path, system in zip(datapaths, systems):
+        for bias in ['-bias', '']:
             for nonlinear in nonlinear_map:
                 for nsteps in [2, 4, 8, 16, 32]:
                     for i in range(args.nsamples): # 10 samples for each configuration
@@ -62,7 +63,8 @@ for path, system in zip(datapaths, systems):
                               '-mlflow ' + \
                               '-ssm_type BlockSSM ' + \
                               '%s ' % bias + \
-                              '-exp BlockSSM_%s_%s_%s_%s_%s ' % (system, linear, nonlinear, bias, nsteps) # group experiments with same configuration together - TODO: add more params
+                              '-exp BlockSSM_%s_%s_%s_%s_%s ' % (system, linear, nonlinear, bias, nsteps) + \
+                              '-savedir temp/BlockSSM_%s_%s_%s_%s_%s_%s ' % (system, linear, nonlinear, bias, nsteps, i) # group experiments with same configuration together - TODO: add more params
                         with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s.slurm' % (linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
                             cmdfile.write(template + cmd)
 
@@ -81,6 +83,8 @@ for path in datapaths:
                       '-mlflow ' + \
                       '-ssm_type BlackSSM ' + \
                       '%s ' % bias + \
-                      '-exp BlackSSM_%s_%s_%s ' % (system, bias, nsteps) # group experiments with same configuration together - TODO: add more params
-                with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s.slurm' % (linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
+                      '-exp BlackSSM_%s_%s_%s ' % (system, bias, nsteps) + \
+                      '-savedir temp/BlackSSM_%s_%s_%s_%s ' % (system, bias, nsteps, i)
+
+            with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s.slurm' % (linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
                     cmdfile.write(template + cmd)

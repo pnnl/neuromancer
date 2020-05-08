@@ -67,7 +67,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=100)
+    opt_group.add_argument('-epochs', type=int, default=1000)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
@@ -76,7 +76,7 @@ def parse_args():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=16,
                             help='Number of steps for open loop during training.')
-    data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='emulator')
+    data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='datafile')
     data_group.add_argument('-datafile', default='./datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat',
                             help='source of the dataset')
     data_group.add_argument('-norm', type=str, default='UDY')
@@ -91,7 +91,8 @@ def parse_args():
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
     model_group.add_argument('-linear_map', type=str,
-                             choices=['pf', 'spectral', 'linear'], default='linear')
+                             choices=['pf', 'spectral', 'linear', 'softSVD'], default='softSVD')
+    # TODO: spectral is quite expensive softSVD is much faster
     model_group.add_argument('-nonlinear_map', type=str,
                              choices=['mlp', 'resnet', 'sparse_mlp', 'sparse_residual_mlp', 'linear'], default='mlp')
     model_group.add_argument('-nonlin', type=str,
@@ -214,6 +215,7 @@ if __name__ == '__main__':
     ####################################################
     linmap = {'linear': linear.Linear,
               'spectral': linear.SpectralLinear,
+              'softSVD': linear.SVDLinear,
               'pf': linear.PerronFrobeniusLinear}[args.linear_map]
 
     if args.ssm_type == 'BlockSSM':
@@ -349,3 +351,4 @@ if __name__ == '__main__':
         torch.save(best_model, os.path.join(args.savedir, 'best_model.pth'))
         if args.mlflow:
             mlflow.log_artifacts(args.savedir)
+# TODO: we have some issue with logging of the artifacts

@@ -156,3 +156,7 @@ rm *.slurm
 https://docs.rc.fas.harvard.edu/kb/convenient-slurm-commands/
 https://slurm.schedmd.com/
 
+# cancel all jobs
+scancel -u username
+
+

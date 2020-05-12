@@ -91,7 +91,7 @@ def parse_args():
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
     model_group.add_argument('-linear_map', type=str,
-                             choices=['pf', 'spectral', 'linear', 'softSVD'], default='softSVD')
+                             choices=['pf', 'spectral', 'linear', 'softSVD'], default='linear')
     # TODO: spectral is quite expensive softSVD is much faster
     model_group.add_argument('-nonlinear_map', type=str,
                              choices=['mlp', 'resnet', 'sparse_mlp', 'sparse_residual_mlp', 'linear'], default='mlp')

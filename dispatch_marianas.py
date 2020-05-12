@@ -83,5 +83,5 @@ for path, system in zip(datapaths, systems):
                       '%s ' % bias + \
                       '-exp BlackSSM_%s_%s_%s ' % (system, bias, nsteps) + \
                       '-savedir temp/BlackSSM_%s_%s_%s_%s ' % (system, bias, nsteps, i)
-            with open(os.path.join(args.exp_folder, 'exp_black_%s_%s_%s_%s.slurm' % (system, bias, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
-                    cmdfile.write(template + cmd)
+                with open(os.path.join(args.exp_folder, 'exp_black_%s_%s_%s_%s.slurm' % (system, bias, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
+                        cmdfile.write(template + cmd)

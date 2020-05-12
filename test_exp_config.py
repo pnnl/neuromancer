@@ -17,12 +17,12 @@ state_estimator='rnn'
 linear_map=['pf', 'spectral', 'linear']
 nonlinear_map= ['mlp', 'sparse_residual_mlp', 'linear']
 
-# for path in datapaths:
-#     for linear in linear_map:
-#         for nonlinear in nonlinear_map:
-#             for bias in ['-bias', '']:
-#                 os.system(f'python train.py -datafile {path} -ssm_type BlockSSM -linear_map {linear} '
-#                           f'-nonlinear_map {nonlinear} -state_estimator rnn {bias} -epochs {epochs}')
+for path in datapaths:
+    for linear in linear_map:
+        for nonlinear in nonlinear_map:
+            for bias in ['-bias', '']:
+                os.system(f'python train.py -datafile {path} -ssm_type BlockSSM -linear_map {linear} '
+                          f'-nonlinear_map {nonlinear} -state_estimator rnn {bias} -epochs {epochs}')
 
 for path, system in zip(datapaths, systems):
     for bias in ['-bias', '']:

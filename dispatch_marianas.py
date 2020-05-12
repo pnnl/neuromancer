@@ -3,7 +3,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('-hours', type=int, help='number of gpu hours to request for job', default=24)
+parser.add_argument('-hours', type=int, help='number of gpu hours to request for job', default=72)
 parser.add_argument('-partition', type=str, help='Partition of gpus to access', default='shared_dlt')
 parser.add_argument('-allocation', type=str, help='Allocation name for billing', default='deepmpc')
 parser.add_argument('-env', type=str, help='Name of conda environment for running code.', default='mpc2')
@@ -41,14 +41,14 @@ datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
 systems = ['tank','vehicle3','reactor','aero']
 
 ssm_type=['BlockSSM', 'BlackSSM']
-linear_map=['pf', 'linear', 'spectral']
+linear_map=['pf', 'linear']
 nonlinear_map= ['mlp', 'sparse_residual_mlp', 'linear']
 
 os.system('mkdir temp')
 # Block SSM without bias
 for linear in linear_map:
     for path, system in zip(datapaths, systems):
-        for bias in ['-bias', '']:
+        for bias in ['']:
             for nonlinear in nonlinear_map:
                 for nsteps in [2, 4, 8, 16, 32]:
                     for i in range(args.nsamples): # 10 samples for each configuration
@@ -65,11 +65,11 @@ for linear in linear_map:
                               '%s ' % bias + \
                               '-exp BlockSSM_%s_%s_%s_%s_%s ' % (system, linear, nonlinear, bias, nsteps) + \
                               '-savedir temp/BlockSSM_%s_%s_%s_%s_%s_%s ' % (system, linear, nonlinear, bias, nsteps, i) # group experiments with same configuration together - TODO: add more params
-                        with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s.slurm' % (linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
+                        with open(os.path.join(args.exp_folder, 'exp_block_%s_%s_%s_%s_%s_%s.slurm' % (system, linear, nonlinear, bias, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
                             cmdfile.write(template + cmd)
 
-for path in datapaths:
-    for bias in ['-bias', '']:
+for path, system in zip(datapaths, systems):
+    for bias in ['-bias']:
         for nsteps in [2, 4, 8, 16, 32]:
             for i in range(args.nsamples): # 10 samples for each configuration
                 cmd = 'python train.py ' +\
@@ -77,14 +77,11 @@ for path in datapaths:
                       '-epochs 30000 ' + \
                       '-location %s ' % args.results + \
                       '-datafile %s ' % path + \
-                      '-linear_map %s ' % linear + \
-                      '-nonlinear_map %s ' % nonlinear + \
                       '-nsteps %s ' % nsteps + \
                       '-mlflow ' + \
                       '-ssm_type BlackSSM ' + \
                       '%s ' % bias + \
                       '-exp BlackSSM_%s_%s_%s ' % (system, bias, nsteps) + \
                       '-savedir temp/BlackSSM_%s_%s_%s_%s ' % (system, bias, nsteps, i)
-
-            with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s.slurm' % (linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
+            with open(os.path.join(args.exp_folder, 'exp_black_%s_%s_%s_%s.slurm' % (system, bias, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
                     cmdfile.write(template + cmd)

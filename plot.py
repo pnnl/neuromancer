@@ -1,5 +1,8 @@
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 
 def plot_matrices(matrices, labels, figname):
@@ -21,11 +24,13 @@ def pltCL_train(Y_GT, Y_train, U, D):
     """
     pass
 
+
 def pltCL(Y, U, D, R):
     """
     plot input output closed loop dataset
     """
     pass
+
 
 def pltOL_train(Ytrue, Ytrain, U=None, D=None, X=None, figname=None):
     """
@@ -188,3 +193,35 @@ def plot_trajectories(traj1, traj2, labels, figname):
                bbox={'facecolor': 'grey', 'alpha': 0.5})
     plt.tight_layout()
     plt.savefig(figname)
+
+
+def trajectory_movie(true_traj, pred_traj, figname='traj.mp4', freq=1, fps=15, dpi=100):
+    plt.style.use('dark_background')
+    FFMpegWriter = animation.writers['ffmpeg']
+    metadata = dict(title='Trajectory Movie', artist='Matplotlib',
+                    comment='Demo')
+    writer = FFMpegWriter(fps=fps, metadata=metadata)
+    fig, ax = plt.subplots(len(true_traj), 1)
+    true, pred = [], []
+    labels = [f'$y_{k}$' for k in range(len(true_traj))]
+    for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, labels)):
+        ax[row].set(xlim=(0, t1.shape[0]),
+                    ylim=(min(t1.min(), t2.min()) - 0.1, max(t1.max(), t2.max()) + 0.1))
+        ax[row].set_ylabel(label, rotation=0, labelpad=20)
+        t, = ax[row].plot([], [], label='True', c='c')
+        p, = ax[row].plot([], [], label='Pred', c='m')
+        true.append(t)
+        pred.append(p)
+        ax[row].tick_params(labelbottom=False)
+    ax[row].tick_params(labelbottom=True)
+    ax[row].set_xlabel('Time')
+    ax[row].legend()
+    plt.tight_layout()
+    with writer.saving(fig, figname, dpi=dpi):
+        for k in range(len(true_traj[0])):
+            print(k)
+            if k % freq == 0:
+                for j in range(len(true_traj)):
+                    true[j].set_data(range(k), true_traj[j][:k])
+                    pred[j].set_data(range(k), pred_traj[j][:k])
+                writer.grab_frame()

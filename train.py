@@ -42,11 +42,17 @@ import os
 import argparse
 from copy import deepcopy
 import time
+# plotting imports
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 # ml imports
 import mlflow
 import torch
 import torch.nn.functional as F
 import numpy as np
+import scipy.linalg as LA
 # local imports
 import plot
 from linear import Linear
@@ -89,9 +95,9 @@ def parse_args():
     model_group.add_argument('-ssm_type', type=str, choices=['GT', 'BlockSSM', 'BlackSSM'], default='BlockSSM')
     model_group.add_argument('-nx_hidden', type=int, default=10, help='Number of hidden states per output')
     model_group.add_argument('-state_estimator', type=str,
-                             choices=['rnn', 'mlp', 'linear'], default='rnn')
+                             choices=['rnn', 'mlp', 'linear'], default='linear')
     model_group.add_argument('-linear_map', type=str,
-                             choices=['pf', 'spectral', 'linear', 'softSVD'], default='softSVD')
+                             choices=['pf', 'spectral', 'linear', 'softSVD', 'sparse'], default='linear')
     # TODO: spectral is quite expensive softSVD is much faster
     model_group.add_argument('-nonlinear_map', type=str,
                              choices=['mlp', 'resnet', 'sparse_mlp', 'sparse_residual_mlp', 'linear'], default='mlp')
@@ -125,6 +131,8 @@ def parse_args():
                            help='Some name to tell what the experiment run was about.')
     log_group.add_argument('-mlflow', action='store_true',
                            help='Using mlflow or not.')
+    log_group.add_argument('-make_movie', action='store_true', help='Make movies with this flag.')
+    log_group.add_argument('-freq', type=int, help='Frequency to create frames for reference tracking movie.', default=1)
     return parser.parse_args()
 
 
@@ -160,6 +168,21 @@ if __name__ == '__main__':
     params = {k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)}
     if args.mlflow:
         mlflow.log_params(params)
+
+    ###############################
+    ####### PLOTTING SETUP
+    ###############################
+    # Set up formatting for the movie files
+    plt.style.use('dark_background')
+    Writer = animation.writers['ffmpeg']
+    eigwriter = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+    eigfig, eigax = plt.subplots()
+    eigax.set_ylim(-1.1, 1.1)
+    eigax.set_xlim(-1.1, 1.1)
+    matwriter = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+    matfig, matax = plt.subplots()
+    mat_ims = []
+    eig_ims = []
 
     ####################################
     ###### DATA SETUP ##################
@@ -216,10 +239,10 @@ if __name__ == '__main__':
     linmap = {'linear': linear.Linear,
               'spectral': linear.SpectralLinear,
               'softSVD': linear.SVDLinear,
-              'pf': linear.PerronFrobeniusLinear}[args.linear_map]
-
+              'pf': linear.PerronFrobeniusLinear,
+              'sparse': linear.SparseLinear}[args.linear_map]
+    fx = linmap(nx, nx, bias=args.bias).to(device)
     if args.ssm_type == 'BlockSSM':
-        fx = linmap(nx, nx, bias=args.bias).to(device)
         if args.nonlinear_map == 'linear':
             fy = linmap(nx, ny, bias=args.bias).to(device)
         elif args.nonlinear_map == 'sparse_residual_mlp':
@@ -315,11 +338,27 @@ if __name__ == '__main__':
             elapsed_time = time.time() - start_time
             print(f'epoch: {i:2}  loss: {loss.item():10.8f}\tdevloss: {dev_loss.item():10.8f}'
                   f'\tbestdev: {best_dev.item():10.8f}\teltime: {elapsed_time:5.2f}s')
+
+            if args.make_movie:
+                with torch.no_grad():
+                    mat = fx.effective_W().detach().numpy()
+                    w, v = LA.eig(mat)
+                    eig_ims.append([eigax.scatter(w.real, w.imag, c='r')])
+                    mat_ims.append([matax.imshow(mat)])
+
         optimizer.zero_grad()
         loss += train_reg.squeeze()
         loss.backward()
         optimizer.step()
+    if args.make_movie:
+        eig_ani = animation.ArtistAnimation(eigfig, eig_ims, interval=50, repeat_delay=3000,
+                                           blit=True)
+        eig_ani.save(os.path.join(args.savedir, 'eigen.mp4'), writer=eigwriter)
+        mat_ani = animation.ArtistAnimation(matfig, mat_ims, interval=50, repeat_delay=3000,
+                                           blit=True)
+        mat_ani.save(os.path.join(args.savedir, 'state_transition_matrix.mp4'), writer=eigwriter)
 
+    plt.style.use('classic')
     with torch.no_grad():
         ########################################
         ########## NSTEP TRAIN RESPONSE ########
@@ -348,9 +387,9 @@ if __name__ == '__main__':
             Ypred.append(Y_out.detach().cpu().numpy().reshape(-1, ny))
             Ytrue.append(Y_target.detach().cpu().numpy().reshape(-1, ny))
         plot.pltOL_train(np.concatenate(Ytrue), np.concatenate(Ypred), np.concatenate(Upred), figname=os.path.join(args.savedir, 'open.png'))
+        if args.make_movie:
+            plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0), np.concatenate(Ypred).transpose(1, 0), figname=os.path.join(args.savedir, 'open_movie.mp4'), freq=args.freq)
         torch.save(best_model, os.path.join(args.savedir, 'best_model.pth'))
         if args.mlflow:
             mlflow.log_artifacts(args.savedir)
-        os.system(f'rm -rf {args.savedir}')
-
-# TODO: we have some issue with logging of the artifacts
+            os.system(f'rm -rf {args.savedir}')

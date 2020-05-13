@@ -240,7 +240,7 @@ if __name__ == '__main__':
               'spectral': linear.SpectralLinear,
               'softSVD': linear.SVDLinear,
               'pf': linear.PerronFrobeniusLinear,
-              'sparse': linear.SparseLinear}[args.linear_map]
+              'sparse': linear.LassoLinear}[args.linear_map]
     fx = linmap(nx, nx, bias=args.bias).to(device)
     if args.ssm_type == 'BlockSSM':
         if args.nonlinear_map == 'linear':

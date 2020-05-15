@@ -152,7 +152,7 @@ class RNN(nn.Module):
         self.init_states = None
 
     def reset(self):
-        self.init_states = self.rnn.init_states
+        self.init_states = None
 
     def forward(self, x):
         _, hiddens = self.rnn(x.reshape(1, *x.shape), init_states=self.init_states)

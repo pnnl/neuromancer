@@ -3,6 +3,23 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.lines import Line2D
+
+
+def get_colors(k):
+    """
+    Returns k colors evenly spaced across the color wheel.
+    :param k: (int) Number of colors you want.
+    :return:
+    """
+    phi = np.linspace(0, 2 * np.pi, k)
+    x = np.sin(phi)
+    y = np.cos(phi)
+    rgb_cycle = np.vstack((  # Three sinusoids
+        .5 * (1. + np.cos(phi)),  # scaled to [0,1]
+        .5 * (1. + np.cos(phi + 2 * np.pi / 3)),  # 120° phase shifted.
+        .5 * (1. + np.cos(phi - 2 * np.pi / 3)))).T  # Shape = (60,3)
+    return rgb_cycle
 
 
 def plot_matrices(matrices, labels, figname):
@@ -32,135 +49,37 @@ def pltCL(Y, U, D, R):
     pass
 
 
-def pltOL_train(Ytrue, Ytrain, U=None, D=None, X=None, figname=None):
+def pltOL(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
     """
     plot trained open loop dataset
     Ytrue: ground truth training signal
     Ytrain: trained model response
     """
-    nrows = 4
-    if U is None:
-        nrows -= 1
-    if D is None:
-        nrows -= 1
-    if X is None:
-        nrows -= 1
-    fig, ax = plt.subplots(nrows, 1, figsize=(20, 16))
-    if nrows == 1:
-        ax.plot(Ytrue, linewidth=3)
-        ax.plot(Ytrain, '--', linewidth=3)
-        ax.grid(True)
-        ax.set_title('Outputs', fontsize=24)
-        ax.set_xlabel('Time', fontsize=24)
-        ax.set_ylabel('Y', fontsize=24)
-        ax.tick_params(axis='x', labelsize=22)
-        ax.tick_params(axis='y', labelsize=22)
-    else:
-        ax[0].plot(Ytrue, linewidth=3)
-        ax[0].plot(Ytrain, '--', linewidth=3)
-        ax[0].grid(True)
-        ax[0].set_title('Outputs', fontsize=24)
-        ax[0].set_xlabel('Time', fontsize=24)
-        ax[0].set_ylabel('Y', fontsize=24)
-        ax[0].tick_params(axis='x', labelsize=22)
-        ax[0].tick_params(axis='y', labelsize=22)
-    if X is not None:
-        ax[1].plot(X, linewidth=3)
-        ax[1].grid(True)
-        ax[1].set_title('States', fontsize=24)
-        ax[1].set_xlabel('Time', fontsize=24)
-        ax[1].set_ylabel('X', fontsize=24)
-        ax[1].tick_params(axis='x', labelsize=22)
-        ax[1].tick_params(axis='y', labelsize=22)
-    if U is not None:
-        idx = 2
-        if X is None:
-            idx -= 1
-        ax[idx].plot(U, linewidth=3)
-        ax[idx].grid(True)
-        ax[idx].set_title('Inputs', fontsize=24)
-        ax[idx].set_xlabel('Time', fontsize=24)
-        ax[idx].set_ylabel('U', fontsize=24)
-        ax[idx].tick_params(axis='x', labelsize=22)
-        ax[idx].tick_params(axis='y', labelsize=22)
-    if D is not None:
-        idx = 3
-        if U is None:
-            idx -= 1
-        if X is None:
-            idx -= 1
-        ax[idx].plot(D, linewidth=3)
-        ax[idx].grid(True)
-        ax[idx].set_title('Disturbances', fontsize=24)
-        ax[idx].set_xlabel('Time', fontsize=24)
-        ax[idx].set_ylabel('D', fontsize=24)
-        ax[idx].tick_params(axis='x', labelsize=22)
-        ax[idx].tick_params(axis='y', labelsize=22)
-    if figname is not None:
-        plt.tight_layout()
-        plt.savefig(figname)
 
+    plot_setup = [(name, notation, array) for
+                  name, notation, array in
+                  zip(['Outputs', 'States', 'Inputs', 'Disturbances'],
+                      ['Y', 'X', 'U', 'D'], [Y, X, U, D]) if
+                  array is not None]
 
-def pltOL(Y, U=None, D=None, X=None, figname=None):
-    """
-    plot input output open loop dataset
-    """
-    nrows = 4
-    if U is None:
-        nrows -= 1
-    if D is None:
-        nrows -= 1
-    if X is None:
-        nrows -= 1
-    fig, ax = plt.subplots(nrows, 1, figsize=(20, 16))
-    if nrows == 1:
-        ax.plot(Y, linewidth=3)
-        ax.grid(True)
-        ax.set_title('Outputs', fontsize=24)
-        ax.set_xlabel('Time', fontsize=24)
-        ax.set_ylabel('Y', fontsize=24)
-        ax.tick_params(axis='x', labelsize=22)
-        ax.tick_params(axis='y', labelsize=22)
-    else:
-        ax[0].plot(Y, linewidth=3)
-        ax[0].grid(True)
-        ax[0].set_title('Outputs', fontsize=24)
-        ax[0].set_xlabel('Time', fontsize=24)
-        ax[0].set_ylabel('Y', fontsize=24)
-        ax[0].tick_params(axis='x', labelsize=22)
-        ax[0].tick_params(axis='y', labelsize=22)
-    if X is not None:
-        ax[1].plot(X, linewidth=3)
-        ax[1].grid(True)
-        ax[1].set_title('States', fontsize=24)
-        ax[1].set_xlabel('Time', fontsize=24)
-        ax[1].set_ylabel('X', fontsize=24)
-        ax[1].tick_params(axis='x', labelsize=22)
-        ax[1].tick_params(axis='y', labelsize=22)
-    if U is not None:
-        idx = 2
-        if X is None:
-            idx -= 1
-        ax[idx].plot(U, linewidth=3)
-        ax[idx].grid(True)
-        ax[idx].set_title('Inputs', fontsize=24)
-        ax[idx].set_xlabel('Time', fontsize=24)
-        ax[idx].set_ylabel('U', fontsize=24)
-        ax[idx].tick_params(axis='x', labelsize=22)
-        ax[idx].tick_params(axis='y', labelsize=22)
-    if D is not None:
-        idx = 3
-        if U is None:
-            idx -= 1
-        if X is None:
-            idx -= 1
-        ax[idx].plot(D, linewidth=3)
-        ax[idx].grid(True)
-        ax[idx].set_title('Disturbances', fontsize=24)
-        ax[idx].set_xlabel('Time', fontsize=24)
-        ax[idx].set_ylabel('D', fontsize=24)
-        ax[idx].tick_params(axis='x', labelsize=22)
-        ax[idx].tick_params(axis='y', labelsize=22)
+    fig, ax = plt.subplots(nrows=len(plot_setup), ncols=1, figsize=(20, 16), squeeze=False)
+    custom_lines = [Line2D([0], [0], color='gray', lw=4, linestyle='-'),
+                    Line2D([0], [0], color='gray', lw=4, linestyle='--')]
+    for j, (name, notation, array) in enumerate(plot_setup):
+        if notation == 'Y' and Ytrain is not None:
+            colors = get_colors(array.shape[1])
+            for k in range(array.shape[1]):
+                ax[j, 0].plot(Ytrain[:, k], '--', linewidth=3, c=colors[k])
+                ax[j, 0].plot(array[:, k], '-', linewidth=3, c=colors[k])
+                ax[j, 0].legend(custom_lines, ['True', 'Pred'])
+        else:
+            ax[j, 0].plot(array, linewidth=3)
+        ax[j, 0].grid(True)
+        ax[j, 0].set_title(name, fontsize=24)
+        ax[j, 0].set_xlabel('Time', fontsize=24)
+        ax[j, 0].set_ylabel(notation, fontsize=24)
+        ax[j, 0].tick_params(axis='x', labelsize=22)
+        ax[j, 0].tick_params(axis='y', labelsize=22)
     if figname is not None:
         plt.tight_layout()
         plt.savefig(figname)
@@ -200,7 +119,7 @@ def trajectory_movie(true_traj, pred_traj, figname='traj.mp4', freq=1, fps=15, d
     FFMpegWriter = animation.writers['ffmpeg']
     metadata = dict(title='Trajectory Movie', artist='Matplotlib',
                     comment='Demo')
-    writer = FFMpegWriter(fps=fps, metadata=metadata)
+    writer = FFMpegWriter(fps=fps, metadata=metadata, bitrate=1000)
     fig, ax = plt.subplots(len(true_traj), 1)
     true, pred = [], []
     labels = [f'$y_{k}$' for k in range(len(true_traj))]

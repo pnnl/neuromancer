@@ -95,12 +95,12 @@ def parse_args():
     model_group.add_argument('-ssm_type', type=str, choices=['GT', 'BlockSSM', 'BlackSSM'], default='BlockSSM')
     model_group.add_argument('-nx_hidden', type=int, default=10, help='Number of hidden states per output')
     model_group.add_argument('-state_estimator', type=str,
-                             choices=['rnn', 'mlp', 'linear'], default='linear')
+                             choices=['rnn', 'mlp', 'linear'], default='rnn')
     model_group.add_argument('-linear_map', type=str,
-                             choices=['pf', 'spectral', 'linear', 'softSVD', 'sparse'], default='linear')
+                             choices=['pf', 'spectral', 'linear', 'softSVD', 'sparse', 'split_linear'], default='linear')
     # TODO: spectral is quite expensive softSVD is much faster
     model_group.add_argument('-nonlinear_map', type=str,
-                             choices=['mlp', 'resnet', 'sparse_mlp', 'sparse_residual_mlp', 'linear'], default='mlp')
+                             choices=['mlp', 'resnet', 'rnn', 'linear', 'residual_mlp'], default='mlp')
     model_group.add_argument('-nonlin', type=str,
                              choices=['relu', 'gelu'], default='gelu')
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
@@ -176,11 +176,14 @@ if __name__ == '__main__':
     plt.style.use('dark_background')
     Writer = animation.writers['ffmpeg']
     eigwriter = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
-    eigfig, eigax = plt.subplots()
+    eigfig, (eigax, matax) = plt.subplots(nrows=1, ncols=2)
+    matax.axis('off')
+    matax.set_title('State Transition Matrix $A$')
+    eigax.set_title('$A$ Matrix Eigenvalues')
+    eigfig.suptitle(f'{args.linear_map} Linear Parameter Evolution during Training')
     eigax.set_ylim(-1.1, 1.1)
     eigax.set_xlim(-1.1, 1.1)
-    matwriter = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
-    matfig, matax = plt.subplots()
+    eigax.set_aspect(1)
     mat_ims = []
     eig_ims = []
 
@@ -193,7 +196,7 @@ if __name__ == '__main__':
 
     if args.system_data is 'datafile':
         Y, U, D, Ts = dataset.Load_data_sysID(args.datafile)  # load data from file
-        plot.pltOL(Y, U, D)
+        plot.pltOL(Y, U=U, D=D)
     elif args.system_data is 'emulator':
         #  dataset creation from the emulator
         ninit = 0
@@ -206,7 +209,7 @@ if __name__ == '__main__':
                                 form='cos')
         D = building.D[ninit:nsim, :]
         U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
-        plot.pltOL(Y, U, D, X)
+        plot.pltOL(Y, U=U, D=D, X=X)
 
     if args.loop == 'open':
         # system ID or time series dataset
@@ -240,26 +243,32 @@ if __name__ == '__main__':
               'spectral': linear.SpectralLinear,
               'softSVD': linear.SVDLinear,
               'pf': linear.PerronFrobeniusLinear,
-              'sparse': linear.LassoLinear}[args.linear_map]
+              'sparse': linear.LassoLinear,
+              'split_linear': linear.StableSplitLinear}[args.linear_map]
     fx = linmap(nx, nx, bias=args.bias).to(device)
     if args.ssm_type == 'BlockSSM':
         if args.nonlinear_map == 'linear':
             fy = linmap(nx, ny, bias=args.bias).to(device)
-        elif args.nonlinear_map == 'sparse_residual_mlp':
+        elif args.nonlinear_map == 'residual_mlp':
             fy = blocks.ResMLP(nx, ny, bias=args.bias, hsizes=[nx]*2,
-                               Linear=linear.LassoLinear, skip=1).to(device)
+                               Linear=linmap, skip=1).to(device)
         elif args.nonlinear_map == 'mlp':
             fy = blocks.MLP(nx, ny, bias=args.bias, hsizes=[nx]*2,
-                               Linear=linmap).to(device)
+                            Linear=linmap).to(device)
+        elif args.nonlinear_map == 'rnn':
+            fy = blocks.RNN(nx, ny, bias=args.bias, hsizes=[nx]*2, Linear=linmap).to(device)
         if nu != 0:
             if args.nonlinear_map == 'linear':
                 fu = linmap(nu, nx, bias=args.bias).to(device)
-            elif args.nonlinear_map == 'sparse_residual_mlp':
-                fu = blocks.ResMLP(nu, nx, bias=args.bias, hsizes=[nx]*2,
-                                   Linear=linear.LassoLinear, skip=1).to(device)
+            elif args.nonlinear_map == 'residual_mlp':
+                fu = blocks.ResMLP(nu, nx, bias=args.bias, hsizes=[nx] * 2,
+                                   Linear=linmap, skip=1).to(device)
             elif args.nonlinear_map == 'mlp':
                 fu = blocks.MLP(nu, nx, bias=args.bias, hsizes=[nx]*2,
                                    Linear=linear.LassoLinear).to(device)
+            elif args.nonlinear_map == 'rnn':
+                fu = blocks.RNN(nu, nx, bias=args.bias, hsizes=[nx] * 2, Linear=linmap).to(device)
+
         else:
             fu = None
         if nd != 0:
@@ -272,15 +281,15 @@ if __name__ == '__main__':
         # fxud = rnn.RNN(nx+nu+nd, nx, num_layers=3,
         #                bias=args.bias, nonlinearity=F.gelu)
         fxud = blocks.ResMLP(nx + nu + nd, nx, hsizes=[nx]*3,
-                       bias=args.bias, nonlin=F.gelu).to(device)
+                             bias=args.bias, nonlin=F.gelu).to(device)
         fy = Linear(nx, ny, bias=args.bias).to(device)
         model = ssm.BlackSSM(nx, nu, nd, ny, fxud, fy).to(device)
 
     if args.state_estimator == 'linear':
-        estimator = estimators.LinearEstimator(ny, nx, bias=args.bias)
+        estimator = estimators.LinearEstimator(ny, nx, bias=args.bias, linear=linmap)
     elif args.state_estimator == 'mlp':
         estimator = estimators.MLPEstimator(ny, nx, bias=args.bias, hsizes=[nx]*2,
-                                            Linear=linear.LassoLinear, skip=1)
+                                            Linear=linmap, skip=1)
     elif args.state_estimator == 'rnn':
         estimator = estimators.RNNEstimator(ny, nx, bias=args.bias, num_layers=2,
                                             nonlinearity=F.gelu, Linear=linmap)
@@ -343,20 +352,16 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     mat = fx.effective_W().detach().numpy()
                     w, v = LA.eig(mat)
-                    eig_ims.append([eigax.scatter(w.real, w.imag, c='r')])
-                    mat_ims.append([matax.imshow(mat)])
+                    eig_ims.append([matax.imshow(mat), eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))])
+                    # mat_ims.append([matax.imshow(mat)])
 
         optimizer.zero_grad()
         loss += train_reg.squeeze()
         loss.backward()
         optimizer.step()
     if args.make_movie:
-        eig_ani = animation.ArtistAnimation(eigfig, eig_ims, interval=50, repeat_delay=3000,
-                                           blit=True)
-        eig_ani.save(os.path.join(args.savedir, 'eigen.mp4'), writer=eigwriter)
-        mat_ani = animation.ArtistAnimation(matfig, mat_ims, interval=50, repeat_delay=3000,
-                                           blit=True)
-        mat_ani.save(os.path.join(args.savedir, 'state_transition_matrix.mp4'), writer=eigwriter)
+        eig_ani = animation.ArtistAnimation(eigfig, eig_ims, interval=50, repeat_delay=3000)
+        eig_ani.save(os.path.join(args.savedir, f'{args.linear_map}2_transition_matrix.mp4'), writer=eigwriter)
 
     plt.style.use('classic')
     with torch.no_grad():
@@ -370,10 +375,13 @@ if __name__ == '__main__':
             if args.mlflow:
                 mlflow.log_metrics({f'nstep_{dname}_loss': loss.item(), f'nstep_{dname}_reg': reg.item()})
             Y_target = dset[1]
-            Upred.append(U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
+            Upred.append(U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nu))
             Ypred.append(Y_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
             Ytrue.append(Y_target.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
-        plot.pltOL_train(np.concatenate(Ytrue), np.concatenate(Ypred), np.concatenate(Upred), figname=os.path.join(args.savedir, 'nstep.png'))
+        plot.pltOL(np.concatenate(Ytrue),
+                   Ytrain=np.concatenate(Ypred),
+                   U=np.concatenate(Upred),
+                   figname=os.path.join(args.savedir, 'nstep.png'))
 
         Ytrue, Ypred, Upred = [], [], []
         for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
@@ -383,13 +391,17 @@ if __name__ == '__main__':
             if args.mlflow:
                 mlflow.log_metrics({f'open_{dname}_loss': openloss.item(), f'open_{dname}_reg': reg_error.item()})
             Y_target = data[1]
-            Upred.append(U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
+            Upred.append(U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nu))
             Ypred.append(Y_out.detach().cpu().numpy().reshape(-1, ny))
             Ytrue.append(Y_target.detach().cpu().numpy().reshape(-1, ny))
-        plot.pltOL_train(np.concatenate(Ytrue), np.concatenate(Ypred), np.concatenate(Upred), figname=os.path.join(args.savedir, 'open.png'))
+        plot.pltOL(np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
+                   U=np.concatenate(Upred), figname=os.path.join(args.savedir, 'open.png'))
         if args.make_movie:
-            plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0), np.concatenate(Ypred).transpose(1, 0), figname=os.path.join(args.savedir, 'open_movie.mp4'), freq=args.freq)
+            plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0),
+                                  np.concatenate(Ypred).transpose(1, 0),
+                                  figname=os.path.join(args.savedir, f'open_movie_{args.linear_map}2.mp4'),
+                                  freq=args.freq)
         torch.save(best_model, os.path.join(args.savedir, 'best_model.pth'))
         if args.mlflow:
             mlflow.log_artifacts(args.savedir)
-            os.system(f'rm -rf {args.savedir}')
+            # os.system(f'rm -rf {args.savedir}')

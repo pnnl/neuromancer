@@ -33,7 +33,7 @@ class DeepBasisNetwork(nn.Module):
 
 
 class Bilinear(nn.Module):
-    def init(self, insize, outsize, bias=False, Linear=linear.Linear):
+    def init(self, insize, outsize, bias=False, Linear=linear.Linear, **linargs):
         """
         bilinear term: why expansion and not nn.Bilinear?
         """
@@ -68,7 +68,7 @@ class Polynomial(nn.Module):
 
 class Multinomial(nn.Module):
     
-    def init(self, insize, outsize, p=2, bias=False, lin_cls=linear.Linear):
+    def init(self, insize, outsize, p=2, bias=False, lin_cls=linear.Linear, **linargs):
         self.p = p
         self.in_features, self.out_features = insize, outsize
         for i in range(p-1):

@@ -168,7 +168,7 @@ stdopen, stdnstep, meanopen, meannstep, minopen, minnstep = \
       columns=N) for i in range(6)]
 
 # choose system
-system = systems[0]
+system = systems[2]
 
 # TODO: select best model based on devtest
 # Block
@@ -202,8 +202,8 @@ for i in N:
     minnstep.loc['Black', i] = \
         metrics_df.loc[i, system]['BlackSSM']['min_test_nsteploss']
 
-#  best model 
-metrics_df.loc[:, system].best
+#  best model
+best_model = metrics_df.loc[:, system].best
 
 # # # # # # # # # #
 # PLOTS and Tables

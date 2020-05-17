@@ -54,6 +54,29 @@ class LassoLinear(LinearBase):
     """
     def __init__(self, insize, outsize, bias=False, gamma=1.0, **kwargs):
         super().__init__(insize, outsize)
+        self.u_param = nn.Parameter(torch.randn(insize, outsize))
+        self.v_param = nn.Parameter(torch.randn(insize, outsize))
+        self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
+        self.gamma = gamma
+
+    def effective_W(self):
+        # Thresholding for sparsity
+        return F.relu(self.u_param) - F.relu(self.v_param)
+
+    def reg_error(self):
+        # shrinkage
+        return self.gamma*self.effective_W().norm(p=1)
+
+    def forward(self, x):
+        return torch.matmul(x, self.effective_W()) + self.bias
+
+
+class StableLassoLinear(LinearBase):
+    """
+    From https://leon.bottou.org/publications/pdf/compstat-2010.pdf
+    """
+    def __init__(self, insize, outsize, bias=False, gamma=1.0, **kwargs):
+        super().__init__(insize, outsize)
         u = 2.0*F.softmax(torch.randn(insize, outsize), dim=1)
         v = torch.tensor(0.5*u.detach().cpu().numpy())
         self.u_param = nn.Parameter(u)
@@ -68,7 +91,6 @@ class LassoLinear(LinearBase):
     def reg_error(self):
         # shrinkage
         return self.gamma*(self.u_param.norm(p=1) + self.v_param.norm(p=1))
-        # return self.gamma*self.effective_W().norm(p=1)
 
     def forward(self, x):
         return torch.matmul(x, self.effective_W()) + self.bias
@@ -113,7 +135,7 @@ class LeftStochasticLinear(LinearBase):
 
 class PerronFrobeniusLinear(LinearBase):
 
-    def __init__(self, insize, outsize, bias=False, sigma_min=0.9, sigma_max=1.0,
+    def __init__(self, insize, outsize, bias=False, sigma_min=0.5, sigma_max=1.0,
                  init='basic', **kwargs):
         """
         Perron-Frobenius theorem based regularization of matrix

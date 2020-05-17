@@ -80,7 +80,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=1000)
+    opt_group.add_argument('-epochs', type=int, default=2)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
@@ -107,7 +107,7 @@ def parse_args():
                              choices=['pf', 'spectral', 'linear', 'softSVD', 'sparse', 'split_linear'], default='linear')
     # TODO: spectral is quite expensive softSVD is much faster
     model_group.add_argument('-nonlinear_map', type=str,
-                             choices=['mlp', 'resnet', 'rnn', 'linear', 'residual_mlp'], default='mlp')
+                             choices=['mlp', 'rnn', 'linear', 'residual_mlp', 'sparse_residual_mlp'], default='mlp')
     model_group.add_argument('-nonlin', type=str,
                              choices=['relu', 'gelu'], default='gelu')
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
@@ -252,46 +252,42 @@ if __name__ == '__main__':
               'pf': linear.PerronFrobeniusLinear,
               'sparse': linear.LassoLinear,
               'split_linear': linear.StableSplitLinear}[args.linear_map]
+    nonlinmap = {'linear': linmap,
+              'mlp': blocks.MLP,
+              'rnn': blocks.RNN,
+              'residual_mlp': blocks.ResMLP,
+              'sparse_residual_mlp': blocks.ResMLP}[args.nonlinear_map]
+
     fx = linmap(nx, nx, bias=args.bias).to(device)
     if args.ssm_type == 'BlockSSM':
-        if args.nonlinear_map == 'linear':
-            fy = linmap(nx, ny, bias=args.bias).to(device)
-        elif args.nonlinear_map == 'residual_mlp':
-            fy = blocks.ResMLP(nx, ny, bias=args.bias, hsizes=[nx]*2,
-                               Linear=linmap, skip=1).to(device)
-        elif args.nonlinear_map == 'mlp':
-            fy = blocks.MLP(nx, ny, bias=args.bias, hsizes=[nx]*2,
-                            Linear=linmap).to(device)
-        elif args.nonlinear_map == 'rnn':
-            fy = blocks.RNN(nx, ny, bias=args.bias, hsizes=[nx]*2, Linear=linmap).to(device)
-        if nu != 0:
-            if args.nonlinear_map == 'linear':
-                fu = linmap(nu, nx, bias=args.bias).to(device)
-            elif args.nonlinear_map == 'residual_mlp':
-                fu = blocks.ResMLP(nu, nx, bias=args.bias, hsizes=[nx] * 2,
-                                   Linear=linmap, skip=1).to(device)
-            elif args.nonlinear_map == 'mlp':
-                fu = blocks.MLP(nu, nx, bias=args.bias, hsizes=[nx]*2,
-                                   Linear=linear.LassoLinear).to(device)
-            elif args.nonlinear_map == 'rnn':
-                fu = blocks.RNN(nu, nx, bias=args.bias, hsizes=[nx] * 2, Linear=linmap).to(device)
+        if args.nonlinear_map == 'sparse_residual_mlp':
+            fy = blocks.ResMLP(nx, ny, bias=args.bias, hsizes=[nx] * 2,
+                               Linear=linear.LassoLinear, skip=1).to(device)
+        else:
+            fy = nonlinmap(nx, ny, bias=args.bias, hsizes=[nx]*2, Linear=linmap, skip=1).to(device)
 
+        if nu != 0:
+            if args.nonlinear_map == 'sparse_residual_mlp':
+                fu = blocks.ResMLP(nu, nx, bias=args.bias, hsizes=[nx] * 2,
+                                   Linear=linear.LassoLinear, skip=1).to(device)
+            else:
+                fu = nonlinmap(nu, nx, bias=args.bias, hsizes=[nx] * 2, Linear=linmap, skip=1).to(device)
         else:
             fu = None
+
         if nd != 0:
             fd = Linear(nd, nx).to(device)
         else:
             fd = None
         model = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd).to(device)
+
     elif args.ssm_type == 'BlackSSM':
-        # TODO: there is an error with RNN due to different output format than blocks
-        # fxud = rnn.RNN(nx+nu+nd, nx, num_layers=3,
-        #                bias=args.bias, nonlinearity=F.gelu)
-        fxud = blocks.ResMLP(nx + nu + nd, nx, hsizes=[nx]*3,
-                             bias=args.bias, nonlin=F.gelu).to(device)
+        fxud = nonlinmap(nx + nu + nd, nx, hsizes=[nx] * 3,
+                            bias=args.bias, Linear=linmap, skip=1).to(device)
         fy = Linear(nx, ny, bias=args.bias).to(device)
         model = ssm.BlackSSM(nx, nu, nd, ny, fxud, fy).to(device)
 
+    # TODO: dict
     if args.state_estimator == 'linear':
         estimator = estimators.LinearEstimator(ny, nx, bias=args.bias, linear=linmap)
     elif args.state_estimator == 'mlp':
@@ -360,7 +356,6 @@ if __name__ == '__main__':
                     mat = fx.effective_W().detach().numpy()
                     w, v = LA.eig(mat)
                     eig_ims.append([matax.imshow(mat), eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))])
-                    # mat_ims.append([matax.imshow(mat)])
 
         optimizer.zero_grad()
         loss += train_reg.squeeze()
@@ -411,4 +406,4 @@ if __name__ == '__main__':
         torch.save(best_model, os.path.join(args.savedir, 'best_model.pth'))
         if args.mlflow:
             mlflow.log_artifacts(args.savedir)
-            # os.system(f'rm -rf {args.savedir}')
+            os.system(f'rm -rf {args.savedir}')

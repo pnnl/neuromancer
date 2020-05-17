@@ -1,4 +1,9 @@
 """
+TODO: We are now best testing weights an bias. You should follow instructions here:
+https://docs.wandb.com/library/integrations/mlflow
+
+to update the conda environment to log to both mlflow and weights an biases.
+
 TODO: Make these comments reflect current code
 This script can train building dynamics and state estimation models with the following
 cross-product of configurations
@@ -66,6 +71,8 @@ import blocks
 import rnn
 import emulators
 
+import wandb
+wandb.init(project="deepmpc")
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -127,7 +134,7 @@ def parse_args():
                            help='Will group all run under this experiment name.')
     log_group.add_argument('-location', default='mlruns',
                            help='Where to write mlflow experiment tracking stuff')
-    log_group.add_argument('-run', default='test',
+    log_group.add_argument('-run', default='deepmpc',
                            help='Some name to tell what the experiment run was about.')
     log_group.add_argument('-mlflow', action='store_true',
                            help='Using mlflow or not.')

@@ -348,7 +348,7 @@ if __name__ == '__main__':
 
             if args.make_movie:
                 with torch.no_grad():
-                    mat = fx.effective_W().detach().numpy()
+                    mat = fx.effective_W().detach().cpu().numpy()
                     w, v = LA.eig(mat)
                     eig_ims.append([matax.imshow(mat), eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))])
 

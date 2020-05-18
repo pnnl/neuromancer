@@ -149,6 +149,53 @@ class Building_hf(EmulatorBase):
         return np.asarray(U), np.asarray(X), np.asarray(Y)
 
 
+class Building_hf_ROM(Building_hf):
+    """
+    Reduced order building heat transfer model with linear
+    state dynamics and bilinear heat flow input dynamics
+    represents building envelope with radiator for zone heating
+    parameters obtained from the original white-box model from Modelica
+    """
+    def __init__(self):
+        super().__init__()
+
+    # parameters of the dynamical system
+    def parameters(self, file_path='./emulators/buildings/Reno_model_for_py.mat'):
+        super().parameters(file_path)
+        file = loadmat(file_path)
+        #  LTI SSM model
+        self.A = file['Ad_ROM']
+        self.B = file['Bd_ROM']
+        self.C = file['Cd_ROM']
+        self.D = file['Dd_ROM']
+        self.E = file['Ed_ROM']
+        self.G = file['Gd_ROM']
+        self.F = file['Fd_ROM']
+
+        #  constraints bounds
+        self.Ts = file['Ts']  # sampling time
+        self.TSup = file['TSup']  # supply temperature
+        self.umax = file['umax']  # max heat per zone
+        self.umin = file['umin']  # min heat per zone
+        self.mf_max = self.umax / 20  # maximal nominal mass flow l/h
+        self.mf_min = self.umin / 20  # minimal nominal mass flow l/h
+        self.dT_max = 40  # maximal temperature difference deg C
+        self.dT_min = 0  # minimal temperature difference deg C
+        #         heat flow equation constants
+        self.rho = 0.997  # density  of water kg/1l
+        self.cp = 4185.5  # specific heat capacity of water J/(kg/K)
+        self.time_reg = 1 / 3600  # time regularization of the mass flow 1 hour = 3600 seconds
+        # problem dimensions
+        self.nx = self.A.shape[0]
+        self.ny = self.C.shape[0]
+        self.nu = self.B.shape[1]
+        self.nd = self.E.shape[1]
+        self.n_mf = self.B.shape[1]
+        self.n_dT = 1
+        # initial conditions and disturbance profiles
+        self.x0 = 0 * np.ones(self.nx, dtype=np.float32)  # initial conditions
+        self.D = file['disturb']  # pre-defined disturbance profiles
+
 
 ##############################################
 ###### External Emulators Interface ##########

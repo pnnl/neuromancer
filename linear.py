@@ -135,7 +135,7 @@ class LeftStochasticLinear(LinearBase):
 
 class PerronFrobeniusLinear(LinearBase):
 
-    def __init__(self, insize, outsize, bias=False, sigma_min=0.5, sigma_max=1.0,
+    def __init__(self, insize, outsize, bias=False, sigma_min=0.8, sigma_max=1.0,
                  init='basic', **kwargs):
         """
         Perron-Frobenius theorem based regularization of matrix

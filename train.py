@@ -1,8 +1,5 @@
 """
-TODO: We are now best testing weights an bias. You should follow instructions here:
-https://docs.wandb.com/library/integrations/mlflow
 
-to update the conda environment to log to both mlflow and weights an biases.
 
 TODO: Make these comments reflect current code
 This script can train building dynamics and state estimation models with the following
@@ -71,8 +68,6 @@ import blocks
 import rnn
 import emulators
 
-import wandb
-wandb.init(project="deepmpc")
 
 def parse_args():
     parser = argparse.ArgumentParser()

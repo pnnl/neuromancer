@@ -11,6 +11,7 @@ parser.add_argument('-results', type=str, help='Where to log mlflow results',
                     default='/qfs/projects/deepmpc/mlflow/linear_map_comparison/mlruns')
 parser.add_argument('-exp_folder', type=str, help='Where to save sbatch scripts and log files',
                     default='sbatch/')
+parser.add_argument('-gpu', type=int, default=0)
 
 
 args = parser.parse_args()
@@ -45,7 +46,7 @@ for linear in linear_map:
                 for nsteps in [4]:
                     for i in range(1): # 10 samples for each configuration
                         cmd = 'python train.py ' +\
-                              '-gpu 0 ' +\
+                              '-gpu %s ' % args.gpu +\
                               '-epochs 30000 ' + \
                               '-location %s ' % args.results + \
                               '-datafile %s ' % path + \

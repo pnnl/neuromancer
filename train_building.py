@@ -145,7 +145,7 @@ def update_traj(data, loop, axes):
     data = [d.transpose(0, 1).reshape(1, -1, d.shape[-1]) if d is not None else d for d in data]
     openloss, reg_error, X_out, Y_out, U_out = step(loop, data)
     Y_target = data[1]
-    Yt = Y_target.squeeze().cpu().numpy()
+    Yt = Y_target.squeeze().detach().cpu().numpy()
     Yp = Y_out.squeeze().detach().cpu().numpy()
     plots = []
 
@@ -267,7 +267,7 @@ if __name__ == '__main__':
 
             if args.make_movie:
                 with torch.no_grad():
-                    mat = fx.effective_W().detach().numpy()
+                    mat = fx.effective_W().detach().cpu().numpy()
                     w, v = LA.eig(mat)
                     eigims.append([matax.imshow(mat),
                                    eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))] +

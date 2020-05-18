@@ -52,7 +52,7 @@ for linear in linear_map:
                               '-linear_map %s ' % linear + \
                               '-nonlinear_map %s ' % nonlinear + \
                               '-nsteps %s ' % nsteps + \
-                              '-mlflow ' + \
+                              '-mlflow -make_movie ' + \
                               '-ssm_type BlockSSM ' + \
                               '%s ' % bias + \
                               '-exp BlockSSM_%s_%s_%s_%s_%s ' % (system, linear, nonlinear, bias, nsteps) + \
@@ -78,7 +78,7 @@ for linear in linear_map:
                               '-linear_map %s ' % linear + \
                               '-nonlinear_map %s ' % nonlinear + \
                               '-nsteps %s ' % nsteps + \
-                              '-mlflow ' + \
+                              '-mlflow -make_movie ' + \
                               '-exp BlockSSM_%s_%s_%s_%s_%s ' % (system, linear, nonlinear, bias, nsteps) + \
                               '-savedir linear_map_%s_%s_%s_%s_%s_%s ' % (system, linear, nonlinear, bias, nsteps, i) # group experiments with same configuration together - TODO: add more params
                         with open(os.path.join(args.exp_folder, 'exp_linear_map_%s_%s_%s_%s_%s_%s.slurm' % (system, linear, nonlinear, bias, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script

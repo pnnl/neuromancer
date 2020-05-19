@@ -155,6 +155,10 @@ class Building_hf_ROM(Building_hf):
     state dynamics and bilinear heat flow input dynamics
     represents building envelope with radiator for zone heating
     parameters obtained from the original white-box model from Modelica
+    discrete time state space model form:
+    x_{k+1} = A x_k + B u_k + E d_k
+    u_k = a_k H b_k
+    y_k = C x_k
     """
     def __init__(self):
         super().__init__()

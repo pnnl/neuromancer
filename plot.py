@@ -80,8 +80,8 @@ def pltOL(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
         ax[j, 0].set_ylabel(notation, fontsize=24)
         ax[j, 0].tick_params(axis='x', labelsize=22)
         ax[j, 0].tick_params(axis='y', labelsize=22)
+    plt.tight_layout()
     if figname is not None:
-        plt.tight_layout()
         plt.savefig(figname)
 
 

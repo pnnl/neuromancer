@@ -75,7 +75,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=2)
+    opt_group.add_argument('-epochs', type=int, default=10000)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
@@ -85,7 +85,7 @@ def parse_args():
     data_group.add_argument('-nsteps', type=int, default=16,
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='datafile')
-    data_group.add_argument('-datafile', default='./datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat',
+    data_group.add_argument('-datafile', default='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
                             help='source of the dataset')
     data_group.add_argument('-norm', type=str, default='UDY')
 
@@ -99,10 +99,10 @@ def parse_args():
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
     model_group.add_argument('-linear_map', type=str,
-                             choices=['pf', 'spectral', 'linear', 'softSVD', 'sparse', 'split_linear'], default='linear')
+                             choices=['pf', 'spectral', 'linear', 'softSVD', 'sparse', 'split_linear'], default='softSVD')
     # TODO: spectral is quite expensive softSVD is much faster
     model_group.add_argument('-nonlinear_map', type=str,
-                             choices=['mlp', 'rnn', 'linear', 'residual_mlp', 'sparse_residual_mlp'], default='mlp')
+                             choices=['mlp', 'rnn', 'linear', 'residual_mlp', 'sparse_residual_mlp'], default='linear')
     model_group.add_argument('-nonlin', type=str,
                              choices=['relu', 'gelu'], default='gelu')
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
@@ -375,7 +375,7 @@ if __name__ == '__main__':
             Upred.append(U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nu))
             Ypred.append(Y_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
             Ytrue.append(Y_target.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
-        plot.pltOL(np.concatenate(Ytrue),
+        plot.pltOL(Y=np.concatenate(Ytrue),
                    Ytrain=np.concatenate(Ypred),
                    U=np.concatenate(Upred),
                    figname=os.path.join(args.savedir, 'nstep.png'))
@@ -391,7 +391,7 @@ if __name__ == '__main__':
             Upred.append(U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nu))
             Ypred.append(Y_out.detach().cpu().numpy().reshape(-1, ny))
             Ytrue.append(Y_target.detach().cpu().numpy().reshape(-1, ny))
-        plot.pltOL(np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
+        plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
                    U=np.concatenate(Upred), figname=os.path.join(args.savedir, 'open.png'))
         if args.make_movie:
             plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0),

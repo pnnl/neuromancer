@@ -17,10 +17,12 @@ datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
 systems = ['tank','vehicle3','reactor','aero']
 ssm_type=['BlockSSM', 'BlackSSM']
 linear_map=['pf', 'linear']
-nonlinear_map= ['linear', 'sparse_residual_mlp', 'mlp']
+nonlinear_map= ['rnn', 'linear', 'residual_mlp',  'sparse_residual_mlp', 'mlp']
 N = ['2', '4', '8', '16', '32']
 
-res = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_14.pkl")
+res1 = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_14.pkl")
+res2 = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_19.pkl")
+res = res1.append(res2)
 res.rename(columns={'params.datafile':'datafile','params.ssm_type':'ssm_type',
                     'params.linear_map':'linear_map','params.nonlinear_map':'nonlinear_map',
                     'params.nsteps':'nsteps'}, inplace=True)
@@ -168,7 +170,7 @@ stdopen, stdnstep, meanopen, meannstep, minopen, minnstep = \
       columns=N) for i in range(6)]
 
 # choose system
-system = systems[2]
+system = systems[0]
 
 # TODO: select best model based on devtest
 # Block
@@ -215,7 +217,7 @@ for k in [stdopen, stdnstep, meanopen, meannstep, minopen, minnstep]:
 
 # Bar plot
 fig = plt.figure(figsize=(14, 10))
-width = 0.10
+width = 0.05
 ind = np.arange(len(N))
 for i, n in enumerate(idx):
     plt.bar(ind+i*width, minopen.loc[n], width, label=n, edgecolor='white')
@@ -229,7 +231,6 @@ plt.grid()
 # plt.savefig('./figs/open_loop_min_mse.png')
 
 fig = plt.figure(figsize=(14, 10))
-width = 0.10
 ind = np.arange(len(N))
 for i, n in enumerate(idx):
     plt.bar(ind+i*width, meanopen.loc[n], width, label=n, edgecolor='white', yerr=[(0, 0, 0, 0, 0), stdopen.loc[n]])
@@ -244,7 +245,6 @@ plt.grid()
 
 
 fig = plt.figure(figsize=(14, 10))
-width = 0.10
 ind = np.arange(len(N))
 for i, n in enumerate(idx):
     plt.bar(ind+i*width, minnstep.loc[n], width, label=n, edgecolor='white')

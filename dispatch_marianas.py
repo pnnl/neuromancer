@@ -7,7 +7,7 @@ parser.add_argument('-hours', type=int, help='number of gpu hours to request for
 parser.add_argument('-partition', type=str, help='Partition of gpus to access', default='shared_dlt')
 parser.add_argument('-allocation', type=str, help='Allocation name for billing', default='deepmpc')
 parser.add_argument('-env', type=str, help='Name of conda environment for running code.', default='mpc2')
-parser.add_argument('-results', type=str, help='Where to log mlflow results', default='/qfs/projects/deepmpc/mlflow/neurips_2020_exp/mlruns')
+parser.add_argument('-results', type=str, help='Where to log mlflow results', default='/qfs/projects/deepmpc/mlflow/neurips_2020_exp_one_step/mlruns')
 parser.add_argument('-exp_folder', type=str, help='Where to save sbatch scripts and log files',
                     default='sbatch/')
 parser.add_argument('-nsamples', type=int, help='Number of samples for each experimental configuration',

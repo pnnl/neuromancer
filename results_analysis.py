@@ -170,7 +170,7 @@ stdopen, stdnstep, meanopen, meannstep, minopen, minnstep = \
       columns=N) for i in range(6)]
 
 # choose system
-system = systems[0]
+system = systems[3]
 
 # TODO: select best model based on devtest
 # Block

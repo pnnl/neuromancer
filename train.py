@@ -46,7 +46,7 @@ from copy import deepcopy
 import time
 # plotting imports
 import matplotlib
-matplotlib.use("Agg")
+# matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 # ml imports
@@ -75,14 +75,14 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=10000)
+    opt_group.add_argument('-epochs', type=int, default=1000)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=16,
+    data_group.add_argument('-nsteps', type=int, default=1,
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='datafile')
     data_group.add_argument('-datafile', default='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
@@ -99,7 +99,7 @@ def parse_args():
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
     model_group.add_argument('-linear_map', type=str,
-                             choices=['pf', 'spectral', 'linear', 'softSVD', 'sparse', 'split_linear'], default='softSVD')
+                             choices=['pf', 'spectral', 'linear', 'softSVD', 'sparse', 'split_linear'], default='linear')
     # TODO: spectral is quite expensive softSVD is much faster
     model_group.add_argument('-nonlinear_map', type=str,
                              choices=['mlp', 'rnn', 'linear', 'residual_mlp', 'sparse_residual_mlp'], default='linear')
@@ -110,6 +110,7 @@ def parse_args():
     ##################
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS') # TODO: These are not doing anything
+    weight_group.add_argument('-constrained', action='store_true', help='Whether to use constraints in the neural network models.')
     weight_group.add_argument('-Q_con_u', type=float,  default=1e1, help='Relative penalty on hidden input constraints.')
     weight_group.add_argument('-Q_con_x', type=float,  default=1e1, help='Relative penalty on hidden state constraints.')
     weight_group.add_argument('-Q_dx_ud', type=float,  default=1e1, help='Relative penalty on maximal influence of u and d on hidden state in one time step.')
@@ -380,6 +381,7 @@ if __name__ == '__main__':
                    U=np.concatenate(Upred),
                    figname=os.path.join(args.savedir, 'nstep.png'))
 
+        #  TODO: double check open loop evaluation
         Ytrue, Ypred, Upred = [], [], []
         for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
             data = [d.transpose(0, 1).reshape(1, -1, d.shape[-1]) if d is not None else d for d in dset]

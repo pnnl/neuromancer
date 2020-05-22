@@ -18,11 +18,14 @@ systems = ['tank','vehicle3','reactor','aero']
 ssm_type=['BlockSSM', 'BlackSSM']
 linear_map=['pf', 'linear']
 nonlinear_map= ['rnn', 'linear', 'residual_mlp',  'sparse_residual_mlp', 'mlp']
-N = ['2', '4', '8', '16', '32']
+# N = ['2', '4', '8', '16', '32']
+N = ['1']
 
-res1 = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_14.pkl")
-res2 = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_19.pkl")
-res = res1.append(res2)
+# res1 = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_14.pkl")
+# res2 = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_19.pkl")
+# res = res1.append(res2)
+
+res = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_21_one_step.pkl")
 res.rename(columns={'params.datafile':'datafile','params.ssm_type':'ssm_type',
                     'params.linear_map':'linear_map','params.nonlinear_map':'nonlinear_map',
                     'params.nsteps':'nsteps'}, inplace=True)
@@ -152,10 +155,10 @@ for system in systems:
                                     system_metrics[system][nstep][type][linear][nonlinear]['min_test_nsteploss'] = testnsteploss.min()
 
 metrics_df = pandas.DataFrame.from_dict(system_metrics)
-metrics_df.loc['8','aero']['BlockSSM'].keys()
-metrics_df.loc['8','aero']['BlockSSM']['best']
-metrics_df.loc['8','aero']['BlockSSM']['linear']
-metrics_df.loc['8','aero']['BlockSSM']['pf']['mlp']
+# metrics_df.loc['8','aero']['BlockSSM'].keys()
+# metrics_df.loc['8','aero']['BlockSSM']['best']
+# metrics_df.loc['8','aero']['BlockSSM']['linear']
+# metrics_df.loc['8','aero']['BlockSSM']['pf']['mlp']
 
 # # # # # # # # # #
 # METRICS
@@ -170,7 +173,7 @@ stdopen, stdnstep, meanopen, meannstep, minopen, minnstep = \
       columns=N) for i in range(6)]
 
 # choose system
-system = systems[3]
+system = systems[2]
 
 # TODO: select best model based on devtest
 # Block
@@ -211,6 +214,10 @@ best_model = metrics_df.loc[:, system].best
 # PLOTS and Tables
 # # # # # # # # # #
 
+
+idx.remove('Block_linear_sparse_residual_mlp')
+idx.remove('Block_pf_sparse_residual_mlp')
+
 # Latex Table
 for k in [stdopen, stdnstep, meanopen, meannstep, minopen, minnstep]:
     print(k.to_latex(float_format=lambda x: '%.3f' % x))
@@ -220,6 +227,7 @@ fig = plt.figure(figsize=(14, 10))
 width = 0.05
 ind = np.arange(len(N))
 for i, n in enumerate(idx):
+    # plt.bar(ind + i * width, minopen.iloc[i], width, label=n, edgecolor='white')
     plt.bar(ind+i*width, minopen.loc[n], width, label=n, edgecolor='white')
 plt.xlabel('Training Prediction Horizon')
 plt.ylabel('Open loop MSE')
@@ -230,18 +238,18 @@ plt.grid()
 # plt.savefig('./figs/open_loop_min_mse.eps')
 # plt.savefig('./figs/open_loop_min_mse.png')
 
-fig = plt.figure(figsize=(14, 10))
-ind = np.arange(len(N))
-for i, n in enumerate(idx):
-    plt.bar(ind+i*width, meanopen.loc[n], width, label=n, edgecolor='white', yerr=[(0, 0, 0, 0, 0), stdopen.loc[n]])
-plt.xlabel('Training Prediction Horizon')
-plt.ylabel('Open loop MSE')
-plt.xticks(ind + .5*width,  ('2', '4', '8', '16', '32'))
-plt.legend(loc='best')
-plt.tight_layout()
-plt.grid()
-# plt.savefig('./figs/open_loop_mean_mse.eps')
-# plt.savefig('./figs/open_loop_mean_mse.png')
+# fig = plt.figure(figsize=(14, 10))
+# ind = np.arange(len(N))
+# for i, n in enumerate(idx):
+#     plt.bar(ind+i*width, meanopen.loc[n], width, label=n, edgecolor='white', yerr=[(0, 0, 0, 0, 0), stdopen.loc[n]])
+# plt.xlabel('Training Prediction Horizon')
+# plt.ylabel('Open loop MSE')
+# plt.xticks(ind + .5*width,  ('2', '4', '8', '16', '32'))
+# plt.legend(loc='best')
+# plt.tight_layout()
+# plt.grid()
+# # plt.savefig('./figs/open_loop_mean_mse.eps')
+# # plt.savefig('./figs/open_loop_mean_mse.png')
 
 
 fig = plt.figure(figsize=(14, 10))

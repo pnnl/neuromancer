@@ -75,17 +75,17 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=1000)
+    opt_group.add_argument('-epochs', type=int, default=5000)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=1,
+    data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='datafile')
-    data_group.add_argument('-datafile', default='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
+    data_group.add_argument('-datafile', default='./datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat',
                             help='source of the dataset')
     data_group.add_argument('-norm', type=str, default='UDY')
 
@@ -102,7 +102,7 @@ def parse_args():
                              choices=['pf', 'spectral', 'linear', 'softSVD', 'sparse', 'split_linear'], default='linear')
     # TODO: spectral is quite expensive softSVD is much faster
     model_group.add_argument('-nonlinear_map', type=str,
-                             choices=['mlp', 'rnn', 'linear', 'residual_mlp', 'sparse_residual_mlp'], default='linear')
+                             choices=['mlp', 'rnn', 'linear', 'residual_mlp', 'sparse_residual_mlp'], default='residual_mlp')
     model_group.add_argument('-nonlin', type=str,
                              choices=['relu', 'gelu'], default='gelu')
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
@@ -321,7 +321,7 @@ if __name__ == '__main__':
     #######################################
     elapsed_time = 0
     start_time = time.time()
-    best_dev = np.finfo(np.float32).max
+    best_openloss = np.finfo(np.float32).max
 
     for i in range(args.epochs):
         model.train()
@@ -332,20 +332,27 @@ if __name__ == '__main__':
         ###################################
         with torch.no_grad():
             model.eval()
+            # MSE loss
             dev_loss, dev_reg, X_pred, Y_pred, U_pred = step(loop, dev_data)
-            if dev_loss < best_dev:
+            # open loop loss
+            data_open = [d.transpose(0, 1).reshape(-1, 1, d.shape[-1]) if d is not None else d for d in dev_data]
+            data_open = [d.transpose(0, 1) if d is not None else d for d in data_open]
+            openloss, reg_error, X_out, Y_out, U_out = step(loop, data_open)
+
+            if openloss < best_openloss:
                 best_model = deepcopy(model.state_dict())
-                best_dev = dev_loss
+                best_openloss = openloss
             if args.mlflow:
                 mlflow.log_metrics({'trainloss': loss.item(),
                                     'train_reg': train_reg.item(),
                                     'devloss': dev_loss.item(),
                                     'dev_reg': dev_reg.item(),
-                                    'bestdev': best_dev.item()}, step=i)
+                                    'open': openloss.item(),
+                                    'bestopen': best_openloss.item()}, step=i)
         if i % args.verbosity == 0:
             elapsed_time = time.time() - start_time
-            print(f'epoch: {i:2}  loss: {loss.item():10.8f}\tdevloss: {dev_loss.item():10.8f}'
-                  f'\tbestdev: {best_dev.item():10.8f}\teltime: {elapsed_time:5.2f}s')
+            print(f'epoch: {i:2}  loss: {loss.item():10.8f}\topen: {openloss.item():10.8f}'
+                  f'\tbestopen: {best_openloss.item():10.8f}\teltime: {elapsed_time:5.2f}s')
 
             if args.make_movie:
                 with torch.no_grad():
@@ -384,7 +391,12 @@ if __name__ == '__main__':
         #  TODO: double check open loop evaluation
         Ytrue, Ypred, Upred = [], [], []
         for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
+            # dset[0].shape
+            # Out[11]: torch.Size([1, 80, 2])
+            # data[0].shape
+            # Out[12]: torch.Size([1, 80, 2])
             data = [d.transpose(0, 1).reshape(1, -1, d.shape[-1]) if d is not None else d for d in dset]
+            data = [d.transpose(0, 1) if d is not None else d for d in data]
             openloss, reg_error, X_out, Y_out, U_out = step(loop, data)
             print(f'{dname}_open_loss: {openloss}')
             if args.mlflow:
@@ -404,3 +416,5 @@ if __name__ == '__main__':
         if args.mlflow:
             mlflow.log_artifacts(args.savedir)
             os.system(f'rm -rf {args.savedir}')
+
+

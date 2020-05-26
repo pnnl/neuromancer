@@ -39,6 +39,10 @@ class EmulatorBase(ABC):
         pass
 
 
+"""
+Linear ODEs
+"""
+
 class LTISSM(EmulatorBase):
     """
     base class of the linear time invariant state space model
@@ -47,22 +51,99 @@ class LTISSM(EmulatorBase):
         super().__init__()
         pass
 
-class LTVSSM(EmulatorBase):
+
+class ExpGrowth(EmulatorBase):
     """
-    base class of the linear time varying state space model
+    exponentia growth linear ODE
+    https://en.wikipedia.org/wiki/Exponential_growth
+    """
+    def __init__(self):
+        super().__init__()
+        pass
+
+    def parameters(self):
+        self.x0 = 1
+        self.nx = 1
+        self.k = 2
+        self.A = self.k*np.eye(self.nx)
+
+    # equations defining single step of the dynamical system
+    def equations(self, x):
+        x = self.A*x
+        return x
+
+    def simulate(self, ninit, nsim, x0=None):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
+        :return: The response trajectories,  X
+        """
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+        X= []
+        for k in range(nsim):
+            x = self.equations(x)
+            X.append(x)  # updated states trajectories
+        return np.asarray(X)
+
+
+class SimpleHarmonicMotion(EmulatorBase):
+    """
+    https://en.wikipedia.org/wiki/Simple_harmonic_motion
     """
     def __init__(self):
         super().__init__()
         pass
 
 
-class LPVSSM(EmulatorBase):
+
+"""
+Nonlinear ODEs
+
+list of nlin ODEs
+https://en.wikipedia.org/wiki/List_of_nonlinear_ordinary_differential_equations
+"""
+
+
+
+class LogisticGrowth(EmulatorBase):
     """
-    base class of the linear parameter varying state space model
+    logistic growth linear ODE
+    https://en.wikipedia.org/wiki/Logistic_function
     """
     def __init__(self):
         super().__init__()
         pass
+
+    def parameters(self):
+        self.k = 2
+        self.x0 = 1
+        self.nx = 1
+
+    # equations defining single step of the dynamical system
+    def equations(self, x):
+        pass
+
+    def simulate(self, ninit, nsim, x0=None):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
+        :return: The response trajectories,  X
+        """
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+        X= []
+        for k in range(nsim):
+            x = self.equations(x)
+            X.append(x)  # updated states trajectories
+        return np.asarray(X)
+
 
 
 class Building_hf(EmulatorBase):
@@ -201,7 +282,87 @@ class Building_hf_ROM(Building_hf):
         self.D = file['disturb']  # pre-defined disturbance profiles
 
 
+"""
+Linear PDEs
+"""
+
+
+
+"""
+Nonlinear PDEs
+
+list of nlin PDEs
+https://en.wikipedia.org/wiki/List_of_nonlinear_partial_differential_equations
+"""
+
+
+
+"""
+Chaotic systems and fractals
+
+chaotic systems
+https://en.wikipedia.org/wiki/List_of_chaotic_maps
+"""
+
+
+class LorentzAttractor(EmulatorBase):
+    """
+    base class of the linear time invariant state space model
+    TODO: apply
+    https://en.wikipedia.org/wiki/Lorenz_system#Analysis
+    # https://ipywidgets.readthedocs.io/en/stable/examples/Lorenz%20Differential%20Equations.html
+    # https://scipython.com/blog/the-lorenz-attractor/
+    # https://matplotlib.org/3.1.0/gallery/mplot3d/lorenz_attractor.html
+    """
+    def __init__(self):
+        super().__init__()
+        pass
+
+class VanDerPolOsscilator(EmulatorBase):
+    """
+    base class of the linear time invariant state space model
+    TODO: apply
+    # http://kitchingroup.cheme.cmu.edu/blog/2013/02/02/Solving-a-second-order-ode/
+    http://hadron.physics.fsu.edu/~eugenio/comphy/examples/vanderpol.py
+    https://www.johndcook.com/blog/2019/12/26/driven-van-der-pol/
+    https://www.johndcook.com/blog/2019/12/22/van-der-pol/
+    https://en.wikipedia.org/wiki/Van_der_Pol_oscillator
+    """
+    def __init__(self):
+        super().__init__()
+        pass
+
+
+class Mandelbrot(EmulatorBase):
+    """
+    base class of the linear time invariant state space model
+    TODO: apply
+    https://www.geeksforgeeks.org/mandelbrot-fractal-set-visualization-in-python/
+    #https://scipy-lectures.org/intro/numpy/auto_examples/plot_mandelbrot.html
+    https://rosettacode.org/wiki/Mandelbrot_set
+    https://levelup.gitconnected.com/mandelbrot-set-with-python-983e9fc47f56
+    IDEA: use mandelbrot zoom video as our dataset for training
+    Cool effect
+    """
+    def __init__(self):
+        super().__init__()
+        pass
+
+
+
+"""
+TODO: bunch of open source physics implementations to be integrated in the framework
+# http://www-personal.umich.edu/~mejn/cp/programs.html
+https://www.azimuthproject.org/azimuth/show/Stochastic+Hopf+bifurcation+in+Python
+http://systems-sciences.uni-graz.at/etextbook/sw3/bifurcation.html
+
+list of dynamical systems
+https://en.wikipedia.org/wiki/List_of_dynamical_systems_and_differential_equations_topics
+"""
+
+
 ##############################################
+
 ###### External Emulators Interface ##########
 ##############################################
 # TODO: interface with, e.g., OpenAI gym

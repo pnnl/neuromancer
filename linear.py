@@ -441,6 +441,20 @@ class DiagSplitLinear(LinearBase):
         super().__init__(insize, outsize)
 
 
+
+class AdjacencyMatrix(LinearBase):
+    """
+    IDEA: adjacency matrix/filter networks
+    represent linear map as an nth-order adjacency matrix of an image or a graph
+    applications: PDEs, Image to Image, video prediction
+    similarities with CNNs and graph neural nets
+    https://link.springer.com/chapter/10.1007/978-3-540-88636-5_38
+    """
+    def __init__(self, insize, outsize, bias, **kwargs):
+        super().__init__(insize, outsize)
+
+
+
 maps = [Linear, NonnegativeLinear, LassoLinear,
         LeftStochasticLinear, RightStochasticLinear, PerronFrobeniusLinear,
         SymmetricLinear, SkewSymmetricLinear, SplitLinear, StableSplitLinear,

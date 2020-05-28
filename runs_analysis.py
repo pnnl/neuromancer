@@ -16,8 +16,8 @@ mlflow.set_tracking_uri(args.expfolder)
 runs = mlflow.search_runs(experiment_ids=run_ids, filter_string="",
                           order_by=["metrics.open_dev_loss ASC"])
 runs = pd.DataFrame(runs)
-runs.to_csv('nonlin_sysid_2020_5_19.csv')
-runs.to_pickle('nonlin_sysid_2020_5_19.pkl')
+runs.to_csv('nonlin_sysid_2020_5_25.csv')
+runs.to_pickle('nonlin_sysid_2020_5_25.pkl')
 runs = runs[['params.savedir', 'params.datafile', 'metrics.open_dev_reg', 'metrics.open_test_loss',
              'metrics.open_train_loss', 'metrics.nstep_dev_reg',
              'metrics.nstep_test_loss', 'metrics.bestdev',

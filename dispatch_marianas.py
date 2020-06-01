@@ -33,52 +33,63 @@ template = '#!/bin/bash\n' +\
 
 os.system('mkdir %s' % args.exp_folder)
 
+# datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
+#                  './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
+#                  './datasets/NLIN_MIMO_CSTR/NLIN_MIMO_CSTR2.mat',
+#                  './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']
+# systems = ['tank','vehicle3','reactor','aero']
+# nonlinear_map= ['mlp', 'residual_mlp', 'linear', 'rnn']
+
 datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
                  './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
-                 './datasets/NLIN_MIMO_CSTR/NLIN_MIMO_CSTR2.mat',
                  './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']
-systems = ['tank','vehicle3','reactor','aero']
+systems = ['tank','vehicle3','aero']
 linear_map=['pf', 'linear']
-nonlinear_map= ['mlp', 'residual_mlp', 'linear', 'rnn']
+nonlinear_map= ['mlp', 'residual_mlp', 'rnn']
+
 nsteps_range = [1, 2, 4, 8, 16, 32, 64]
 os.system('mkdir temp')
 for path, system in zip(datapaths, systems):
-    for linear in linear_map:
-        for nonlinear in nonlinear_map:
-            for nsteps in nsteps_range:
-                for i in range(args.nsamples): # 10 samples for each configuration
-                    cmd = 'python train.py ' +\
-                          '-gpu 0 ' +\
-                          '-epochs 10000 ' + \
-                          '-location %s ' % args.results + \
-                          '-datafile %s ' % path + \
-                          '-linear_map %s ' % linear + \
-                          '-nonlinear_map %s ' % nonlinear + \
-                          '-nsteps %s ' % nsteps + \
-                          '-mlflow ' + \
-                          '-ssm_type BlockSSM ' + \
-                          '-exp BlockSSM_%s_%s_%s_%s ' % (system, linear, nonlinear, nsteps) + \
-                          '-savedir temp/BlockSSM_%s_%s_%s_%s_%s ' % (system, linear, nonlinear, nsteps, i) # group experiments with same configuration together - TODO: add more params
-                    with open(os.path.join(args.exp_folder, 'exp_block_%s_%s_%s_%s_%s.slurm' % (system, linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
-                        cmdfile.write(template + cmd)
+    for const in ['-constrained', '']:
+        for linear in linear_map:
+            for nonlinear in nonlinear_map:
+                for nsteps in nsteps_range:
+                    for i in range(args.nsamples): # 10 samples for each configuration
+                        cmd = 'python train.py ' +\
+                              '-gpu 0 ' +\
+                              '-epochs 10000 ' + \
+                              '-location %s ' % args.results + \
+                              '-datafile %s ' % path + \
+                              '-linear_map %s ' % linear + \
+                              '-nonlinear_map %s ' % nonlinear + \
+                              '-nsteps %s ' % nsteps + \
+                              '-mlflow ' + \
+                              '-ssm_type BlockSSM ' + \
+                              '%s ' % const + \
+                              '-exp BlockSSM_%s_%s_%s_%s_%s ' % (system, const, linear, nonlinear, nsteps) + \
+                              '-savedir temp/BlockSSM_%s_%s_%s_%s_%s_%s ' % (system, const, linear, nonlinear, nsteps, i) # group experiments with same configuration together - TODO: add more params
+                        with open(os.path.join(args.exp_folder, 'exp_block_%s_%s_%s_%s_%s_%s.slurm' % (system, const, linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
+                            cmdfile.write(template + cmd)
 
 # BlackSSM - all datasets all nonlinear maps, default linear
 for path, system in zip(datapaths, systems):
-    for bias in ['-bias']:
-        for nonlinear in nonlinear_map:
-            for nsteps in nsteps_range:
-                for i in range(args.nsamples): # 10 samples for each configuration
-                    cmd = 'python train.py ' +\
-                          '-gpu 0 ' +\
-                          '-epochs 10000 ' + \
-                          '-location %s ' % args.results + \
-                          '-datafile %s ' % path + \
-                          '-nonlinear_map %s ' % nonlinear + \
-                          '-nsteps %s ' % nsteps + \
-                          '-mlflow ' + \
-                          '-ssm_type BlackSSM ' + \
-                          '%s ' % bias + \
-                          '-exp BlackSSM_%s_%s_%s_%s ' % (system, bias, nonlinear, nsteps) + \
-                          '-savedir temp/BlackSSM_%s_%s_%s_%s_%s ' % (system, bias, nonlinear, nsteps, i)
-                    with open(os.path.join(args.exp_folder, 'exp_black_%s_%s_%s_%s_%s.slurm' % (system, bias, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
-                            cmdfile.write(template + cmd)
+    for const in ['-constrained', '']:
+        for bias in ['-bias']:
+            for nonlinear in nonlinear_map:
+                for nsteps in nsteps_range:
+                    for i in range(args.nsamples): # 10 samples for each configuration
+                        cmd = 'python train.py ' +\
+                              '-gpu 0 ' +\
+                              '-epochs 10000 ' + \
+                              '-location %s ' % args.results + \
+                              '-datafile %s ' % path + \
+                              '-nonlinear_map %s ' % nonlinear + \
+                              '-nsteps %s ' % nsteps + \
+                              '-mlflow ' + \
+                              '-ssm_type BlackSSM ' + \
+                              '%s ' % const + \
+                              '%s ' % bias + \
+                              '-exp BlackSSM_%s_%s_%s_%s_%s ' % (system, const, bias, nonlinear, nsteps) + \
+                              '-savedir temp/BlackSSM_%s_%s_%s_%s_%s_%s ' % (system, const, bias, nonlinear, nsteps, i)
+                        with open(os.path.join(args.exp_folder, 'exp_black_%s_%s_%s_%s_%s_%s.slurm' % (system, const, bias, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
+                                cmdfile.write(template + cmd)

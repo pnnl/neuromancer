@@ -75,7 +75,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=1000)
+    opt_group.add_argument('-epochs', type=int, default=100)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
@@ -111,12 +111,12 @@ def parse_args():
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS') # TODO: These are not doing anything
     weight_group.add_argument('-constrained', action='store_true', help='Whether to use constraints in the neural network models.')
-    weight_group.add_argument('-Q_con_u', type=float,  default=1e1, help='Relative penalty on hidden input constraints.')
-    weight_group.add_argument('-Q_con_x', type=float,  default=1e1, help='Relative penalty on hidden state constraints.')
-    weight_group.add_argument('-Q_dx_ud', type=float,  default=1e1, help='Relative penalty on maximal influence of u and d on hidden state in one time step.')
-    weight_group.add_argument('-Q_dx', type=float,  default=1e1, help='Relative penalty on hidden state difference in one time step.')
+    weight_group.add_argument('-Q_con_u', type=float,  default=0.2, help='Relative penalty on hidden input constraints.')
+    weight_group.add_argument('-Q_con_x', type=float,  default=0.2, help='Relative penalty on hidden state constraints.')
+    weight_group.add_argument('-Q_dx_ud', type=float,  default=0.2, help='Relative penalty on maximal influence of u and d on hidden state in one time step.')
+    weight_group.add_argument('-Q_dx', type=float,  default=0.2, help='Relative penalty on hidden state difference in one time step.')
+    weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Relative penalty linear maps regularization.')
     weight_group.add_argument('-Q_y', type=float,  default=1e0, help='Relative penalty on output tracking.')
-    weight_group.add_argument('-Q_estim', type=float,  default=1e0, help='Relative penalty on state estimator regularization.')
 
 
     ####################
@@ -124,7 +124,7 @@ def parse_args():
     log_group = parser.add_argument_group('LOGGING PARAMETERS')
     log_group.add_argument('-savedir', type=str, default='test',
                            help="Where should your trained model and plots be saved (temp)")
-    log_group.add_argument('-verbosity', type=int, default=100,
+    log_group.add_argument('-verbosity', type=int, default=1000,
                            help="How many epochs in between status updates")
     log_group.add_argument('-exp', default='test',
                            help='Will group all run under this experiment name.')
@@ -277,11 +277,19 @@ if __name__ == '__main__':
             fd = None
         model = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd).to(device)
 
+        if args.constrained:
+            model.Q_dx, model.Q_dx_ud, model.Q_con_x, model.Q_con_u, model.Q_sub = \
+                args.Q_dx, args.Q_dx_ud, args.Q_con_x, args.Q_con_u, args.Q_sub
+
     elif args.ssm_type == 'BlackSSM':
         fxud = nonlinmap(nx + nu + nd, nx, hsizes=[nx] * 3,
                             bias=args.bias, Linear=linmap, skip=1).to(device)
         fy = Linear(nx, ny, bias=args.bias).to(device)
         model = ssm.BlackSSM(nx, nu, nd, ny, fxud, fy).to(device)
+
+        if args.constrained:
+            model.Q_dx, model.Q_con_x, model.Q_con_u, model.Q_sub = \
+                args.Q_dx, args.Q_con_x, args.Q_con_u, args.Q_sub
 
     # TODO: dict
     if args.state_estimator == 'linear':

@@ -3,6 +3,9 @@ Loading system ID datasets from mat files
 """
 from scipy.io import loadmat
 import numpy as np
+import matplotlib
+# matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 import torch
 import plot
@@ -38,6 +41,7 @@ def Load_data_sysID(file_path='./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.
         Y = min_max_norm(Y)
     if 'D' in norm and D is not None:
         D = min_max_norm(D)
+    print(Y.shape, U.shape)
     return Y, U, D, Ts
 
 
@@ -76,6 +80,8 @@ def make_dataset_ol(Y, U, D, nsteps, device):
     """
 
     # Outputs: data for past and future moving horizons
+    # Yp, Yf = [data_batches(Y[:-1][:nsteps], nsteps).to(device), data_batches(Y[1:][nsteps:], nsteps).to(device)]
+
     Yp, Yf = [data_batches(Y[:-nsteps], nsteps).to(device), data_batches(Y[nsteps:], nsteps).to(device)]
     train_idx = (Yf.shape[1] // 3)
     dev_idx = train_idx * 2
@@ -91,7 +97,7 @@ def make_dataset_ol(Y, U, D, nsteps, device):
         Dp, Df = [data_batches(D[:-nsteps], nsteps).to(device), data_batches(D[nsteps:], nsteps).to(device)]
     else:
         Dp, Df = None, None
-
+    print(Yp.shape, Yf.shape, Up.shape, Uf.shape)
     return Yp, Yf, Up, Uf, Dp, Df
 
 
@@ -134,19 +140,24 @@ def make_dataset_cl(Y, U, D, R, nsteps, device):
 
 if __name__ == '__main__':
     datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
-                 './datasets/NLIN_SISO_predator_prey/PredPreyCrowdingData.mat',
-                 './datasets/NLIN_TS_pendulum/NLIN_TS_Pendulum.mat',
+                 # './datasets/NLIN_SISO_predator_prey/PredPreyCrowdingData.mat',
+                 # './datasets/NLIN_TS_pendulum/NLIN_TS_Pendulum.mat',
                  './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
                  './datasets/NLIN_MIMO_CSTR/NLIN_MIMO_CSTR2.mat',
                  './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']
 
-    for path in datapaths:
-        Y, U, D, Ts = Load_data_sysID(path)
-        plot.pltOL(Y, U, D)
 
-        Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=6, device='cpu')
-        R = np.ones(Y.shape)
-        Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=6, device='cpu')
+    # for name, path in zip(['twotank', 'vehicle', 'reactor', 'aero'], datapaths):
+    #     Y, U, D, Ts = Load_data_sysID(path)
+    #     plot.pltOL(Y, U=U, D=D, figname='test.png')
+    #
+    #     Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=32, device='cpu')
+    #     plot.pltOL(np.concatenate([Yp[:, k, :] for k in range(Yp.shape[1])])[:1000],
+    #                Ytrain=np.concatenate([Yf[:, k, :] for k in range(Yf.shape[1])])[:1000], figname=f'{name}_align_test.png')
+    #
+
+        # R = np.ones(Y.shape)
+        # Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=5, device='cpu')
 
 
 #   TESTING dataset creation from the emulator
@@ -166,6 +177,6 @@ if __name__ == '__main__':
     Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=12, device='cpu')
     R = 25*np.ones(Y.shape)
     Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=12, device='cpu')
-
+    print(Yp.shape, Yf.shape, Up.shape, Dp.shape, Df.shape)
 
 #   TODO: save trained benchmark models from Matlab's System ID

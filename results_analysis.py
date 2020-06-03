@@ -150,10 +150,10 @@ for system in systems:
                                     system_metrics[system][nstep][type][linear][nonlinear]['min_test_nsteploss'] = testnsteploss.min()
 
 metrics_df = pandas.DataFrame.from_dict(system_metrics)
-metrics_df.loc['8','aero']['BlockSSM'].keys()
-metrics_df.loc['8','aero']['BlockSSM']['best']
-metrics_df.loc['8','aero']['BlockSSM']['linear']
-metrics_df.loc['8','aero']['BlockSSM']['pf']['mlp']
+metrics_df.loc['8', 'aero']['BlockSSM'].keys()
+metrics_df.loc['8', 'aero']['BlockSSM']['best']
+metrics_df.loc['8', 'aero']['BlockSSM']['linear']
+metrics_df.loc['8', 'aero']['BlockSSM']['pf']['mlp']
 
 # # # # # # # # # #
 # METRICS

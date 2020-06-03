@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import plot
 import matplotlib.pyplot as plt
-
+from scipy.integrate import odeint
 
 ####################################
 ###### Internal Emulators ##########
@@ -42,15 +42,6 @@ class EmulatorBase(ABC):
 """
 Linear ODEs
 """
-
-class LTISSM(EmulatorBase):
-    """
-    base class of the linear time invariant state space model
-    """
-    def __init__(self):
-        super().__init__()
-        pass
-
 
 class ExpGrowth(EmulatorBase):
     """
@@ -102,11 +93,267 @@ class SimpleHarmonicMotion(EmulatorBase):
 
 """
 Nonlinear ODEs
-
 list of nlin ODEs
 https://en.wikipedia.org/wiki/List_of_nonlinear_ordinary_differential_equations
 """
 
+
+
+class Tank(EmulatorBase):
+    """
+    Single Tank model
+    original code obtained from APMonitor:
+    https://apmonitor.com/pdc/index.php/Main/TankLevel
+
+    TODO: linearized option
+    https://apmonitor.com/pdc/index.php/Main/ModelLinearization
+    """
+    def __init__(self):
+        super().__init__()
+
+    # parameters of the dynamical system
+    def parameters(self):
+        self.rho = 1000.0  # water density (kg/m^3)
+        self.A = 1.0  # tank area (m^2)
+        self.c1 = 80.0  # inlet valve coefficient (kg/s / %open)
+        self.c2 = 40.0  # outlet valve coefficient (kg/s / %open)
+        # Initial Conditions for the States
+        self.x0 = 0
+        # initial valve position
+        self.u0 = 10
+
+    # equations defining the dynamical system
+    def equations(self, x, t, pump, valve):
+        # States (1): level in the tanks
+        # Inputs (1): valve
+        # equations
+        dx_dt = (self.c1/(self.rho*self.A)) *(1.0 - valve) * pump - self.c2 * np.sqrt(x)
+        if x >= 1.0 and dx_dt > 0.0:
+            dx_dt = 0
+        return dx_dt
+
+    # N-step forward simulation of the dynamical system
+    def simulate(self, ninit, nsim, ts, Pump, Valve, x0=None):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param ninit: (float) initial simulation time
+        :param ts: (float) step size, sampling time
+        :param Valve: (float) control input vector
+        :param x0: (float) state initial conditions
+        :param x: (ndarray, shape=(self.nx)) states
+        :return: The response matrices, i.e. X
+        """
+        # initial conditions states + uncontrolled inputs
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+        # time interval
+        t = np.arange(0, nsim) * ts + ninit
+        X = []
+        N = 0
+        for pump, valve in zip(Pump, Valve):
+            u = (pump, valve)
+            dT = [t[N], t[N + 1]]
+            xdot = odeint(self.equations, x, dT, args=u)
+            x = xdot[-1]
+            X.append(x)  # updated states trajectories
+            N += 1
+            if N == nsim:
+                break
+        return np.asarray(X)
+
+
+
+class TwoTank(EmulatorBase):
+    """
+    Two Tank model
+    original code obtained from APMonitor:
+    https://apmonitor.com/do/index.php/Main/LevelControl
+
+    TODO: linearized option
+    https://apmonitor.com/pdc/index.php/Main/ModelLinearization
+    """
+    def __init__(self):
+        super().__init__()
+
+    # parameters of the dynamical system
+    def parameters(self):
+        self.c1 = 0.08  # inlet valve coefficient
+        self.c2 = 0.04  # tank outlet coefficient
+        # Initial Conditions for the States
+        self.x0 = [0, 0]
+
+    # equations defining the dynamical system
+    def equations(self, x, t, pump, valve):
+        # States (2): level in the tanks
+        h1 = x[0]
+        h2 = x[1]
+        # Inputs (2): pump and valve
+        # pump = u[0]
+        # valve = u[1]
+        # equations
+        dhdt1 = self.c1 * (1.0 - valve) * pump - self.c2 * np.sqrt(h1)
+        dhdt2 = self.c1 * valve * pump + self.c2 * np.sqrt(h1) - self.c2 * np.sqrt(h2)
+        if h1 >= 1.0 and dhdt1 > 0.0:
+            dhdt1 = 0
+        if h2 >= 1.0 and dhdt2 > 0.0:
+            dhdt2 = 0
+        dhdt = [dhdt1, dhdt2]
+        return dhdt
+
+    # N-step forward simulation of the dynamical system
+    def simulate(self, ninit, nsim, ts, Pump, Valve, x0=None):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param ninit: (float) initial simulation time
+        :param ts: (float) step size, sampling time
+        :param Pump: (float) control input vector
+        :param Valve: (float) control input vector
+        :param x0: (float) state initial conditions
+        :param x: (ndarray, shape=(self.nx)) states
+        :return: The response matrices, i.e. X
+        """
+        # initial conditions states + uncontrolled inputs
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+        # time interval
+        t = np.arange(0, nsim) * ts + ninit
+        X = []
+        N = 0
+        for pump, valve in zip(Pump, Valve):
+            u = (pump, valve)
+            dT = [t[N], t[N + 1]]
+            xdot = odeint(self.equations, x, dT, args=u)
+            x = xdot[-1]
+            X.append(x)  # updated states trajectories
+            N += 1
+            if N == nsim:
+                break
+        return np.asarray(X)
+
+
+class CSTR(EmulatorBase):
+    """
+    CSTR model
+    original code obtained from APMonitor:
+    http://apmonitor.com/do/index.php/Main/NonlinearControl
+    """
+    def __init__(self):
+        super().__init__()
+
+    # parameters of the dynamical system
+    def parameters(self):
+        # Volumetric Flowrate (m^3/sec)
+        self.q = 100
+        # Volume of CSTR (m^3)
+        self.V = 100
+        # Density of A-B Mixture (kg/m^3)
+        self.rho = 1000
+        # Heat capacity of A-B Mixture (J/kg-K)
+        self.Cp = 0.239
+        # Heat of reaction for A->B (J/mol)
+        self.mdelH = 5e4
+        # E - Activation energy in the Arrhenius Equation (J/mol)
+        # R - Universal Gas Constant = 8.31451 J/mol-K
+        self.EoverR = 8750
+        # Pre-exponential factor (1/sec)
+        self.k0 = 7.2e10
+        # U - Overall Heat Transfer Coefficient (W/m^2-K)
+        # A - Area - this value is specific for the U calculation (m^2)
+        self.UA = 5e4
+
+        # Steady State Initial Conditions for the States
+        self.Ca_ss = 0.87725294608097
+        self.T_ss = 324.475443431599
+        self.x0 = np.empty(2)
+        self.x0[0] = self.Ca_ss
+        self.x0[1] = self.T_ss
+
+        # Steady State Initial Condition for the Uncontrolled Inputs
+        self.u_ss = 300.0 # cooling jacket Temperature (K)
+        self.Tf = 350 # Feed Temperature (K)
+        self.Caf = 1 # Feed Concentration (mol/m^3)
+        self.d0 = np.empty(2)
+        self.d0[0] = self.Caf
+        self.d0[1] = self.Tf
+
+        self.nx = 2
+        self.nu = 1
+        self.nd = 2
+
+    # equations defining the dynamical system
+    def equations(self,x,t,u,Tf,Caf):
+        # Inputs (1):
+        # Temperature of cooling jacket (K)
+        Tc = u
+
+        # Disturbances (2):
+        # Tf = Feed Temperature (K)
+        # Caf = Feed Concentration (mol/m^3)
+
+        # States (2):
+        # Concentration of A in CSTR (mol/m^3)
+        Ca = x[0]
+        # Temperature in CSTR (K)
+        T = x[1]
+
+        # reaction rate
+        rA = self.k0 * np.exp(-self.EoverR / T) * Ca
+        # Calculate concentration derivative
+        dCadt = self.q / self.V * (Caf - Ca) - rA
+        # Calculate temperature derivative
+        dTdt = self.q / self.V * (Tf - T) \
+               + self.mdelH / (self.rho * self.Cp) * rA \
+               + self.UA / self.V / self.rho / self.Cp * (Tc - T)
+        xdot = np.zeros(2)
+        xdot[0] = dCadt
+        xdot[1] = dTdt
+        return xdot
+
+    # N-step forward simulation of the dynamical system
+    def simulate(self, ninit, nsim, ts, U, x0=None, d0=None):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param ninit: (float) initial simulation time
+        :param ts: (float) step size, sampling time
+        :param U: (float) control input vector
+        :param x0: (float) state initial conditions
+        :param d0: (float) uncontrolled input initial conditions
+        :param x: (ndarray, shape=(self.nx)) states
+        :return: The response matrices, i.e. X for states
+        """
+        # initial conditions states + uncontrolled inputs
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+        if d0 is None:
+            d0 = self.d0
+        else:
+            assert d0.shape[0] == self.nd, "Mismatch in u0 size"
+        Caf = d0[0]
+        Tf = d0[1]
+
+        # time interval
+        t = np.arange(0, nsim) * ts + ninit
+
+        X = []
+        N = 0
+        for u in U:
+            dT = [t[N], t[N + 1]]
+            xdot = odeint(self.equations, x, dT, args=(u, Tf, Caf))
+            x = xdot[-1]
+            X.append(x)  # updated states trajectories
+            N += 1
+            if N == nsim:
+                break
+        return np.asarray(X)
 
 
 class LogisticGrowth(EmulatorBase):
@@ -488,5 +735,60 @@ if __name__ == '__main__':
     # simulate open loop building
     U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
     # plot trajectories
-    plot.pltOL(Y, U, D, X)
+    plot.pltOL(Y=Y, U=U, D=D, X=X)
 
+    #   CSTR
+    ninit = 0
+    nsim = 251
+    ts = 0.1
+    # Step cooling temperature to 295
+    u_ss = 300.0
+    U = np.ones(nsim-1) * u_ss
+    U[10:100] = 303.0
+    U[100:190] = 297.0
+    U[190:] = 300.0
+    cstr_model = CSTR()  # instantiate CSTR class
+    cstr_model.parameters()  # load model parameters
+    # simulate open loop building
+    X = cstr_model.simulate(ninit, nsim, ts, U)
+    # plot trajectories
+    plot.pltOL(Y=X[:,0], U=U, X=X[:,1])
+
+    #   TwoTank
+    ninit = 0
+    nsim = 1001
+    ts = 0.1
+    # Inputs that can be adjusted
+    pump = np.empty((nsim-1))
+    pump[0] = 0
+    pump[1:51] = 0.5
+    pump[51:151] = 0.1
+    pump[151:nsim-1] = 0.2
+    valve = np.zeros((nsim-1))
+    U = np.vstack([pump,valve]).T
+    twotank_model = TwoTank()  # instantiate CSTR class
+    twotank_model.parameters()  # load model parameters
+    # simulate open loop building
+    X = twotank_model.simulate(ninit, nsim, ts, pump, valve)
+    # plot trajectories
+    plot.pltOL(Y=X, U=U)
+
+    # Tank
+    ninit = 0
+    nsim = 1001
+    ts = 0.1
+    # Inputs that can be adjusted
+    pump = np.empty((nsim - 1))
+    pump[0] = 0
+    pump[1:51] = 0.5
+    pump[51:151] = 0.1
+    pump[151:nsim - 1] = 0.2
+    valve = np.zeros((nsim - 1))
+    U = np.vstack([pump, valve]).T
+    tank_model = Tank()  # instantiate CSTR class
+    tank_model.parameters()  # load model parameters
+    # simulate open loop building
+    # TODO: errors
+    # X = tank_model.simulate(ninit, nsim, ts, pump, valve)
+    # # plot trajectories
+    # plot.pltOL(Y=X, U=valve)

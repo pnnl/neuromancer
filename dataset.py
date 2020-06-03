@@ -7,6 +7,7 @@ import matplotlib
 # matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import torch
 import plot
 import emulators
@@ -172,7 +173,7 @@ if __name__ == '__main__':
     # simulate open loop building
     U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
     # plot trajectories
-    plot.pltOL(Y, U, D, X)
+    plot.pltOL(Y=Y, U=U, D=D, X=X)
     # create datasets
     Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=12, device='cpu')
     R = 25*np.ones(Y.shape)

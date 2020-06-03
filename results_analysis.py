@@ -17,10 +17,19 @@ datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
 systems = ['tank','vehicle3','reactor','aero']
 ssm_type=['BlockSSM', 'BlackSSM']
 linear_map=['pf', 'linear']
-nonlinear_map= ['linear', 'sparse_residual_mlp', 'mlp']
-N = ['2', '4', '8', '16', '32']
+nonlinear_map= ['mlp', 'residual_mlp', 'linear', 'rnn']
+N = ['1', '2', '4', '8', '16', '32', '64']
 
-res = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_14.pkl")
+# nonlinear_map= ['rnn', 'linear', 'residual_mlp',  'sparse_residual_mlp', 'mlp']
+# N = ['2', '4', '8', '16', '32']
+
+
+# res1 = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_14.pkl")
+# res2 = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_19.pkl")
+# res = res1.append(res2)
+# res = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_21_one_step.pkl")
+
+res = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_25.pkl")
 res.rename(columns={'params.datafile':'datafile','params.ssm_type':'ssm_type',
                     'params.linear_map':'linear_map','params.nonlinear_map':'nonlinear_map',
                     'params.nsteps':'nsteps'}, inplace=True)
@@ -150,10 +159,11 @@ for system in systems:
                                     system_metrics[system][nstep][type][linear][nonlinear]['min_test_nsteploss'] = testnsteploss.min()
 
 metrics_df = pandas.DataFrame.from_dict(system_metrics)
-metrics_df.loc['8', 'aero']['BlockSSM'].keys()
-metrics_df.loc['8', 'aero']['BlockSSM']['best']
-metrics_df.loc['8', 'aero']['BlockSSM']['linear']
-metrics_df.loc['8', 'aero']['BlockSSM']['pf']['mlp']
+
+# metrics_df.loc['8','aero']['BlockSSM'].keys()
+# metrics_df.loc['8','aero']['BlockSSM']['best']
+# metrics_df.loc['8','aero']['BlockSSM']['linear']
+# metrics_df.loc['8','aero']['BlockSSM']['pf']['mlp']
 
 # # # # # # # # # #
 # METRICS
@@ -175,32 +185,35 @@ system = systems[2]
 for i in N:
     for linear in linear_map:
         for nonlinear in nonlinear_map:
-            stdopen.loc['Block_'+linear+'_'+nonlinear,i] = \
-                metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]['std_test_openloss']
-            stdnstep.loc['Block_'+linear+'_'+nonlinear,i] = \
-                metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]['std_test_nsteploss']
-            meanopen.loc['Block_' + linear + '_' + nonlinear, i] = \
-                metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]['mean_test_openloss']
-            meannstep.loc['Block_' + linear + '_' + nonlinear, i] = \
-                metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]['mean_test_nsteploss']
-            minopen.loc['Block_' + linear + '_' + nonlinear, i] = \
-                metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]['min_test_openloss']
-            minnstep.loc['Block_' + linear + '_' + nonlinear, i] = \
-                metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]['min_test_nsteploss']
+            if not not metrics_df.loc[i, system]:
+                if not not metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]:
+                    stdopen.loc['Block_'+linear+'_'+nonlinear,i] = \
+                        metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]['std_test_openloss']
+                    stdnstep.loc['Block_'+linear+'_'+nonlinear,i] = \
+                        metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]['std_test_nsteploss']
+                    meanopen.loc['Block_' + linear + '_' + nonlinear, i] = \
+                        metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]['mean_test_openloss']
+                    meannstep.loc['Block_' + linear + '_' + nonlinear, i] = \
+                        metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]['mean_test_nsteploss']
+                    minopen.loc['Block_' + linear + '_' + nonlinear, i] = \
+                        metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]['min_test_openloss']
+                    minnstep.loc['Block_' + linear + '_' + nonlinear, i] = \
+                        metrics_df.loc[i, system]['BlockSSM'][linear][nonlinear]['min_test_nsteploss']
 # Black
 for i in N:
-    stdopen.loc['Black', i] = \
-        metrics_df.loc[i, system]['BlackSSM']['std_test_openloss']
-    stdnstep.loc['Black', i] = \
-        metrics_df.loc[i, system]['BlackSSM']['std_test_nsteploss']
-    meanopen.loc['Black', i] = \
-        metrics_df.loc[i, system]['BlackSSM']['mean_test_openloss']
-    meannstep.loc['Black', i] = \
-        metrics_df.loc[i, system]['BlackSSM']['mean_test_nsteploss']
-    minopen.loc['Black', i] = \
-        metrics_df.loc[i, system]['BlackSSM']['min_test_openloss']
-    minnstep.loc['Black', i] = \
-        metrics_df.loc[i, system]['BlackSSM']['min_test_nsteploss']
+    if not not metrics_df.loc[i, system]:
+        stdopen.loc['Black', i] = \
+            metrics_df.loc[i, system]['BlackSSM']['std_test_openloss']
+        stdnstep.loc['Black', i] = \
+            metrics_df.loc[i, system]['BlackSSM']['std_test_nsteploss']
+        meanopen.loc['Black', i] = \
+            metrics_df.loc[i, system]['BlackSSM']['mean_test_openloss']
+        meannstep.loc['Black', i] = \
+            metrics_df.loc[i, system]['BlackSSM']['mean_test_nsteploss']
+        minopen.loc['Black', i] = \
+            metrics_df.loc[i, system]['BlackSSM']['min_test_openloss']
+        minnstep.loc['Black', i] = \
+            metrics_df.loc[i, system]['BlackSSM']['min_test_nsteploss']
 
 #  best model
 best_model = metrics_df.loc[:, system].best
@@ -209,53 +222,44 @@ best_model = metrics_df.loc[:, system].best
 # PLOTS and Tables
 # # # # # # # # # #
 
+# idx.remove('Block_linear_sparse_residual_mlp')
+# idx.remove('Block_pf_sparse_residual_mlp')
+
 # Latex Table
 for k in [stdopen, stdnstep, meanopen, meannstep, minopen, minnstep]:
     print(k.to_latex(float_format=lambda x: '%.3f' % x))
 
 # Bar plot
 fig = plt.figure(figsize=(14, 10))
-width = 0.10
+width = 0.05
 ind = np.arange(len(N))
 for i, n in enumerate(idx):
+    # plt.bar(ind + i * width, minopen.iloc[i], width, label=n, edgecolor='white')
     plt.bar(ind+i*width, minopen.loc[n], width, label=n, edgecolor='white')
 plt.xlabel('Training Prediction Horizon')
 plt.ylabel('Open loop MSE')
-plt.xticks(ind + width, ('2', '4', '8', '16', '32'))
+plt.xticks(ind + width, N)
 plt.legend(loc='best')
 plt.tight_layout()
 plt.grid()
-# plt.savefig('./figs/open_loop_min_mse.eps')
-# plt.savefig('./figs/open_loop_min_mse.png')
-
-fig = plt.figure(figsize=(14, 10))
-width = 0.10
-ind = np.arange(len(N))
-for i, n in enumerate(idx):
-    plt.bar(ind+i*width, meanopen.loc[n], width, label=n, edgecolor='white', yerr=[(0, 0, 0, 0, 0), stdopen.loc[n]])
-plt.xlabel('Training Prediction Horizon')
-plt.ylabel('Open loop MSE')
-plt.xticks(ind + .5*width,  ('2', '4', '8', '16', '32'))
-plt.legend(loc='best')
-plt.tight_layout()
-plt.grid()
-# plt.savefig('./figs/open_loop_mean_mse.eps')
-# plt.savefig('./figs/open_loop_mean_mse.png')
+plt.yscale("log")
+plt.savefig('./figs/open_loop_'+system+'.eps')
+plt.savefig('./figs/open_loop_'+system+'.png')
 
 
 fig = plt.figure(figsize=(14, 10))
-width = 0.10
 ind = np.arange(len(N))
 for i, n in enumerate(idx):
     plt.bar(ind+i*width, minnstep.loc[n], width, label=n, edgecolor='white')
 plt.xlabel('Training Prediction Horizon')
 plt.ylabel('N-step MSE')
-plt.xticks(ind + 1.5*width,  ('2', '4', '8', '16', '32'))
+plt.xticks(ind + 1.5*width,  N)
 plt.legend(loc='best')
 plt.tight_layout()
 plt.grid()
-# plt.savefig('./figs/nstep_mse.eps')
-# plt.savefig('./figs/nstep_mse.png')
+plt.yscale("log")
+plt.savefig('./figs/nstep_mse_'+system+'.eps')
+plt.savefig('./figs/nstep_mse_'+system+'.png')
 
 
 markers = ['x', '*', '+', 'o', 'd', 'h']
@@ -265,7 +269,7 @@ for n, m, l in zip(idx, markers, lines):
     ax.plot(np.arange(len(N)), minnstep.loc[n], label=n, marker=m, linestyle=l)
 plt.xlabel('Training Prediction Horizon')
 plt.ylabel('N-step MSE')
-plt.xticks(range(len(N)),  ('2', '4', '8', '16', '32'))
+plt.xticks(range(len(N)), N)
 plt.legend(loc='center left', bbox_to_anchor=(0, .35))
 # axins = zoomed_inset_axes(ax, 2.6, loc=2) # zoom-factor: 2.5, location: upper-left
 # for n, m, l in zip(idx, markers, lines):

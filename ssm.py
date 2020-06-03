@@ -81,10 +81,11 @@ class BlockSSM(nn.Module):
         self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.s_sub = [0.0]*8
 
     def con_init(self):
-            return [-1, 2, -1, 2, -1, 2, -1, 2]
+        return [-0.2, 1.2, -0.2, 1.2, -0.2, 1.2, -0.2, 1.2] # default constraints for normalized dataset
         
     def reg_weight_init(self):
-        return 0.0, 0.0, 0.0, 0.0, 1.0
+        return 0.0, 0.0, 0.0, 0.0, 0.2 # used for HW paper unconstrained
+        # return [0.2] * 5  #  suggested new default for constrained HW
 
     def running_mean(self, mu, x, n):
         return mu + (1/n)*(x - mu)
@@ -190,10 +191,11 @@ class BlackSSM(nn.Module):
         self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.s_sub = [0.0] * 8
 
     def con_init(self):
-        return [-1, 1, -1, 1]
+        return [-0.2, 1.2, -0.2, 1.2]  # default constraints for normalized dataset
 
     def reg_weight_init(self):
-        return [0.2] * 4
+        return [0] * 3 + [0.2]  # uncostrained, only regularization
+        # return [0.2] * 4 # suggested new default for constrained HW
 
     def running_mean(self, mu, x, n):
         return mu + (1/n)*(x - mu)

@@ -75,7 +75,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=100)
+    opt_group.add_argument('-epochs', type=int, default=200)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 

@@ -229,7 +229,7 @@ class Building_hf(EmulatorBase):
                 break
         return np.asarray(U), np.asarray(X), np.asarray(Y)
 
-
+# TODO: generate multiple files, make just one building_thermal model
 class Building_hf_ROM(Building_hf):
     """
     Reduced order building heat transfer model with linear

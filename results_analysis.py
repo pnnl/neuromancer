@@ -10,14 +10,19 @@ import matplotlib.pyplot as plt
 import torch
 from torch import nn
 
+# datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
+#                  './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
+#                  './datasets/NLIN_MIMO_CSTR/NLIN_MIMO_CSTR2.mat',
+#                  './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']
+# systems = ['tank','vehicle3','reactor','aero']
 datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
                  './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
-                 './datasets/NLIN_MIMO_CSTR/NLIN_MIMO_CSTR2.mat',
                  './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']
-systems = ['tank','vehicle3','reactor','aero']
+systems = ['tank','vehicle3','aero']
 ssm_type=['BlockSSM', 'BlackSSM']
 linear_map=['pf', 'linear']
-nonlinear_map= ['mlp', 'residual_mlp', 'linear', 'rnn']
+# nonlinear_map= ['mlp', 'residual_mlp', 'linear', 'rnn']
+nonlinear_map= ['mlp', 'residual_mlp', 'rnn']
 N = ['1', '2', '4', '8', '16', '32', '64']
 
 # nonlinear_map= ['rnn', 'linear', 'residual_mlp',  'sparse_residual_mlp', 'mlp']
@@ -29,20 +34,27 @@ N = ['1', '2', '4', '8', '16', '32', '64']
 # res = res1.append(res2)
 # res = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_21_one_step.pkl")
 
-res = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_25.pkl")
+# res = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_25.pkl")
+res = pandas.read_pickle("./results_files/nonlin_sysid_2020_5_31.pkl")
 res.rename(columns={'params.datafile':'datafile','params.ssm_type':'ssm_type',
                     'params.linear_map':'linear_map','params.nonlinear_map':'nonlinear_map',
-                    'params.nsteps':'nsteps'}, inplace=True)
+                    'params.nsteps':'nsteps','params.constrained':'constrained'}, inplace=True)
 
 for dpath, system in zip(datapaths, systems):
     res.loc[:,'datafile'].replace(dpath, system, inplace=True)
 
 # hierarchical index
 res.reset_index(inplace=True)
-res.set_index(['index','datafile','ssm_type','linear_map',
+# res.set_index(['index','datafile','ssm_type','linear_map',
+#                'nonlinear_map','nsteps'], drop=False, inplace=True)
+res.set_index(['index','datafile','ssm_type','constrained','linear_map',
                'nonlinear_map','nsteps'], drop=False, inplace=True)
 res.index
 res.head()
+
+res['constrained'].fillna(False, inplace=True)
+# res = res[res['constrained'] == False]  # unconstrained
+res = res[res['constrained'] != False]  # constrained
 
 # select best models
 system_metrics = {}

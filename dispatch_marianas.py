@@ -33,13 +33,6 @@ template = '#!/bin/bash\n' +\
 
 os.system('mkdir %s' % args.exp_folder)
 
-# datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
-#                  './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
-#                  './datasets/NLIN_MIMO_CSTR/NLIN_MIMO_CSTR2.mat',
-#                  './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']
-# systems = ['tank','vehicle3','reactor','aero']
-# nonlinear_map= ['mlp', 'residual_mlp', 'linear', 'rnn']
-
 datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
                  './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
                  './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']

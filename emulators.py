@@ -11,6 +11,9 @@ import numpy as np
 import plot
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
+import control
+import gym
+
 
 ####################################
 ###### Internal Emulators ##########
@@ -90,6 +93,106 @@ class SimpleHarmonicMotion(EmulatorBase):
         pass
 
 
+"""
+Hybrid linear ODEs
+CartPole, bauncing ball
+"""
+
+class LinCartPole(EmulatorBase):
+    """
+    Linearized Hybrid model of Inverted pendulum
+    http://ctms.engin.umich.edu/CTMS/index.php?example=InvertedPendulum&section=SystemModeling
+    http://ctms.engin.umich.edu/CTMS/index.php?example=InvertedPendulum&section=ControlStateSpace
+    TODO: visualizations + nonlinear case
+    https://apmonitor.com/do/index.php/Main/InvertedPendulum
+    """
+    def __init__(self):
+        super().__init__()
+        pass
+
+    def parameters(self, Ts=0.1):
+        self.M = 0.5
+        self.m = 0.2
+        self.b = 0.1
+        self.I = 0.006
+        self.g = 9.8
+        self.l = 0.3
+        self.p = self.I*(self.M+self.m)+self.M*self.m*self.l**2; # denominator for the A and B matrices
+        # self.dumping = 0.1
+        self.theta1 = -(self.I+self.m*self.l**2)*self.b/self.p
+        self.theta2 = (self.m**2*self.g*self.l**2)/self.p
+        self.theta3 = -(self.m*self.l*self.b)/self.p
+        self.theta4 = (self.m*self.g*self.l*(self.M+self.m)/self.p)
+        self.A = np.asarray([[0,1,0,0],[0,self.theta1,self.theta2,0],
+                             [0,0,0,1],[0,self.theta3,self.theta4,0]])
+        self.B = np.asarray([[0],[(self.I+self.m*self.l**2)/self.p],
+                            [0],[self.m*self.l/self.p]])
+        self.C = np.asarray([[1,0,0,0],[0,0,1,0]])
+        self.D = np.asarray([[0],[0]])
+        self.ssm = control.StateSpace(self.A, self.B, self.C, self.D)
+        self.Ts = Ts
+        self.ssmd = self.ssm.sample(self.Ts, method='euler')
+
+        self.nx = self.A.shape[0]
+        self.ny = self.C.shape[0]
+        self.nu = self.B.shape[1]
+        self.x0 = np.asarray([0,0,-1,0])
+
+    # equations defining single step of the dynamical system
+    def equations(self, x, u):
+        # Inputs (1): u is the force applied to the cart
+        # States (4):
+        # x1 position of the cart,
+        # x2 velocity of the cart,
+        # x3 angle of the pendulum relative to the cart
+        # x4 rate of angle change
+        x = np.matmul(np.asarray(self.ssmd.A), x) + np.matmul(np.asarray(self.ssmd.B), u).T
+        #  physical constraints: position between +-10
+        if x[0] >= 10:
+            x[0] = 10
+            x[1] = 0
+        if x[0] <= -10:
+            x[0] = -10
+            x[1] = 0
+        # angle in between +- 2*pi radians = -+ 360 degrees
+        x[3] = np.mod(x[3], 2*np.pi)
+        # positive +180 degrees and negative direction -180 degrees
+        if x[3] >= np.pi:
+            x[3] = np.pi-x[3]
+        if x[3] <= -np.pi:
+            x[3] = -np.pi-x[3]
+
+        y = np.matmul(np.asarray(self.ssmd.C), x)
+        return x, y
+
+    def simulate(self, ninit, nsim, U, Ts=None, x0=None):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
+        :return: The response trajectories,  X
+        """
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+
+        # if Ts is not None:
+        #     self.parameters(Ts)
+
+        X, Y = [], []
+        N = 0
+        for u in U:
+            x, y = self.equations(x, u)
+            X.append(x)  # updated states trajectories
+            Y.append(y)  # updated states trajectories
+            N += 1
+            if N == nsim:
+                break
+        return np.asarray(X), np.asarray(Y)
+
+
+
 
 """
 Nonlinear ODEs
@@ -98,6 +201,104 @@ https://en.wikipedia.org/wiki/List_of_nonlinear_ordinary_differential_equations
 """
 
 
+
+
+class SEIR_population(EmulatorBase):
+    """
+    Susceptible, Exposed, Infected, and Recovered (SEIR) population population model
+    COVID19 spread
+    source of the model:
+    https://apmonitor.com/do/index.php/Main/COVID-19Response
+
+    states:
+    Susceptible (s): population fraction that is susceptible to the virus
+    Exposed (e): population fraction is infected with the virus but does not transmit to others
+    Infectious (i): population fraction that is infected and can infect others
+    Recovered (r): population fraction recovered from infection and is immune from further infection
+    """
+    def __init__(self):
+        super().__init__()
+
+    # parameters of the dynamical system
+    def parameters(self):
+        self.N = 10000 # population
+        # initial number of infected and recovered individuals
+        self.e_0 = 1 / self.N
+        self.i_0 = 0.00
+        self.r_0 = 0.00
+        self.s_0 = 1 - self.e_0 - self.i_0 - self.r_0
+        self.x0 = np.asarray([self.s_0, self.e_0, self.i_0, self.r_0])
+
+        self.nx = 4
+        self.nu = 1
+
+        self.t_incubation = 5.1
+        self.t_infective = 3.3
+        self.R0 = 2.4
+        self.alpha = 1 / self.t_incubation
+        self.gamma = 1 / self.t_infective
+        self.beta = self.R0 * self.gamma
+
+    # equations defining the dynamical system
+    # def equations(self, x, u, alpha, beta, gamma):
+    def equations(self, x, t, u):
+        # Inputs (1): social distancing (u=0 (none), u=1 (total isolation))
+        # States (4):
+        # Susceptible (s): population fraction that is susceptible to the virus
+        # Exposed (e): population fraction is infected with the virus but does not transmit to others
+        # Infectious (i): population fraction that is infected and can infect others
+        # Recovered (r): population fraction recovered from infection and is immune from further infection
+        s = x[0]
+        e = x[1]
+        i = x[2]
+        r = x[3]
+        # SEIR equations
+        sdt = -(1 - u) * self.beta * s * i,
+        edt = (1 - u) * self.beta * s * i - self.alpha * e,
+        idt = self.alpha * e - self.gamma * i,
+        rdt = self.gamma * i
+        dx = [sdt, edt, idt, rdt]
+        # dx = np.asarray([sdt, edt, idt, rdt])
+        return dx
+
+    # N-step forward simulation of the dynamical system
+    def simulate(self, ninit, nsim, ts, U, x0=None):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param ninit: (float) initial simulation time
+        :param ts: (float) step size, sampling time
+        :param U: (float) control input vector (social distancing)
+        :param x0: (float) state initial conditions
+        :param x: (ndarray, shape=(self.nx)) states (SEIR)
+        :return: The response matrices, i.e. X
+        """
+        # initial conditions states + uncontrolled inputs
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+
+        # alpha = 1 / self.t_incubation
+        # gamma = 1 / self.t_infective
+        # beta = self.R0 * self.gamma
+
+        # time interval
+        t = np.arange(0, nsim) * ts + ninit
+        X = []
+        N = 0
+        for u in U:
+            dT = [t[N], t[N + 1]]
+            # TODO: error here
+            xdot = odeint(self.equations, x, dT, args=(u,))
+            # xdot = odeint(self.equations, x, dT,
+            #               args=(u, alpha, beta, gamma))
+            x = xdot[-1]
+            X.append(x)  # updated states trajectories
+            N += 1
+            if N == nsim:
+                break
+        return np.asarray(X)
 
 class Tank(EmulatorBase):
     """
@@ -540,6 +741,16 @@ Nonlinear PDEs
 
 list of nlin PDEs
 https://en.wikipedia.org/wiki/List_of_nonlinear_partial_differential_equations
+
+APmonitor PDEs
+https://apmonitor.com/do/index.php/Main/PartialDifferentialEquations
+
+Artificial Lift Rod Pump
+https://apm.byu.edu/prism/index.php/Projects/HydraulicRodPumping
+https://github.com/BYU-PRISM/USTAR-Artificial-Lift
+
+fuel cell
+https://apmonitor.com/do/index.php/Main/SolidOxideFuelCell
 """
 
 
@@ -612,7 +823,63 @@ https://en.wikipedia.org/wiki/List_of_dynamical_systems_and_differential_equatio
 
 ###### External Emulators Interface ##########
 ##############################################
-# TODO: interface with, e.g., OpenAI gym
+
+"""
+# OpenAI gym wrapper
+
+# https://github.com/openai/gym/blob/master/gym/envs/classic_control/pendulum.py
+# https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.pyhttps://github.com/openai/gym/blob/master/gym/envs/classic_control/pendulum.py
+"""
+
+class GymWrapper(EmulatorBase):
+    """
+    wrapper for OpenAI gym environments
+    https://gym.openai.com/read-only.html
+    https://github.com/openai/gym
+    """
+    def __init__(self):
+        super().__init__()
+
+    # parameters of the dynamical system
+    def parameters(self, env_pick='CartPole-v1'):
+        self.type = env_pick
+        self.env = gym.make(self.type)
+        self.env.reset() # to reset the environment state
+        self.x0 = self.env.state
+        self.nx = self.x0.shape[0]
+        self.action_sample = self.env.action_space.sample()
+        self.nu = np.asarray([self.action_sample]).shape[0]
+
+    # equations defining the dynamical system
+    def equations(self, x, u):
+        if type(self.action_sample) == int:
+            u = u.item()
+        self.env.state = x
+        x, reward, done, info = self.env.step(u)
+        return x, reward
+
+    def simulate(self, ninit, nsim, U, x0=None):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
+        :return: The response trajectories,  X
+        """
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+
+        X, Reward = [], []
+        N = 0
+        for u in U:
+            x, reward = self.equations(x, u)
+            X.append(x)  # updated states trajectories
+            Reward.append(reward)  # updated states trajectories
+            N += 1
+            if N == nsim:
+                break
+        return np.asarray(X), np.asarray(Reward)
 
 
 
@@ -749,7 +1016,7 @@ if __name__ == '__main__':
     U[190:] = 300.0
     cstr_model = CSTR()  # instantiate CSTR class
     cstr_model.parameters()  # load model parameters
-    # simulate open loop building
+    # simulate open loop
     X = cstr_model.simulate(ninit, nsim, ts, U)
     # plot trajectories
     plot.pltOL(Y=X[:,0], U=U, X=X[:,1])
@@ -768,7 +1035,7 @@ if __name__ == '__main__':
     U = np.vstack([pump,valve]).T
     twotank_model = TwoTank()  # instantiate CSTR class
     twotank_model.parameters()  # load model parameters
-    # simulate open loop building
+    # simulate open loop
     X = twotank_model.simulate(ninit, nsim, ts, pump, valve)
     # plot trajectories
     plot.pltOL(Y=X, U=U)
@@ -787,8 +1054,48 @@ if __name__ == '__main__':
     U = np.vstack([pump, valve]).T
     tank_model = Tank()  # instantiate CSTR class
     tank_model.parameters()  # load model parameters
-    # simulate open loop building
+    # simulate open loop
     # TODO: errors
     # X = tank_model.simulate(ninit, nsim, ts, pump, valve)
     # # plot trajectories
     # plot.pltOL(Y=X, U=valve)
+
+    #  SEIR
+    ninit = 0
+    nsim = 201
+    ts = 1
+    # Inputs that can be adjusted
+    U = np.asarray([np.zeros((nsim - 1))]).T
+    seir_model = SEIR_population()  # instantiate CSTR class
+    seir_model.parameters()  # load model parameters
+    # simulate open loop
+    # X = seir_model.simulate(ninit, nsim, ts, U)
+    # # plot trajectories
+    # plot.pltOL(Y=X, U=U)
+
+    ninit = 0
+    nsim = 201
+    ts = 0.1
+    U = np.asarray([np.zeros((nsim - 1))]).T
+    #  inverted pendulum
+    lcp_model = LinCartPole()  # instantiate CSTR class
+    lcp_model.parameters()
+    # simulate open loop
+    X, Y = lcp_model.simulate(ninit=ninit, nsim=nsim, Ts=ts, U=U)
+    # plot trajectories
+    plot.pltOL(Y=Y, X=X, U=U)
+
+
+    # TODO: double check dimensions of x
+    # OpenAi gym environment wrapper
+    # 'Pendulum-v0', 'CartPole-v1'
+    environment = 'Pendulum-v0'
+    gym_model = GymWrapper()
+    gym_model.parameters(env_pick=environment)
+    ninit = 0
+    nsim = 201
+    U = np.zeros([(nsim - 1), gym_model.nu])
+    if type(gym_model.action_sample) == int:
+        U = U.astype(int)
+    X, Reward = gym_model.simulate(ninit=ninit, nsim=nsim, U=U)
+    plot.pltOL(Y=Reward, X=X, U=U)

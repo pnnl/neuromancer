@@ -28,6 +28,7 @@ import blocks
 import rnn
 import emulators
 
+from dataset import min_max_norm
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -187,6 +188,12 @@ if __name__ == '__main__':
                             form='cos')
     D = building.D[ninit:nsim, :]
     U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
+    if 'U' in args.norm:
+        U = min_max_norm(U)
+    if 'Y' in args.norm:
+        Y = min_max_norm(Y)
+    if 'D' in args.norm:
+        D = min_max_norm(D)
     plot.pltOL(Y, U=U, D=D, X=X)
 
     Yp, Yf, Up, Uf, Dp, Df = dataset.make_dataset_ol(Y, U, D, nsteps=args.nsteps, device=device)
@@ -215,13 +222,13 @@ if __name__ == '__main__':
 
     fx = linmap(nx, nx, bias=args.bias).to(device)
     fy = linear.Linear(nx, ny, bias=args.bias).to(device)
-    fu = nonlinmap(nu, nx, bias=args.bias, hsizes=[nx] * 2, Linear=linear.Linear, skip=1).to(device)
+    fu = nonlinmap(nu, nx, bias=args.bias, hsizes=[nx] * 2, Linear=linmap, skip=1).to(device)
 
     fd = Linear(nd, nx).to(device)
     model = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd).to(device)
     # estimator = estimators.LinearKalmanFilter(model)
     estimator = estimators.RNNEstimator(ny, nx, bias=args.bias, num_layers=2,
-                                        nonlinearity=F.gelu, Linear=linear.Linear)
+                                        nonlinearity=F.gelu, Linear=linmap)
     estimator = estimator.to(device)
     loop = loops.OpenLoop(model, estimator).to(device)
 

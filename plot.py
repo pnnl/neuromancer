@@ -35,12 +35,26 @@ def plot_matrices(matrices, labels, figname):
     plt.savefig(figname)
 
 
-def pltCL_train(Y_GT, Y_train, U, D):
+def pltPhase(X, figname=None):
     """
-    plot trained open loop dataset
+    plot phase space for 2D and 3D state spaces
     """
-    pass
-
+    fig = plt.figure()
+    if X.shape[1] >= 3:
+        ax = fig.gca(projection='3d')
+        ax.plot(X[:, 0], X[:, 1], X[:, 2])
+        ax.set_xlabel('$x_1$')
+        ax.set_ylabel('$x_2$')
+        ax.set_zlabel('$x_3$')
+    elif X.shape[1] == 2:
+        plt.plot(X[:, 0], X[:, 1])
+        plt.plot(X[0, 0], X[0, 1], 'ro')
+        plt.xlabel('$x_1$')
+        plt.ylabel('$x_2$')
+    plt.tight_layout()
+    plt.show()
+    if figname is not None:
+        plt.savefig(figname)
 
 def pltCL(Y, U, D, R):
     """

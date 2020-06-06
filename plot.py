@@ -4,7 +4,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.lines import Line2D
-
+from mpl_toolkits.mplot3d import Axes3D
 
 def get_colors(k):
     """
@@ -38,6 +38,13 @@ def plot_matrices(matrices, labels, figname):
 def pltPhase(X, figname=None):
     """
     plot phase space for 2D and 3D state spaces
+
+    # TODO: stream plots for phase spaces of ODEs
+    https://matplotlib.org/3.2.1/gallery/images_contours_and_fields/plot_streamplot.html
+    https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.streamplot.html
+    https://matplotlib.org/3.2.1/api/_as_gen/matplotlib.pyplot.quiver.html
+    http://kitchingroup.cheme.cmu.edu/blog/2013/02/21/Phase-portraits-of-a-system-of-ODEs/
+    http://systems-sciences.uni-graz.at/etextbook/sw2/phpl_python.html
     """
     fig = plt.figure()
     if X.shape[1] >= 3:

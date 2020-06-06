@@ -10,9 +10,11 @@ from abc import ABC, abstractmethod
 import numpy as np
 import plot
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from scipy.integrate import odeint
 import control
 import gym
+
 
 
 ####################################
@@ -165,7 +167,7 @@ class LinCartPole(EmulatorBase):
         y = np.matmul(np.asarray(self.ssmd.C), x)
         return x, y
 
-    def simulate(self, ninit, nsim, U, Ts=None, x0=None):
+    def simulate(self, ninit, nsim, U, ts=None, x0=None):
         """
         :param nsim: (int) Number of steps for open loop response
         :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
@@ -762,10 +764,67 @@ chaotic systems
 https://en.wikipedia.org/wiki/List_of_chaotic_maps
 """
 
-
-class LorentzAttractor(EmulatorBase):
+class Lorenz96(EmulatorBase):
     """
-    base class of the linear time invariant state space model
+    Lorenz 96 model
+    https://en.wikipedia.org/wiki/Lorenz_96_model
+    """
+    def __init__(self):
+        super().__init__()
+        pass
+
+    # parameters of the dynamical system
+    def parameters(self):
+        self.N = 36  # Number of variables
+        self.F = 8  # Forcing
+        self.x0 = self.F*np.ones(self.N)
+        self.x0[19] += 0.01  # Add small perturbation to random variable
+        # self.x0[np.random.randint(0, self.N)] += 0.01  # Add small perturbation to random variable
+
+        # equations defining the dynamical system
+    def equations(self, x, t):
+        # Compute state derivatives
+        dx = np.zeros(self.N)
+        # First the 3 edge cases: i=1,2,N
+        dx[0] = (x[1] - x[self.N - 2]) * x[self.N - 1] - x[0]
+        dx[1] = (x[2] - x[self.N - 1]) * x[0] - x[1]
+        dx[self.N - 1] = (x[0] - x[self.N - 3]) * x[self.N - 2] - x[self.N - 1]
+        # Then the general case
+        for i in range(2, self.N - 1):
+            dx[i] = (x[i + 1] - x[i - 2]) * x[i - 1] - x[i]
+        # Add the forcing term
+        dx = dx + self.F
+        return dx
+
+    # N-step forward simulation of the dynamical system
+    def simulate(self, ninit, nsim, ts=0.01, x0=None):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param ninit: (float) initial simulation time
+        :param ts: (float) step size, sampling time
+        :param x0: (float) state initial conditions
+        :param x: (ndarray, shape=(self.nx)) states
+        :return: The response matrices, i.e. X
+        """
+        # initial conditions states + uncontrolled inputs
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+        # time interval
+        t = np.arange(0, nsim) * ts + ninit
+        X = []
+        for N in range(nsim-1):
+            dT = [t[N], t[N + 1]]
+            xdot = odeint(self.equations, x, dT)
+            x = xdot[-1]
+            X.append(x)  # updated states trajectories
+        return np.asarray(X)
+
+
+class LorenzSystem(EmulatorBase):
+    """
     TODO: apply
     https://en.wikipedia.org/wiki/Lorenz_system#Analysis
     # https://ipywidgets.readthedocs.io/en/stable/examples/Lorenz%20Differential%20Equations.html
@@ -774,7 +833,48 @@ class LorentzAttractor(EmulatorBase):
     """
     def __init__(self):
         super().__init__()
-        pass
+
+    # parameters of the dynamical system
+    def parameters(self):
+        self.rho = 28.0
+        self.sigma = 10.0
+        self.beta = 8.0 / 3.0
+        self.x0 = [1.0, 1.0, 1.0]
+
+    # equations defining the dynamical system
+    def equations(self, x, t):
+        # Derivatives
+        dx1 = self.sigma*(x[1] - x[0])
+        dx2 = x[0]*(self.rho - x[2]) - x[1]
+        dx3 = x[0]*x[1] - self.beta*x[2]
+        dx = [dx1, dx2, dx3]
+        return dx
+
+    # N-step forward simulation of the dynamical system
+    def simulate(self, ninit, nsim, ts=0.01, x0=None):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param ninit: (float) initial simulation time
+        :param ts: (float) step size, sampling time
+        :param x0: (float) state initial conditions
+        :param x: (ndarray, shape=(self.nx)) states
+        :return: The response matrices, i.e. X
+        """
+        # initial conditions states + uncontrolled inputs
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+        # time interval
+        t = np.arange(0, nsim) * ts + ninit
+        X = []
+        for N in range(nsim-1):
+            dT = [t[N], t[N + 1]]
+            xdot = odeint(self.equations, x, dT)
+            x = xdot[-1]
+            X.append(x)  # updated states trajectories
+        return np.asarray(X)
 
 class VanDerPolOsscilator(EmulatorBase):
     """
@@ -827,8 +927,13 @@ https://en.wikipedia.org/wiki/List_of_dynamical_systems_and_differential_equatio
 """
 # OpenAI gym wrapper
 
+# examples:
 # https://github.com/openai/gym/blob/master/gym/envs/classic_control/pendulum.py
 # https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.pyhttps://github.com/openai/gym/blob/master/gym/envs/classic_control/pendulum.py
+
+investigate potential third party environments
+https://github.com/openai/gym/blob/master/docs/environments.md#third-party-environments
+
 """
 
 class GymWrapper(EmulatorBase):
@@ -1073,6 +1178,7 @@ if __name__ == '__main__':
     # # plot trajectories
     # plot.pltOL(Y=X, U=U)
 
+    # linear cart pole system
     ninit = 0
     nsim = 201
     ts = 0.1
@@ -1081,14 +1187,16 @@ if __name__ == '__main__':
     lcp_model = LinCartPole()  # instantiate CSTR class
     lcp_model.parameters()
     # simulate open loop
-    X, Y = lcp_model.simulate(ninit=ninit, nsim=nsim, Ts=ts, U=U)
+    X, Y = lcp_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U)
     # plot trajectories
     plot.pltOL(Y=Y, X=X, U=U)
 
 
     # TODO: double check dimensions of x
     # OpenAi gym environment wrapper
-    # 'Pendulum-v0', 'CartPole-v1'
+    # tested envs:
+    #   1, Classical: 'Pendulum-v0', 'CartPole-v1', 'Acrobot-v1', 'MountainCar-v0',
+    #                          'MountainCarContinuous-v0'
     environment = 'Pendulum-v0'
     gym_model = GymWrapper()
     gym_model.parameters(env_pick=environment)
@@ -1099,3 +1207,45 @@ if __name__ == '__main__':
         U = U.astype(int)
     X, Reward = gym_model.simulate(ninit=ninit, nsim=nsim, U=U)
     plot.pltOL(Y=Reward, X=X, U=U)
+    # TODO: include visualization option for the trajectories or render of OpenAI gym
+
+
+    # Lorenz 96
+    ninit = 0
+    nsim = 3001
+    ts = 0.01
+    #  inverted pendulum
+    lorenz96_model = Lorenz96()  # instantiate CSTR class
+    lorenz96_model.parameters()
+    # simulate open loop
+    X = lorenz96_model.simulate(ninit=ninit, nsim=nsim, ts=ts)
+    # plot trajectories
+    plot.pltOL(Y=X)
+    # 3D plot
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    ax.plot(X[:, 0], X[:, 1], X[:, 2])
+    ax.set_xlabel('$x_1$')
+    ax.set_ylabel('$x_2$')
+    ax.set_zlabel('$x_3$')
+    plt.show()
+
+    # LorenzSystem
+    ninit = 0
+    nsim = 4001
+    ts = 0.01
+    #  inverted pendulum
+    lorenz_model = LorenzSystem()  # instantiate CSTR class
+    lorenz_model.parameters()
+    # simulate open loop
+    X = lorenz_model.simulate(ninit=ninit, nsim=nsim, ts=ts)
+    # plot trajectories
+    plot.pltOL(Y=X)
+    # 3D plot
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    ax.plot(X[:, 0], X[:, 1], X[:, 2])
+    ax.set_xlabel('$x_1$')
+    ax.set_ylabel('$x_2$')
+    ax.set_zlabel('$x_3$')
+    plt.show()

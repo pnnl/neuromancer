@@ -54,7 +54,7 @@ res.head()
 
 res['constrained'].fillna(False, inplace=True)
 # res = res[res['constrained'] == False]  # unconstrained
-res = res[res['constrained'] != False]  # constrained
+# res = res[res['constrained'] != False]  # constrained
 
 # select best models
 system_metrics = {}

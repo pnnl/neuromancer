@@ -8,9 +8,8 @@ from scipy.io import loadmat
 from scipy import signal
 from abc import ABC, abstractmethod
 import numpy as np
+import numdifftools as nd
 import plot
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from scipy.integrate import odeint
 import gym
 import control
@@ -181,7 +180,7 @@ class LinCartPole(EmulatorBase):
     Linearized Hybrid model of Inverted pendulum
     http://ctms.engin.umich.edu/CTMS/index.php?example=InvertedPendulum&section=SystemModeling
     http://ctms.engin.umich.edu/CTMS/index.php?example=InvertedPendulum&section=ControlStateSpace
-    TODO: visualizations + nonlinear case
+    TODO: nonlinear case
     https://apmonitor.com/do/index.php/Main/InvertedPendulum
     """
     def __init__(self):
@@ -274,11 +273,34 @@ class LinCartPole(EmulatorBase):
 
 """
 Nonlinear ODEs
-list of nlin ODEs
+
 https://en.wikipedia.org/wiki/List_of_nonlinear_ordinary_differential_equations
+https://en.wikipedia.org/wiki/List_of_dynamical_systems_and_differential_equations_topics
 """
 
 
+class UniversalOscillator(ODE_Autonomous):
+    """
+    Hharmonic oscillator
+    https://en.wikipedia.org/wiki/Harmonic_oscillator
+    https://sam-dolan.staff.shef.ac.uk/mas212/notebooks/ODE_Example.html
+    """
+    def __init__(self):
+        super().__init__()
+
+    # parameters of the dynamical system
+    def parameters(self):
+        self.mu = 2
+        self.omega = 1
+        self.x0 = [1.0, 0.0]
+
+    # equations defining the dynamical system
+    def equations(self, x, t):
+        # Derivatives
+        dx1 = x[1]
+        dx2 = -2*self.mu*x[1] - x[0] + np.cos(self.omega*t)
+        dx = [dx1, dx2]
+        return dx
 
 
 class SEIR_population(EmulatorBase):
@@ -383,9 +405,6 @@ class Tank(EmulatorBase):
     Single Tank model
     original code obtained from APMonitor:
     https://apmonitor.com/pdc/index.php/Main/TankLevel
-
-    TODO: linearized option
-    https://apmonitor.com/pdc/index.php/Main/ModelLinearization
     """
     def __init__(self):
         super().__init__()
@@ -450,9 +469,6 @@ class TwoTank(EmulatorBase):
     Two Tank model
     original code obtained from APMonitor:
     https://apmonitor.com/do/index.php/Main/LevelControl
-
-    TODO: linearized option
-    https://apmonitor.com/pdc/index.php/Main/ModelLinearization
     """
     def __init__(self):
         super().__init__()
@@ -809,6 +825,14 @@ class Building_hf_ROM(Building_hf):
 
 
 """
+Stochastic ODEs
+
+https://en.wikipedia.org/wiki/Langevin_equation
+"""
+
+
+
+"""
 Linear PDEs
 """
 
@@ -817,18 +841,7 @@ Linear PDEs
 """
 Nonlinear PDEs
 
-list of nlin PDEs
 https://en.wikipedia.org/wiki/List_of_nonlinear_partial_differential_equations
-
-APmonitor PDEs
-https://apmonitor.com/do/index.php/Main/PartialDifferentialEquations
-
-Artificial Lift Rod Pump
-https://apm.byu.edu/prism/index.php/Projects/HydraulicRodPumping
-https://github.com/BYU-PRISM/USTAR-Artificial-Lift
-
-fuel cell
-https://apmonitor.com/do/index.php/Main/SolidOxideFuelCell
 """
 
 
@@ -836,15 +849,7 @@ https://apmonitor.com/do/index.php/Main/SolidOxideFuelCell
 """
 Chaotic nonlinear ODEs 
 
-chaotic systems
 https://en.wikipedia.org/wiki/List_of_chaotic_maps
-
-TODO:
-https://en.wikipedia.org/wiki/Kuramoto%E2%80%93Sivashinsky_equation
-# 2D case brusselator PDE
-http://runge.math.smu.edu/ParallelComputing/_downloads/brusselator.pdf
-https://ipython-books.github.io/124-simulating-a-partial-differential-equation-reaction-diffusion-systems-and-turing-patterns/
-http://math.colgate.edu/math329/
 """
 
 class Lorenz96(ODE_Autonomous):
@@ -1091,6 +1096,34 @@ class ChuaCircuit(ODE_Autonomous):
         return dx
 
 
+class Duffing(ODE_Autonomous):
+    """
+    Duffing equation
+    https://en.wikipedia.org/wiki/Duffing_equation
+    """
+    def __init__(self):
+        super().__init__()
+
+    # parameters of the dynamical system
+    def parameters(self):
+        self.delta = 0.02
+        self.alpha = 1
+        self.beta = 5
+        self.gamma = 8
+        self.omega = 0.5
+        self.x0 = [1.0, 0.0]
+
+    # equations defining the dynamical system
+    def equations(self, x, t):
+        # Derivatives
+        dx1 = x[1]
+        dx2 = - self.delta*x[1] - self.alpha*x[0] - self.beta*x[0]**3 + self.gamma*np.cos(self.omega*t)
+        dx = [dx1, dx2]
+        return dx
+
+
+
+
 """
 Chaotic nonlinear PDEs
 """
@@ -1098,17 +1131,16 @@ Chaotic nonlinear PDEs
 
 
 """
-Fractals
+Cellular automata
 """
 
 
+
+"""
+Fractals
+"""
 class Mandelbrot(EmulatorBase):
     """
-    TODO: apply
-    https://www.geeksforgeeks.org/mandelbrot-fractal-set-visualization-in-python/
-    #https://scipy-lectures.org/intro/numpy/auto_examples/plot_mandelbrot.html
-    https://rosettacode.org/wiki/Mandelbrot_set
-    https://levelup.gitconnected.com/mandelbrot-set-with-python-983e9fc47f56
     IDEA: use mandelbrot zoom video as our dataset for training
     Cool effect
     """
@@ -1118,16 +1150,6 @@ class Mandelbrot(EmulatorBase):
 
 
 
-"""
-TODO: bunch of open source physics implementations to be integrated in the framework
-# http://www-personal.umich.edu/~mejn/cp/programs.html
-https://www.azimuthproject.org/azimuth/show/Stochastic+Hopf+bifurcation+in+Python
-http://systems-sciences.uni-graz.at/etextbook/sw3/bifurcation.html
-
-list of dynamical systems
-https://en.wikipedia.org/wiki/List_of_dynamical_systems_and_differential_equations_topics
-"""
-
 
 ##############################################
 
@@ -1136,14 +1158,6 @@ https://en.wikipedia.org/wiki/List_of_dynamical_systems_and_differential_equatio
 
 """
 # OpenAI gym wrapper
-
-# examples:
-# https://github.com/openai/gym/blob/master/gym/envs/classic_control/pendulum.py
-# https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.pyhttps://github.com/openai/gym/blob/master/gym/envs/classic_control/pendulum.py
-
-investigate potential third party environments
-https://github.com/openai/gym/blob/master/docs/environments.md#third-party-environments
-
 """
 
 class GymWrapper(EmulatorBase):
@@ -1201,9 +1215,6 @@ class GymWrapper(EmulatorBase):
 ##########################################################
 ###### Base Control Profiles for System excitation #######
 ##########################################################
-# TODO: functions generating baseline control signals or noise used for exciting the system for system ID and RL
-
-
 
 def WhiteNoise(nx=1, nsim=100, xmax=1, xmin=0):
     """
@@ -1279,10 +1290,6 @@ def Periodic(nx=1, nsim=100, numPeriods=1, xmax=1, xmin=0, form='sin'):
         signal = np.append(signal, base[0:leftover])
         Signal.append(signal)
     return np.asarray(Signal).T
-
-
-# TODO: wrapper for scipy signal functions
-# https://docs.scipy.org/doc/scipy/reference/signal.html#module-scipy.signal
 
 def SignalComposite():
     """
@@ -1539,3 +1546,28 @@ if __name__ == '__main__':
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
+    # Duffing
+    ninit = 0
+    nsim = 10001
+    ts = 0.01
+    #  inverted pendulum
+    Duffing_model = Duffing()  # instantiate CSTR class
+    Duffing_model.parameters()
+    # simulate open loop
+    X = Duffing_model.simulate(ninit=ninit, nsim=nsim, ts=ts)
+    # plot trajectories
+    plot.pltOL(Y=X)
+    plot.pltPhase(X=X)
+
+    # UniversalOscillator
+    ninit = 0
+    nsim = 10001
+    ts = 0.01
+    #  inverted pendulum
+    oscillator_model = UniversalOscillator()  # instantiate CSTR class
+    oscillator_model.parameters()
+    # simulate open loop
+    X = oscillator_model.simulate(ninit=ninit, nsim=nsim, ts=ts)
+    # plot trajectories
+    plot.pltOL(Y=X)
+    plot.pltPhase(X=X)

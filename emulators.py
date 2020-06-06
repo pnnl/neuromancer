@@ -12,9 +12,10 @@ import plot
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.integrate import odeint
-import control
 import gym
 
+# TODO: add control to our environment
+# import control
 
 
 ####################################
@@ -1543,18 +1544,18 @@ if __name__ == '__main__':
     # # plot trajectories
     # plot.pltOL(Y=X, U=U)
 
-    # linear cart pole system
-    ninit = 0
-    nsim = 201
-    ts = 0.1
-    U = np.asarray([np.zeros((nsim - 1))]).T
-    #  inverted pendulum
-    lcp_model = LinCartPole()  # instantiate CSTR class
-    lcp_model.parameters()
-    # simulate open loop
-    X, Y = lcp_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U)
-    # plot trajectories
-    plot.pltOL(Y=Y, X=X, U=U)
+    # # linear cart pole system
+    # ninit = 0
+    # nsim = 201
+    # ts = 0.1
+    # U = np.asarray([np.zeros((nsim - 1))]).T
+    # #  inverted pendulum
+    # lcp_model = LinCartPole()  # instantiate CSTR class
+    # lcp_model.parameters()
+    # # simulate open loop
+    # X, Y = lcp_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U)
+    # # plot trajectories
+    # plot.pltOL(Y=Y, X=X, U=U)
 
 
     # TODO: double check dimensions of x

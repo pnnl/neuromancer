@@ -13,9 +13,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.integrate import odeint
 import gym
-
-# TODO: add control to our environment
-# import control
+import control
 
 
 ####################################

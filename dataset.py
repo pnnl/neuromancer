@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import torch
 import plot
-import emulators
+# TODO: add new imports to our environment
+# import emulators
 
 def min_max_norm(M):
     """
@@ -148,36 +149,35 @@ if __name__ == '__main__':
                  './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']
 
 
-    # for name, path in zip(['twotank', 'vehicle', 'reactor', 'aero'], datapaths):
-    #     Y, U, D, Ts = Load_data_sysID(path)
-    #     plot.pltOL(Y, U=U, D=D, figname='test.png')
-    #
-    #     Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=32, device='cpu')
-    #     plot.pltOL(np.concatenate([Yp[:, k, :] for k in range(Yp.shape[1])])[:1000],
-    #                Ytrain=np.concatenate([Yf[:, k, :] for k in range(Yf.shape[1])])[:1000], figname=f'{name}_align_test.png')
-    #
+    for name, path in zip(['twotank', 'vehicle', 'reactor', 'aero'], datapaths):
+        Y, U, D, Ts = Load_data_sysID(path)
+        plot.pltOL(Y, U=U, D=D, figname='test.png')
 
-        # R = np.ones(Y.shape)
-        # Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=5, device='cpu')
+        Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=32, device='cpu')
+        plot.pltOL(np.concatenate([Yp[:, k, :] for k in range(Yp.shape[1])])[:1000],
+                   Ytrain=np.concatenate([Yf[:, k, :] for k in range(Yf.shape[1])])[:1000], figname=f'{name}_align_test.png')
+
+        R = np.ones(Y.shape)
+        Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=5, device='cpu')
 
 
-#   TESTING dataset creation from the emulator
-    ninit = 0
-    nsim = 1000
-    building = emulators.Building_hf()   # instantiate building class
-    building.parameters()      # load model parameters
-    # generate input data
-    M_flow = emulators.Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min, form='sin')
-    DT = emulators.Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min, form='cos')
-    D = building.D[ninit:nsim,:]
-    # simulate open loop building
-    U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
-    # plot trajectories
-    plot.pltOL(Y=Y, U=U, D=D, X=X)
-    # create datasets
-    Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=12, device='cpu')
-    R = 25*np.ones(Y.shape)
-    Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=12, device='cpu')
-    print(Yp.shape, Yf.shape, Up.shape, Dp.shape, Df.shape)
+# #   TESTING dataset creation from the emulator
+#     ninit = 0
+#     nsim = 1000
+#     building = emulators.Building_hf()   # instantiate building class
+#     building.parameters()      # load model parameters
+#     # generate input data
+#     M_flow = emulators.Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min, form='sin')
+#     DT = emulators.Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min, form='cos')
+#     D = building.D[ninit:nsim,:]
+#     # simulate open loop building
+#     U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
+#     # plot trajectories
+#     plot.pltOL(Y=Y, U=U, D=D, X=X)
+#     # create datasets
+#     Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=12, device='cpu')
+#     R = 25*np.ones(Y.shape)
+#     Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=12, device='cpu')
+#     print(Yp.shape, Yf.shape, Up.shape, Dp.shape, Df.shape)
 
 #   TODO: save trained benchmark models from Matlab's System ID

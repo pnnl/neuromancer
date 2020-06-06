@@ -20,6 +20,10 @@ import control
 ###### Internal Emulators ##########
 ####################################
 
+"""
+Base Classes
+"""
+
 class EmulatorBase(ABC):
     """
     base class of the emulator
@@ -43,8 +47,81 @@ class EmulatorBase(ABC):
         pass
 
 
+class ODE_Autonomous(EmulatorBase):
+    """
+    base class autonomous ODE
+    """
+    def __init__(self):
+        super().__init__()
+
+    # N-step forward simulation of the dynamical system
+    def simulate(self, ninit, nsim, ts, x0=None):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param ninit: (float) initial simulation time
+        :param ts: (float) step size, sampling time
+        :param x0: (float) state initial conditions
+        :param x: (ndarray, shape=(self.nx)) states
+        :return: The response matrices, i.e. X
+        """
+        # initial conditions states + uncontrolled inputs
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+        # time interval
+        t = np.arange(0, nsim) * ts + ninit
+        X = []
+        for N in range(nsim-1):
+            dT = [t[N], t[N + 1]]
+            xdot = odeint(self.equations, x, dT)
+            x = xdot[-1]
+            X.append(x)  # updated states trajectories
+        return np.asarray(X)
+
+class ODE_NonAutonomous(EmulatorBase):
+    """
+    base class autonomous ODE
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    # N-step forward simulation of the dynamical system
+    def simulate(self, ninit, nsim, U, ts=0.1, x0=None):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param ninit: (float) initial simulation time
+        :param ts: (float) step size, sampling time
+        :param x0: (float) state initial conditions
+        :param x: (ndarray, shape=(self.nx)) states
+        :return: The response matrices, i.e. X
+        """
+        # initial conditions states + uncontrolled inputs
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+        # time interval
+        t = np.arange(0, nsim) * ts + ninit
+        X = []
+        N = 0
+        for u in U:
+            dT = [t[N], t[N + 1]]
+            xdot = odeint(self.equations, x, dT, args=(u,))
+            x = xdot[-1]
+            X.append(x)  # updated states trajectories
+            N += 1
+            if N == nsim:
+                break
+        return np.asarray(X)
+
+
+
 """
-Linear ODEs
+Linear ODEs and SSMs
 """
 
 class ExpGrowth(EmulatorBase):
@@ -757,7 +834,7 @@ https://apmonitor.com/do/index.php/Main/SolidOxideFuelCell
 
 
 """
-Chaotic systems and fractals
+Chaotic nonlinear ODEs 
 
 chaotic systems
 https://en.wikipedia.org/wiki/List_of_chaotic_maps
@@ -770,7 +847,7 @@ https://ipython-books.github.io/124-simulating-a-partial-differential-equation-r
 http://math.colgate.edu/math329/
 """
 
-class Lorenz96(EmulatorBase):
+class Lorenz96(ODE_Autonomous):
     """
     Lorenz 96 model
     https://en.wikipedia.org/wiki/Lorenz_96_model
@@ -802,34 +879,8 @@ class Lorenz96(EmulatorBase):
         dx = dx + self.F
         return dx
 
-    # N-step forward simulation of the dynamical system
-    def simulate(self, ninit, nsim, ts=0.01, x0=None):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param ninit: (float) initial simulation time
-        :param ts: (float) step size, sampling time
-        :param x0: (float) state initial conditions
-        :param x: (ndarray, shape=(self.nx)) states
-        :return: The response matrices, i.e. X
-        """
-        # initial conditions states + uncontrolled inputs
-        if x0 is None:
-            x = self.x0
-        else:
-            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
-            x = x0
-        # time interval
-        t = np.arange(0, nsim) * ts + ninit
-        X = []
-        for N in range(nsim-1):
-            dT = [t[N], t[N + 1]]
-            xdot = odeint(self.equations, x, dT)
-            x = xdot[-1]
-            X.append(x)  # updated states trajectories
-        return np.asarray(X)
 
-
-class LorenzSystem(EmulatorBase):
+class LorenzSystem(ODE_Autonomous):
     """
     Lorenz System
     https://en.wikipedia.org/wiki/Lorenz_system#Analysis
@@ -856,33 +907,8 @@ class LorenzSystem(EmulatorBase):
         dx = [dx1, dx2, dx3]
         return dx
 
-    # N-step forward simulation of the dynamical system
-    def simulate(self, ninit, nsim, ts=0.01, x0=None):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param ninit: (float) initial simulation time
-        :param ts: (float) step size, sampling time
-        :param x0: (float) state initial conditions
-        :param x: (ndarray, shape=(self.nx)) states
-        :return: The response matrices, i.e. X
-        """
-        # initial conditions states + uncontrolled inputs
-        if x0 is None:
-            x = self.x0
-        else:
-            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
-            x = x0
-        # time interval
-        t = np.arange(0, nsim) * ts + ninit
-        X = []
-        for N in range(nsim-1):
-            dT = [t[N], t[N + 1]]
-            xdot = odeint(self.equations, x, dT)
-            x = xdot[-1]
-            X.append(x)  # updated states trajectories
-        return np.asarray(X)
 
-class VanDerPol(EmulatorBase):
+class VanDerPol(ODE_Autonomous):
     """
     Van der Pol oscillator
     https://en.wikipedia.org/wiki/Van_der_Pol_oscillator
@@ -904,35 +930,8 @@ class VanDerPol(EmulatorBase):
         dx = [dx1, dx2]
         return dx
 
-    # N-step forward simulation of the dynamical system
-    def simulate(self, ninit, nsim, ts=0.1, x0=None):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param ninit: (float) initial simulation time
-        :param ts: (float) step size, sampling time
-        :param x0: (float) state initial conditions
-        :param x: (ndarray, shape=(self.nx)) states
-        :return: The response matrices, i.e. X
-        """
-        # initial conditions states + uncontrolled inputs
-        if x0 is None:
-            x = self.x0
-        else:
-            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
-            x = x0
-        # time interval
-        t = np.arange(0, nsim) * ts + ninit
-        X = []
-        for N in range(nsim-1):
-            dT = [t[N], t[N + 1]]
-            xdot = odeint(self.equations, x, dT)
-            x = xdot[-1]
-            X.append(x)  # updated states trajectories
-        return np.asarray(X)
 
-
-
-class HindmarshRose(EmulatorBase):
+class HindmarshRose(ODE_NonAutonomous):
     """
     Hindmarsh–Rose model of neuronal activity
     https://en.wikipedia.org/wiki/Hindmarsh%E2%80%93Rose_model
@@ -965,38 +964,8 @@ class HindmarshRose(EmulatorBase):
         dx = [dx1, dx2, dx3]
         return dx
 
-    # N-step forward simulation of the dynamical system
-    def simulate(self, ninit, nsim, U, ts=0.1, x0=None):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param ninit: (float) initial simulation time
-        :param ts: (float) step size, sampling time
-        :param x0: (float) state initial conditions
-        :param x: (ndarray, shape=(self.nx)) states
-        :return: The response matrices, i.e. X
-        """
-        # initial conditions states + uncontrolled inputs
-        if x0 is None:
-            x = self.x0
-        else:
-            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
-            x = x0
-        # time interval
-        t = np.arange(0, nsim) * ts + ninit
-        X = []
-        N = 0
-        for u in U:
-            dT = [t[N], t[N + 1]]
-            xdot = odeint(self.equations, x, dT, args=(u,))
-            x = xdot[-1]
-            X.append(x)  # updated states trajectories
-            N += 1
-            if N == nsim:
-                break
-        return np.asarray(X)
 
-
-class ThomasAttractor(EmulatorBase):
+class ThomasAttractor(ODE_Autonomous):
     """
     Thomas' cyclically symmetric attractor
     https://en.wikipedia.org/wiki/Thomas%27_cyclically_symmetric_attractor
@@ -1018,35 +987,8 @@ class ThomasAttractor(EmulatorBase):
         dx = [dx1, dx2, dx3]
         return dx
 
-    # N-step forward simulation of the dynamical system
-    def simulate(self, ninit, nsim, ts=0.1, x0=None):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param ninit: (float) initial simulation time
-        :param ts: (float) step size, sampling time
-        :param x0: (float) state initial conditions
-        :param x: (ndarray, shape=(self.nx)) states
-        :return: The response matrices, i.e. X
-        """
-        # initial conditions states + uncontrolled inputs
-        if x0 is None:
-            x = self.x0
-        else:
-            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
-            x = x0
-        # time interval
-        t = np.arange(0, nsim) * ts + ninit
-        X = []
-        for N in range(nsim-1):
-            dT = [t[N], t[N + 1]]
-            xdot = odeint(self.equations, x, dT)
-            x = xdot[-1]
-            X.append(x)  # updated states trajectories
-        return np.asarray(X)
 
-
-
-class RosslerAttractor(EmulatorBase):
+class RosslerAttractor(ODE_Autonomous):
     """
     Rössler attractor
     https://en.wikipedia.org/wiki/R%C3%B6ssler_attractor
@@ -1070,35 +1012,8 @@ class RosslerAttractor(EmulatorBase):
         dx = [dx1, dx2, dx3]
         return dx
 
-    # N-step forward simulation of the dynamical system
-    def simulate(self, ninit, nsim, ts=0.1, x0=None):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param ninit: (float) initial simulation time
-        :param ts: (float) step size, sampling time
-        :param x0: (float) state initial conditions
-        :param x: (ndarray, shape=(self.nx)) states
-        :return: The response matrices, i.e. X
-        """
-        # initial conditions states + uncontrolled inputs
-        if x0 is None:
-            x = self.x0
-        else:
-            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
-            x = x0
-        # time interval
-        t = np.arange(0, nsim) * ts + ninit
-        X = []
-        for N in range(nsim-1):
-            dT = [t[N], t[N + 1]]
-            xdot = odeint(self.equations, x, dT)
-            x = xdot[-1]
-            X.append(x)  # updated states trajectories
-        return np.asarray(X)
 
-
-
-class LotkaVolterra(EmulatorBase):
+class LotkaVolterra(ODE_Autonomous):
     """
     Lotka–Volterra equations, also known as the predator–prey equations
     https://en.wikipedia.org/wiki/Lotka%E2%80%93Volterra_equations
@@ -1122,35 +1037,8 @@ class LotkaVolterra(EmulatorBase):
         dx = [dx1, dx2]
         return dx
 
-    # N-step forward simulation of the dynamical system
-    def simulate(self, ninit, nsim, ts=0.01, x0=None):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param ninit: (float) initial simulation time
-        :param ts: (float) step size, sampling time
-        :param x0: (float) state initial conditions
-        :param x: (ndarray, shape=(self.nx)) states
-        :return: The response matrices, i.e. X
-        """
-        # initial conditions states + uncontrolled inputs
-        if x0 is None:
-            x = self.x0
-        else:
-            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
-            x = x0
-        # time interval
-        t = np.arange(0, nsim) * ts + ninit
-        X = []
-        for N in range(nsim-1):
-            dT = [t[N], t[N + 1]]
-            xdot = odeint(self.equations, x, dT)
-            x = xdot[-1]
-            X.append(x)  # updated states trajectories
-        return np.asarray(X)
 
-
-
-class Brusselator1D(EmulatorBase):
+class Brusselator1D(ODE_Autonomous):
     """
     Brusselator
     https://en.wikipedia.org/wiki/Brusselator
@@ -1172,34 +1060,8 @@ class Brusselator1D(EmulatorBase):
         dx = [dx1, dx2]
         return dx
 
-    # N-step forward simulation of the dynamical system
-    def simulate(self, ninit, nsim, ts=0.01, x0=None):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param ninit: (float) initial simulation time
-        :param ts: (float) step size, sampling time
-        :param x0: (float) state initial conditions
-        :param x: (ndarray, shape=(self.nx)) states
-        :return: The response matrices, i.e. X
-        """
-        # initial conditions states + uncontrolled inputs
-        if x0 is None:
-            x = self.x0
-        else:
-            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
-            x = x0
-        # time interval
-        t = np.arange(0, nsim) * ts + ninit
-        X = []
-        for N in range(nsim-1):
-            dT = [t[N], t[N + 1]]
-            xdot = odeint(self.equations, x, dT)
-            x = xdot[-1]
-            X.append(x)  # updated states trajectories
-        return np.asarray(X)
 
-
-class ChuaCircuit(EmulatorBase):
+class ChuaCircuit(ODE_Autonomous):
     """
     Chua's circuit
     https://en.wikipedia.org/wiki/Chua%27s_circuit
@@ -1228,32 +1090,16 @@ class ChuaCircuit(EmulatorBase):
         dx = [dx1, dx2, dx3]
         return dx
 
-    # N-step forward simulation of the dynamical system
-    def simulate(self, ninit, nsim, ts=0.01, x0=None):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param ninit: (float) initial simulation time
-        :param ts: (float) step size, sampling time
-        :param x0: (float) state initial conditions
-        :param x: (ndarray, shape=(self.nx)) states
-        :return: The response matrices, i.e. X
-        """
-        # initial conditions states + uncontrolled inputs
-        if x0 is None:
-            x = self.x0
-        else:
-            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
-            x = x0
-        # time interval
-        t = np.arange(0, nsim) * ts + ninit
-        X = []
-        for N in range(nsim-1):
-            dT = [t[N], t[N + 1]]
-            xdot = odeint(self.equations, x, dT)
-            x = xdot[-1]
-            X.append(x)  # updated states trajectories
-        return np.asarray(X)
 
+"""
+Chaotic nonlinear PDEs
+"""
+
+
+
+"""
+Fractals
+"""
 
 
 class Mandelbrot(EmulatorBase):
@@ -1457,21 +1303,21 @@ if __name__ == '__main__':
     """
     Tests
     """
+
+    # building model
     ninit = 0
     nsim = 1000
-
     building = Building_hf()   # instantiate building class
     building.parameters()      # load model parameters
-
     # generate input data
     M_flow = Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min, form='sin')
     DT = Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min, form='cos')
     D = building.D[ninit:nsim,:]
-
     # simulate open loop building
     U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
     # plot trajectories
     plot.pltOL(Y=Y, U=U, D=D, X=X)
+    plot.pltPhase(X=Y)
 
     #   CSTR
     ninit = 0
@@ -1489,6 +1335,7 @@ if __name__ == '__main__':
     X = cstr_model.simulate(ninit, nsim, ts, U)
     # plot trajectories
     plot.pltOL(Y=X[:,0], U=U, X=X[:,1])
+    plot.pltPhase(X=X)
 
     #   TwoTank
     ninit = 0
@@ -1508,6 +1355,7 @@ if __name__ == '__main__':
     X = twotank_model.simulate(ninit, nsim, ts, pump, valve)
     # plot trajectories
     plot.pltOL(Y=X, U=U)
+    plot.pltPhase(X=X)
 
     # Tank
     ninit = 0
@@ -1542,19 +1390,19 @@ if __name__ == '__main__':
     # # plot trajectories
     # plot.pltOL(Y=X, U=U)
 
-    # # linear cart pole system
-    # ninit = 0
-    # nsim = 201
-    # ts = 0.1
-    # U = np.asarray([np.zeros((nsim - 1))]).T
-    # #  inverted pendulum
-    # lcp_model = LinCartPole()  # instantiate CSTR class
-    # lcp_model.parameters()
-    # # simulate open loop
-    # X, Y = lcp_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U)
-    # # plot trajectories
-    # plot.pltOL(Y=Y, X=X, U=U)
-
+    # linear cart pole system
+    ninit = 0
+    nsim = 201
+    ts = 0.1
+    U = np.asarray([np.zeros((nsim - 1))]).T
+    #  inverted pendulum
+    lcp_model = LinCartPole()  # instantiate CSTR class
+    lcp_model.parameters()
+    # simulate open loop
+    X, Y = lcp_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U)
+    # plot trajectories
+    plot.pltOL(Y=Y, X=X, U=U)
+    plot.pltPhase(X=X)
 
     # TODO: double check dimensions of x
     # OpenAi gym environment wrapper
@@ -1571,6 +1419,7 @@ if __name__ == '__main__':
         U = U.astype(int)
     X, Reward = gym_model.simulate(ninit=ninit, nsim=nsim, U=U)
     plot.pltOL(Y=Reward, X=X, U=U)
+    plot.pltPhase(X=X)
     # TODO: include visualization option for the trajectories or render of OpenAI gym
 
 
@@ -1585,14 +1434,7 @@ if __name__ == '__main__':
     X = lorenz96_model.simulate(ninit=ninit, nsim=nsim, ts=ts)
     # plot trajectories
     plot.pltOL(Y=X)
-    # 3D plot
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    ax.plot(X[:, 0], X[:, 1], X[:, 2])
-    ax.set_xlabel('$x_1$')
-    ax.set_ylabel('$x_2$')
-    ax.set_zlabel('$x_3$')
-    plt.show()
+    plot.pltPhase(X=X)
 
     # LorenzSystem
     ninit = 0
@@ -1605,15 +1447,8 @@ if __name__ == '__main__':
     X = lorenz_model.simulate(ninit=ninit, nsim=nsim, ts=ts)
     # plot trajectories
     plot.pltOL(Y=X)
-    # 3D phase plot
-    # TODO: 3D phase plot - generalize and include in plot.py
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    ax.plot(X[:, 0], X[:, 1], X[:, 2])
-    ax.set_xlabel('$x_1$')
-    ax.set_ylabel('$x_2$')
-    ax.set_zlabel('$x_3$')
-    plt.show()
+    # phase plot
+    plot.pltPhase(X=X)
 
     # VanDerPol
     ninit = 0
@@ -1626,12 +1461,7 @@ if __name__ == '__main__':
     X = vdp_model.simulate(ninit=ninit, nsim=nsim, ts=ts)
     # plot trajectories
     plot.pltOL(Y=X)
-    # TODO: phase plot - generalize and include in plot.py
-    plt.figure()
-    plt.plot(X[:,0], X[:,1])
-    plt.plot(X[0,0], X[0,1], 'ro')
-    plt.xlabel('x')
-    plt.ylabel('y')
+    plot.pltPhase(X=X)
 
     # HindmarshRose
     ninit = 0
@@ -1644,13 +1474,7 @@ if __name__ == '__main__':
     X = HR_model.simulate(ninit=ninit, nsim=nsim, U=U, ts=ts)
     # plot trajectories
     plot.pltOL(Y=X,U=U)
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    ax.plot(X[:, 0], X[:, 1], X[:, 2])
-    ax.set_xlabel('$x_1$')
-    ax.set_ylabel('$x_2$')
-    ax.set_zlabel('$x_3$')
-    plt.show()
+    plot.pltPhase(X=X)
 
     # ThomasCSattractor
     ninit = 0
@@ -1662,13 +1486,7 @@ if __name__ == '__main__':
     X = TCSA_model.simulate(ninit=ninit, nsim=nsim, ts=ts)
     # plot trajectories
     plot.pltOL(Y=X)
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    ax.plot(X[:, 0], X[:, 1], X[:, 2])
-    ax.set_xlabel('$x_1$')
-    ax.set_ylabel('$x_2$')
-    ax.set_zlabel('$x_3$')
-    plt.show()
+    plot.pltPhase(X=X)
 
     # RösslerAttractor
     ninit = 0
@@ -1680,13 +1498,7 @@ if __name__ == '__main__':
     X = Ross_model.simulate(ninit=ninit, nsim=nsim, ts=ts)
     # plot trajectories
     plot.pltOL(Y=X)
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    ax.plot(X[:, 0], X[:, 1], X[:, 2])
-    ax.set_xlabel('$x_1$')
-    ax.set_ylabel('$x_2$')
-    ax.set_zlabel('$x_3$')
-    plt.show()
+    plot.pltPhase(X=X)
 
     # LotkaVolterra
     ninit = 0
@@ -1699,11 +1511,7 @@ if __name__ == '__main__':
     X = lv_model.simulate(ninit=ninit, nsim=nsim, ts=ts)
     # plot trajectories
     plot.pltOL(Y=X)
-    plt.figure()
-    plt.plot(X[:,0], X[:,1])
-    plt.plot(X[0,0], X[0,1], 'ro')
-    plt.xlabel('x')
-    plt.ylabel('y')
+    plot.pltPhase(X=X)
 
     # Brusselator1D
     ninit = 0
@@ -1716,16 +1524,12 @@ if __name__ == '__main__':
     X = bruss_model.simulate(ninit=ninit, nsim=nsim, ts=ts)
     # plot trajectories
     plot.pltOL(Y=X)
-    plt.figure()
-    plt.plot(X[:,0], X[:,1])
-    plt.plot(X[0,0], X[0,1], 'ro')
-    plt.xlabel('x')
-    plt.ylabel('y')
+    plot.pltPhase(X=X)
 
     # ChuaCircuit
     ninit = 0
-    nsim = 1001
-    ts = 0.1
+    nsim = 10001
+    ts = 0.01
     #  inverted pendulum
     chua_model = ChuaCircuit()  # instantiate CSTR class
     chua_model.parameters()
@@ -1733,10 +1537,5 @@ if __name__ == '__main__':
     X = chua_model.simulate(ninit=ninit, nsim=nsim, ts=ts)
     # plot trajectories
     plot.pltOL(Y=X)
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    ax.plot(X[:, 0], X[:, 1], X[:, 2])
-    ax.set_xlabel('$x_1$')
-    ax.set_ylabel('$x_2$')
-    ax.set_zlabel('$x_3$')
-    plt.show()
+    plot.pltPhase(X=X)
+

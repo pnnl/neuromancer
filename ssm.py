@@ -145,6 +145,7 @@ class BlockSSM(nn.Module):
             if U is not None:
                 u = U[i]
                 fu = self.fu(U[i])
+                print(fu.shape, x.shape)
                 x = self.xou(x, fu)
             if D is not None:
                 fd = self.fd(D[i])

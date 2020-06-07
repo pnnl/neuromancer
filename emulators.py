@@ -118,7 +118,6 @@ class ODE_NonAutonomous(EmulatorBase):
         return np.asarray(X)
 
 
-
 """
 Linear ODEs and SSMs
 """
@@ -159,15 +158,6 @@ class ExpGrowth(EmulatorBase):
             x = self.equations(x)
             X.append(x)  # updated states trajectories
         return np.asarray(X)
-
-
-class SimpleHarmonicMotion(EmulatorBase):
-    """
-    https://en.wikipedia.org/wiki/Simple_harmonic_motion
-    """
-    def __init__(self):
-        super().__init__()
-        pass
 
 
 """

@@ -5,13 +5,19 @@ import torch.nn.functional as F
 # local imports
 import linear
 
-# TODO: shall we merge rnn.py with blocks.py?
-#  I would vote for the same I/O properties as blocks
-# TODO: RNN cells are returning zero dimension tensor with reg_error
+
 class RNNCell(nn.Module):
-    def __init__(self, input_size, hidden_size, bias=True, nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
+    def __init__(self, input_size, hidden_size, bias=False, nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
+        """
+
+        :param input_size:
+        :param hidden_size:
+        :param bias:
+        :param nonlinearity:
+        :param Linear:
+        :param linargs:
+        """
         super().__init__()
-        # TODO: uniform notation
         self.input_size, self.hidden_size = input_size, hidden_size
         self.in_features, self.out_features = input_size, hidden_size
         self.nonlin = nonlinearity
@@ -35,6 +41,7 @@ class RNN(nn.Module):
         :param input_size:
         :param hidden_size:
         :param num_layers:
+        :param bias:
         :param nonlinearity:
         :param stable:
         """
@@ -71,28 +78,28 @@ class RNN(nn.Module):
             sequence = torch.cat(states, 0)
             final_hiddens.append(h)
         final_hiddens = torch.stack(final_hiddens, 0)
-        # print('sequence', sequence.shape)
         return sequence, final_hiddens
 
 
 if __name__ == '__main__':
-    x = torch.rand(20, 5, 7)
-    for map in linear.maps:
-        rnn = RNN(7, 7, num_layers=1, Linear=map)
-        out = rnn(x)
-        print(out[0].shape, out[1].shape)
+    x = torch.rand(20, 5, 8)
+    for bias in [True, False]:
+        for map in linear.maps.values():
+            rnn = RNN(8, 8, bias=bias, num_layers=1, Linear=map)
+            out = rnn(x)
+            print(out[0].shape, out[1].shape)
 
-    for map in set(linear.maps) - linear.square_maps:
-        rnn = RNN(7, 64, num_layers=1, Linear=map)
-        out = rnn(x)
-        print(out[0].shape, out[1].shape)
+        for map in set(linear.maps.values()) - linear.square_maps:
+            rnn = RNN(8, 64, bias=bias, num_layers=1, Linear=map)
+            out = rnn(x)
+            print(out[0].shape, out[1].shape)
 
-    for map in linear.maps:
-        rnn = RNN(7, 7, num_layers=5, Linear=map)
-        out = rnn(x)
-        print(out[0].shape, out[1].shape)
+        for map in linear.maps.values():
+            rnn = RNN(8, 8, bias=bias, num_layers=5, Linear=map)
+            out = rnn(x)
+            print(out[0].shape, out[1].shape)
 
-    for map in set(linear.maps) - linear.square_maps:
-        rnn = RNN(7, 64, num_layers=5, Linear=map)
-        out = rnn(x)
-        print(out[0].shape, out[1].shape)
+        for map in set(linear.maps.values()) - linear.square_maps:
+            rnn = RNN(8, 64, bias=bias, num_layers=5, Linear=map)
+            out = rnn(x)
+            print(out[0].shape, out[1].shape)

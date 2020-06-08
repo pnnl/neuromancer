@@ -19,7 +19,6 @@ from rnn import RNN, RNNCell
 from ssm import BlockSSM
 
 
-
 class FullyObservable(nn.Module):
     def __init__(self, *args, **linargs):
         super().__init__()
@@ -29,7 +28,6 @@ class FullyObservable(nn.Module):
 
     def forward(self, Ym, *args):
         return Ym[-1], self.reg_error()
-
 
 
 class LinearEstimator(nn.Module):
@@ -57,13 +55,13 @@ class MLPEstimator(nn.Module):
     def forward(self, Ym, *args):
         return self.net(Ym[-1]), self.reg_error()
 
-# TODO: issue with the RNNestimator returning zero dimensional vector for self.reg_error()
+
 class RNNEstimator(nn.Module):
     def __init__(self, input_size, hidden_size, bias=False, num_layers=1,
-                 nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
+                 nonlin=F.gelu, Linear=linear.Linear, **linargs):
         super().__init__()
         self.RNN = RNN(input_size, hidden_size, num_layers=num_layers,
-                       bias=bias, nonlinearity=nonlinearity, Linear=Linear, **linargs)
+                       bias=bias, nonlinearity=nonlin, Linear=Linear, **linargs)
 
     def reg_error(self):
         return self.RNN.reg_error()
@@ -76,8 +74,9 @@ class LinearKalmanFilter(nn.Module):
     """
     Linear Time-Varyig Linear Kalman Filter
     """
-    def __init__(self, model):
+    def __init__(self, insize, outsize, model=None):
         super().__init__()
+        assert model is not None
         assert isinstance(model, BlockSSM)
         assert isinstance(model.fx, linear.LinearBase)
         assert isinstance(model.fy, linear.LinearBase)
@@ -100,7 +99,7 @@ class LinearKalmanFilter(nn.Module):
         eye = torch.eye(self.model.nx).to(Ym.device)
 
         # State estimation loop on past data
-        for ym, u, d in zip(Ym, U, D):
+        for ym, u, d in zip(Ym, U[:len(Ym)], D[:len(Ym)]):
             # PREDICT STEP:
             x = self.model.fx(x) + self.model.fu(u) + self.model.fd(d)
             y = self.model.fy(x)
@@ -119,13 +118,11 @@ class LinearKalmanFilter(nn.Module):
 class ExtendedKalmanFilter(nn.Module):
     """
     Extended = Kalman Filter
+    TODO: Implement extended Kalman filter
     """
     pass
 
-
-
 estimators = [FullyObservable, LinearEstimator, MLPEstimator, RNNEstimator]
-
 
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 3
@@ -136,26 +133,26 @@ if __name__ == '__main__':
     U = torch.rand(N, samples, nu)
     D = torch.rand(N, samples, nd)
 
-    for est in estimators:
-        e = est(ny, 15)
-        e_out = e(Y, U, D)
-        print(e_out[0].shape, e_out[1].shape)
-        e = est(ny, 3)
-        e_out = e(Y, U, D)
-        print(e_out[0].shape, e_out[1].shape)
-        # TODO: error in some linear maps
-        # for lin in set(linear.maps) - linear.square_maps:
-        #     e = est(ny, 15, False, lin)
-        #     e_out = e(Y, U, D)
-        #     print(e_out[0].shape, e_out[1].shape)
-        #     e = est(ny, 3, False, lin)
-        #     e_out = e(Y, U, D)
-        #     print(e_out[0].shape, e_out[1].shape)
+    for bias in [True, False]:
+        for est in estimators:
+            e = est(ny, 15)
+            e_out = e(Y, U, D)
+            print(e_out[0].shape, e_out[1].shape)
+            e = est(ny, 3)
+            e_out = e(Y, U, D)
+            print(e_out[0].shape, e_out[1].shape)
+            for lin in set(linear.maps.values()) - linear.square_maps:
+                e = est(ny, 15, bias=bias, Linear=lin)
+                e_out = e(Y, U, D)
+                print(e_out[0].shape, e_out[1].shape)
+                e = est(ny, 3, bias=bias, Linear=lin)
+                e_out = e(Y, U, D)
+                print(e_out[0].shape, e_out[1].shape)
 
     fx, fu, fd = [linear.Linear(insize, nx) for insize in [nx, nu, nd]]
     fy = linear.Linear(nx, ny)
     model = BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
-    est = LinearKalmanFilter(model)
+    est = LinearKalmanFilter(nx, ny, model=model)
     est_out = est(Y, U, D)
     print(est_out[0].shape, est_out[1].shape)
 

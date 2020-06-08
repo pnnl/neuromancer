@@ -49,6 +49,7 @@ import matplotlib
 # matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.gridspec import GridSpec
 # ml imports
 import mlflow
 import torch
@@ -63,10 +64,10 @@ import ssm
 import estimators
 import policies
 import loops
-import linear
+import nlinear as linear
 import blocks
+import emulators
 import rnn
-# import emulators
 
 
 def parse_args():
@@ -76,7 +77,7 @@ def parse_args():
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
     opt_group.add_argument('-epochs', type=int, default=200)
-    opt_group.add_argument('-lr', type=float, default=0.003,
+    opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
     #################
@@ -95,12 +96,10 @@ def parse_args():
     model_group.add_argument('-loop', type=str,
                              choices=['open', 'closed'], default='open')
     model_group.add_argument('-ssm_type', type=str, choices=['GT', 'BlockSSM', 'BlackSSM'], default='BlockSSM')
-    model_group.add_argument('-nx_hidden', type=int, default=10, help='Number of hidden states per output')
+    model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
-    model_group.add_argument('-linear_map', type=str,
-                             choices=['pf', 'spectral', 'linear', 'softSVD', 'sparse', 'split_linear'], default='softSVD')
-    # TODO: spectral is quite expensive softSVD is much faster
+    model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()), default='linear')
     model_group.add_argument('-nonlinear_map', type=str,
                              choices=['mlp', 'rnn', 'linear', 'residual_mlp', 'sparse_residual_mlp'], default='residual_mlp')
     model_group.add_argument('-nonlin', type=str,
@@ -109,12 +108,11 @@ def parse_args():
 
     ##################
     # Weight PARAMETERS
-    weight_group = parser.add_argument_group('WEIGHT PARAMETERS') # TODO: These are not doing anything
-    weight_group.add_argument('-constrained', action='store_true', help='Whether to use constraints in the neural network models.')
-    weight_group.add_argument('-Q_con_u', type=float,  default=0.2, help='Relative penalty on hidden input constraints.')
-    weight_group.add_argument('-Q_con_x', type=float,  default=0.2, help='Relative penalty on hidden state constraints.')
-    weight_group.add_argument('-Q_dx_ud', type=float,  default=0.2, help='Relative penalty on maximal influence of u and d on hidden state in one time step.')
-    weight_group.add_argument('-Q_dx', type=float,  default=0.2, help='Relative penalty on hidden state difference in one time step.')
+    weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
+    weight_group.add_argument('-Q_con_u', type=float,  default=0.0, help='Relative penalty on hidden input constraints.')
+    weight_group.add_argument('-Q_con_x', type=float,  default=0.0, help='Relative penalty on hidden state constraints.')
+    weight_group.add_argument('-Q_dx_ud', type=float,  default=0.0, help='Relative penalty on maximal influence of u and d on hidden state in one time step.')
+    weight_group.add_argument('-Q_dx', type=float,  default=0.0, help='Relative penalty on hidden state difference in one time step.')
     weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Relative penalty linear maps regularization.')
     weight_group.add_argument('-Q_y', type=float,  default=1e0, help='Relative penalty on output tracking.')
 
@@ -124,7 +122,7 @@ def parse_args():
     log_group = parser.add_argument_group('LOGGING PARAMETERS')
     log_group.add_argument('-savedir', type=str, default='test',
                            help="Where should your trained model and plots be saved (temp)")
-    log_group.add_argument('-verbosity', type=int, default=1000,
+    log_group.add_argument('-verbosity', type=int, default=100,
                            help="How many epochs in between status updates")
     log_group.add_argument('-exp', default='test',
                            help='Will group all run under this experiment name.')
@@ -147,6 +145,7 @@ def step(loop, data):
         U_pred = Uf
         criterion = torch.nn.MSELoss()
         loss = criterion(Y_pred.squeeze(), Yf.squeeze())
+
     elif type(loop) is loops.ClosedLoop:
         Yp, Yf, Up, Dp, Df, Rf = data
         X_pred, Y_pred, U_pred, reg_error = loop(Yp, Up, Dp, Df, Rf)
@@ -158,10 +157,68 @@ def step(loop, data):
     return loss, reg_error, X_pred, Y_pred, U_pred
 
 
-if __name__ == '__main__':
-    ####################################
-    ###### LOGGING SETUP ###############
-    ####################################
+class Animator:
+
+    def __init__(self, Y, data, loop):
+        self.data = [d.transpose(0, 1).reshape(1, -1, d.shape[-1]).transpose(0, 1)
+                     if d is not None else d for d in data]
+        self.loop = loop
+        nsteps, ny = Y.shape
+        plt.style.use('dark_background')
+        self.fig = plt.figure(constrained_layout=True)
+        gs = GridSpec(nrows=1+ny, ncols=2, figure=self.fig, width_ratios=[1,1],
+                                  height_ratios=[5] + [1]*ny)
+        self.eigax = self.fig.add_subplot(gs[0, 1])
+        self.eigax.set_title('State Transition Matrix Eigenvalues')
+        self.eigax.set_ylim(-1.1, 1.1)
+        self.eigax.set_xlim(-1.1, 1.1)
+        self.eigax.set_aspect(1)
+
+        self.matax = self.fig.add_subplot(gs[0, 0])
+        self.matax.axis('off')
+        self.matax.set_title('State Transition Matrix')
+
+        self.trjax = [self.fig.add_subplot(gs[k, :]) for k in range(1, ny+1)]
+        for row, ax in enumerate(self.trjax):
+            ax.set(xlim=(0, nsteps),
+                   ylim=(0, 75))
+            ax.set_ylabel(f'y_{row}', rotation=0, labelpad=20)
+            t, = ax.plot([], [], label='True', c='c')
+            p, = ax.plot([], [], label='Pred', c='m')
+            ax.tick_params(labelbottom=False)
+            ax.set_aspect(8)
+        self.trjax[-1].set_xlabel('Time')
+        self.trjax[-1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
+                              fancybox=True, shadow=True, ncol=2)
+        Writer = animation.writers['ffmpeg']
+        self.writer = Writer(fps=15, metadata=dict(artist='Aaron Tuor'), bitrate=1800)
+        self.ims = []
+
+    def update_traj(self):
+        with torch.no_grad():
+            openloss, reg_error, X_out, Y_out, U_out = step(self.loop, self.data)
+            Y_target = self.data[1]
+            Yt = Y_target.squeeze().detach().cpu().numpy()
+            Yp = Y_out.squeeze().detach().cpu().numpy()
+            plots = []
+            for k, ax in enumerate(self.trjax):
+                plots.append(ax.plot(Yt[:, k], c='c', label=f'True')[0])
+                plots.append(ax.plot(Yp[:, k], c='m', label=f'Pred')[0])
+            return plots
+
+    def __call__(self):
+            mat = self.loop.model.fx.effective_W().detach().cpu().numpy()
+            w, v = LA.eig(mat)
+            self.ims.append([self.matax.imshow(mat),
+                             self.eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))] +
+                             self.update_traj())
+
+    def make_and_save(self, filename):
+        eig_ani = animation.ArtistAnimation(self.fig, self.ims, interval=50, repeat_delay=3000)
+        eig_ani.save(filename, writer=self.writer)
+
+
+def setup():
     args = parse_args()
     os.system(f'mkdir {args.savedir}')
     if args.mlflow:
@@ -171,40 +228,22 @@ if __name__ == '__main__':
     params = {k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)}
     if args.mlflow:
         mlflow.log_params(params)
-
-    ###############################
-    ####### PLOTTING SETUP
-    ###############################
-    # Set up formatting for the movie files
-    plt.style.use('dark_background')
-    Writer = animation.writers['ffmpeg']
-    eigwriter = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
-    eigfig, (eigax, matax) = plt.subplots(nrows=1, ncols=2)
-    matax.axis('off')
-    matax.set_title('State Transition Matrix $A$')
-    eigax.set_title('$A$ Matrix Eigenvalues')
-    eigfig.suptitle(f'{args.linear_map} Linear Parameter Evolution during Training')
-    eigax.set_ylim(-1.1, 1.1)
-    eigax.set_xlim(-1.1, 1.1)
-    eigax.set_aspect(1)
-    mat_ims = []
-    eig_ims = []
-
-    ####################################
-    ###### DATA SETUP ##################
-    ####################################
     device = 'cpu'
     if args.gpu is not None:
         device = f'cuda:{args.gpu}'
+    return args, device
 
-    if args.system_data is 'datafile':
+
+def data_setup(args, device):
+
+    if args.system_data == 'datafile':
         Y, U, D, Ts = dataset.Load_data_sysID(args.datafile)  # load data from file
         plot.pltOL(Y, U=U, D=D)
-    elif args.system_data is 'emulator':
+    elif args.system_data == 'emulator':
         #  dataset creation from the emulator
         ninit = 0
         nsim = 1000
-        building = emulators.Building_hf()  # instantiate building class
+        building = emulators.Building_hf_ROM()  # instantiate building class
         building.parameters()  # load model parameters
         M_flow = emulators.Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min,
                                     form='sin')
@@ -230,6 +269,7 @@ if __name__ == '__main__':
         test_data = [dataset.split_train_test_dev(data)[2] for data in [Yp, Yf, Up, Dp, Df, Rf]]
 
     nx, ny = Y.shape[1]*args.nx_hidden, Y.shape[1]
+    print(ny)
     if U is not None:
         nu = U.shape[1]
     else:
@@ -239,20 +279,16 @@ if __name__ == '__main__':
     else:
         nd = 0
 
-    ####################################################
-    #####        OPEN / CLOSED LOOP MODEL           ####
-    ####################################################
-    linmap = {'linear': linear.Linear,
-              'spectral': linear.SpectralLinear,
-              'softSVD': linear.SVDLinear,
-              'pf': linear.PerronFrobeniusLinear,
-              'sparse': linear.LassoLinear,
-              'split_linear': linear.StableSplitLinear}[args.linear_map]
+    return train_data, dev_data, test_data, nx, ny, nu, nd, Y, [Yp, Yf, Up, Dp, Df]
+
+
+def model_setup(args, device, nx, ny, nu, nd):
+    linmap = linear.maps[args.linear_map]
     nonlinmap = {'linear': linmap,
-              'mlp': blocks.MLP,
-              'rnn': blocks.RNN,
-              'residual_mlp': blocks.ResMLP,
-              'sparse_residual_mlp': blocks.ResMLP}[args.nonlinear_map]
+                 'mlp': blocks.MLP,
+                 'rnn': blocks.RNN,
+                 'residual_mlp': blocks.ResMLP,
+                 'sparse_residual_mlp': blocks.ResMLP}[args.nonlinear_map]
 
     fx = linmap(nx, nx, bias=args.bias).to(device)
     if args.ssm_type == 'BlockSSM':
@@ -277,19 +313,14 @@ if __name__ == '__main__':
             fd = None
         model = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd).to(device)
 
-        if args.constrained:
-            model.Q_dx, model.Q_dx_ud, model.Q_con_x, model.Q_con_u, model.Q_sub = \
-                args.Q_dx, args.Q_dx_ud, args.Q_con_x, args.Q_con_u, args.Q_sub
-
     elif args.ssm_type == 'BlackSSM':
         fxud = nonlinmap(nx + nu + nd, nx, hsizes=[nx] * 3,
                             bias=args.bias, Linear=linmap, skip=1).to(device)
         fy = Linear(nx, ny, bias=args.bias).to(device)
         model = ssm.BlackSSM(nx, nu, nd, ny, fxud, fy).to(device)
 
-        if args.constrained:
-            model.Q_dx, model.Q_con_x, model.Q_con_u, model.Q_sub = \
-                args.Q_dx, args.Q_con_x, args.Q_con_u, args.Q_sub
+    model.Q_dx, model.Q_dx_ud, model.Q_con_x, model.Q_con_u, model.Q_sub = \
+        args.Q_dx, args.Q_dx_ud, args.Q_con_x, args.Q_con_u, args.Q_sub
 
     # TODO: dict
     if args.state_estimator == 'linear':
@@ -318,10 +349,15 @@ if __name__ == '__main__':
     nweights = sum([i.numel() for i in list(loop.parameters()) if i.requires_grad])
     if args.mlflow:
         mlflow.log_param('Parameters', nweights)
+    return model, loop
 
-    ####################################
-    ######OPTIMIZATION SETUP
-    ####################################
+
+def main():
+    args, device = setup()
+    train_data, dev_data, test_data, nx, ny, nu, nd, Y, data = data_setup(args, device)
+    # eigfig, eigwriter, eigax, matax, trjax, eigims = plot_setup(Y)
+    model, loop = model_setup(args, device, nx, ny, nu, nd)
+    anime = Animator(Y, data, loop)
     optimizer = torch.optim.AdamW(loop.parameters(), lr=args.lr)
 
     #######################################
@@ -363,18 +399,20 @@ if __name__ == '__main__':
                   f'\tbestopen: {best_openloss.item():10.8f}\teltime: {elapsed_time:5.2f}s')
 
             if args.make_movie:
-                with torch.no_grad():
-                    mat = fx.effective_W().detach().cpu().numpy()
-                    w, v = LA.eig(mat)
-                    eig_ims.append([matax.imshow(mat), eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))])
+                anime()
+                # with torch.no_grad():
+                #     mat = fx.effective_W().detach().cpu().numpy()
+                #     w, v = LA.eig(mat)
+                #     eigims.append([matax.imshow(mat),
+                #                    eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))] +
+                #                    update_traj([Yp, Yf, Up, Uf, Dp, Df], loop, trjax))
 
         optimizer.zero_grad()
         loss += train_reg.squeeze()
         loss.backward()
         optimizer.step()
     if args.make_movie:
-        eig_ani = animation.ArtistAnimation(eigfig, eig_ims, interval=50, repeat_delay=3000)
-        eig_ani.save(os.path.join(args.savedir, f'{args.linear_map}2_transition_matrix.mp4'), writer=eigwriter)
+        anime.make_and_save(os.path.join(args.savedir, f'{args.linear_map}2_transition_matrix.mp4'))
 
     plt.style.use('classic')
     with torch.no_grad():
@@ -399,10 +437,6 @@ if __name__ == '__main__':
         #  TODO: double check open loop evaluation
         Ytrue, Ypred, Upred = [], [], []
         for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
-            # dset[0].shape
-            # Out[11]: torch.Size([1, 80, 2])
-            # data[0].shape
-            # Out[12]: torch.Size([1, 80, 2])
             data = [d.transpose(0, 1).reshape(1, -1, d.shape[-1]) if d is not None else d for d in dset]
             data = [d.transpose(0, 1) if d is not None else d for d in data]
             openloss, reg_error, X_out, Y_out, U_out = step(loop, data)

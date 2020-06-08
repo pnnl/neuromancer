@@ -23,6 +23,7 @@ from rnn import RNN, RNNCell
 class StaticPolicy(nn.Module):
     pass
 
+
 class LinearPolicy(nn.Module):
     def __init__(self, nx, nu, nd, ny, N=1, bias=False,
                  Linear=linear.Linear, **linargs):
@@ -72,7 +73,6 @@ class MLPPolicy(nn.Module):
         return self.net(xi), self.reg_error()
 
 
-
 class RNNPolicy(nn.Module):
     def __init__(self, nx, nu, nd, ny, N=1, bias=False, num_layers=1,
                  nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
@@ -95,7 +95,6 @@ class RNNPolicy(nn.Module):
 # similar structure to Linear Kalman Filter
 class LQRPolicy(nn.Module):
     pass
-
 
 
 policies = [LinearPolicy, MLPPolicy, RNNPolicy]

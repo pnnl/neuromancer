@@ -1,3 +1,7 @@
+"""
+Run this script on a gpu machine prior to dispatching an experiment
+to avoid dispatching headaches
+"""
 import os
 
 gpu='cpu'
@@ -10,7 +14,7 @@ datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
                  './datasets/NLIN_MIMO_CSTR/NLIN_MIMO_CSTR2.mat',
                  './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']
 
-systems = ['tank','vehicle3','reactor','aero']
+systems = ['tank', 'vehicle3', 'reactor', 'aero']
 ssm_type=['BlockSSM', 'BlackSSM']
 nx_hidden=10
 state_estimator='rnn'
@@ -31,7 +35,7 @@ for path, system in zip(datapaths, systems):
     for nonlinear in nonlinear_map:
         for bias in ['-bias', '']:
             os.system(f'python train.py -datafile {path} -ssm_type BlackSSM '
-                          f'-nonlinear_map {nonlinear} -state_estimator rnn {bias} -epochs {epochs}')
+                      f'-nonlinear_map {nonlinear} -state_estimator rnn {bias} -epochs {epochs}')
             print(bias + nonlinear)
 
 

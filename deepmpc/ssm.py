@@ -268,15 +268,12 @@ if __name__ == '__main__':
     fy = blocks.MLP(nx, ny, hsizes=[64, 64, 64])
     model = BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
     output = model(x, U, D)
-    print(output[0].shape, output[1].shape, output[2])
     # black box SSM
     fxud = blocks.MLP(nx+nu+nd, nx, hsizes=[64, 64, 64])
     fy = linear.Linear(nx, ny)
     model = BlackSSM(nx, nu, nd, ny, fxud, fy)
     output = model(x, U, D)
-    print(output[0].shape, output[1].shape, output[2])
     fxud = blocks.RNN(nx + nu + nd, nx, hsizes=[64, 64, 64])
     model = BlackSSM(nx, nu, nd, ny, fxud, fy)
     output = model(x, U, D)
-    print(output[0].shape, output[1].shape, output[2])
 

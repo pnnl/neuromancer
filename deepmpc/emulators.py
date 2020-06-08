@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import numdifftools as nd
 import plot
+import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 import gym
 import control
@@ -814,14 +815,85 @@ class Building_hf_ROM(Building_hf):
         self.D = file['disturb']  # pre-defined disturbance profiles
 
 
-"""
-Stochastic ODEs
+class Building_hf_Small(EmulatorBase):
+    def __init__(self):
+        super().__init__()
 
-https://en.wikipedia.org/wiki/Langevin_equation
-"""
+    def control_profile_DAE(self, m_nominal_max=500, m_nominal_min=0,
+                            dT_nominal_max=20, dT_nominal_min=-10, samples_day=288,
+                            sim_days=7):
+        """
+        m_nominal_max: maximal nominal mass flow l/h
+        m_nominal_min: minimal nominal mass flow
+        """
+        #    mass flow
+        m_flow_day = m_nominal_min + m_nominal_max * (
+                    0.5 + 0.5 * np.sin(np.arange(0, 2 * np.pi, 2 * np.pi / samples_day)))  # daily control profile
+        M_flow = np.tile(m_flow_day, sim_days).reshape(-1, 1)  # samples_day*sim_days
+        #    delta T
+        dT_day = dT_nominal_min + (dT_nominal_max - dT_nominal_min) * (
+                    0.5 + 0.5 * np.cos(np.arange(0, 2 * np.pi, 2 * np.pi / samples_day)))  # daily control profile
+        DT = np.tile(dT_day, sim_days).reshape(-1, 1)
+        return M_flow, DT
 
+    def parameters(self, file='./emulators/buildings/disturb.mat'):
+        self.A = np.matrix([[0.9950, 0.0017, 0.0000, 0.0031], [0.0007, 0.9957, 0.0003, 0.0031],
+                            [0.0000, 0.0003, 0.9834, 0.0000], [0.2015, 0.4877, 0.0100, 0.2571]])
+        self.B = np.matrix([[1.7586e-06], [1.7584e-06],
+                            [1.8390e-10], [5.0563e-04]])
+        self.E = np.matrix([[0.0002, 0.0000, 0.0000], [0.0002, 0.0000, 0.0000],
+                            [0.0163, 0.0000, 0.0000], [0.0536, 0.0005, 0.0001]])
+        self.C = np.matrix([[0.0, 0.0, 0.0, 1.0]])
+        self.x = 20 * np.ones(4, dtype=np.float32)
+        #         heat flow equation constants
+        self.rho = 0.997  # density  of water kg/1l
+        self.cp = 4185.5  # specific heat capacity of water J/(kg/K)
+        self.time_reg = 1 / 3600  # time regularization of the mass flow 1 hour = 3600 seconds
 
+        self.dT_max = 40  # maximal temperature difference deg C
+        self.dT_min = 0  # minimal temperature difference deg C
 
+        # problem dimensions
+        self.nx = 4
+        self.ny = 1
+        self.nu = self.B.shape[1]
+        self.nd = self.E.shape[1]
+        self.n_mf = self.B.shape[1]
+        self.n_dT = 1
+        self.mf_max = 500  # maximal nominal mass flow l/h
+        self.mf_min = 0  # minimal nominal mass flow l/h
+        self.dT_max = 40  # maximal temperature difference deg C
+        self.dT_min = 0  # minimal temperature difference deg C
+        # initial conditions and disturbance profiles
+        self.x0 = 0 * np.ones(self.nx, dtype=np.float32)  # initial conditions
+        self.D = loadmat(file)['D'].T # pre-defined disturbance profiles
+        M_flow, DT = self.control_profile_DAE()
+        self.U = self.equations(M_flow, DT)
+        print('U', self.U.shape)
+
+    def equations(self, m_flow, dT):
+        U = m_flow * self.rho * self.cp * self.time_reg * dT
+        return U
+
+    def simulate(self, ninit, nsim, M_flow, DT, D):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param U: (ndarray, shape=(nsim, self.nu)) Control profile matrix
+        :param D: (ndarray, shape=(nsim, self.nd)) Disturbance matrix
+        :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
+        :return: The response matrices are aligned, i.e. X[k] is the state of the system that Y[k] is indicating
+        """
+        Y = np.zeros((nsim, 1))  # output trajectory placeholders
+        X = np.zeros((nsim + 1, 4))
+        X[0] = 20 * np.ones(4, dtype=np.float32)
+        for k in range(nsim):
+            Y[k] = self.C * np.asmatrix(X[k]).T
+            d = np.asmatrix(D[k]).T
+            u = np.asmatrix(self.U[k]).T
+            x = self.A * np.asmatrix(X[k]).T + self.B * u + self.E * d
+            X[k + 1] = x.flatten()
+        print(X.shape, Y.shape)
+        return self.U[:nsim], X, Y
 """
 Linear PDEs
 """
@@ -1223,6 +1295,7 @@ def WhiteNoise(nx=1, nsim=100, xmax=1, xmin=0):
         signal = xmin[k] + (xmax[k] - xmin[k])*np.random.rand(nsim)
         Signal.append(signal)
     return np.asarray(Signal).T
+
 
 def Step(nx=1, nsim=100, tstep = 50, xmax=1, xmin=0):
     """

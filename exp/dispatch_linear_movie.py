@@ -36,7 +36,7 @@ os.system('mkdir %s' % args.exp_folder)
 # Block SSM without bias, vehicle, basic nlin options
 datapaths = ['./datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']
 systems = ['aero']
-linear_map=['pf', 'linear', 'softSVD', 'sparse']
+linear_map=['pf', 'linear', 'softSVD', 'sparse', 'spectral']
 nonlinear_map= ['sparse_residual_mlp']
 for linear in linear_map:
     for path, system in zip(datapaths, systems):

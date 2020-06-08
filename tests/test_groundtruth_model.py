@@ -1,3 +1,11 @@
+"""
+Checking the data batching against the ground truth model generation is
+a good sanity check for both the alignment of the data batching and
+the output of the ground truth models.
+
+TODO: Update ro reflect the new refactored code
+TODO: Generalize to multiple emulators
+"""
 from data import BuildingDAE, disturbance, control_profile_DAE
 from ssm import SSMGroundTruth
 import numpy as np

@@ -1,5 +1,10 @@
+"""
+Here is the numpy version from the original tensorflow implementation.
+https://github.com/zhangjiong724/spectral-RNN/blob/master/code/spectral_rnn.py
+This script was used to test our pytorch implementation against the original.
+"""
 import numpy as np
-from linear import GeneralSpectralLinear
+from deepmpc.linear import SpectralLinear
 import torch
 
 
@@ -82,8 +87,7 @@ def Umultiply(x, U):
 
 
 if __name__ == '__main__':
-    # tlin = GeneralSpectralLinear(3, 3, reflector_size=3)
-    tlin = GeneralSpectralLinear(4, 3, bias=False, n_U_reflectors=3, n_V_reflectors=3, sigma_min=.9, sigma_max=1.1)
+    tlin = SpectralLinear(4, 3, bias=False, n_U_reflectors=3, n_V_reflectors=3, sigma_min=.9, sigma_max=1.1)
 
     tx = torch.randn(6, 4)
     Sigma = np.ones((1, 3))

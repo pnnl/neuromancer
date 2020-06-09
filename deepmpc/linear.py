@@ -395,6 +395,7 @@ class SpectralLinear(LinearBase):
 class SymplecticLinear(SquareLinear):
     """
     https://en.wikipedia.org/wiki/Symplectic_matrix
+    https://arxiv.org/abs/1705.03341
     """
 
     def __init__(self, insize, outsize, bias=False, **kwargs):

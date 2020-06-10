@@ -679,36 +679,36 @@ class LogisticGrowth(EmulatorBase):
 
 
 
-class Building_hf(EmulatorBase):
+class BuildingEnvelope(EmulatorBase):
     """
-    building heat transfer model with linear state dynamics and bilinear heat flow input dynamics
-    represents building envelope with radiator for zone heating
+    building envelope heat transfer model
+    linear building envelope dynamics and bilinear heat flow input dynamics
     parameters obtained from the original white-box model from Modelica
+    different building type parameters are stored in ./emulators/buildings/*.mat
     """
     def __init__(self):
         super().__init__()
 
     # parameters of the dynamical system
-    def parameters(self, file_path='./emulators/buildings/Reno_model_for_py.mat'):
+    def parameters(self, file_path='./emulators/buildings/Reno_full.mat'):
         file = loadmat(file_path)
 
         #  LTI SSM model
         self.A = file['Ad']
         self.B = file['Bd']
         self.C = file['Cd']
-        self.D = file['Dd']
         self.E = file['Ed']
         self.G = file['Gd']
         self.F = file['Fd']
         #  constraints bounds
         self.Ts = file['Ts']  # sampling time
-        self.TSup = file['TSup']  # supply temperature
-        self.umax = file['umax']  # max heat per zone
-        self.umin = file['umin']  # min heat per zone
-        self.mf_max = self.umax / 20  # maximal nominal mass flow l/h
-        self.mf_min = self.umin / 20  # minimal nominal mass flow l/h
-        self.dT_max = 40  # maximal temperature difference deg C
-        self.dT_min = 0  # minimal temperature difference deg C
+        # self.TSup = file['TSup']  # supply temperature
+        self.umax = file['umax'].squeeze()  # max heat per zone
+        self.umin = file['umin'].squeeze() # min heat per zone
+        self.dT_max = file['dT_max']  # maximal temperature difference deg C
+        self.dT_min = file['dT_min'] # minimal temperature difference deg C
+        self.mf_max = file['mf_max'].squeeze()  # maximal nominal mass flow l/h
+        self.mf_min = file['mf_min'].squeeze() # minimal nominal mass flow l/h
         #         heat flow equation constants
         self.rho = 0.997  # density  of water kg/1l
         self.cp = 4185.5  # specific heat capacity of water J/(kg/K)
@@ -719,10 +719,16 @@ class Building_hf(EmulatorBase):
         self.nu = self.B.shape[1]
         self.nd = self.E.shape[1]
         self.n_mf = self.B.shape[1]
-        self.n_dT = 1
+        self.n_dT = self.dT_max.shape[0]
         # initial conditions and disturbance profiles
         self.x0 = 0 * np.ones(self.nx, dtype=np.float32)  # initial conditions
         self.D = file['disturb'] # pre-defined disturbance profiles
+        #  steady states - linearization offsets
+        self.x_ss = file['x_ss']
+        self.y_ss = file['y_ss']
+        # building type
+        self.type = file['type']
+        self.HC_system = file['HC_system']
 
     # equations defining single step of the dynamical system
     def equations(self, x, m_flow, dT, d):
@@ -756,63 +762,11 @@ class Building_hf(EmulatorBase):
             N += 1
             u, x, y = self.equations(x, m_flow, dT, d)
             U.append(u)
-            X.append(x + 20)  # updated states trajectories with initial condition 20 deg C of linearization
-            Y.append(y - 273.15)  # updated input trajectories from K to deg C
+            X.append(x + self.x_ss)  # updated states trajectories with initial condition 20 deg C of linearization
+            Y.append(y - self.y_ss)  # updated input trajectories from K to deg C
             if N == nsim:
                 break
-        return np.asarray(U), np.asarray(X), np.asarray(Y)
-
-# TODO: generate multiple files, make just one building_thermal model
-class Building_hf_ROM(Building_hf):
-    """
-    Reduced order building heat transfer model with linear
-    state dynamics and bilinear heat flow input dynamics
-    represents building envelope with radiator for zone heating
-    parameters obtained from the original white-box model from Modelica
-    discrete time state space model form:
-    x_{k+1} = A x_k + B u_k + E d_k
-    u_k = a_k H b_k
-    y_k = C x_k
-    """
-    def __init__(self):
-        super().__init__()
-
-    # parameters of the dynamical system
-    def parameters(self, file_path='./emulators/buildings/Reno_model_for_py.mat'):
-        super().parameters(file_path)
-        file = loadmat(file_path)
-        #  LTI SSM model
-        self.A = file['Ad_ROM']
-        self.B = file['Bd_ROM']
-        self.C = file['Cd_ROM']
-        self.D = file['Dd_ROM']
-        self.E = file['Ed_ROM']
-        self.G = file['Gd_ROM']
-        self.F = file['Fd_ROM']
-
-        #  constraints bounds
-        self.Ts = file['Ts']  # sampling time
-        self.TSup = file['TSup']  # supply temperature
-        self.umax = file['umax']  # max heat per zone
-        self.umin = file['umin']  # min heat per zone
-        self.mf_max = self.umax / 20  # maximal nominal mass flow l/h
-        self.mf_min = self.umin / 20  # minimal nominal mass flow l/h
-        self.dT_max = 40  # maximal temperature difference deg C
-        self.dT_min = 0  # minimal temperature difference deg C
-        #         heat flow equation constants
-        self.rho = 0.997  # density  of water kg/1l
-        self.cp = 4185.5  # specific heat capacity of water J/(kg/K)
-        self.time_reg = 1 / 3600  # time regularization of the mass flow 1 hour = 3600 seconds
-        # problem dimensions
-        self.nx = self.A.shape[0]
-        self.ny = self.C.shape[0]
-        self.nu = self.B.shape[1]
-        self.nd = self.E.shape[1]
-        self.n_mf = self.B.shape[1]
-        self.n_dT = 1
-        # initial conditions and disturbance profiles
-        self.x0 = 0 * np.ones(self.nx, dtype=np.float32)  # initial conditions
-        self.D = file['disturb']  # pre-defined disturbance profiles
+        return np.asarray(U).squeeze(), np.asarray(X).squeeze(), np.asarray(Y).squeeze()
 
 
 class Building_hf_Small(EmulatorBase):
@@ -1376,9 +1330,9 @@ if __name__ == '__main__':
 
     # building model
     ninit = 0
-    nsim = 1000
-    building = Building_hf()   # instantiate building class
-    building.parameters()      # load model parameters
+    nsim = 1200
+    building = BuildingEnvelope()   # instantiate building class
+    building.parameters('./emulators/buildings/HollandschHuys_full.mat')      # load model parameters
     # generate input data
     M_flow = Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min, form='sin')
     DT = Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min, form='cos')

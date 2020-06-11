@@ -232,14 +232,6 @@ def data_setup(args, device):
     plt.savefig('test.png')
     # system ID or time series dataset
     dataset = make_dataset_ol(Y, U, D, nsteps=args.nsteps, device=device)
-
-    # Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=args.nsteps, device=device)
-    #
-    # dataset = []
-    # for data in [Yp, Yf, Up, Uf, Dp, Df]:
-    #     # if data is not None:
-    #     #     dataset.append(data)
-
     train_data = [split_train_test_dev(data)[0] for data in dataset]
     dev_data = [split_train_test_dev(data)[1] for data in dataset]
     test_data = [split_train_test_dev(data)[2] for data in dataset]
@@ -299,25 +291,5 @@ if __name__ == '__main__':
         device = 'cpu'
 
         train_data, dev_data, test_data, nx, ny, nu, nd = data_setup(args, device)
-
-
-
-    # datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
-    #              # './datasets/NLIN_SISO_predator_prey/PredPreyCrowdingData.mat',
-    #              # './datasets/NLIN_TS_pendulum/NLIN_TS_Pendulum.mat',
-    #              './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
-    #              './datasets/NLIN_MIMO_CSTR/NLIN_MIMO_CSTR2.mat',
-    #              './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']
-    #
-    # for name, path in zip(['twotank', 'vehicle', 'reactor', 'aero'], datapaths):
-    #     Y, U, D = load_data_from_matlab(path)
-    #     plot.pltOL(Y, U=U, D=D, figname='test.png')
-    #
-    #     Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=32, device='cpu')
-    #     plot.pltOL(np.concatenate([Yp[:, k, :] for k in range(Yp.shape[1])])[:1000],
-    #                Ytrain=np.concatenate([Yf[:, k, :] for k in range(Yf.shape[1])])[:1000], figname=f'{name}_align_test.png')
-    #
-    #     R = np.ones(Y.shape)
-    #     Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=5, device='cpu')
 
 

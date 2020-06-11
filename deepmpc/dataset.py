@@ -42,10 +42,13 @@ def load_data_from_matlab(file_path='./datasets/NLIN_SISO_two_tank/NLIN_two_tank
 def load_data_from_emulator(system='building_small', nsim=1000, ninit=0):
     #  dataset creation from the emulator
     systems = {'building_small': emulators.Building_hf_Small,
-               'building_ROM': emulators.Building_hf_ROM,
-               'building_large': emulators.Building_hf}
+               'building_ROM': emulators.BuildingEnvelope,
+               'building_large': emulators.BuildingEnvelope}
+    datafiles = {'building_small': './emulators/buildings/disturb.mat',
+                 'building_ROM': './emulators/buildings/Reno_ROM40.mat',
+                 'building_large': './emulators/buildings/Reno_full.mat'}
     building = systems[system]()  # instantiate building class
-    building.parameters()  # load model parameters
+    building.parameters(file_path=datafiles[system])  # load model parameters
     M_flow = emulators.Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min,
                                 form='sin')
     DT = emulators.Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min,
@@ -179,19 +182,23 @@ if __name__ == '__main__':
 #   TESTING dataset creation from the emulator
     ninit = 0
     nsim = 1000
-    building = emulators.Building_hf()   # instantiate building class
-    building.parameters()      # load model parameters
-    # generate input data
-    M_flow = emulators.Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min, form='sin')
-    DT = emulators.Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min, form='cos')
-    D = building.D[ninit:nsim,:]
-    # simulate open loop building
-    U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
-    # plot trajectories
-    plot.pltOL(Y=Y, U=U, D=D, X=X)
-    # create datasets
-    Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=12, device='cpu')
-    R = 25*np.ones(Y.shape)
-    Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=12, device='cpu')
-    print(Yp.shape, Yf.shape, Up.shape, Dp.shape, Df.shape)
+    for model, file in zip([emulators.Building_hf_Small, emulators.BuildingEnvelope, emulators.BuildingEnvelope],
+                           ['./emulators/buildings/disturb.mat',
+                            './emulators/buildings/Reno_ROM40.mat',
+                            './emulators/buildings/Reno_full.mat']):
+        building = model()   # instantiate building class
+        building.parameters(file_path=file)      # load model parameters
+        # generate input data
+        M_flow = emulators.Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min, form='sin')
+        DT = emulators.Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min, form='cos')
+        D = building.D[ninit:nsim,:]
+        # simulate open loop building
+        U, X, Y = building.simulate(ninit, nsim, M_flow, DT, D)
+        # plot trajectories
+        plot.pltOL(Y=Y, U=U, D=D, X=X)
+        # create datasets
+        Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=12, device='cpu')
+        R = 25*np.ones(Y.shape)
+        Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=12, device='cpu')
+        print(Yp.shape, Yf.shape, Up.shape, Dp.shape, Df.shape)
 

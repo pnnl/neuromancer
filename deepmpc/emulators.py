@@ -80,6 +80,7 @@ class ODE_Autonomous(EmulatorBase):
             X.append(x)  # updated states trajectories
         return np.asarray(X)
 
+
 class ODE_NonAutonomous(EmulatorBase):
     """
     base class autonomous ODE
@@ -391,6 +392,7 @@ class SEIR_population(EmulatorBase):
                 break
         return np.asarray(X)
 
+
 class Tank(EmulatorBase):
     """
     Single Tank model
@@ -452,7 +454,6 @@ class Tank(EmulatorBase):
             if N == nsim:
                 break
         return np.asarray(X)
-
 
 
 class TwoTank(EmulatorBase):
@@ -678,7 +679,6 @@ class LogisticGrowth(EmulatorBase):
         return np.asarray(X)
 
 
-
 class BuildingEnvelope(EmulatorBase):
     """
     building envelope heat transfer model
@@ -790,7 +790,7 @@ class Building_hf_Small(EmulatorBase):
         DT = np.tile(dT_day, sim_days).reshape(-1, 1)
         return M_flow, DT
 
-    def parameters(self, file='./emulators/buildings/disturb.mat'):
+    def parameters(self, file_path='./emulators/buildings/disturb.mat'):
         self.A = np.matrix([[0.9950, 0.0017, 0.0000, 0.0031], [0.0007, 0.9957, 0.0003, 0.0031],
                             [0.0000, 0.0003, 0.9834, 0.0000], [0.2015, 0.4877, 0.0100, 0.2571]])
         self.B = np.matrix([[1.7586e-06], [1.7584e-06],
@@ -820,7 +820,7 @@ class Building_hf_Small(EmulatorBase):
         self.dT_min = 0  # minimal temperature difference deg C
         # initial conditions and disturbance profiles
         self.x0 = 0 * np.ones(self.nx, dtype=np.float32)  # initial conditions
-        self.D = loadmat(file)['D'].T # pre-defined disturbance profiles
+        self.D = loadmat(file_path)['D'].T # pre-defined disturbance profiles
         M_flow, DT = self.control_profile_DAE()
         self.U = self.equations(M_flow, DT)
         print('U', self.U.shape)
@@ -867,6 +867,7 @@ Chaotic nonlinear ODEs
 
 https://en.wikipedia.org/wiki/List_of_chaotic_maps
 """
+
 
 class Lorenz96(ODE_Autonomous):
     """

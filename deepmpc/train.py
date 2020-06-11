@@ -60,9 +60,10 @@ def parse_args():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
-    data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='datafile')
-    data_group.add_argument('-datafile', default='datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat',
-                            help='source of the dataset')
+    data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='datafile',
+                            help='source type of the dataset')
+    data_group.add_argument('-system', default='aero',
+                            help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=1000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
                                  'train, dev, and test will be split evenly from contiguous, sequential, '
@@ -94,8 +95,6 @@ def parse_args():
     weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_y', type=float,  default=1.0, help='Output tracking penalty weight')
     weight_group.add_argument('-Q_e', type=float,  default=1.0, help='State estimator hidden prediction penalty weight')
-
-
 
     ####################
     # LOGGING PARAMETERS
@@ -146,24 +145,26 @@ def arg_setup():
     return args, device
 
 
-def blackbox(fx, linmap, nonlinmap, nx, nu, nd, ny):
+def blackbox(args, linmap, nonlinmap, nx, nu, nd, ny):
     fxud = nonlinmap(nx + nu + nd, nx, hsizes=[nx] * 3,
                      bias=args.bias, Linear=linmap, skip=1)
-    fy = linear.Linear(nx, ny, bias=args.bias)
+    fy = linmap(nx, ny, bias=args.bias)
     return ssm.BlackSSM(nx, nu, nd, ny, fxud, fy)
 
 
-def hammerstein(fx, linmap, nonlinmap, nx, nu, nd, ny):
-    fy = linear.Linear(nx, ny, bias=args.bias)
-    fu = nonlinmap(nu, nx, bias=args.bias, hsizes=[nx] * 2, Linear=linear.Linear, skip=1)
-    fd = linear.Linear(nd, nx)
+def hammerstein(args, linmap, nonlinmap, nx, nu, nd, ny):
+    fx = linmap(nx, nx, bias=args.bias)
+    fy = linmap(nx, ny, bias=args.bias)
+    fu = nonlinmap(nu, nx, bias=args.bias, hsizes=[nx] * 2, Linear=linmap, skip=1)
+    fd = linmap(nd, nx)
     return ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
 
 
-def hw(fx, linmap, nonlinmap, nx, nu, nd, ny):
+def hw(args, linmap, nonlinmap, nx, nu, nd, ny):
+    fx = linmap(nx, nx, bias=args.bias)
     fy = nonlinmap(nx, ny, bias=args.bias, hsizes=[nx]*2, Linear=linmap, skip=1)
     fu = nonlinmap(nu, nx, bias=args.bias, hsizes=[nx] * 2, Linear=linmap, skip=1) if nu != 0 else None
-    fd = linear.Linear(nd, nx) if nd != 0 else None
+    fd = linmap(nd, nx) if nd != 0 else None
     return ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
 
 
@@ -174,10 +175,10 @@ def model_setup(args, device, nx, ny, nu, nd):
                  'rnn': blocks.RNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
 
-    fx = linmap(nx, nx, bias=args.bias).to(device)
+    # fx = linmap(nx, nx, bias=args.bias).to(device)
     ss_model = {'blackbox': blackbox,
                 'hammerstein': hammerstein,
-                'hw': hw}[args.ssm_type](fx, linmap, nonlinmap, nx, nu, nd, ny)
+                'hw': hw}[args.ssm_type](args, linmap, nonlinmap, nx, nu, nd, ny)
 
     ss_model.Q_dx, ss_model.Q_dx_ud, ss_model.Q_con_x, ss_model.Q_con_u, ss_model.Q_sub = \
         args.Q_dx, args.Q_dx_ud, args.Q_con_x, args.Q_con_u, args.Q_sub
@@ -199,7 +200,7 @@ def model_setup(args, device, nx, ny, nu, nd):
 
 if __name__ == '__main__':
     args, device = arg_setup()
-    train_data, dev_data, test_data, nx, ny, nu, nd = dataset.data_setup(args, device)
+    train_data, dev_data, test_data, nx, ny, nu, nd = dataset.data_setup(args=args, device='cpu')
     model = model_setup(args, device, nx, ny, nu, nd)
     # Grab only first nsteps for previous observed states as input to state estimator
     data_open = [dev_data[0][:, 0:1, :]] + [dataset.unbatch_data(d) if d is not None else d for d in dev_data[1:]]

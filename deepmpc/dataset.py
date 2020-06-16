@@ -3,6 +3,7 @@ Loading system ID datasets from mat files
 """
 from scipy.io import loadmat
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import torch
 import argparse
@@ -24,27 +25,36 @@ def min_max_norm(M):
 #  frame= load_data_sysID(file_path, type='csv') AT note: better to check file extension than add argument
 #  make data generation based on pandas df as inputs
 #  Data_sysID(identifier='pandas', data_file='frame', norm)
-def load_data_from_matlab(system='aero'):
+def load_data_from_file(system='aero'):
     """
     :param file_path: path to .mat file with dataset: y,u,d,Ts
     :return:
     """
+    Y, U, D = None, None, None
+
     # list of available datasets
     systems_datapaths = {'tank': './datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
                          'vehicle3': './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
-                        'aero': './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'}
+                         'aero': './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat',
+                         'flexy_air': './datasets/Flexy_air/flexy_air_data.csv'}
 
     if system in systems_datapaths.keys():
         file_path = systems_datapaths[system]
     else:
         file_path = system
-    file = loadmat(file_path)
-    Y = file.get("y", None)  # outputs
-    U = file.get("u", None)  # inputs
-    D = file.get("d", None)  # disturbances
 
-    # Ts = file.get("Ts", None)  # sampling time
-    print(Y.shape)
+    file_type = file_path.split(".")[-1]
+    if file_type == 'mat':
+        file = loadmat(file_path)
+        Y = file.get("y", None)  # outputs
+        U = file.get("u", None)  # inputs
+        D = file.get("d", None)  # disturbances
+    elif file_type == 'csv':
+        data = pd.read_csv(file_path)
+        Y = data.filter(regex='y').values if data.filter(regex='y').values.size != 0 else None
+        U = data.filter(regex='u').values if data.filter(regex='u').values.size != 0 else None
+        D = data.filter(regex='d').values if data.filter(regex='d').values.size != 0 else None
+
     return Y, U, D
 
 def load_data_from_emulator(system='LorenzSystem', nsim=None, ninit=None, ts=None):
@@ -216,7 +226,7 @@ def make_dataset_cl(Y, U, D, R, nsteps, device):
 def data_setup(args, device):
 
     if args.system_data == 'datafile':
-        Y, U, D = load_data_from_matlab(system=args.system)  # load data from file
+        Y, U, D = load_data_from_file(system=args.system)  # load data from file
     elif args.system_data == 'emulator':
         Y, U, D = load_data_from_emulator(system=args.system, nsim=args.nsim)
 
@@ -244,24 +254,22 @@ def data_setup(args, device):
 
 
 if __name__ == '__main__':
-    datapaths = ['./datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
-                 # './datasets/NLIN_SISO_predator_prey/PredPreyCrowdingData.mat',
-                 # './datasets/NLIN_TS_pendulum/NLIN_TS_Pendulum.mat',
-                 './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
-                 './datasets/NLIN_MIMO_CSTR/NLIN_MIMO_CSTR2.mat',
-                 './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat']
 
-    for name, path in zip(['twotank', 'vehicle', 'reactor', 'aero'], datapaths):
-        Y, U, D = load_data_from_matlab(path)
+    # Load data from files
+    system_datasets = ['tank', 'vehicle3', 'aero', 'flexy_air']
+
+    for system in system_datasets:
+        Y, U, D = load_data_from_file(system)
         plot.pltOL(Y, U=U, D=D, figname='test.png')
 
         Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=32, device='cpu')
         plot.pltOL(np.concatenate([Yp[:, k, :] for k in range(Yp.shape[1])])[:1000],
-                   Ytrain=np.concatenate([Yf[:, k, :] for k in range(Yf.shape[1])])[:1000], figname=f'{name}_align_test.png')
+                   Ytrain=np.concatenate([Yf[:, k, :] for k in range(Yf.shape[1])])[:1000], figname=f'{system}_align_test.png')
 
         R = np.ones(Y.shape)
         Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=5, device='cpu')
 
+    # generate data from emulators
     systems = ['CSTR','TwoTank','LorenzSystem','Lorenz96','VanDerPol',
                'ThomasAttractor','RosslerAttractor','LotkaVolterra','Brusselator1D',
                'ChuaCircuit','Duffing','UniversalOscillator','HindmarshRose','Pendulum-v0',

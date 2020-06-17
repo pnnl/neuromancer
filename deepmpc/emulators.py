@@ -88,7 +88,7 @@ class ODE_Autonomous(EmulatorBase):
             assert x0.shape[0] == self.nx, "Mismatch in x0 size"
             x = x0
         # time interval
-        t = np.arange(0, nsim) * ts + ninit
+        t = np.arange(0, nsim+1) * ts + ninit
         X = []
         for N in range(nsim-1):
             dT = [t[N], t[N + 1]]
@@ -143,7 +143,7 @@ class ODE_NonAutonomous(EmulatorBase):
             assert x0.shape[0] == self.nx, "Mismatch in x0 size"
             x = x0
         # time interval
-        t = np.arange(0, nsim) * ts + ninit
+        t = np.arange(0, nsim+1) * ts + ninit
         X = []
         N = 0
         for u in U:
@@ -646,17 +646,20 @@ class LogisticGrowth(EmulatorBase):
         self.k = 2
         self.x0 = 1
         self.nx = 1
+        self.nsim = 1000
 
     # equations defining single step of the dynamical system
     def equations(self, x):
         pass
 
-    def simulate(self, ninit, nsim, x0=None):
+    def simulate(self, ninit=None, nsim=None, x0=None):
         """
         :param nsim: (int) Number of steps for open loop response
         :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
         :return: The response trajectories,  X
         """
+        if nsim is None:
+            nsim = self.nsim
         if x0 is None:
             x = self.x0
         else:
@@ -769,10 +772,14 @@ class BuildingEnvelope(EmulatorBase):
         :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
         :return: The response matrices, i.e. U, X, Y, for heat flows, states, and output ndarrays
         """
+
+        # default simulation setup parameters
         if ninit is None:
             ninit = self.ninit
+            warnings.warn('ninit was not defined, using default simulation setup')
         if nsim is None:
             nsim = self.nsim
+            warnings.warn('nsim was not defined, using default simulation setup')
         if x0 is None:
             x = self.x0
         else:
@@ -782,6 +789,7 @@ class BuildingEnvelope(EmulatorBase):
             D = self.D[ninit: ninit+nsim,:]
         if U is None:
             U = self.U[ninit: ninit+nsim,:]
+            warnings.warn('U was not defined, using default trajectories')
 
         Q, X, Y = [], [], []
         N = 0
@@ -1443,7 +1451,7 @@ if __name__ == '__main__':
     plot.pltPhase(X=X)
 
     #   TwoTank
-    twotank_model = TwoTank()  # instantiate CSTR class
+    twotank_model = TwoTank()  # instantiate model class
     twotank_model.parameters()  # load model parameters
     X, U = twotank_model.simulate() # simulate open loop
     # X = twotank_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U) #  example custom simulation setup
@@ -1463,7 +1471,7 @@ if __name__ == '__main__':
     pump[151:nsim - 1] = 0.2
     valve = np.zeros((nsim - 1))
     U = np.vstack([pump, valve]).T
-    tank_model = Tank()  # instantiate CSTR class
+    tank_model = Tank()  # instantiate model class
     tank_model.parameters()  # load model parameters
     # simulate open loop
     # TODO: errors
@@ -1477,7 +1485,7 @@ if __name__ == '__main__':
     ts = 1
     # Inputs that can be adjusted
     U = np.asarray([np.zeros((nsim - 1))]).T
-    seir_model = SEIR_population()  # instantiate CSTR class
+    seir_model = SEIR_population()  # instantiate model class
     seir_model.parameters()  # load model parameters
     # simulate open loop
     # X = seir_model.simulate(ninit, nsim, ts, U)
@@ -1490,7 +1498,7 @@ if __name__ == '__main__':
     ts = 0.1
     U = np.asarray([np.zeros((nsim - 1))]).T
     #  inverted pendulum
-    lcp_model = LinCartPole()  # instantiate CSTR class
+    lcp_model = LinCartPole()  # instantiate model class
     lcp_model.parameters()
     # simulate open loop
     X, Y = lcp_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U)

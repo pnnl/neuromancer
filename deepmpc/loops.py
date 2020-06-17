@@ -38,16 +38,16 @@ class OpenLoop(nn.Module):
         Y: measured outputs p (past)
         U: control inputs p (past), f (future)
         D: measured disturbances p (past), f (future)
+        nsamples: prediction horizon length
         """
         super().__init__()
         self.model = model
         self.estim = estim
         self.Q_e = Q_e
 
-    def forward(self, Yp, Up, Uf, Dp, Df):
-
+    def forward(self, Yp, Up, Uf, Dp, Df, nsamples=1):
         x0, reg_error_estim = self.estim(Yp, Up, Dp)
-        Xf, Yf, reg_error_model = self.model(x0, Uf, Df)
+        Xf, Yf, reg_error_model = self.model(x=x0, U=Uf, D=Df, nsamples=nsamples)
         # Calculate mse for smoother state estimator predictions. Last prediction of SSM for a batch should equal
         # the state estimation of the next sequential batch. Warning: This will not perform as expected
         # if batches are shuffled in SGD (we are using full GD so we are okay here.

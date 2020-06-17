@@ -129,7 +129,7 @@ class BlockSSM(nn.Module):
             if hasattr(mod, 'reset') and mod is not self:
                 mod.reset()
 
-    def forward(self, x,  U=None, D=None, nsamples=16):
+    def forward(self, x, U=None, D=None, nsamples=1):
         """
         """
         if U is not None:
@@ -225,7 +225,7 @@ class BlackSSM(nn.Module):
             if hasattr(mod, 'reset') and mod is not self:
                 mod.reset()
 
-    def forward(self, x, U = None, D = None, nsamples = 16):
+    def forward(self, x, U=None, D=None, nsamples=1):
         """
         """
         if U is not None:

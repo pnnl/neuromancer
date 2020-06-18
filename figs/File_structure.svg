@@ -178,9 +178,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.4"
-     inkscape:cx="424.88391"
-     inkscape:cy="515.77475"
+     inkscape:zoom="2.8"
+     inkscape:cx="522.06659"
+     inkscape:cy="585.34813"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -308,11 +308,11 @@
          style="font-size:24px">estimators.py</flowPara></flowRoot>    <rect
        style="opacity:0.75;fill:none;fill-opacity:1;stroke:#3232fc;stroke-width:0.5;stroke-miterlimit:4;stroke-dasharray:3,0.5;stroke-dashoffset:0;stroke-opacity:1"
        id="rect815-5"
-       width="54.33427"
-       height="58.800766"
-       x="124.4052"
-       y="143.83115"
-       ry="1.9006689" />
+       width="52.453083"
+       height="55.270454"
+       x="125.45919"
+       y="146.83664"
+       ry="1.7865555" />
     <flowRoot
        xml:space="preserve"
        id="flowRoot847-7-8"
@@ -337,14 +337,14 @@
            x="160"
            y="332.51968" /></flowRegion><flowPara
          id="flowPara853-0-7-9"
-         style="font-size:21.3333336px;fill:#3232ff;fill-opacity:1">closed loop</flowPara></flowRoot>    <rect
-       style="opacity:0.75;fill:none;fill-opacity:1;stroke:#3232fc;stroke-width:0.5;stroke-miterlimit:4;stroke-dasharray:3,0.5;stroke-dashoffset:0;stroke-opacity:1"
+         style="font-size:21.3333336px;fill:#320096;fill-opacity:1">closed loop</flowPara></flowRoot>    <rect
+       style="opacity:0.75;fill:none;fill-opacity:1;stroke:#320096;stroke-width:0.5;stroke-miterlimit:4;stroke-dasharray:3, 0.5;stroke-dashoffset:0;stroke-opacity:1"
        id="rect815-5-6"
-       width="54.468861"
-       height="31.910061"
-       x="124.3379"
-       y="111.98837"
-       ry="1.0314569" />
+       width="56.848099"
+       height="91.090424"
+       x="123.20064"
+       y="112.69297"
+       ry="2.9443958" />
     <rect
        style="opacity:0.1;fill:#3232fc;fill-opacity:1;stroke:#3232fc;stroke-width:0.29140481;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect815-2-7-1-3"

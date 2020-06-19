@@ -32,7 +32,7 @@ def load_data_from_matlab(system='aero'):
     # list of available datasets
     systems_datapaths = {'tank': './datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
                          'vehicle3': './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
-                        'aero': './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'}
+                         'aero': './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'}
 
     if system in systems_datapaths.keys():
         file_path = systems_datapaths[system]
@@ -46,6 +46,7 @@ def load_data_from_matlab(system='aero'):
     # Ts = file.get("Ts", None)  # sampling time
     print(Y.shape)
     return Y, U, D
+
 
 def load_data_from_emulator(system='LorenzSystem', nsim=None, ninit=None, ts=None):
     """
@@ -127,7 +128,7 @@ def load_data_from_emulator_building(system='building_small', nsim=1000, ninit=0
                  'building_ROM': './emulators/buildings/Reno_ROM40.mat',
                  'building_large': './emulators/buildings/Reno_full.mat'}
     building = systems[system]()  # instantiate building class
-    building.parameters(file_path=datafiles[system])  # load model parameters
+    building.parameters(datafiles[system])  # load model parameters
     M_flow = emulators.Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min,
                                 form='sin')
     DT = emulators.Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min,
@@ -218,7 +219,7 @@ def data_setup(args, device):
     if args.system_data == 'datafile':
         Y, U, D = load_data_from_matlab(system=args.system)  # load data from file
     elif args.system_data == 'emulator':
-        Y, U, D = load_data_from_emulator(system=args.system, nsim=args.nsim)
+        Y, U, D = load_data_from_emulator_building(system=args.system, nsim=args.nsim)
 
     U = U.reshape(U.shape[0],-1) if U is not None else None
     Y = Y.reshape(Y.shape[0],-1) if Y is not None else None

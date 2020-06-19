@@ -57,6 +57,7 @@ def load_data_from_file(system='aero'):
 
     return Y, U, D
 
+# TODO: include U and D as optional arg
 def load_data_from_emulator(system='LorenzSystem', nsim=None, ninit=None, ts=None):
     """
     dataset creation from the emulator

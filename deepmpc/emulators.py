@@ -1539,6 +1539,8 @@ if __name__ == '__main__':
     X = lorenz_model.simulate() # simulate open loop
     plot.pltOL(Y=X) # plot trajectories
     plot.pltPhase(X=X) # phase plot
+    plot.pltRecurrence(X=X) # recurrence plots
+    plot.pltCorrelate(X=X) # correlation plots
 
     # VanDerPol
     vdp_model = VanDerPol()  # instantiate model class

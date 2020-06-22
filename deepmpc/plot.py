@@ -83,17 +83,15 @@ def pltCorrelate(X, figname=None):
     axes[0, 0].set_title('Pearson correlation coefficients')
     axes[0, 0].set_xlabel('$X$')
     axes[0, 0].set_ylabel('$X$')
-    axes[0, 0].figure.colorbar(im1, ax=axes, format='% .2f')
+    # axes[0, 0].figure.colorbar(im1, ax=axes, format='% .2f')
     # covariance matrix
-    fig, axes = plt.subplots(nrows=1, ncols=3, squeeze=False)
     C = np.cov(X.T)
     im2 = axes[0, 1].imshow(C)
     axes[0, 1].set_title('Covariance matrix')
     axes[0, 1].set_xlabel('$X$')
     axes[0, 1].set_ylabel('$X$')
-    axes[0, 1].figure.colorbar(im2, ax=axes, format='% .2f')
+    # axes[0, 1].figure.colorbar(im2, ax=axes, format='% .2f')
     #  Spearman correlation coefficient
-    fig, axes = plt.subplots(nrows=1, ncols=3, squeeze=False)
     rho, pval = stats.spearmanr(X, X)
     C = rho[0:X.shape[1], 0:X.shape[1]]
     im3 = axes[0, 2].imshow(C)

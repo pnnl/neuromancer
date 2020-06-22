@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.linalg as LA
+from scipy import stats
 # import matplotlib
 # matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -7,6 +8,8 @@ import matplotlib.animation as animation
 from matplotlib.lines import Line2D
 from matplotlib.gridspec import GridSpec
 from mpl_toolkits.mplot3d import Axes3D
+import pyts.image as pytsimg
+import pyts.multivariate.image as pytsmvimg
 
 def get_colors(k):
     """
@@ -64,6 +67,119 @@ def pltPhase(X, figname=None):
     plt.show()
     if figname is not None:
         plt.savefig(figname)
+
+
+def pltCorrelate(X, figname=None):
+    """
+    plot correlation matrices of time series data
+    https://realpython.com/numpy-scipy-pandas-correlation-python/
+    # TODO: generate correlation network
+    https://python-graph-gallery.com/327-network-from-correlation-matrix/
+    """
+    fig, axes = plt.subplots(nrows=1, ncols=3, squeeze=False)
+    #  Pearson product-moment correlation coefficients.
+    C = np.corrcoef(X.T)
+    im1 = axes[0, 0].imshow(C)
+    axes[0, 0].set_title('Pearson correlation coefficients')
+    axes[0, 0].set_xlabel('$X$')
+    axes[0, 0].set_ylabel('$X$')
+    axes[0, 0].figure.colorbar(im1, ax=axes, format='% .2f')
+    # covariance matrix
+    C = np.cov(X.T)
+    im2 = axes[0, 1].imshow(C)
+    axes[0, 1].set_title('Covariance matrix')
+    axes[0, 1].set_xlabel('$X$')
+    axes[0, 1].set_ylabel('$X$')
+    axes[0, 1].figure.colorbar(im2, ax=axes, format='% .2f')
+    #  Spearman correlation coefficient
+    rho, pval = stats.spearmanr(X, X)
+    C = rho[0:X.shape[1], 0:X.shape[1]]
+    im3 = axes[0, 2].imshow(C)
+    axes[0, 2].set_title('Spearman correlation coefficients')
+    axes[0, 2].set_xlabel('$X$')
+    axes[0, 2].set_ylabel('$X$')
+    axes[0, 2].figure.colorbar(im3, ax=axes, format='% .2f')
+    plt.tight_layout()
+    plt.show()
+
+def pltRecurrence(X, figname=None):
+    """
+    plot recurrence of time series data
+    https://pyts.readthedocs.io/en/stable/auto_examples/image/plot_rp.html
+    https://pyts.readthedocs.io/en/stable/auto_examples/multivariate/plot_joint_rp.html#sphx-glr-auto-examples-multivariate-plot-joint-rp-py
+    https://pyts.readthedocs.io/en/stable/auto_examples/image/plot_mtf.html
+    https://arxiv.org/pdf/1610.07273.pdf
+    https://pyts.readthedocs.io/en/stable/auto_examples/image/plot_gaf.html#sphx-glr-auto-examples-image-plot-gaf-py
+    """
+    size = np.ceil(np.sqrt(X.shape[1])).astype(int)
+    # Recurrence plot
+    rp = pytsimg.RecurrencePlot(threshold='point', percentage=20)
+    X_rp = rp.fit_transform(X.T)
+    fig, axes = plt.subplots(nrows=size, ncols=size, squeeze=False)
+    for i in range(1,X.shape[1]+1):
+        row = (np.ceil(i/size)-1).astype(int)
+        col = (i-1)%size
+        C = X_rp[i-1]
+        im = axes[row, col].imshow(C)
+        axes[row, col].set_title('Recurrence plot')
+        axes[row, col].set_xlabel('X norm discretized')
+        axes[row, col].set_ylabel('X norm discretized')
+    plt.tight_layout()
+    plt.show()
+
+    # joint recurrence plot
+    jrp = pytsmvimg.JointRecurrencePlot(threshold='point', percentage=50)
+    X_jrp = jrp.fit_transform(X.T.reshape(X.shape[1], 1, -1))
+    fig = plt.figure()
+    C = X_jrp[0]
+    plt.imshow(C)
+    plt.title('joint recurrence plot')
+    plt.xlabel('time')
+    plt.ylabel('time')
+    plt.tight_layout()
+    plt.show()
+
+    # Markov Transition Field
+    mtf = pytsimg.MarkovTransitionField(image_size=50)
+    X_mtf = mtf.fit_transform(X.T)
+    fig, axes = plt.subplots(nrows=size, ncols=size, squeeze=False)
+    for i in range(1, X.shape[1] + 1):
+        row = (np.ceil(i / size) - 1).astype(int)
+        col = (i - 1) % size
+        C = X_mtf[i - 1]
+        im = axes[row, col].imshow(C)
+        axes[row, col].set_title('Markov Transition Field')
+        axes[row, col].set_xlabel('time')
+        axes[row, col].set_ylabel('time')
+    plt.tight_layout()
+    plt.show()
+
+    # Gramian Angular Fields
+    gasf = pytsimg.GramianAngularField(image_size=50, method='summation')
+    X_gasf = gasf.fit_transform(X.T)
+    fig, axes = plt.subplots(nrows=size, ncols=size, squeeze=False)
+    for i in range(1, X.shape[1] + 1):
+        row = (np.ceil(i / size) - 1).astype(int)
+        col = (i - 1) % size
+        C = X_gasf[i - 1]
+        im = axes[row, col].imshow(C)
+        axes[row, col].set_title('Gramian Angular Fields')
+        axes[row, col].set_xlabel('time')
+        axes[row, col].set_ylabel('time')
+    plt.tight_layout()
+    plt.show()
+
+
+def pltInfoMeasures(X, figname=None):
+    """
+    plot information-theoretic measures for time series data
+    https: // elife - asu.github.io / PyInform / timeseries.html
+    """
+    pass
+
+
+
+
 
 def pltCL(Y, U, D, R):
     """

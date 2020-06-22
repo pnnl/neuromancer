@@ -36,7 +36,7 @@ class BlockSSM(nn.Module):
     def __init__(self, nx, nu, nd, ny, fx, fy, fu=None, fd=None,
                  xou=torch.add, xod=torch.add, residual=False):
         """
-
+        atomic block state space model
         :param nx: (int) dimension of state
         :param nu: (int) dimension of inputs
         :param nd: (int) dimension of disturbances
@@ -81,7 +81,7 @@ class BlockSSM(nn.Module):
         self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.s_sub = [0.0]*8
 
     def con_init(self):
-        return [-0.2, 1.2, -0.2, 1.2, -0.2, 1.2, -0.2, 1.2] # default constraints for normalized dataset
+        return [-0.2, 1.2, -0.2, 1.2, -1.2, 1.2, -1.2, 1.2] # default constraints for normalized dataset
         
     def reg_weight_init(self):
         return 0.0, 0.0, 0.0, 0.0, 0.2 # used for HW paper unconstrained
@@ -162,6 +162,7 @@ class BlockSSM(nn.Module):
 class BlackSSM(nn.Module):
     def __init__(self, nx, nu, nd, ny, fxud, fy):
         """
+        atomic black box state space model
         :param nx: (int) dimension of state
         :param nu: (int) dimension of inputs
         :param nd: (int) dimension of disturbances
@@ -252,7 +253,50 @@ class BlackSSM(nn.Module):
         return torch.stack(X), torch.stack(Y), self.reg_error()
 
 
-ssm_models = [BlockSSM, BlackSSM]
+
+def blackbox(args, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2):
+    """
+    black box state space model for training
+    """
+    fxud = nonlinmap(nx + nu + nd, nx, hsizes=[nx]*n_layers,
+                     bias=args.bias, Linear=linmap, skip=1)
+    fy = linmap(nx, ny, bias=args.bias)
+    return BlackSSM(nx, nu, nd, ny, fxud, fy)
+
+def blocknlin(args, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2):
+    """
+    block nonlinear state space model for training
+    """
+    fx = nonlinmap(nx, nx, bias=args.bias, hsizes=[nx]*n_layers, Linear=linmap, skip=1)
+    fy = linmap(nx, ny, bias=args.bias)
+    fu = nonlinmap(nu, nx, bias=args.bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nu != 0 else None
+    fd = nonlinmap(nd, nx, bias=args.bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nd != 0 else None
+    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
+
+def hammerstein(args, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2):
+    """
+    hammerstein state space model for training
+    """
+    fx = linmap(nx, nx, bias=args.bias)
+    fy = linmap(nx, ny, bias=args.bias)
+    fu = nonlinmap(nu, nx, bias=args.bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nu != 0 else None
+    fd = nonlinmap(nd, nx, bias=args.bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nd != 0 else None
+    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
+
+
+def hw(args, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2):
+    """
+    hammerstein-weiner state space model for training
+    """
+    fx = linmap(nx, nx, bias=args.bias)
+    fy = nonlinmap(nx, ny, bias=args.bias, hsizes=[nx]*n_layers, Linear=linmap, skip=1)
+    fu = nonlinmap(nu, nx, bias=args.bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nu != 0 else None
+    fd = nonlinmap(nd, nx, bias=args.bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nd != 0 else None
+    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
+
+
+ssm_models_atoms = [BlockSSM, BlackSSM]
+ssm_models_train = [blackbox, hammerstein, hw, blocknlin]
 
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 3

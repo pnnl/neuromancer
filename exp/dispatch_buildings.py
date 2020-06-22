@@ -35,45 +35,46 @@ os.system('mkdir %s' % args.exp_folder)
 # check our initializations for softSVD and pf
 # TODO: use only subset of D as observables
 # TODO: realistic input profiles for building models
-systems = ['Reno_full','RenoLight_full','Old_full','HollandschHuys_full','Infrax_full']
+# systems = ['Reno_full','RenoLight_full','Old_full','HollandschHuys_full','Infrax_full']
+systems = ['Reno_full']
 linear_map = ['linear', 'pf', 'softSVD']
 nonlinear_map = ['mlp', 'residual_mlp', 'rnn']
-# TODO: tune constraints for building models before dispatch
+models = ['hw', 'hammerstein', 'blocknlin']
 Q_values = [(0.0, 0.0, 0.0, 0.0), (0.2, 0.2, 0.2, 0.2)]
 constrainted = ['unconstr', 'constr']
 
 # choose nsim: 2880 for 30 days, 5760 for 60 days, 8640 for 90 days
-
-# TODO: manually run couple of experiments to estimate nr of epochs and lr
 nsteps_range = [1, 8, 16, 32, 64]
 os.system('mkdir temp')
 for system in systems:
-    for bias in ['-bias']:
-        for constr, Q_val in zip(constrainted, Q_values):
-            for linear in linear_map:
-                for nonlinear in nonlinear_map:
-                    for nsteps in nsteps_range:
-                        for i in range(args.nsamples): # 10 samples for each configuration
-                            cmd = 'python train.py ' +\
-                                  '-gpu 0 ' + \
-                                  '-lr 0.003'  + \
-                                  '-epochs 10000 ' + \
-                                  '-nsim 5760' + \
-                                  '-location %s ' % args.results + \
-                                  '-system_data %s ' % 'emulator' + \
-                                  '-system %s ' % system + \
-                                  '-linear_map %s ' % linear + \
-                                  '-nonlinear_map %s ' % nonlinear + \
-                                  '-nsteps %s ' % nsteps + \
-                                  '-mlflow ' + \
-                                  '-ssm_type hammerstein ' + \
-                                  '-nx_hidden 10' + \
-                                  '%s ' % bias + \
-                                  '-Q_con_u %s -Q_con_x %s -Q_dx_ud %s -Q_dx %s' % Q_val + \
-                                  '-exp hammerstein_%s_%s_%s_%s_%s_%s ' % (system, constr, bias, linear, nonlinear, nsteps) + \
-                                  '-savedir temp/hammerstein_%s_%s_%s_%s_%s_%s_%s ' % (system, constr, bias, linear, nonlinear, nsteps, i) # group experiments with same configuration together - TODO: add more params
-                            with open(os.path.join(args.exp_folder, 'exp_hammerstein_%s_%s_%s_%s_%s_%s_%s.slurm' % (system, constr, bias, linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
-                                cmdfile.write(template + cmd)
+    for model in models:
+        for bias in ['-bias']:
+            for constr, Q_val in zip(constrainted, Q_values):
+                for linear in linear_map:
+                    for nonlinear in nonlinear_map:
+                        for nsteps in nsteps_range:
+                            for i in range(args.nsamples): # 10 samples for each configuration
+                                cmd = 'python train.py ' +\
+                                      '-gpu 0 ' + \
+                                      '-lr 0.003'  + \
+                                      '-epochs 10000 ' + \
+                                      '-nsim 5760' + \
+                                      '-location %s ' % args.results + \
+                                      '-system_data %s ' % 'emulator' + \
+                                      '-system %s ' % system + \
+                                      '-linear_map %s ' % linear + \
+                                      '-nonlinear_map %s ' % nonlinear + \
+                                      '-nsteps %s ' % nsteps + \
+                                      '-mlflow ' + \
+                                      '-ssm_type %s ' % model +\
+                                      '-nx_hidden 10' + \
+                                      '%s ' % bias + \
+                                      '-Q_con_u %s -Q_con_x %s -Q_dx_ud %s -Q_dx %s' % Q_val + \
+                                      '-exp %s_%s_%s_%s_%s_%s_%s ' % (system, model, constr, bias, linear, nonlinear, nsteps) + \
+                                      '-savedir temp/%s_%s_%s_%s_%s_%s_%s_%s ' % (system, model, constr, bias, linear, nonlinear, nsteps, i) # group experiments with same configuration together - TODO: add more params
+                                with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s_%s_%s_%s_%s.slurm' % (system, model, constr, bias, linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
+                                    cmdfile.write(template + cmd)
+
 
 # BlackSSM - all datasets all nonlinear maps, default linear
 for system in systems:

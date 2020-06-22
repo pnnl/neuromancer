@@ -256,33 +256,25 @@ def data_setup(args, device):
 
 if __name__ == '__main__':
 
-    # Load data from files
-    system_datasets = ['tank', 'vehicle3', 'aero', 'flexy_air']
+    systems = {'tank': 'datafile', 'vehicle3': 'datafile', 'aero': 'datafile', 'flexy_air': 'datafile',
+               'CSTR': 'emulator', 'TwoTank': 'emulator', 'LorenzSystem': 'emulator',
+               'Lorenz96': 'emulator', 'VanDerPol': 'emulator', 'ThomasAttractor': 'emulator',
+               'RosslerAttractor': 'emulator', 'LotkaVolterra': 'emulator', 'Brusselator1D': 'emulator',
+               'ChuaCircuit': 'emulator', 'Duffing': 'emulator', 'UniversalOscillator': 'emulator',
+               'HindmarshRose': 'emulator', 'Pendulum-v0': 'emulator',
+               'CartPole-v1': 'emulator', 'Acrobot-v1': 'emulator', 'MountainCar-v0': 'emulator',
+               'MountainCarContinuous-v0': 'emulator',
+               'Reno_full': 'emulator', 'Reno_ROM40': 'emulator', 'RenoLight_full': 'emulator',
+               'RenoLight_ROM40': 'emulator', 'Old_full': 'emulator',
+               'Old_ROM40': 'emulator', 'HollandschHuys_full': 'emulator',
+               'HollandschHuys_ROM100': 'emulator', 'Infrax_full': 'emulator',
+               'Infrax_ROM100': 'emulator'}
 
-    for system in system_datasets:
-        Y, U, D = load_data_from_file(system)
-        plot.pltOL(Y, U=U, D=D, figname='test.png')
-
-        Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps=32, device='cpu')
-        plot.pltOL(np.concatenate([Yp[:, k, :] for k in range(Yp.shape[1])])[:1000],
-                   Ytrain=np.concatenate([Yf[:, k, :] for k in range(Yf.shape[1])])[:1000], figname=f'{system}_align_test.png')
-
-        R = np.ones(Y.shape)
-        Yp, Yf, Up, Dp, Df, Rf = make_dataset_cl(Y, U, D, R, nsteps=5, device='cpu')
-
-    # generate data from emulators
-    systems = ['CSTR','TwoTank','LorenzSystem','Lorenz96','VanDerPol',
-               'ThomasAttractor','RosslerAttractor','LotkaVolterra','Brusselator1D',
-               'ChuaCircuit','Duffing','UniversalOscillator','HindmarshRose','Pendulum-v0',
-               'CartPole-v1','Acrobot-v1','MountainCar-v0','MountainCarContinuous-v0',
-               'Reno_full','Reno_ROM40','RenoLight_full','RenoLight_ROM40','Old_full',
-               'Old_ROM40','HollandschHuys_full','HollandschHuys_ROM100','Infrax_full',
-               'Infrax_ROM100']
-
-    for system in systems:
+    # for system in systems:
+    for system, data_type in systems.items():
         parser = argparse.ArgumentParser()
         data_group = parser.add_argument_group('DATA PARAMETERS')
-        data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='emulator',
+        data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default=data_type,
                                 help='source type of the dataset')
         data_group.add_argument('-system', default=system,
                                 help='select particular dataset with keyword')

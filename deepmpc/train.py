@@ -51,7 +51,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=200)
+    opt_group.add_argument('-epochs', type=int, default=1000)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
@@ -75,23 +75,26 @@ def parse_args():
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
-    model_group.add_argument('-ssm_type', type=str, choices=['hw', 'blackbox', 'hammerstein'], default='hw')
+    model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
+                             default='blackbox')
     model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
+    model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
-    model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()), default='linear')
-    model_group.add_argument('-nonlinear_map', type=str, default='residual_mlp',
+    model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
+                             default='linear')
+    model_group.add_argument('-nonlinear_map', type=str, default='mlp',
                              choices=['mlp', 'rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
 
     ##################
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
-    weight_group.add_argument('-Q_con_u', type=float,  default=0.0, help='Hidden input constraints penalty weight.')
-    weight_group.add_argument('-Q_con_x', type=float,  default=0.0, help='Hidden state constraints penalty weight.')
-    weight_group.add_argument('-Q_dx_ud', type=float,  default=0.0,
+    weight_group.add_argument('-Q_con_u', type=float,  default=0.2, help='Hidden input constraints penalty weight.')
+    weight_group.add_argument('-Q_con_x', type=float,  default=0.2, help='Hidden state constraints penalty weight.')
+    weight_group.add_argument('-Q_dx_ud', type=float,  default=0.2,
                               help='Maximal influence of u and d on hidden state in one time step penalty weight.')
-    weight_group.add_argument('-Q_dx', type=float,  default=0.0,
+    weight_group.add_argument('-Q_dx', type=float,  default=0.2,
                               help='Penalty weight on hidden state difference in one time step.')
     weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_y', type=float,  default=1.0, help='Output tracking penalty weight')
@@ -142,31 +145,7 @@ def arg_setup():
         params = {k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)}
         mlflow.log_params(params)
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
-
     return args, device
-
-
-def blackbox(args, linmap, nonlinmap, nx, nu, nd, ny):
-    fxud = nonlinmap(nx + nu + nd, nx, hsizes=[nx] * 3,
-                     bias=args.bias, Linear=linmap, skip=1)
-    fy = linmap(nx, ny, bias=args.bias)
-    return ssm.BlackSSM(nx, nu, nd, ny, fxud, fy)
-
-
-def hammerstein(args, linmap, nonlinmap, nx, nu, nd, ny):
-    fx = linmap(nx, nx, bias=args.bias)
-    fy = linmap(nx, ny, bias=args.bias)
-    fu = nonlinmap(nu, nx, bias=args.bias, hsizes=[nx] * 2, Linear=linmap, skip=1)
-    fd = linmap(nd, nx)
-    return ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
-
-
-def hw(args, linmap, nonlinmap, nx, nu, nd, ny):
-    fx = linmap(nx, nx, bias=args.bias)
-    fy = nonlinmap(nx, ny, bias=args.bias, hsizes=[nx]*2, Linear=linmap, skip=1)
-    fu = nonlinmap(nu, nx, bias=args.bias, hsizes=[nx] * 2, Linear=linmap, skip=1) if nu != 0 else None
-    fd = linmap(nd, nx) if nd != 0 else None
-    return ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
 
 
 def model_setup(args, device, nx, ny, nu, nd):
@@ -175,24 +154,25 @@ def model_setup(args, device, nx, ny, nu, nd):
                  'mlp': blocks.MLP,
                  'rnn': blocks.RNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
-
-    # fx = linmap(nx, nx, bias=args.bias).to(device)
-    ss_model = {'blackbox': blackbox,
-                'hammerstein': hammerstein,
-                'hw': hw}[args.ssm_type](args, linmap, nonlinmap, nx, nu, nd, ny)
-
+    # state space model setup
+    ss_model = {'blackbox': ssm.blackbox,
+                'blocknlin': ssm.blocknlin,
+                'hammerstein': ssm.hammerstein,
+                'hw': ssm.hw}[args.ssm_type](args, linmap, nonlinmap, nx, nu, nd, ny, args.n_layers)
+    # state space model weights
     ss_model.Q_dx, ss_model.Q_dx_ud, ss_model.Q_con_x, ss_model.Q_con_u, ss_model.Q_sub = \
         args.Q_dx, args.Q_dx_ud, args.Q_con_x, args.Q_con_u, args.Q_sub
-
+    # state estimator setup
     estimator = {'linear': estimators.LinearEstimator,
                  'mlp': estimators.MLPEstimator,
                  'rnn': estimators.RNNEstimator,
                  'kf': estimators.LinearKalmanFilter}[args.state_estimator](ny, nx,
-                                                                            bias=args.bias, hsized=[nx]*2,
+                                                                            bias=args.bias,
+                                                                            hsized=[nx]*args.n_layers,
                                                                             num_layers=2, Linear=linmap,
                                                                             ss_model=ss_model)
+    # open loop model setup
     model = loops.OpenLoop(model=ss_model, estim=estimator, Q_e=args.Q_e).to(device)
-
     nweights = sum([i.numel() for i in list(model.parameters()) if i.requires_grad])
     if args.logger in ['mlflow', 'wandb']:
         mlflow.log_param('Parameters', nweights)
@@ -244,7 +224,7 @@ if __name__ == '__main__':
             elapsed_time = time.time() - start_time
             print(f'epoch: {i:2}  loss: {loss.item():10.8f}\topen: {openloss.item():10.8f}'
                   f'\tbestopen: {best_openloss.item():10.8f}\teltime: {elapsed_time:5.2f}s')
-            if args.ssm_type != 'blackbox':
+            if args.ssm_type not in ['blackbox', 'blocknlin']:
                 anime(Y_out, data_open[1])
 
         optimizer.zero_grad()

@@ -76,8 +76,8 @@ def pltCorrelate(X, figname=None):
     # TODO: generate correlation network
     https://python-graph-gallery.com/327-network-from-correlation-matrix/
     """
-    fig, axes = plt.subplots(nrows=1, ncols=3, squeeze=False)
     #  Pearson product-moment correlation coefficients.
+    fig, axes = plt.subplots(nrows=1, ncols=3, squeeze=False)
     C = np.corrcoef(X.T)
     im1 = axes[0, 0].imshow(C)
     axes[0, 0].set_title('Pearson correlation coefficients')
@@ -85,6 +85,7 @@ def pltCorrelate(X, figname=None):
     axes[0, 0].set_ylabel('$X$')
     axes[0, 0].figure.colorbar(im1, ax=axes, format='% .2f')
     # covariance matrix
+    fig, axes = plt.subplots(nrows=1, ncols=3, squeeze=False)
     C = np.cov(X.T)
     im2 = axes[0, 1].imshow(C)
     axes[0, 1].set_title('Covariance matrix')
@@ -92,13 +93,14 @@ def pltCorrelate(X, figname=None):
     axes[0, 1].set_ylabel('$X$')
     axes[0, 1].figure.colorbar(im2, ax=axes, format='% .2f')
     #  Spearman correlation coefficient
+    fig, axes = plt.subplots(nrows=1, ncols=3, squeeze=False)
     rho, pval = stats.spearmanr(X, X)
     C = rho[0:X.shape[1], 0:X.shape[1]]
     im3 = axes[0, 2].imshow(C)
     axes[0, 2].set_title('Spearman correlation coefficients')
     axes[0, 2].set_xlabel('$X$')
     axes[0, 2].set_ylabel('$X$')
-    axes[0, 2].figure.colorbar(im3, ax=axes, format='% .2f')
+    # axes[0, 2].figure.colorbar(im3, ax=axes, format='% .2f')
     plt.tight_layout()
     plt.show()
 
@@ -112,18 +114,19 @@ def pltRecurrence(X, figname=None):
     https://pyts.readthedocs.io/en/stable/auto_examples/image/plot_gaf.html#sphx-glr-auto-examples-image-plot-gaf-py
     """
     size = np.ceil(np.sqrt(X.shape[1])).astype(int)
+    row_off = size-np.ceil(X.shape[1]/size).astype(int)
     # Recurrence plot
     rp = pytsimg.RecurrencePlot(threshold='point', percentage=20)
     X_rp = rp.fit_transform(X.T)
-    fig, axes = plt.subplots(nrows=size, ncols=size, squeeze=False)
+    fig, axes = plt.subplots(nrows=size-row_off, ncols=size, squeeze=False)
     for i in range(1,X.shape[1]+1):
         row = (np.ceil(i/size)-1).astype(int)
         col = (i-1)%size
         C = X_rp[i-1]
         im = axes[row, col].imshow(C)
         axes[row, col].set_title('Recurrence plot')
-        axes[row, col].set_xlabel('X norm discretized')
-        axes[row, col].set_ylabel('X norm discretized')
+        axes[row, col].set_xlabel('time')
+        axes[row, col].set_ylabel('time')
     plt.tight_layout()
     plt.show()
 
@@ -140,32 +143,32 @@ def pltRecurrence(X, figname=None):
     plt.show()
 
     # Markov Transition Field
-    mtf = pytsimg.MarkovTransitionField(image_size=50)
+    mtf = pytsimg.MarkovTransitionField(image_size=100)
     X_mtf = mtf.fit_transform(X.T)
-    fig, axes = plt.subplots(nrows=size, ncols=size, squeeze=False)
+    fig, axes = plt.subplots(nrows=size-row_off, ncols=size, squeeze=False)
     for i in range(1, X.shape[1] + 1):
         row = (np.ceil(i / size) - 1).astype(int)
         col = (i - 1) % size
         C = X_mtf[i - 1]
         im = axes[row, col].imshow(C)
         axes[row, col].set_title('Markov Transition Field')
-        axes[row, col].set_xlabel('time')
-        axes[row, col].set_ylabel('time')
+        axes[row, col].set_xlabel('X norm discretized')
+        axes[row, col].set_ylabel('X norm discretized')
     plt.tight_layout()
     plt.show()
 
     # Gramian Angular Fields
-    gasf = pytsimg.GramianAngularField(image_size=50, method='summation')
+    gasf = pytsimg.GramianAngularField(image_size=100, method='summation')
     X_gasf = gasf.fit_transform(X.T)
-    fig, axes = plt.subplots(nrows=size, ncols=size, squeeze=False)
+    fig, axes = plt.subplots(nrows=size-row_off, ncols=size, squeeze=False)
     for i in range(1, X.shape[1] + 1):
         row = (np.ceil(i / size) - 1).astype(int)
         col = (i - 1) % size
         C = X_gasf[i - 1]
         im = axes[row, col].imshow(C)
         axes[row, col].set_title('Gramian Angular Fields')
-        axes[row, col].set_xlabel('time')
-        axes[row, col].set_ylabel('time')
+        axes[row, col].set_xlabel('X norm discretized')
+        axes[row, col].set_ylabel('X norm discretized')
     plt.tight_layout()
     plt.show()
 

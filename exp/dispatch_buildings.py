@@ -32,7 +32,10 @@ template = '#!/bin/bash\n' +\
 
 os.system('mkdir %s' % args.exp_folder)
 
-# check our initializations for softSVD and pf
+# TODO: customize bulding training to be more gray box
+# TODO: customize ssm hammerstein model for each building
+# TODO: customize linear maps factorization for each block separately
+# TODO: or categorization of input variables to include more structure
 # TODO: use only subset of D as observables
 # TODO: realistic input profiles for building models
 # systems = ['Reno_full','RenoLight_full','Old_full','HollandschHuys_full','Infrax_full']

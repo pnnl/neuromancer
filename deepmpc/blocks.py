@@ -31,12 +31,13 @@ class FunctionBasis(nn.Module):
 class DeepBasisNetwork(nn.Module):
     pass
 
-
+# TODO: this is doing someting strange
 class Bilinear(nn.Module):
-    def init(self, insize, outsize, bias=False, Linear=linear.Linear, **linargs):
+    def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, **linargs):
         """
         bilinear term: why expansion and not nn.Bilinear?
         """
+        super().__init__()
         # self.insize, self.outsize, = insize, outsize
         self.in_features, self.out_features = insize, outsize
         self.linear = Linear(insize**2, outsize, bias=bias)
@@ -47,6 +48,23 @@ class Bilinear(nn.Module):
 
     def forward(self, x):
         return self.linear(expand(x))
+
+
+class BilinearTorch(nn.Module):
+    def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, **linargs):
+        """
+        bilinear term from Torch
+        """
+        super().__init__()
+        self.in_features, self.out_features = insize, outsize
+        self.f = nn.Bilinear(self.in_features, self.in_features, self.out_features, bias=bias)
+        self.error_matrix = nn.Parameter(torch.zeros(1), requires_grad=False)
+
+    def reg_error(self):
+        return self.error_matrix
+
+    def forward(self, x):
+        return self.f(x, x)
 
 
 # TODO: shall we create new file with custom activation functions?
@@ -67,15 +85,15 @@ class Polynomial(nn.Module):
     pass
 
 class Multinomial(nn.Module):
-    
-    def init(self, insize, outsize, p=2, bias=False, lin_cls=linear.Linear, **linargs):
+    def __init__(self, insize, outsize, p=2, bias=False, lin_cls=linear.Linear, **linargs):
+        super().__init__()
         self.p = p
         self.in_features, self.out_features = insize, outsize
         for i in range(p-1):
             insize += insize**2
         self.linear = lin_cls(scipy.misc.comb(insize + p, p + 1), outsize, bias=bias)
 
-    def regularization(self):
+    def reg_error(self):
         return self.linear.regularization
 
     def forward(self, x):
@@ -176,5 +194,10 @@ if __name__ == '__main__':
     print(block(y).shape)
     print(block(y).shape)
     print(block(y).shape)
+
+    # block = Bilinear(5, 7, bias=True)
+    # y = torch.randn([25, 5])
+    # print(block(y).shape)
+
 
 

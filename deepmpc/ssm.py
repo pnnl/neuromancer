@@ -283,6 +283,16 @@ def hammerstein(args, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2):
     fd = nonlinmap(nd, nx, bias=args.bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nd != 0 else None
     return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
 
+def hammerstein_bilinearfu(args, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2):
+    """
+    hammerstein state space model for training with bilinear input
+    """
+    fx = linmap(nx, nx, bias=args.bias)
+    fy = linmap(nx, ny, bias=args.bias)
+    # TODO: customize for building models separate mass flows and temperatures
+    fu = blocks.BilinearTorch(nu, nx, bias=args.bias, Linear=linear.Linear) if nu != 0 else None
+    fd = nonlinmap(nd, nx, bias=args.bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nd != 0 else None
+    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
 
 def hw(args, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2):
     """

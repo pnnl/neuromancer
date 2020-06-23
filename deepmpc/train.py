@@ -71,6 +71,8 @@ def parse_args():
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', type=str, default='UDY')
+    data_group.add_argument('-loop', type=str, choices=['closed', 'open'], default='open',
+                            help='Defines open or closed loop for learning dynamics or control, respectively')
 
     ##################
     # MODEL PARAMETERS
@@ -122,6 +124,7 @@ def parse_args():
     return parser.parse_args()
 
 
+# TODO: generalize to closed loop
 # single training step
 def step(model, data):
     assert type(model) is loops.OpenLoop
@@ -147,7 +150,7 @@ def arg_setup():
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
     return args, device
 
-
+# TODO: generalize to closed loop, add policy
 def model_setup(args, device, nx, ny, nu, nd):
     linmap = linear.maps[args.linear_map]
     nonlinmap = {'linear': linmap,

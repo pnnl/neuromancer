@@ -182,6 +182,7 @@ class BlackSSM(nn.Module):
 
         self.nx, self.nu, self.nd, self.ny = nx, nu, nd, ny
         self.fxud, self.fy = fxud, fy
+        # TODO: if fy is None, then use identity without gradient
 
         # Regularization Initialization
         self.xmin, self.xmax, self.umin, self.umax = self.con_init()
@@ -254,6 +255,110 @@ class BlackSSM(nn.Module):
 
 
 
+# TODO: differentiate autonomous and non-autonomous odes
+# and odes with and without disturbances
+"""
+gray-box ODE for training with customly defined nonlinmap
+TODO: create new file NeuralODEs.py with differentiable ODE priors
+then use them as specifi nonlinear and linear maps
+e.g., nonlinmap = [CSTR, LorentzSystem]
+linmap = identity not being learned
+"""
+class GrayODE(nn.Module):
+    def __init__(self, nx, nu, nd, ny, fxud, fy):
+        """
+        atomic gray-box ODE model
+        :param nx: (int) dimension of state
+        :param nu: (int) dimension of inputs
+        :param nd: (int) dimension of disturbances
+        :param ny: (int) dimension of observation
+        :param fxud: function R^{nx+nu+nd} -> R^(nx}
+        :param fy: function R^{nx} -> R^(ny}
+
+        generic discrete-time ODE system dynamics:
+        # x+ = fxud(x,u,d)
+        # y =  fy(x)
+        """
+        super().__init__()
+        assert fxud.in_features == nx+nu+nd, "Mismatch in input function size"
+        assert fxud.nx == nx, "Mismatch in input function size"
+        assert fxud.nu == nu, "Mismatch in input function size"
+        assert fxud.nd == nd, "Mismatch in input function size"
+        assert fy.in_features == nx, "Mismatch in observable output function size"
+        assert fy.out_features == ny, "Mismatch in observable output function size"
+
+        self.nx, self.nu, self.nd, self.ny = nx, nu, nd, ny
+        self.fxud, self.fy = fxud, fy
+        # TODO: if fy is None, then use identity without gradient
+
+        # Regularization Initialization
+        self.xmin, self.xmax, self.umin, self.umax = self.con_init()
+        self.Q_dx, self.Q_con_x, self.Q_con_u, self.Q_sub = self.reg_weight_init()
+
+        # slack variables for calculating constraints violations/ regularization error
+        self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.s_sub = [0.0] * 8
+
+    def con_init(self):
+        return [-0.2, 1.2, -0.2, 1.2]  # default constraints for normalized dataset
+
+    def reg_weight_init(self):
+        return [0] * 3 + [0.2]  # uncostrained, only regularization
+        # return [0.2] * 4 # suggested new default for constrained HW
+
+    def running_mean(self, mu, x, n):
+        return mu + (1/n)*(x - mu)
+
+    # TODO: update regularization once we agree upon its form
+    def regularize(self, x_prev, x, u, N):
+        # Barrier penalties
+        self.sxmin = self.running_mean(self.sxmin, torch.mean(F.relu(-x + self.xmin)), N)
+        self.sxmax = self.running_mean(self.sxmax, torch.mean(F.relu(x - self.xmax)), N)
+        self.sumin = self.running_mean(self.sumin, torch.mean(F.relu(-u + self.umin)), N)
+        self.sumax = self.running_mean(self.sumax, torch.mean(F.relu(u - self.umax)), N)
+        # one step state residual penalty
+        self.sdx_x = self.running_mean(self.sdx_x, torch.mean((x - x_prev) * (x - x_prev)), N)
+        # submodules regularization penalties
+        self.s_sub = self.running_mean(self.s_sub, sum([k.reg_error() for k in
+                                                        [self.fxud, self.fy]
+                                                        if hasattr(k, 'reg_error')]), N)
+
+    def reg_error(self):
+        error = sum([self.Q_con_x * self.sxmin, self.Q_con_x * self.sxmax,
+                     self.Q_con_u * self.sumin, self.Q_con_u * self.sumax,
+                     self.Q_dx * self.sdx_x, self.Q_sub * self.s_sub])
+        self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.s_sub = [0.0] * 6
+        return error
+
+    def reset(self):
+        for mod in self.modules():
+            if hasattr(mod, 'reset') and mod is not self:
+                mod.reset()
+
+    def forward(self, x, U=None, D=None, nsamples=1):
+        """
+        """
+        if U is not None:
+            nsamples = U.shape[0]
+        elif D is not None:
+            nsamples = D.shape[0]
+
+        X, Y = [], []
+        for i in range(nsamples):
+            u = U[i] if U is not None else None
+            d = D[i] if D is not None else None
+            x_prev = x
+            x = self.fxud(x, u, d)
+            y = self.fy(x)
+            X.append(x)
+            Y.append(y)
+            self.regularize(x_prev, x, u, i+1)
+        self.reset()
+        return torch.stack(X), torch.stack(Y), self.reg_error()
+
+
+
+
+
 def blackbox(args, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2):
     """
     black box state space model for training
@@ -286,10 +391,12 @@ def hammerstein(args, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2):
 def hammerstein_bilinearfu(args, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2):
     """
     hammerstein state space model for training with bilinear input
+    suitable for building thermal dynamics
     """
     fx = linmap(nx, nx, bias=args.bias)
     fy = linmap(nx, ny, bias=args.bias)
     # TODO: customize for building models separate mass flows and temperatures
+    # TODO: this would probably require to modify BlockSSM or handle u in fu
     fu = blocks.BilinearTorch(nu, nx, bias=args.bias, Linear=linear.Linear) if nu != 0 else None
     fd = nonlinmap(nd, nx, bias=args.bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nd != 0 else None
     return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)

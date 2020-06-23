@@ -58,7 +58,7 @@ class OpenLoop(nn.Module):
 
 class ClosedLoop(nn.Module):
     def __init__(self, model=ssm.BlockSSM, estim=estimators.LinearEstimator,
-                 policy=policies.LinearPolicy, **linargs):
+                 policy=policies.LinearPolicy, Q_e=1.0, **linargs):
         """
         :param model: SSM mappings, see ssm.py
         :param estim: state estimator mapping, see estimators.py
@@ -73,15 +73,20 @@ class ClosedLoop(nn.Module):
         self.model = model
         self.estim = estim
         self.policy = policy
+        self.Q_e = Q_e
 
-    def forward(self, Yp, Up, Dp, Df, Rf):
+    def forward(self, Yp, Up, Dp, Df, Rf, nsamples=1):
         x0, reg_error_estim = self.estim(Yp, Up, Dp)
         Uf, reg_error_policy = self.policy(x0, Df, Rf)
         Uf = Uf.unsqueeze(2).reshape(Uf.shape[0], self.model.nu, -1)
         Uf = Uf.permute(2,0,1)
         # Uf = Uf.reshape(Rf.shape[0], -1, self.model.nu)  # not sure if it does not shuffle
-        Xf, Yf, reg_error_model = self.model(x0, Uf, Df)
-        reg_error = reg_error_model + reg_error_policy + reg_error_estim
+        Xf, Yf, reg_error_model = self.model(x=x0, U=Uf, D=Df, nsamples=nsamples)
+        # Calculate mse for smoother state estimator predictions. Last prediction of SSM for a batch should equal
+        # the state estimation of the next sequential batch. Warning: This will not perform as expected
+        # if batches are shuffled in SGD (we are using full GD so we are okay here.
+        estim_error = self.Q_e * torch.nn.functional.mse_loss(x0[1:], Xf[-1, :-1:, :])
+        reg_error = reg_error_model + reg_error_policy + reg_error_estim + estim_error
         return Xf, Yf, Uf, reg_error
 
 

@@ -7,7 +7,7 @@ import linear
 
 
 class RNNCell(nn.Module):
-    def __init__(self, input_size, hidden_size, bias=False, nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
+    def __init__(self, input_size, hidden_size, bias=False, nonlin=F.gelu, Linear=linear.Linear, **linargs):
         """
 
         :param input_size:
@@ -20,7 +20,7 @@ class RNNCell(nn.Module):
         super().__init__()
         self.input_size, self.hidden_size = input_size, hidden_size
         self.in_features, self.out_features = input_size, hidden_size
-        self.nonlin = nonlinearity
+        self.nonlin = nonlin
         self.lin_in = Linear(input_size, hidden_size, bias=bias, **linargs)
         self.lin_hidden = Linear(hidden_size, hidden_size, bias=bias, **linargs)
         if type(Linear) is linear.Linear:
@@ -35,7 +35,7 @@ class RNNCell(nn.Module):
 
 class RNN(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers=1,
-                 bias=False, nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
+                 bias=False, nonlin=F.gelu, Linear=linear.Linear, **linargs):
         """
 
         :param input_size:
@@ -47,9 +47,9 @@ class RNN(nn.Module):
         """
         super().__init__()
         self.in_features, self.out_features = input_size, hidden_size
-        rnn_cells = [RNNCell(input_size, hidden_size, bias=bias, nonlinearity=nonlinearity,
+        rnn_cells = [RNNCell(input_size, hidden_size, bias=bias, nonlin=nonlin,
                      Linear=Linear, **linargs)]
-        rnn_cells += [RNNCell(hidden_size, hidden_size, bias=bias, nonlinearity=nonlinearity,
+        rnn_cells += [RNNCell(hidden_size, hidden_size, bias=bias, nonlin=nonlin,
                       Linear=Linear, **linargs)
                       for k in range(num_layers-1)]
         self.rnn_cells = nn.ModuleList(rnn_cells)

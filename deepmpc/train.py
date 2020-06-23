@@ -40,6 +40,7 @@ import plot
 import dataset
 import ssm
 import estimators
+import policies
 import loops
 import linear
 import blocks
@@ -51,7 +52,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=1000)
+    opt_group.add_argument('-epochs', type=int, default=100)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
@@ -62,7 +63,7 @@ def parse_args():
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='emulator',
                             help='source type of the dataset')
-    data_group.add_argument('-system', default='Reno_full',
+    data_group.add_argument('-system', default='CSTR',
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=None,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
@@ -83,6 +84,8 @@ def parse_args():
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
+    model_group.add_argument('-policy', type=str,
+                             choices=['rnn', 'mlp', 'linear'], default='mlp')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
@@ -124,17 +127,21 @@ def parse_args():
     return parser.parse_args()
 
 
-# TODO: generalize to closed loop
 # single training step
 def step(model, data):
-    assert type(model) is loops.OpenLoop
-    Yp, Yf, Up, Uf, Dp, Df = data
-    X_pred, Y_pred, reg_error = model(Yp, Up, Uf, Dp, Df, nsamples=Yf.shape[0])
-    U_pred = Uf
+    # assert type(model) is loops.OpenLoop
     criterion = torch.nn.MSELoss()
-    loss = criterion(Y_pred.squeeze(), Yf.squeeze())
+    if type(model) is loops.OpenLoop:
+        Yp, Yf, Up, Uf, Dp, Df = data
+        X_pred, Y_pred, reg_error = model(Yp, Up, Uf, Dp, Df, nsamples=Yf.shape[0])
+        U_pred = Uf
+        loss = criterion(Y_pred.squeeze(), Yf.squeeze())
+    elif type(model) is loops.ClosedLoop:
+        Yp, Yf, Up, Dp, Df, Rf = data
+        X_pred, Y_pred, U_pred, reg_error = model(Yp, Up, Dp, Df, Rf, nsamples=Yf.shape[0])
+        loss = criterion(Y_pred.squeeze(), Rf.squeeze())
     return loss, reg_error, X_pred, Y_pred, U_pred
-
+# TODO: resolve errors with calling policies
 
 def arg_setup():
     args = parse_args()
@@ -150,7 +157,8 @@ def arg_setup():
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
     return args, device
 
-# TODO: generalize to closed loop, add policy
+# TODO: generalize hsized and num_layers
+# TODO: option of loading and figing the system model with estimator to learn only the policy
 def model_setup(args, device, nx, ny, nu, nd):
     linmap = linear.maps[args.linear_map]
     nonlinmap = {'linear': linmap,
@@ -174,8 +182,21 @@ def model_setup(args, device, nx, ny, nu, nd):
                                                                             hsized=[nx]*args.n_layers,
                                                                             num_layers=2, Linear=linmap,
                                                                             ss_model=ss_model)
-    # open loop model setup
-    model = loops.OpenLoop(model=ss_model, estim=estimator, Q_e=args.Q_e).to(device)
+    if args.loop == 'open':
+        # open loop model setup
+        model = loops.OpenLoop(model=ss_model, estim=estimator, Q_e=args.Q_e).to(device)
+    elif args.loop == 'closed':
+        # state estimator setup
+        policy = {'linear': policies.LinearPolicy,
+                     'mlp': policies.MLPPolicy,
+                     'rnn': policies.RNNPolicy}[args.policy](nx, nu, nd, ny, N=args.nsteps,
+                                                                                bias=args.bias,
+                                                                                hsized=[nx]*args.n_layers,
+                                                                                num_layers=2,
+                                                                                nonlin=nonlinmap,
+                                                                                Linear=linmap)
+        model = loops.ClosedLoop(model=ss_model, estim=estimator,
+                                 policy=policy, Q_e=args.Q_e).to(device)
     nweights = sum([i.numel() for i in list(model.parameters()) if i.requires_grad])
     if args.logger in ['mlflow', 'wandb']:
         mlflow.log_param('Parameters', nweights)

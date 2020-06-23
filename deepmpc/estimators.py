@@ -61,7 +61,7 @@ class RNNEstimator(nn.Module):
                  nonlin=F.gelu, Linear=linear.Linear, **linargs):
         super().__init__()
         self.RNN = RNN(input_size, hidden_size, num_layers=num_layers,
-                       bias=bias, nonlinearity=nonlin, Linear=Linear, **linargs)
+                       bias=bias, nonlin=nonlin, Linear=Linear, **linargs)
 
     def reg_error(self):
         return self.RNN.reg_error()

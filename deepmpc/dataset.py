@@ -219,6 +219,7 @@ def make_dataset_cl(Y, U, D, R, nsteps, device):
     :param norm:
     :return:
     """
+    # TODO: extend with time-varying constraints Ymin, Ymax, Umin, Umax
     Yp, Yf, Up, Uf, Dp, Df = make_dataset_ol(Y, U, D, nsteps, device)
     Rf = batch_data(R[nsteps:], nsteps).to(device) if R is not None else None
     return Yp, Yf, Up, Dp, Df, Rf
@@ -226,6 +227,7 @@ def make_dataset_cl(Y, U, D, R, nsteps, device):
 
 def data_setup(args, device):
 
+    # TODO: include reference in the datafiles and emulators
     if args.system_data == 'datafile':
         Y, U, D = load_data_from_file(system=args.system)  # load data from file
     elif args.system_data == 'emulator':
@@ -239,10 +241,20 @@ def data_setup(args, device):
     D = min_max_norm(D) if ('D' in args.norm and D is not None) else None
 
     print(f'Y shape: {Y.shape}')
-    plot.pltOL(Y=Y, U=U, D=D)
-    plt.savefig('test.png')
-    # system ID or time series dataset
-    dataset = make_dataset_ol(Y, U, D, nsteps=args.nsteps, device=device)
+
+
+    if args.loop == 'open':
+        # system ID or time series dataset
+        dataset = make_dataset_ol(Y, U, D, nsteps=args.nsteps, device=device)
+        plot.pltOL(Y=Y, U=U, D=D)
+    elif args.loop == 'closed':
+        # closed loop control dataset for reference control
+        # TODO: make it more generic by adding time-varying constrtaints
+        R = emulators.Periodic(nx=Y.shape[1], nsim=Y.shape[0],
+                               numPeriods=np.ceil(Y.shape[0]/100).astype(int),
+                               xmax=0, xmin=1, form='sin')
+        dataset = make_dataset_cl(Y, U, D, R, nsteps=args.nsteps, device=device)
+        plot.pltCL(Y=Y, R=R, U=U, D=D)
     train_data = [split_train_test_dev(data)[0] for data in dataset]
     dev_data = [split_train_test_dev(data)[1] for data in dataset]
     test_data = [split_train_test_dev(data)[2] for data in dataset]
@@ -288,6 +300,8 @@ if __name__ == '__main__':
                                      'None will invoke default values for each emulator')
         data_group.add_argument('-norm', type=str, default='UDY')
         data_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
+        data_group.add_argument('-loop', type=str, choices=['closed', 'open'], default='closed',
+                                help='Defines open or closed loop for learning dynamics or control, respectively')
         args = parser.parse_args()
         device = 'cpu'
 

@@ -1389,9 +1389,9 @@ def Periodic(nx=1, nsim=100, numPeriods=1, xmax=1, xmin=0, form='sin'):
     :param form: (str) form of the periodic signal 'sin' or 'cos'
     """
     if type(xmax) is not np.ndarray:
-        xmax = np.asarray([xmax]).ravel()
+        xmax = np.asarray([xmax]*nx).ravel()
     if type(xmin) is not np.ndarray:
-        xmin = np.asarray([xmin]).ravel()
+        xmin = np.asarray([xmin]*nx).ravel()
 
     samples_period = nsim// numPeriods
     leftover = nsim % numPeriods
@@ -1606,3 +1606,6 @@ if __name__ == '__main__':
     X = oscillator_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
+
+
+# TODO: generate meaningfull reference signals for each emulator

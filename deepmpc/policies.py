@@ -47,10 +47,14 @@ class LinearPolicy(nn.Module):
         return self.linear.reg_error()
 
     def forward(self, x, D, R, *args):
-        D = D.reshape(-1, self.N * self.nd)
-        R = R.reshape(-1, self.N * self.ny)
         x = x.reshape(-1, self.nx)
-        xi = torch.cat((x, D, R), 1)
+        xi = x
+        if D is not None:
+            D = D.reshape(-1, self.N * self.nd)
+            xi = torch.cat((xi, D), 1)
+        if R is not None:
+            R = R.reshape(-1, self.N * self.ny)
+            xi = torch.cat((xi, R), 1)
         return self.linear(xi), self.reg_error()
 
 
@@ -66,29 +70,41 @@ class MLPPolicy(nn.Module):
         return self.net.reg_error()
 
     def forward(self, x, D, R, *args):
-        D = D.reshape(-1, self.N * self.nd)
-        R = R.reshape(-1, self.N * self.ny)
         x = x.reshape(-1, self.nx)
-        xi = torch.cat((x, D, R), 1)
+        xi = x
+        if D is not None:
+            D = D.reshape(-1, self.N * self.nd)
+            xi = torch.cat((xi, D), 1)
+        if R is not None:
+            R = R.reshape(-1, self.N * self.ny)
+            xi = torch.cat((xi, R), 1)
+        # D = D.reshape(-1, self.N * self.nd) if D is not None else None
+        # R = R.reshape(-1, self.N * self.ny) if R is not None else None
+        # x = x.reshape(-1, self.nx)
+        # xi = torch.cat((x, D, R), 1)
         return self.net(xi), self.reg_error()
 
 
 class RNNPolicy(nn.Module):
     def __init__(self, nx, nu, nd, ny, N=1, bias=False, num_layers=1,
-                 nonlinearity=F.gelu, Linear=linear.Linear, **linargs):
+                 nonlin=F.gelu, Linear=linear.Linear, **linargs):
         super().__init__()
         self.nx, self.nu, self.nd, self.ny, self.N = nx, nu, nd, ny, N
         self.RNN = RNN(nx+N*(nd+ny), N*nu, num_layers=num_layers,
-                       bias=bias, nonlinearity=nonlinearity, Linear=Linear, **linargs)
+                       bias=bias, nonlin=nonlin, Linear=Linear, **linargs)
 
     def reg_error(self):
         return self.RNN.reg_error()
 
     def forward(self, x, D, R, *args):
-        D = D.reshape(-1, self.N * self.nd)
-        R = R.reshape(-1, self.N * self.ny)
         x = x.reshape(-1, self.nx)
-        xi = torch.cat((x, D, R), 1)
+        xi = x
+        if D is not None:
+            D = D.reshape(-1, self.N * self.nd)
+            xi = torch.cat((xi, D), 1)
+        if R is not None:
+            R = R.reshape(-1, self.N * self.ny)
+            xi = torch.cat((xi, R), 1)
         return self.RNN(xi)[0].reshape(-1, self.N * self.nu), self.reg_error()
 
 

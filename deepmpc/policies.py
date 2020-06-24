@@ -46,7 +46,7 @@ class LinearPolicy(nn.Module):
     def reg_error(self):
         return self.linear.reg_error()
 
-    def forward(self, x, D, R, *args):
+    def forward(self, x, D=None, R=None, *args):
         xi = x.reshape(-1, self.nx)
         if D is not None:
             D = D.reshape(-1, self.N * self.nd)
@@ -68,7 +68,7 @@ class MLPPolicy(nn.Module):
     def reg_error(self):
         return self.net.reg_error()
 
-    def forward(self, x, D, R, *args):
+    def forward(self, x, D=None, R=None, *args):
         x = x.reshape(-1, self.nx)
         xi = x
         if D is not None:
@@ -95,7 +95,7 @@ class RNNPolicy(nn.Module):
     def reg_error(self):
         return self.RNN.reg_error()
 
-    def forward(self, x, D, R, *args):
+    def forward(self, x, D=None, R=None, *args):
         x = x.reshape(-1, self.nx)
         xi = x
         if D is not None:

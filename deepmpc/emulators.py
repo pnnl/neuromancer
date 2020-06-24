@@ -20,6 +20,7 @@ import warnings
 ###### Internal Emulators ##########
 ####################################
 
+
 """
 Base Classes
 """
@@ -60,7 +61,7 @@ class ODE_Autonomous(EmulatorBase):
         self.ts = 0.1
 
     # N-step forward simulation of the dynamical system
-    def simulate(self, ninit=None, nsim=None, ts=None, x0=None):
+    def simulate(self, ninit=None, nsim=None, ts=None, x0=None, **kwargs):
         """
         :param nsim: (int) Number of steps for open loop response
         :param ninit: (float) initial simulation time
@@ -73,13 +74,13 @@ class ODE_Autonomous(EmulatorBase):
         # default simulation setup parameters
         if ninit is None:
             ninit = self.ninit
-            warnings.warn('ninit was not defined, using default simulation setup')
+            # warnings.warn('ninit was not defined, using default simulation setup')
         if nsim is None:
             nsim = self.nsim
-            warnings.warn('nsim was not defined, using default simulation setup')
+            # warnings.warn('nsim was not defined, using default simulation setup')
         if ts is None:
             ts = self.ts
-            warnings.warn('ts was not defined, using default simulation setup')
+            # warnings.warn('ts was not defined, using default simulation setup')
 
         # initial conditions states + uncontrolled inputs
         if x0 is None:
@@ -112,7 +113,7 @@ class ODE_NonAutonomous(EmulatorBase):
         self.ts = 0.1
 
     # N-step forward simulation of the dynamical system
-    def simulate(self, U=None, ninit=None, nsim=None, ts=None, x0=None):
+    def simulate(self, U=None, ninit=None, nsim=None, ts=None, x0=None, **kwargs):
         """
         :param nsim: (int) Number of steps for open loop response
         :param ninit: (float) initial simulation time
@@ -125,13 +126,13 @@ class ODE_NonAutonomous(EmulatorBase):
         # default simulation setup parameters
         if ninit is None:
             ninit = self.ninit
-            warnings.warn('ninit was not defined, using default simulation setup')
+            # warnings.warn('ninit was not defined, using default simulation setup')
         if nsim is None:
             nsim = self.nsim
-            warnings.warn('nsim was not defined, using default simulation setup')
+            # warnings.warn('nsim was not defined, using default simulation setup')
         if ts is None:
             ts = self.ts
-            warnings.warn('ts was not defined, using default simulation setup')
+            # warnings.warn('ts was not defined, using default simulation setup')
         if U is None:
             U = self.U
             warnings.warn('U was not defined, using default trajectories')
@@ -1419,6 +1420,44 @@ def SignalSeries():
     allows combining sequence of different signals
     """
     pass
+
+
+systems = {'building_small': Building_hf_Small,  # TODO: this one is not standardized
+           # non-autonomous ODEs
+           'CSTR': CSTR,
+           'TwoTank': TwoTank,
+           # autonomous chaotic ODEs
+           'LorenzSystem': LorenzSystem,
+           'Lorenz96': Lorenz96,
+           'VanDerPol': VanDerPol,
+           'ThomasAttractor': ThomasAttractor,
+           'RosslerAttractor': RosslerAttractor,
+           'LotkaVolterra': LotkaVolterra,
+           'Brusselator1D': Brusselator1D,
+           'ChuaCircuit': ChuaCircuit,
+           'Duffing': Duffing,
+           'UniversalOscillator': UniversalOscillator,
+           # non-autonomous chaotic ODEs
+           'HindmarshRose': HindmarshRose,
+           # OpenAI gym environments
+           'Pendulum-v0': GymWrapper,
+           'CartPole-v1': GymWrapper,
+           'Acrobot-v1': GymWrapper,
+           'MountainCar-v0': GymWrapper,
+           'MountainCarContinuous-v0': GymWrapper,
+           # partially observable building state space models with external disturbances
+           'Reno_full': BuildingEnvelope,
+           'Reno_ROM40': BuildingEnvelope,
+           'RenoLight_full': BuildingEnvelope,
+           'RenoLight_ROM40': BuildingEnvelope,
+           'Old_full': BuildingEnvelope,
+           'Old_ROM40': BuildingEnvelope,
+           'HollandschHuys_full': BuildingEnvelope,
+           'HollandschHuys_ROM100': BuildingEnvelope,
+           'Infrax_full': BuildingEnvelope,
+           'Infrax_ROM100': BuildingEnvelope
+           }
+
 
 
 if __name__ == '__main__':

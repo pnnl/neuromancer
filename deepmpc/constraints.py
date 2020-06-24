@@ -5,12 +5,20 @@ used in model.regularize()
 Types of constaints:
     1. Penalty functions
     # https: // en.wikipedia.org / wiki / Penalty_method
-    admissible penalty functions: relu, relu6, softplus, SoftExponential
+    some useful notes and theorems
+    http://www-personal.umich.edu/~mepelman/teaching/NLP/Handouts/NLPnotes12_89.pdf
+
+    admissible penalty functions: relu, relu6, softplus, SoftExponential,
+    relu(g(x))^i where i>=1
+        i=1 is a linear penalty function -  may not be di↵erentiable at g(x) = 0
+        i=2 is a quadratic penalty - most common type
 
     2. one time step residual penalty
     # residual: dx_k = x_k- x_{k-1}
     admissible penalties: square, abs
 
+    3. extension to exact penalty methods and augmented lagrangian method
+    http://www-personal.umich.edu/~mepelman/teaching/NLP/Handouts/NLPnotes12_89.pdf
 """
 
 

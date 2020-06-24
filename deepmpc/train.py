@@ -44,7 +44,7 @@ import policies
 import loops
 import linear
 import blocks
-
+import emulators
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -52,7 +52,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=10000)
+    opt_group.add_argument('-epochs', type=int, default=500)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
@@ -206,12 +206,13 @@ def model_setup(args, device, nx, ny, nu, nd):
 
 if __name__ == '__main__':
     args, device = arg_setup()
-    train_data, dev_data, test_data, nx, ny, nu, nd = dataset.data_setup(args=args, device='cpu')
+    train_data, dev_data, test_data, nx, ny, nu, nd, norms = dataset.data_setup(args=args, device='cpu')
     model = model_setup(args, device, nx, ny, nu, nd)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+
     # Grab only first nsteps for previous observed states as input to state estimator
     data_open = [dev_data[0][:, 0:1, :]] + [dataset.unbatch_data(d) if d is not None else d for d in dev_data[1:]]
     anime = plot.Animator(data_open[1], model)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
     #######################################
     ### N-STEP AHEAD TRAINING
@@ -234,7 +235,7 @@ if __name__ == '__main__':
             dev_loss, dev_reg, X_pred, Y_pred, U_pred = step(model, dev_data)
             # open loop loss
             if args.loop == 'open':
-                # TODO: error here during closed loop
+                # TODO: error here during closed loop when using  data_open
                 openloss, reg_error, X_out, Y_out, U_out = step(model, data_open)
             elif args.loop == 'closed':
                 openloss = dev_loss
@@ -270,7 +271,7 @@ if __name__ == '__main__':
         ########## NSTEP TRAIN RESPONSE ########
         ########################################
         model.load_state_dict(best_model)
-        Ytrue, Ypred, Upred = [], [], []
+        Ytrue, Ypred, Upred, Rpred = [], [], [], []
         for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
             loss, reg, X_out, Y_out, U_out = step(model, dset)
             if args.logger in ['mlflow', 'wandb']:
@@ -279,9 +280,15 @@ if __name__ == '__main__':
             Upred.append(U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nu)) if U_out is not None else None
             Ypred.append(Y_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
             Ytrue.append(Y_target.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
-        plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
-                   U=np.concatenate(Upred) if U_out is not None else None,
-                   figname=os.path.join(args.savedir, 'nstep.png'))
+            Rpred.append(dset[-1].transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)) if args.loop == 'closed' else None
+        if args.loop == 'open':
+            plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
+                       U=np.concatenate(Upred) if U_out is not None else None,
+                       figname=os.path.join(args.savedir, 'nstep_OL.png'))
+        elif args.loop == 'closed':
+            plot.pltCL(Y=np.concatenate(Ypred), R=np.concatenate(Rpred),
+                       U=np.concatenate(Upred) if U_out is not None else None,
+                       figname=os.path.join(args.savedir, 'nstep_CL.png'))
 
         ########################################
         ########## OPEN LOOP RESPONSE ##########
@@ -310,12 +317,64 @@ if __name__ == '__main__':
                                       freq=args.freq)
 
         ########################################
-        ########## Closed LOOP RESPONSE ##########
+        ########## Closed LOOP RESPONSE ########
         ########################################
-        elif args.loop == 'closed':
-            pass
-            # TODO: actual closed loop control with emulator
-            # in case of dataset use learned system dynamics as emulator
+        if args.loop == 'closed':
+            # closed loop control with emulator
+            # TODO: in case of dataset use learned system dynamics as emulator
+            # TODO: how to standardize this? add Y, U, D to all base emulator classes?
+            system_emualtor = emulators.systems[args.system]()
+            system_emualtor.parameters()
+            nsim = args.nsim if args.nsim is not None else system_emualtor.nsim
+
+            Uinit = np.zeros([args.nsteps, system_emualtor.nu])
+            # simulate system over nsteps to fill in Yp with Up = zeros
+            X, _ = system_emualtor.simulate(U=Uinit, nsim=args.nsteps, x0=system_emualtor.x0)  # simulate open loop
+            x = X[-1,:]
+            Dp, Df, d = None, None, None  #  temporary fix
+            # D = torch.zeros(args.nsteps, 1, model.policy.nd)
+            # Yp = torch.zeros(args.nsteps, 1, model.policy.ny)
+            # Up = torch.zeros(args.nsteps, 1, model.policy.nu)
+            # Rf = torch.ones(args.nsteps, 1, model.policy.ny)
+            # Rf = torch.ones(args.nsteps, 1, model.policy.ny)
+
+            Yp = torch.tensor(X).reshape(args.nsteps, 1, system_emualtor.nx)
+            Up = torch.tensor(Uinit).reshape(args.nsteps, 1, system_emualtor.nu)
+            Ref = np.ones([nsim, model.policy.ny])
+            Ref[:, 0] = 0.7*Ref[:, 0]
+            Ref[:, 1] = 0.2*Ref[:, 1]
+
+            Rf = torch.tensor(Ref[0:args.nsteps,:]).reshape(args.nsteps, 1, system_emualtor.nx)
+            Rf[:, :, 0] = Rf[:, :, 0]
+            Rf[:, :, 1] = Rf[:, :, 1]
+            # TODO: generalize for time varying reference
+
+            X, Uopt, Uopt_norm, X_norm = [], [], [], []
+            for k in range(nsim):
+                x0, _ = model.estim(Yp.float(), Up.float(),
+                                    Dp.float() if Dp is not None else None)
+                U, _ = model.policy(x0, Df.float() if Df is not None else None, Rf.float())
+                Up[0:-1,:,:] = Up[1:,:,:]
+                Up[-1, :, :] = U[:, 0]
+                uopt = U[:, 0].detach().numpy()
+                Uopt_norm.append(uopt)
+                # denormalize
+                uopt = dataset.min_max_denorm(uopt, norms['Umin'], norms['Umax'])
+                Uopt.append(uopt)
+                x, _ = system_emualtor.simulate(U=uopt, nsim=1, x0=x)  # simulate open loop
+                x = x.squeeze()
+                X.append(x)
+                # normalize
+                x_norm, _, _ = dataset.min_max_norm(x, norms['Ymin'], norms['Ymax'])
+                X_norm.append(x_norm)
+                Yp[0:-1, :, :] = Yp[1:, :, :]
+                Yp[-1, :, :] = torch.tensor(x_norm)
+            # X_cl = np.asarray(X, dtype=np.float32)
+            # U_cl = np.asarray(Uopt, dtype=np.float32)
+            # Ref = dataset.min_max_denorm(Ref, norms['Ymin'], norms['Ymax'])
+            X_cl = np.asarray(X_norm, dtype=np.float32)
+            U_cl = np.asarray(Uopt_norm, dtype=np.float32)
+            plot.pltCL(Y=X_cl, R=Ref, U=U_cl)
 
         ########################################
         ########## SAVE ARTIFACTS ##############

@@ -11,14 +11,22 @@ import plot
 import emulators
 
 
-def min_max_norm(M):
+def min_max_norm(M, Mmin=None, Mmax=None):
     """
     :param M:
     :return:
     """
-    M_norm = (M - M.min(axis=0).reshape(1, -1)) / (M.max(axis=0) - M.min(axis=0)).reshape(1, -1)
-    return np.nan_to_num(M_norm)
+    Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
+    Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
+    M_norm = (M - Mmin) / (Mmax - Mmin)
+    return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
 
+def min_max_denorm(M, Mmin, Mmax):
+    """
+    denormalize min max norm
+    """
+    M_denorm = M*(Mmax - Mmin) + Mmin
+    return np.nan_to_num(M_denorm)
 
 #  TODO: save trained benchmark models from Matlab's System ID
 #  TODO: write function to load csv files pre defined format as well
@@ -31,18 +39,15 @@ def load_data_from_file(system='aero'):
     :return:
     """
     Y, U, D = None, None, None
-
     # list of available datasets
     systems_datapaths = {'tank': './datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
                          'vehicle3': './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
                          'aero': './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat',
                          'flexy_air': './datasets/Flexy_air/flexy_air_data.csv'}
-
     if system in systems_datapaths.keys():
         file_path = systems_datapaths[system]
     else:
         file_path = system
-
     file_type = file_path.split(".")[-1]
     if file_type == 'mat':
         file = loadmat(file_path)
@@ -54,7 +59,6 @@ def load_data_from_file(system='aero'):
         Y = data.filter(regex='y').values if data.filter(regex='y').values.size != 0 else None
         U = data.filter(regex='u').values if data.filter(regex='u').values.size != 0 else None
         D = data.filter(regex='d').values if data.filter(regex='d').values.size != 0 else None
-
     return Y, U, D
 
 # TODO: include U and D as optional arg
@@ -62,43 +66,7 @@ def load_data_from_emulator(system='LorenzSystem', nsim=None, ninit=None, ts=Non
     """
     dataset creation from the emulator
     """
-    # list of available emulators
-    systems = {'building_small': emulators.Building_hf_Small, # TODO: this one is not standardized
-               # non-autonomous ODEs
-               'CSTR': emulators.CSTR,
-               'TwoTank': emulators.TwoTank,
-               # autonomous chaotic ODEs
-               'LorenzSystem': emulators.LorenzSystem,
-               'Lorenz96': emulators.Lorenz96,
-               'VanDerPol': emulators.VanDerPol,
-               'ThomasAttractor': emulators.ThomasAttractor,
-               'RosslerAttractor': emulators.RosslerAttractor,
-               'LotkaVolterra': emulators.LotkaVolterra,
-               'Brusselator1D': emulators.Brusselator1D,
-               'ChuaCircuit': emulators.ChuaCircuit,
-               'Duffing': emulators.Duffing,
-               'UniversalOscillator': emulators.UniversalOscillator,
-               # non-autonomous chaotic ODEs
-               'HindmarshRose': emulators.HindmarshRose,
-               # OpenAI gym environments
-               'Pendulum-v0': emulators.GymWrapper,
-               'CartPole-v1': emulators.GymWrapper,
-               'Acrobot-v1': emulators.GymWrapper,
-               'MountainCar-v0': emulators.GymWrapper,
-               'MountainCarContinuous-v0': emulators.GymWrapper,
-               # partially observable building state space models with external disturbances
-               'Reno_full': emulators.BuildingEnvelope,
-               'Reno_ROM40':  emulators.BuildingEnvelope,
-               'RenoLight_full':  emulators.BuildingEnvelope,
-               'RenoLight_ROM40':  emulators.BuildingEnvelope,
-               'Old_full':  emulators.BuildingEnvelope,
-               'Old_ROM40':  emulators.BuildingEnvelope,
-               'HollandschHuys_full':  emulators.BuildingEnvelope,
-               'HollandschHuys_ROM100':  emulators.BuildingEnvelope,
-               'Infrax_full':  emulators.BuildingEnvelope,
-               'Infrax_ROM100':  emulators.BuildingEnvelope
-                }
-
+    systems = emulators.systems # list of available emulators
     model = systems[system]()  # instantiate model class
     # simulate
     X, Y, U, D = None, None, None, None
@@ -106,26 +74,17 @@ def load_data_from_emulator(system='LorenzSystem', nsim=None, ninit=None, ts=Non
         model.parameters()  # load model parameters
         X = model.simulate(nsim=nsim, ninit=ninit, ts=ts) # simulate open loop
         Y = X   # fully observable
-        # plot.pltOL(Y=X)
-        # plot.pltPhase(X=X)
     elif isinstance(model, emulators.ODE_NonAutonomous):
         model.parameters()  # load model parameters
         X, U = model.simulate(nsim=nsim, ninit=ninit, ts=ts) # simulate open loop
         Y = X   # fully observable
-        # plot.pltOL(Y=X, U=U)
-        # plot.pltPhase(X=X)
     elif isinstance(model, emulators.GymWrapper):
         model.parameters(system=system)  # load model parameters
         X, Reward, U = model.simulate(nsim=nsim, ninit=ninit, ts=ts)
         Y = Reward   # rewards used as outputs
-        # plot.pltOL(Y=Y, X=X, U=U)
-        # plot.pltPhase(X=X)
     elif isinstance(model, emulators.BuildingEnvelope):
         model.parameters(system=system)  # load model parameters
         X, Y, U, D, Q = model.simulate(nsim=nsim, ninit=ninit, ts=ts)
-        # plot.pltOL(Y=Y, U=U, D=D, X=X)
-        # plot.pltPhase(X=Y)
-    # plt.savefig('./test/dataset.png')
     return Y, U, D
 
 # TODO: old code, delete if load_data_from_emulator is stable
@@ -236,12 +195,12 @@ def data_setup(args, device):
     U = U.reshape(U.shape[0],-1) if U is not None else None
     Y = Y.reshape(Y.shape[0],-1) if Y is not None else None
     D = D.reshape(D.shape[0],-1) if D is not None else None
-    U = min_max_norm(U) if ('U' in args.norm and U is not None) else None
-    Y = min_max_norm(Y) if ('Y' in args.norm and Y is not None) else None
-    D = min_max_norm(D) if ('D' in args.norm and D is not None) else None
-
+    U, Umin, Umax = min_max_norm(U) if ('U' in args.norm and U is not None) else (None, None, None)
+    Y, Ymin, Ymax = min_max_norm(Y) if ('Y' in args.norm and Y is not None) else (None, None, None)
+    D, Dmin, Dmax = min_max_norm(D) if ('D' in args.norm and D is not None) else (None, None, None)
     print(f'Y shape: {Y.shape}')
-
+    min_max_norms = {'Umin':Umin, 'Umax':Umax, 'Ymin':Ymin, 'Ymax':Ymax,
+                     'Dmin':Dmin, 'Dmax':Dmax}
 
     if args.loop == 'open':
         # system ID or time series dataset
@@ -263,7 +222,7 @@ def data_setup(args, device):
     nu = U.shape[1] if U is not None else 0
     nd = D.shape[1] if D is not None else 0
 
-    return train_data, dev_data, test_data, nx, ny, nu, nd
+    return train_data, dev_data, test_data, nx, ny, nu, nd, min_max_norms
 
 
 if __name__ == '__main__':
@@ -305,6 +264,6 @@ if __name__ == '__main__':
         args = parser.parse_args()
         device = 'cpu'
 
-        train_data, dev_data, test_data, nx, ny, nu, nd = data_setup(args, device)
+        train_data, dev_data, test_data, nx, ny, nu, nd, norms = data_setup(args, device)
 
 

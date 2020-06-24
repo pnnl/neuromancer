@@ -63,7 +63,7 @@ def parse_args():
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='emulator',
                             help='source type of the dataset')
-    data_group.add_argument('-system', default='CSTR',
+    data_group.add_argument('-system', choices=list(emulators.systems.keys()), default='CSTR',
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=None,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
@@ -361,7 +361,7 @@ if __name__ == '__main__':
                 # denormalize
                 uopt = dataset.min_max_denorm(uopt, norms['Umin'], norms['Umax'])
                 Uopt.append(uopt)
-                x, _ = system_emualtor.simulate(U=uopt, nsim=1, x0=x)  # simulate open loop
+                x, _ = system_emualtor.simulate(U=uopt.reshape(-1, system_emualtor.nu), nsim=1, x0=x)  # simulate open loop
                 x = x.squeeze()
                 X.append(x)
                 # normalize

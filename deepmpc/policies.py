@@ -47,8 +47,7 @@ class LinearPolicy(nn.Module):
         return self.linear.reg_error()
 
     def forward(self, x, D, R, *args):
-        x = x.reshape(-1, self.nx)
-        xi = x
+        xi = x.reshape(-1, self.nx)
         if D is not None:
             D = D.reshape(-1, self.N * self.nd)
             xi = torch.cat((xi, D), 1)
@@ -63,7 +62,7 @@ class MLPPolicy(nn.Module):
                  Linear=linear.Linear, nonlin=F.relu, hsizes=[64], **linargs):
         super().__init__()
         self.nx, self.nu, self.nd, self.ny, self.N = nx, nu, nd, ny, N
-        self.net = MLP(nx+N*(nd+ny), N*nu, bias=bias,
+        self.net = MLP(insize=nx+N*(nd+ny), outsize=N*nu, bias=bias,
                        Linear=Linear, nonlin=nonlin, hsizes=hsizes, **linargs)
 
     def reg_error(self):

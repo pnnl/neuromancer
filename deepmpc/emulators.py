@@ -1028,12 +1028,14 @@ class HindmarshRose(ODE_NonAutonomous):
         self.r = 0.01
         self.umin = -10
         self.umax = 10
-        self.x0 = [-5,-10,0]
+        self.x0 = np.asarray([-5,-10,0])
         # default simulation setup
         self.ninit = 0
         self.nsim = 5001
         self.ts = 0.1
         self.U = 3 * np.asarray([np.ones((self.nsim - 1))]).T
+        self.nu = 1
+        self.nx = 3
 
     # equations defining the dynamical system
     def equations(self, x, t, u):

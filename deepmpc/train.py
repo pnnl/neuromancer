@@ -347,7 +347,7 @@ if __name__ == '__main__':
             Rf = torch.tensor(Ref[0:args.nsteps,:]).reshape(args.nsteps, 1, system_emualtor.nx)
             Rf[:, :, 0] = Rf[:, :, 0]
             Rf[:, :, 1] = Rf[:, :, 1]
-            # TODO: generalize for time varying reference
+            # TODO: generalize for time varying reference with signals from emulators
 
             X, Uopt, Uopt_norm, X_norm = [], [], [], []
             for k in range(nsim):

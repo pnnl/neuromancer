@@ -52,7 +52,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=100)
+    opt_group.add_argument('-epochs', type=int, default=10000)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
@@ -71,21 +71,22 @@ def parse_args():
                                  'non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,'
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
-    data_group.add_argument('-norm', type=str, default='UDY')
-    data_group.add_argument('-loop', type=str, choices=['closed', 'open'], default='open',
+    data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
+    data_group.add_argument('-loop', type=str, choices=['closed', 'open'], default='closed',
                             help='Defines open or closed loop for learning dynamics or control, respectively')
 
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
-                             default='blackbox')
+                             default='blocknlin')
     model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
     model_group.add_argument('-policy', type=str,
-                             choices=['rnn', 'mlp', 'linear'], default='mlp')
+                             choices=['rnn', 'mlp', 'linear'], default='linear')
+    # TODO: closed loop trains with linear policy, with rnn and mlp crashes
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
@@ -232,7 +233,13 @@ if __name__ == '__main__':
             # MSE loss
             dev_loss, dev_reg, X_pred, Y_pred, U_pred = step(model, dev_data)
             # open loop loss
-            openloss, reg_error, X_out, Y_out, U_out = step(model, data_open)
+            if args.loop == 'open':
+                # TODO: error here during closed loop
+                openloss, reg_error, X_out, Y_out, U_out = step(model, data_open)
+            elif args.loop == 'closed':
+                openloss = dev_loss
+                reg_error = dev_reg
+                # TODO: asses closed loop sme performance on the dev dataset
 
             if openloss < best_openloss:
                 best_model = deepcopy(model.state_dict())
@@ -276,26 +283,43 @@ if __name__ == '__main__':
                    U=np.concatenate(Upred) if U_out is not None else None,
                    figname=os.path.join(args.savedir, 'nstep.png'))
 
-        Ytrue, Ypred, Upred = [], [], []
-        for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
-            data = [dset[0][:, 0:1, :]] + [dataset.unbatch_data(d) if d is not None else d for d in dset[1:]]
-            # data = [dataset.unbatch_data(d) if d is not None else d for d in dset]
-            openloss, reg_error, X_out, Y_out, U_out = step(model, data)
-            print(f'{dname}_open_loss: {openloss}')
-            if args.logger in ['mlflow', 'wandb']:
-                mlflow.log_metrics({f'open_{dname}_loss': openloss.item(), f'open_{dname}_reg': reg_error.item()})
-            Y_target = data[1]
-            Upred.append(U_out.detach().cpu().numpy().reshape(-1, nu)) if U_out is not None else None
-            Ypred.append(Y_out.detach().cpu().numpy().reshape(-1, ny))
-            Ytrue.append(Y_target.detach().cpu().numpy().reshape(-1, ny))
-        plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
-                   U=np.concatenate(Upred) if U_out is not None else None,
-                   figname=os.path.join(args.savedir, 'open.png'))
-        if args.make_movie:
-            plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0),
-                                  np.concatenate(Ypred).transpose(1, 0),
-                                  figname=os.path.join(args.savedir, f'open_movie_{args.linear_map}2.mp4'),
-                                  freq=args.freq)
+        ########################################
+        ########## OPEN LOOP RESPONSE ##########
+        ########################################
+        if args.loop == 'open':
+            Ytrue, Ypred, Upred = [], [], []
+            for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
+                data = [dset[0][:, 0:1, :]] + [dataset.unbatch_data(d) if d is not None else d for d in dset[1:]]
+                # data = [dataset.unbatch_data(d) if d is not None else d for d in dset]
+                # TODO: error here during closed loop does not handle well unbatched data
+                openloss, reg_error, X_out, Y_out, U_out = step(model, data)
+                print(f'{dname}_open_loss: {openloss}')
+                if args.logger in ['mlflow', 'wandb']:
+                    mlflow.log_metrics({f'open_{dname}_loss': openloss.item(), f'open_{dname}_reg': reg_error.item()})
+                Y_target = data[1]
+                Upred.append(U_out.detach().cpu().numpy().reshape(-1, nu)) if U_out is not None else None
+                Ypred.append(Y_out.detach().cpu().numpy().reshape(-1, ny))
+                Ytrue.append(Y_target.detach().cpu().numpy().reshape(-1, ny))
+            plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
+                       U=np.concatenate(Upred) if U_out is not None else None,
+                       figname=os.path.join(args.savedir, 'open.png'))
+            if args.make_movie:
+                plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0),
+                                      np.concatenate(Ypred).transpose(1, 0),
+                                      figname=os.path.join(args.savedir, f'open_movie_{args.linear_map}2.mp4'),
+                                      freq=args.freq)
+
+        ########################################
+        ########## Closed LOOP RESPONSE ##########
+        ########################################
+        elif args.loop == 'closed':
+            pass
+            # TODO: actual closed loop control with emulator
+            # in case of dataset use learned system dynamics as emulator
+
+        ########################################
+        ########## SAVE ARTIFACTS ##############
+        ########################################
         torch.save(best_model, os.path.join(args.savedir, 'best_model.pth'))
         if args.logger in ['mlflow', 'wandb']:
             mlflow.log_artifacts(args.savedir)

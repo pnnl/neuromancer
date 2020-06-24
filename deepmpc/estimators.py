@@ -57,10 +57,10 @@ class MLPEstimator(nn.Module):
 
 
 class RNNEstimator(nn.Module):
-    def __init__(self, input_size, hidden_size, bias=False, num_layers=1,
+    def __init__(self, insize, outsize, bias=False, num_layers=1,
                  nonlin=F.gelu, Linear=linear.Linear, **linargs):
         super().__init__()
-        self.RNN = RNN(input_size, hidden_size, num_layers=num_layers,
+        self.RNN = RNN(insize, outsize, num_layers=num_layers,
                        bias=bias, nonlin=nonlin, Linear=Linear, **linargs)
 
     def reg_error(self):
@@ -74,7 +74,7 @@ class LinearKalmanFilter(nn.Module):
     """
     Linear Time-Varyig Linear Kalman Filter
     """
-    def __init__(self, insize, outsize, model=None):
+    def __init__(self, insize=None, outsize=None, model=None):
         super().__init__()
         assert model is not None
         assert isinstance(model, BlockSSM)

@@ -514,7 +514,7 @@ class TwoTank(ODE_NonAutonomous):
         self.c1 = 0.08  # inlet valve coefficient
         self.c2 = 0.04  # tank outlet coefficient
         # Initial Conditions for the States
-        self.x0 = [0, 0]
+        self.x0 = np.asarray([0, 0])
         # default simulation setup
         self.ninit = 0
         self.nsim = 1001
@@ -526,6 +526,8 @@ class TwoTank(ODE_NonAutonomous):
         pump[551: self.nsim - 1] = 0.2
         valve = np.zeros((self.nsim - 1))
         self.U = np.vstack([pump, valve]).T
+        self.nu = 2
+        self.nx = 2
 
     # equations defining the dynamical system
     def equations(self, x, t, u):

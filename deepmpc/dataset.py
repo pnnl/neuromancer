@@ -238,7 +238,7 @@ if __name__ == '__main__':
                'ChuaCircuit': 'emulator', 'Duffing': 'emulator', 'UniversalOscillator': 'emulator',
                'HindmarshRose': 'emulator', 'Pendulum-v0': 'emulator',
                'CartPole-v1': 'emulator', 'Acrobot-v1': 'emulator', 'MountainCar-v0': 'emulator',
-               'MountainCarContinuous-v0': 'emulator',
+               'MountainCarContinuous-v0': 'emulator', 'SimpleSingleZone': 'emulator',
                'Reno_full': 'emulator', 'Reno_ROM40': 'emulator', 'RenoLight_full': 'emulator',
                'RenoLight_ROM40': 'emulator', 'Old_full': 'emulator',
                'Old_ROM40': 'emulator', 'HollandschHuys_full': 'emulator',

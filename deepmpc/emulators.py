@@ -84,21 +84,21 @@ class SSM(EmulatorBase):
             assert x0.shape[0] == self.nx, "Mismatch in x0 size"
             x = x0
         if D is None:
-            D = self.D[ninit: ninit + nsim, :]
+            D = self.D[ninit: ninit + nsim, :] if self.D is not None else None
         if U is None:
-            U = self.U[ninit: ninit + nsim, :]
+            U = self.U[ninit: ninit + nsim, :] if self.U is not None else None
             # warnings.warn('U was not defined, using default trajectories')
         X, Y = [], []
         for k in range(nsim):
-            u = U[k, :]
-            d = D[k, :]
+            u = U[k, :] if U is not None else None
+            d = D[k, :] if D is not None else None
             x, y = self.equations(x, u, d)
             X.append(x + self.x_ss)
             Y.append(y - self.y_ss)
-        Xout = np.asarray(X).squeeze()
-        Yout = np.asarray(Y).squeeze()
-        Uout = np.asarray(U).squeeze()
-        Dout = np.asarray(D).squeeze()
+        Xout = np.asarray(X).reshape(nsim, self.nx)
+        Yout = np.asarray(Y).reshape(nsim, self.ny)
+        Uout = np.asarray(U).reshape(nsim, self.nu) if U is not None else None
+        Dout = np.asarray(D).reshape(nsim, self.nd) if D is not None else None
         return Xout, Yout, Uout, Dout
 
 
@@ -193,7 +193,7 @@ class ODE_NonAutonomous(EmulatorBase):
             # warnings.warn('ts was not defined, using default simulation setup')
         if U is None:
             U = self.U
-            warnings.warn('U was not defined, using default trajectories')
+            # warnings.warn('U was not defined, using default trajectories')
 
         # initial conditions states + uncontrolled inputs
         if x0 is None:
@@ -754,7 +754,8 @@ class BuildingEnvelope(SSM):
     # parameters of the dynamical system
     def parameters(self, system='Reno_full', linear=False):
         # file paths for different building models
-        systems = {'Reno_full': './emulators/buildings/Reno_full.mat',
+        systems = {'SimpleSingleZone': './emulators/buildings/SimpleSingleZone.mat',
+                   'Reno_full': './emulators/buildings/Reno_full.mat',
                    'Reno_ROM40': './emulators/buildings/Reno_ROM40.mat',
                    'RenoLight_full': './emulators/buildings/RenoLight_full.mat',
                    'RenoLight_ROM40': './emulators/buildings/RenoLight_ROM40.mat',
@@ -768,6 +769,7 @@ class BuildingEnvelope(SSM):
 
         file_path = systems[system]
         file = loadmat(file_path)
+        self.linear = linear  # if True use only linear building envelope model with Q as U
         #  LTI SSM model
         self.A = file['Ad']
         self.B = file['Bd']
@@ -780,31 +782,34 @@ class BuildingEnvelope(SSM):
         # self.TSup = file['TSup']  # supply temperature
         self.umax = file['umax'].squeeze()  # max heat per zone
         self.umin = file['umin'].squeeze() # min heat per zone
-        self.dT_max = file['dT_max']  # maximal temperature difference deg C
-        self.dT_min = file['dT_min'] # minimal temperature difference deg C
-        self.mf_max = file['mf_max'].squeeze()  # maximal nominal mass flow l/h
-        self.mf_min = file['mf_min'].squeeze() # minimal nominal mass flow l/h
-        #         heat flow equation constants
-        self.rho = 0.997  # density  of water kg/1l
-        self.cp = 4185.5  # specific heat capacity of water J/(kg/K)
-        self.time_reg = 1 / 3600  # time regularization of the mass flow 1 hour = 3600 seconds
-        # building type
+        if not self.linear:
+            self.dT_max = file['dT_max']  # maximal temperature difference deg C
+            self.dT_min = file['dT_min']  # minimal temperature difference deg C
+            self.mf_max = file['mf_max'].squeeze()  # maximal nominal mass flow l/h
+            self.mf_min = file['mf_min'].squeeze()  # minimal nominal mass flow l/h
+            #   heat flow equation constants
+            self.rho = 0.997  # density  of water kg/1l
+            self.cp = 4185.5  # specific heat capacity of water J/(kg/K)
+            self.time_reg = 1 / 3600  # time regularization of the mass flow 1 hour = 3600 seconds
+            # building type
         self.type = file['type']
         self.HC_system = file['HC_system']
-        self.linear = linear  # if True use only linear building envelope model with Q as U
         # problem dimensions
         self.nx = self.A.shape[0]
         self.ny = self.C.shape[0]
         self.nq = self.B.shape[1]
         self.nd = self.E.shape[1]
-        self.n_mf = self.B.shape[1]
-        self.n_dT = self.dT_max.shape[0]
-        if linear:
+        if self.linear:
             self.nu = self.nq
         else:
+            self.n_mf = self.B.shape[1]
+            self.n_dT = self.dT_max.shape[0]
             self.nu = self.n_mf + self.n_dT
         # initial conditions and disturbance profiles
-        self.x0 = 0 * np.ones(self.nx, dtype=np.float32)  # initial conditions
+        if system == 'SimpleSingleZone':
+            self.x0 = file['x0'].reshape(self.nx)
+        else:
+            self.x0 = 0*np.ones(self.nx, dtype=np.float32)  # initial conditions
         self.D = file['disturb'] # pre-defined disturbance profiles
         #  steady states - linearization offsets
         self.x_ss = file['x_ss']
@@ -812,7 +817,7 @@ class BuildingEnvelope(SSM):
         # default simulation setup
         self.ninit = 0
         self.nsim = 1200
-        if linear:
+        if self.linear:
             self.U = Periodic(nx=self.nu, nsim=self.nsim, numPeriods=6, xmax=self.umax, xmin=self.umin, form='sin')
         else:
             self.M_flow = Periodic(nx=self.n_mf, nsim=self.nsim, numPeriods=6, xmax=self.mf_max, xmin=self.mf_min, form='sin')
@@ -831,49 +836,9 @@ class BuildingEnvelope(SSM):
         y = np.matmul(self.C, x) + self.F.ravel()
         return x, y
 
-    # # N-step forward simulation of the dynamical system
-    # # def simulate(self, ninit, nsim, M_flow, DT, D=None, x0=None):
-    # def simulate(self, ninit=None, nsim=None, U=None, D=None, x0=None, **kwargs):
-    #     """
-    #     :param nsim: (int) Number of steps for open loop response
-    #     :param U: (ndarray, shape=(nsim, self.nu)) temperature difference profile matrix
-    #     :param D: (ndarray, shape=(nsim, self.nd)) measured disturbance signals
-    #     :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
-    #     :return: The response matrices, i.e. U, X, Y, for heat flows, states, and output ndarrays
-    #     """
-    #
-    #     # default simulation setup parameters
-    #     if ninit is None:
-    #         ninit = self.ninit
-    #         warnings.warn('ninit was not defined, using default simulation setup')
-    #     if nsim is None:
-    #         nsim = self.nsim
-    #         warnings.warn('nsim was not defined, using default simulation setup')
-    #     if x0 is None:
-    #         x = self.x0
-    #     else:
-    #         assert x0.shape[0] == self.nx, "Mismatch in x0 size"
-    #         x = x0
-    #     if D is None:
-    #         D = self.D[ninit: ninit+nsim,:]
-    #     if U is None:
-    #         U = self.U[ninit: ninit+nsim,:]
-    #         warnings.warn('U was not defined, using default trajectories')
-    #
-    #     Q, X, Y = [], [], []
-    #     N = 0
-    #     for u, d in zip(U, D):
-    #         N += 1
-    #         q, x, y = self.equations(x, u, d)
-    #         Q.append(q)
-    #         X.append(x + self.x_ss)  # updated states trajectories with initial condition 20 deg C of linearization
-    #         Y.append(y - self.y_ss)  # updated input trajectories from K to deg C
-    #         if N == nsim:
-    #             break
-    #     return np.asarray(X).squeeze(), np.asarray(Y).squeeze(), \
-    #            np.asarray(U).squeeze(), np.asarray(D).squeeze(), np.asarray(Q).squeeze()
 
 
+# TODO: this model is outdated and can be removed
 class Building_hf_Small(EmulatorBase):
     def __init__(self):
         super().__init__()
@@ -1468,6 +1433,9 @@ def Periodic(nx=1, nsim=100, numPeriods=1, xmax=1, xmin=0, form='sin'):
     if type(xmin) is not np.ndarray:
         xmin = np.asarray([xmin]*nx).ravel()
 
+    xmax = xmax.reshape(nx)
+    xmin = xmin.reshape(nx)
+
     samples_period = nsim// numPeriods
     leftover = nsim % numPeriods
     Signal = []
@@ -1496,8 +1464,7 @@ def SignalSeries():
     pass
 
 
-systems = {'building_small': Building_hf_Small,  # TODO: this one is not standardized
-           # non-autonomous ODEs
+systems = {# non-autonomous ODEs
            'CSTR': CSTR,
            'TwoTank': TwoTank,
            # autonomous chaotic ODEs
@@ -1520,6 +1487,7 @@ systems = {'building_small': Building_hf_Small,  # TODO: this one is not standar
            'MountainCar-v0': GymWrapper,
            'MountainCarContinuous-v0': GymWrapper,
            # partially observable building state space models with external disturbances
+           'SimpleSingleZone': BuildingEnvelope,
            'Reno_full': BuildingEnvelope,
            'Reno_ROM40': BuildingEnvelope,
            'RenoLight_full': BuildingEnvelope,
@@ -1543,15 +1511,9 @@ if __name__ == '__main__':
     ninit = 0
     nsim = 1200
     building = BuildingEnvelope()   # instantiate building class
-    building.parameters(system='HollandschHuys_full')      # load model parameters
-    # generate input data
-    M_flow = Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min, form='sin')
-    DT = Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min, form='cos')
-    D = building.D[ninit:nsim,:]
-    U = np.hstack([M_flow, DT])
+    building.parameters(system='HollandschHuys_full', linear=False)      # load model parameters
     # simulate open loop building
-    X, Y, U, D= building.simulate(ninit=ninit, nsim=nsim, U=U, D=D)
-    # X, Y, U, D, Q  = building.simulate() # default simulation setup
+    X, Y, U, D= building.simulate(ninit=ninit, nsim=nsim)
     # plot trajectories
     plot.pltOL(Y=Y, U=U, D=D, X=X)
     plot.pltPhase(X=Y)

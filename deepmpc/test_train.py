@@ -33,7 +33,7 @@ systems = {'tank': 'datafile', 'vehicle3': 'datafile', 'aero': 'datafile', 'flex
                'ChuaCircuit': 'emulator','Duffing': 'emulator','UniversalOscillator': 'emulator',
            'HindmarshRose': 'emulator','Pendulum-v0': 'emulator',
                'CartPole-v1': 'emulator','Acrobot-v1': 'emulator','MountainCar-v0': 'emulator',
-           'MountainCarContinuous-v0': 'emulator',
+           'MountainCarContinuous-v0': 'emulator', 'SimpleSingleZone': 'emulator',
                'Reno_full': 'emulator','Reno_ROM40': 'emulator','RenoLight_full': 'emulator',
            'RenoLight_ROM40': 'emulator','Old_full': 'emulator',
                'Old_ROM40': 'emulator','HollandschHuys_full': 'emulator',
@@ -51,7 +51,7 @@ for system, data_type in test_systems.items():
         for nonlinear_map in ['mlp', 'rnn', 'linear', 'residual_mlp']:
             for linear_map in ['pf', 'linear', 'softSVD']:
                 for state_estimator in ['rnn', 'mlp', 'linear']:
-                    print(ssm_type+nonlinear_map+linear_map+state_estimator)
+                    print(system+ssm_type+nonlinear_map+linear_map+state_estimator)
                     args.nonlinear_map = nonlinear_map
                     args.linear_map = linear_map
                     args.ssm_type = ssm_type

@@ -16,7 +16,7 @@ import torch.nn.functional as F
 import linear
 from blocks import MLP
 from rnn import RNN, RNNCell
-from ssm import BlockSSM
+from dynamics import BlockSSM
 
 
 class FullyObservable(nn.Module):

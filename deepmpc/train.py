@@ -38,7 +38,7 @@ import numpy as np
 # local imports
 import plot
 import dataset
-import ssm
+import dynamics
 import estimators
 import policies
 import loops
@@ -142,7 +142,6 @@ def step(model, data):
         X_pred, Y_pred, U_pred, reg_error = model(Yp, Up, Dp, Df, Rf, nsamples=Yf.shape[0])
         loss = criterion(Y_pred.squeeze(), Rf.squeeze())
     return loss, reg_error, X_pred, Y_pred, U_pred
-# TODO: resolve errors with calling policies
 
 def arg_setup():
     args = parse_args()
@@ -159,7 +158,7 @@ def arg_setup():
     return args, device
 
 # TODO: generalize hsized and num_layers
-# TODO: option of loading and figing the system model with estimator to learn only the policy
+# TODO: option of loading the system model with estimator to learn only the policy
 def model_setup(args, device, nx, ny, nu, nd):
     linmap = linear.maps[args.linear_map]
     nonlinmap = {'linear': linmap,
@@ -167,10 +166,10 @@ def model_setup(args, device, nx, ny, nu, nd):
                  'rnn': blocks.RNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
     # state space model setup
-    ss_model = {'blackbox': ssm.blackbox,
-                'blocknlin': ssm.blocknlin,
-                'hammerstein': ssm.hammerstein,
-                'hw': ssm.hw}[args.ssm_type](args, linmap, nonlinmap, nx, nu, nd, ny, args.n_layers)
+    ss_model = {'blackbox': dynamics.blackbox,
+                'blocknlin': dynamics.blocknlin,
+                'hammerstein': dynamics.hammerstein,
+                'hw': dynamics.hw}[args.ssm_type](args, linmap, nonlinmap, nx, nu, nd, ny, args.n_layers)
     # state space model weights
     ss_model.Q_dx, ss_model.Q_dx_ud, ss_model.Q_con_x, ss_model.Q_con_u, ss_model.Q_sub = \
         args.Q_dx, args.Q_dx_ud, args.Q_con_x, args.Q_con_u, args.Q_sub
@@ -219,7 +218,7 @@ if __name__ == '__main__':
     #######################################
     elapsed_time = 0
     start_time = time.time()
-    best_openloss = np.finfo(np.float32).max
+    best_looploss = np.finfo(np.float32).max
     best_model = deepcopy(model.state_dict())
 
     for i in range(args.epochs):
@@ -236,26 +235,26 @@ if __name__ == '__main__':
             # open loop loss
             if args.loop == 'open':
                 # TODO: error here during closed loop when using  data_open
-                openloss, reg_error, X_out, Y_out, U_out = step(model, data_open)
+                looploss, reg_error, X_out, Y_out, U_out = step(model, data_open)
             elif args.loop == 'closed':
-                openloss = dev_loss
+                looploss = dev_loss
                 reg_error = dev_reg
-                # TODO: asses closed loop sme performance on the dev dataset
+                # TODO: asses closed loop performance on the dev dataset
 
-            if openloss < best_openloss:
+            if looploss < best_looploss:
                 best_model = deepcopy(model.state_dict())
-                best_openloss = openloss
+                best_looploss = looploss
             if args.logger in ['mlflow', 'wandb']:
                 mlflow.log_metrics({'trainloss': loss.item(),
                                     'train_reg': train_reg.item(),
                                     'devloss': dev_loss.item(),
                                     'dev_reg': dev_reg.item(),
-                                    'open': openloss.item(),
-                                    'bestopen': best_openloss.item()}, step=i)
+                                    'loop': looploss.item(),
+                                    'best loop': best_looploss.item()}, step=i)
         if i % args.verbosity == 0:
             elapsed_time = time.time() - start_time
-            print(f'epoch: {i:2}  loss: {loss.item():10.8f}\topen: {openloss.item():10.8f}'
-                  f'\tbestopen: {best_openloss.item():10.8f}\teltime: {elapsed_time:5.2f}s')
+            print(f'epoch: {i:2}  loss: {loss.item():10.8f}\topen: {looploss.item():10.8f}'
+                  f'\tbestopen: {best_looploss.item():10.8f}\teltime: {elapsed_time:5.2f}s')
             if args.ssm_type not in ['blackbox', 'blocknlin']:
                 anime(Y_out, data_open[1])
 
@@ -321,9 +320,7 @@ if __name__ == '__main__':
         ########################################
         if args.loop == 'closed':
             # closed loop control with emulator
-            # TODO: in case of dataset use learned system dynamics as emulator
-            # TODO: how to standardize this? add Y, U, D to all base emulator classes?
-
+            # TODO: in case of dataset have option to load learned model
             Uinit = np.zeros([args.nsteps, nu])
             Dp, Df, d = None, None, None  #  temporary fix
             # Dp = torch.zeros(args.nsteps, 1, nd)
@@ -335,10 +332,10 @@ if __name__ == '__main__':
                 system_emualtor.parameters()
                 nsim = args.nsim if args.nsim is not None else system_emualtor.nsim
                 # simulate system over nsteps to fill in Yp with Up = zeros
-                X, _ = system_emualtor.simulate(U=Uinit, nsim=args.nsteps, x0=system_emualtor.x0)  # simulate open loop
+                X, Y, _, _ = system_emualtor.simulate(U=Uinit, nsim=args.nsteps, x0=system_emualtor.x0)  # simulate open loop
                 x_denorm = X[-1, :]
-                # TODO: standardize on Y
-                Yp = torch.tensor(X).reshape(args.nsteps, 1, ny)
+                y_denorm = Y[-1, :]
+                Yp = torch.tensor(Y).reshape(args.nsteps, 1, ny)
                 Up = torch.tensor(Uinit).reshape(args.nsteps, 1, nu)
             elif args.system_data == 'dataset':
                 # TODO: temporary fix
@@ -348,7 +345,6 @@ if __name__ == '__main__':
                 Up = torch.tensor(Uinit).reshape(args.nsteps, 1, nu).float()
                 Xp, Yp, _ = model.model(x=x0, U=Up,
                                 D=Df.float() if Df is not None else None, nsamples=1)
-
             # references
             Ref = np.ones([nsim, ny])
             Ref[:, 0] = 0.5*Ref[:, 0]
@@ -358,7 +354,7 @@ if __name__ == '__main__':
             Rf[:, :, 1] = Rf[:, :, 1]
             # TODO: generalize for time varying reference with signals from emulators
 
-            X, Uopt, Uopt_norm, X_norm = [], [], [], []
+            Y, Y_norm, Uopt, Uopt_norm = [], [], [], []
             for k in range(nsim):
                 x0, _ = model.estim(Yp.float(), Up.float(),
                                     Dp.float() if Dp is not None else None)
@@ -372,30 +368,31 @@ if __name__ == '__main__':
                 Uopt.append(uopt)
 
                 # system dynamics
-                # TODO: mismatch between emulator and trained system model!
-                # TODO: standardize use of y as outputs and not states
+                # TODO: mismatch between emulator and trained system model
                 if args.system_data == 'emulator':
-                    x_denorm, _ = system_emualtor.simulate(U=uopt.reshape(-1, system_emualtor.nu), nsim=1, x0=x_denorm)  # simulate open loop
+                    x_denorm, y_denorm, _, _ = system_emualtor.simulate(U=uopt.reshape(-1, system_emualtor.nu),
+                                                                        nsim=1, x0=x_denorm)  # simulate open loop
                     x_denorm = x_denorm.squeeze()
+                    y_denorm = y_denorm.squeeze()
                     # normalize
-                    x_norm, _, _ = dataset.min_max_norm(x_denorm, norms['Ymin'], norms['Ymax'])
+                    y_norm, _, _ = dataset.min_max_norm(y_denorm, norms['Ymin'], norms['Ymax'])
                 elif args.system_data == 'dataset':
                     u = U[:, 0].reshape(1, nu)
                     x = Xp[-1, :, :] if k == 0 else xpred.reshape(1, nx)
                     xpred, ypred, _ = model.model(x=x, U=u,
                                       D=Df[:, 0].float() if Df is not None else None, nsamples=1)
-                    x_norm = ypred.reshape(1, ny).detach().numpy()
-                    x_denorm = dataset.min_max_denorm(x_norm, norms['Ymin'], norms['Ymax'])
-                X_norm.append(x_norm)
-                X.append(x_denorm)
+                    y_norm = ypred.reshape(1, ny).detach().numpy()
+                    y_denorm = dataset.min_max_denorm(y_norm, norms['Ymin'], norms['Ymax'])
+                Y_norm.append(y_norm)
+                Y.append(y_denorm)
                 Yp[0:-1, :, :] = Yp[1:, :, :]
-                Yp[-1, :, :] = torch.tensor(x_norm)
+                Yp[-1, :, :] = torch.tensor(y_norm)
             # X_cl = np.asarray(X, dtype=np.float32)
             # U_cl = np.asarray(Uopt, dtype=np.float32)
             # Ref = dataset.min_max_denorm(Ref, norms['Ymin'], norms['Ymax'])
-            X_cl = np.asarray(X_norm, dtype=np.float32)
+            Y_cl = np.asarray(Y_norm, dtype=np.float32)
             U_cl = np.asarray(Uopt_norm, dtype=np.float32)
-            plot.pltCL(Y=X_cl, R=Ref, U=U_cl)
+            plot.pltCL(Y=Y_cl, R=Ref, U=U_cl, figname=os.path.join(args.savedir, 'closed.png'))
 
         ########################################
         ########## SAVE ARTIFACTS ##############

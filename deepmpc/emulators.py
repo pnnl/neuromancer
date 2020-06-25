@@ -63,14 +63,13 @@ class SSM(EmulatorBase):
         self.x_ss = 0
         self.y_ss = 0
 
-    #  TODO: finish and use for building models and other SSM
     def simulate(self, ninit=None, nsim=None, U=None, D=None, x0=None, **kwargs):
         """
         :param nsim: (int) Number of steps for open loop response
         :param U: (ndarray, shape=(nsim, self.nu)) control signals
         :param D: (ndarray, shape=(nsim, self.nd)) measured disturbance signals
         :param x: (ndarray, shape=(self.nx)) Initial state.
-        :return: The response matrices, i.e. U, X, Y
+        :return: The response matrices, i.e. X, Y, U, D
         """
         # default simulation setup parameters
         if ninit is None:
@@ -89,19 +88,18 @@ class SSM(EmulatorBase):
         if U is None:
             U = self.U[ninit: ninit + nsim, :]
             # warnings.warn('U was not defined, using default trajectories')
-
         X, Y = [], []
-        N = 0
-        # TODO: iterate through nsim?
-        for u, d in zip(U, D):
-            N += 1
+        for k in range(nsim):
+            u = U[k, :]
+            d = D[k, :]
             x, y = self.equations(x, u, d)
             X.append(x + self.x_ss)
             Y.append(y - self.y_ss)
-            if N == nsim:
-                break
-        return np.asarray(X).squeeze(), np.asarray(Y).squeeze(), \
-               np.asarray(U).squeeze(), np.asarray(D).squeeze()
+        Xout = np.asarray(X).squeeze()
+        Yout = np.asarray(Y).squeeze()
+        Uout = np.asarray(U).squeeze()
+        Dout = np.asarray(D).squeeze()
+        return Xout, Yout, Uout, Dout
 
 
 class ODE_Autonomous(EmulatorBase):
@@ -152,7 +150,11 @@ class ODE_Autonomous(EmulatorBase):
             xdot = odeint(self.equations, x, dT)
             x = xdot[-1]
             X.append(x)  # updated states trajectories
-        return np.asarray(X)
+        Xout = np.asarray(X)
+        Yout = np.asarray(X)
+        Uout = None
+        Dout = None
+        return Xout, Yout, Uout, Dout
 
 
 class ODE_NonAutonomous(EmulatorBase):
@@ -176,7 +178,7 @@ class ODE_NonAutonomous(EmulatorBase):
         :param ts: (float) step size, sampling time
         :param x0: (float) state initial conditions
         :param x: (ndarray, shape=(self.nx)) states
-        :return: The response matrices, i.e. X
+        :return: X, Y, U, D
         """
 
         # default simulation setup parameters
@@ -211,7 +213,11 @@ class ODE_NonAutonomous(EmulatorBase):
             N += 1
             if N == nsim:
                 break
-        return np.asarray(X), np.asarray(U)
+        Xout = np.asarray(X)
+        Yout = np.asarray(X)
+        Uout = np.asarray(U)
+        Dout = None
+        return Xout, Yout, Uout, Dout
 
 
 """
@@ -352,7 +358,11 @@ class LinCartPole(EmulatorBase):
             N += 1
             if N == nsim:
                 break
-        return np.asarray(X), np.asarray(Y)
+        Xout = np.asarray(X)
+        Yout = np.asarray(Y)
+        Uout = None
+        Dout = None
+        return Xout, Yout, Uout, Dout
 
 
 
@@ -731,7 +741,7 @@ class LogisticGrowth(EmulatorBase):
         return np.asarray(X)
 
 
-class BuildingEnvelope(EmulatorBase):
+class BuildingEnvelope(SSM):
     """
     building envelope heat transfer model
     linear building envelope dynamics and bilinear heat flow input dynamics
@@ -819,49 +829,49 @@ class BuildingEnvelope(EmulatorBase):
             q = m_flow * self.rho * self.cp * self.time_reg * dT
         x = np.matmul(self.A, x) + np.matmul(self.B, q) + np.matmul(self.E, d) + self.G.ravel()
         y = np.matmul(self.C, x) + self.F.ravel()
-        return q, x, y
+        return x, y
 
-    # N-step forward simulation of the dynamical system
-    # def simulate(self, ninit, nsim, M_flow, DT, D=None, x0=None):
-    def simulate(self, ninit=None, nsim=None, U=None, D=None, x0=None, **kwargs):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param U: (ndarray, shape=(nsim, self.nu)) temperature difference profile matrix
-        :param D: (ndarray, shape=(nsim, self.nd)) measured disturbance signals
-        :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
-        :return: The response matrices, i.e. U, X, Y, for heat flows, states, and output ndarrays
-        """
-
-        # default simulation setup parameters
-        if ninit is None:
-            ninit = self.ninit
-            warnings.warn('ninit was not defined, using default simulation setup')
-        if nsim is None:
-            nsim = self.nsim
-            warnings.warn('nsim was not defined, using default simulation setup')
-        if x0 is None:
-            x = self.x0
-        else:
-            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
-            x = x0
-        if D is None:
-            D = self.D[ninit: ninit+nsim,:]
-        if U is None:
-            U = self.U[ninit: ninit+nsim,:]
-            warnings.warn('U was not defined, using default trajectories')
-
-        Q, X, Y = [], [], []
-        N = 0
-        for u, d in zip(U, D):
-            N += 1
-            q, x, y = self.equations(x, u, d)
-            Q.append(q)
-            X.append(x + self.x_ss)  # updated states trajectories with initial condition 20 deg C of linearization
-            Y.append(y - self.y_ss)  # updated input trajectories from K to deg C
-            if N == nsim:
-                break
-        return np.asarray(X).squeeze(), np.asarray(Y).squeeze(), \
-               np.asarray(U).squeeze(), np.asarray(D).squeeze(), np.asarray(Q).squeeze()
+    # # N-step forward simulation of the dynamical system
+    # # def simulate(self, ninit, nsim, M_flow, DT, D=None, x0=None):
+    # def simulate(self, ninit=None, nsim=None, U=None, D=None, x0=None, **kwargs):
+    #     """
+    #     :param nsim: (int) Number of steps for open loop response
+    #     :param U: (ndarray, shape=(nsim, self.nu)) temperature difference profile matrix
+    #     :param D: (ndarray, shape=(nsim, self.nd)) measured disturbance signals
+    #     :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
+    #     :return: The response matrices, i.e. U, X, Y, for heat flows, states, and output ndarrays
+    #     """
+    #
+    #     # default simulation setup parameters
+    #     if ninit is None:
+    #         ninit = self.ninit
+    #         warnings.warn('ninit was not defined, using default simulation setup')
+    #     if nsim is None:
+    #         nsim = self.nsim
+    #         warnings.warn('nsim was not defined, using default simulation setup')
+    #     if x0 is None:
+    #         x = self.x0
+    #     else:
+    #         assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+    #         x = x0
+    #     if D is None:
+    #         D = self.D[ninit: ninit+nsim,:]
+    #     if U is None:
+    #         U = self.U[ninit: ninit+nsim,:]
+    #         warnings.warn('U was not defined, using default trajectories')
+    #
+    #     Q, X, Y = [], [], []
+    #     N = 0
+    #     for u, d in zip(U, D):
+    #         N += 1
+    #         q, x, y = self.equations(x, u, d)
+    #         Q.append(q)
+    #         X.append(x + self.x_ss)  # updated states trajectories with initial condition 20 deg C of linearization
+    #         Y.append(y - self.y_ss)  # updated input trajectories from K to deg C
+    #         if N == nsim:
+    #             break
+    #     return np.asarray(X).squeeze(), np.asarray(Y).squeeze(), \
+    #            np.asarray(U).squeeze(), np.asarray(D).squeeze(), np.asarray(Q).squeeze()
 
 
 class Building_hf_Small(EmulatorBase):
@@ -1383,7 +1393,11 @@ class GymWrapper(EmulatorBase):
             N += 1
             if N == nsim:
                 break
-        return np.asarray(X), np.asarray(Reward), np.asarray(U)
+        Xout = np.asarray(X)
+        Yout = np.asarray(Reward)
+        Uout = np.asarray(U)
+        Dout = None
+        return Xout, Yout, Uout, Dout
 
 
 
@@ -1536,7 +1550,7 @@ if __name__ == '__main__':
     D = building.D[ninit:nsim,:]
     U = np.hstack([M_flow, DT])
     # simulate open loop building
-    X, Y, U, D, Q = building.simulate(ninit=ninit, nsim=nsim, U=U, D=D)
+    X, Y, U, D= building.simulate(ninit=ninit, nsim=nsim, U=U, D=D)
     # X, Y, U, D, Q  = building.simulate() # default simulation setup
     # plot trajectories
     plot.pltOL(Y=Y, U=U, D=D, X=X)
@@ -1545,14 +1559,14 @@ if __name__ == '__main__':
     #   CSTR
     cstr_model = CSTR()  # instantiate CSTR class
     cstr_model.parameters()  # load model parameters
-    X, U = cstr_model.simulate() # simulate open loop
+    X, Y, U, D = cstr_model.simulate() # simulate open loop
     plot.pltOL(Y=X[:,0], U=cstr_model.U, X=X[:,1]) # plot trajectories
     plot.pltPhase(X=X)
 
     #   TwoTank
     twotank_model = TwoTank()  # instantiate model class
     twotank_model.parameters()  # load model parameters
-    X, U = twotank_model.simulate() # simulate open loop
+    X, Y, U, D = twotank_model.simulate() # simulate open loop
     # X = twotank_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U) #  example custom simulation setup
     # plot trajectories
     plot.pltOL(Y=X, U=U)
@@ -1600,7 +1614,7 @@ if __name__ == '__main__':
     lcp_model = LinCartPole()  # instantiate model class
     lcp_model.parameters()
     # simulate open loop
-    X, Y = lcp_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U)
+    X, Y, U, D = lcp_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U)
     # plot trajectories
     plot.pltOL(Y=Y, X=X, U=U)
     plot.pltPhase(X=X)
@@ -1618,9 +1632,9 @@ if __name__ == '__main__':
     U = np.zeros([(nsim - 1), gym_model.nu])
     if type(gym_model.action_sample) == int:
         U = U.astype(int)
-    X, Reward, U = gym_model.simulate(ninit=ninit, nsim=nsim, U=U)
+    X, Y, U, D = gym_model.simulate(ninit=ninit, nsim=nsim, U=U)
     # X, Reward, U = gym_model.simulate() # example with default setup
-    plot.pltOL(Y=Reward, X=X, U=U)
+    plot.pltOL(Y=Y, X=X, U=U)
     plot.pltPhase(X=X)
     # TODO: include visualization option for the trajectories or render of OpenAI gym
 
@@ -1628,14 +1642,14 @@ if __name__ == '__main__':
     # Lorenz 96
     lorenz96_model = Lorenz96()  # instantiate model class
     lorenz96_model.parameters()
-    X = lorenz96_model.simulate() # simulate open loop
+    X, Y, U, D = lorenz96_model.simulate() # simulate open loop
     plot.pltOL(Y=X) # plot trajectories
     plot.pltPhase(X=X) # phase plot
 
     # LorenzSystem
     lorenz_model = LorenzSystem()  # instantiate model class
     lorenz_model.parameters()
-    X = lorenz_model.simulate() # simulate open loop
+    X, Y, U, D = lorenz_model.simulate() # simulate open loop
     plot.pltOL(Y=X) # plot trajectories
     plot.pltPhase(X=X) # phase plot
     plot.pltRecurrence(X=X) # recurrence plots
@@ -1644,7 +1658,7 @@ if __name__ == '__main__':
     # VanDerPol
     vdp_model = VanDerPol()  # instantiate model class
     vdp_model.parameters()   # instantiate parameters
-    X = vdp_model.simulate() # simulate open loop
+    X, Y, U, D = vdp_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
@@ -1652,7 +1666,7 @@ if __name__ == '__main__':
     # example of non-autonomous system with default simulation setup
     HR_model = HindmarshRose()  # instantiate model class
     HR_model.parameters()
-    X, U = HR_model.simulate()
+    X, Y, U, D = HR_model.simulate()
     plot.pltOL(Y=X, U=U)
     plot.pltPhase(X=X)
 
@@ -1660,49 +1674,49 @@ if __name__ == '__main__':
     nsim = 10000 #  example with default sim setup and custom nsim
     TCSA_model = ThomasAttractor()  # instantiate
     TCSA_model.parameters()
-    X = TCSA_model.simulate(nsim=nsim)
+    X, Y, U, D = TCSA_model.simulate(nsim=nsim)
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
     # RösslerAttractor
     Ross_model = RosslerAttractor()  # instantiate model
     Ross_model.parameters()
-    X = Ross_model.simulate() # simulate open loop
+    X, Y, U, D = Ross_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
     # LotkaVolterra
     lv_model = LotkaVolterra()  # instantiate model class
     lv_model.parameters()
-    X = lv_model.simulate() # simulate open loop
+    X, Y, U, D = lv_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
     # Brusselator1D
     bruss_model = Brusselator1D()  # instantiate model class
     bruss_model.parameters()
-    X = bruss_model.simulate() # simulate open loop
+    X, Y, U, D = bruss_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
     # ChuaCircuit
     chua_model = ChuaCircuit()  # instantiate model class
     chua_model.parameters()
-    X = chua_model.simulate() # simulate open loop
+    X, Y, U, D = chua_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
     # Duffing
     Duffing_model = Duffing()  # instantiate model class
     Duffing_model.parameters()
-    X = Duffing_model.simulate() # simulate open loop
+    X, Y, U, D = Duffing_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
     # UniversalOscillator
     oscillator_model = UniversalOscillator()  # instantiate model class
     oscillator_model.parameters()
-    X = oscillator_model.simulate() # simulate open loop
+    X, Y, U, D = oscillator_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 

@@ -206,8 +206,9 @@ class BlackSSM(nn.Module):
         # Barrier penalties
         self.sxmin = self.running_mean(self.sxmin, torch.mean(F.relu(-x + self.xmin)), N)
         self.sxmax = self.running_mean(self.sxmax, torch.mean(F.relu(x - self.xmax)), N)
-        self.sumin = self.running_mean(self.sumin, torch.mean(F.relu(-u + self.umin)), N)
-        self.sumax = self.running_mean(self.sumax, torch.mean(F.relu(u - self.umax)), N)
+        if u is not None:
+            self.sumin = self.running_mean(self.sumin, torch.mean(F.relu(-u + self.umin)), N)
+            self.sumax = self.running_mean(self.sumax, torch.mean(F.relu(u - self.umax)), N)
         # one step state residual penalty
         self.sdx_x = self.running_mean(self.sdx_x, torch.mean((x - x_prev) * (x - x_prev)), N)
         # submodules regularization penalties
@@ -237,6 +238,7 @@ class BlackSSM(nn.Module):
 
         X, Y = [], []
         for i in range(nsamples):
+            u = None
             xi = x
             if U is not None:
                 u = U[i]

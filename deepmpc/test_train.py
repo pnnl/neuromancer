@@ -46,13 +46,6 @@ test_systems = {'tank': 'datafile', 'CSTR': 'emulator', 'LorenzSystem': 'emulato
                     'CartPole-v1': 'emulator', 'Reno_full': 'emulator'}
 
 # TODO: issues with plot.Animator
-# TODO: args.nsim with arbitraty number will not work if we don't provide input data as well
-# solution: expand default U trajectories in emulators to longer periods
-
-# for system, data_type in systems.items():
-system = 'CSTR'
-data_type = 'emulator'
-
 for system, data_type in test_systems.items():
     for ssm_type in ['blackbox', 'hw', 'hammerstein', 'blocknlin']:
         for nonlinear_map in ['mlp', 'rnn', 'linear', 'residual_mlp']:

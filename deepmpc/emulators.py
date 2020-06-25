@@ -48,6 +48,62 @@ class EmulatorBase(ABC):
         pass
 
 
+
+class SSM(EmulatorBase):
+    """
+    base class state space model
+    """
+    def __init__(self):
+        super().__init__()
+
+    def parameters(self):
+        self.ninit = 0
+        self.nsim = 1000
+        # steady state values
+        self.x_ss = 0
+        self.y_ss = 0
+
+    #  TODO: finish and use for building models and other SSM
+    def simulate(self, ninit=None, nsim=None, U=None, D=None, x0=None, **kwargs):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param U: (ndarray, shape=(nsim, self.nu)) control signals
+        :param D: (ndarray, shape=(nsim, self.nd)) measured disturbance signals
+        :param x: (ndarray, shape=(self.nx)) Initial state.
+        :return: The response matrices, i.e. U, X, Y
+        """
+        # default simulation setup parameters
+        if ninit is None:
+            ninit = self.ninit
+            # warnings.warn('ninit was not defined, using default simulation setup')
+        if nsim is None:
+            nsim = self.nsim
+            # warnings.warn('nsim was not defined, using default simulation setup')
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+        if D is None:
+            D = self.D[ninit: ninit + nsim, :]
+        if U is None:
+            U = self.U[ninit: ninit + nsim, :]
+            # warnings.warn('U was not defined, using default trajectories')
+
+        X, Y = [], []
+        N = 0
+        # TODO: iterate through nsim?
+        for u, d in zip(U, D):
+            N += 1
+            x, y = self.equations(x, u, d)
+            X.append(x + self.x_ss)
+            Y.append(y - self.y_ss)
+            if N == nsim:
+                break
+        return np.asarray(X).squeeze(), np.asarray(Y).squeeze(), \
+               np.asarray(U).squeeze(), np.asarray(D).squeeze()
+
+
 class ODE_Autonomous(EmulatorBase):
     """
     base class autonomous ODE

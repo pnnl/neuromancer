@@ -323,28 +323,37 @@ if __name__ == '__main__':
             # closed loop control with emulator
             # TODO: in case of dataset use learned system dynamics as emulator
             # TODO: how to standardize this? add Y, U, D to all base emulator classes?
-            system_emualtor = emulators.systems[args.system]()
-            system_emualtor.parameters()
-            nsim = args.nsim if args.nsim is not None else system_emualtor.nsim
 
-            Uinit = np.zeros([args.nsteps, system_emualtor.nu])
-            # simulate system over nsteps to fill in Yp with Up = zeros
-            X, _ = system_emualtor.simulate(U=Uinit, nsim=args.nsteps, x0=system_emualtor.x0)  # simulate open loop
-            x = X[-1,:]
+            Uinit = np.zeros([args.nsteps, nu])
             Dp, Df, d = None, None, None  #  temporary fix
-            # D = torch.zeros(args.nsteps, 1, model.policy.nd)
-            # Yp = torch.zeros(args.nsteps, 1, model.policy.ny)
-            # Up = torch.zeros(args.nsteps, 1, model.policy.nu)
-            # Rf = torch.ones(args.nsteps, 1, model.policy.ny)
-            # Rf = torch.ones(args.nsteps, 1, model.policy.ny)
+            # Dp = torch.zeros(args.nsteps, 1, nd)
+            # Df = torch.zeros(args.nsteps, 1, nd)
 
-            Yp = torch.tensor(X).reshape(args.nsteps, 1, system_emualtor.nx)
-            Up = torch.tensor(Uinit).reshape(args.nsteps, 1, system_emualtor.nu)
-            Ref = np.ones([nsim, model.policy.ny])
-            Ref[:, 0] = 0.7*Ref[:, 0]
+            # initialize state trajectories
+            if args.system_data == 'emulator':
+                system_emualtor = emulators.systems[args.system]()
+                system_emualtor.parameters()
+                nsim = args.nsim if args.nsim is not None else system_emualtor.nsim
+                # simulate system over nsteps to fill in Yp with Up = zeros
+                X, _ = system_emualtor.simulate(U=Uinit, nsim=args.nsteps, x0=system_emualtor.x0)  # simulate open loop
+                x_denorm = X[-1, :]
+                # TODO: standardize on Y
+                Yp = torch.tensor(X).reshape(args.nsteps, 1, ny)
+                Up = torch.tensor(Uinit).reshape(args.nsteps, 1, nu)
+            elif args.system_data == 'dataset':
+                # TODO: temporary fix
+                nsim = args.nsim if args.nsim is not None else \
+                    3 * train_data[0].shape[0] * train_data[0].shape[1]
+                x0 = torch.zeros([1, nx])
+                Up = torch.tensor(Uinit).reshape(args.nsteps, 1, nu).float()
+                Xp, Yp, _ = model.model(x=x0, U=Up,
+                                D=Df.float() if Df is not None else None, nsamples=1)
+
+            # references
+            Ref = np.ones([nsim, ny])
+            Ref[:, 0] = 0.5*Ref[:, 0]
             Ref[:, 1] = 0.2*Ref[:, 1]
-
-            Rf = torch.tensor(Ref[0:args.nsteps,:]).reshape(args.nsteps, 1, system_emualtor.nx)
+            Rf = torch.tensor(Ref[0:args.nsteps,:]).reshape(args.nsteps, 1, ny)
             Rf[:, :, 0] = Rf[:, :, 0]
             Rf[:, :, 1] = Rf[:, :, 1]
             # TODO: generalize for time varying reference with signals from emulators
@@ -361,12 +370,24 @@ if __name__ == '__main__':
                 # denormalize
                 uopt = dataset.min_max_denorm(uopt, norms['Umin'], norms['Umax'])
                 Uopt.append(uopt)
-                x, _ = system_emualtor.simulate(U=uopt.reshape(-1, system_emualtor.nu), nsim=1, x0=x)  # simulate open loop
-                x = x.squeeze()
-                X.append(x)
-                # normalize
-                x_norm, _, _ = dataset.min_max_norm(x, norms['Ymin'], norms['Ymax'])
+
+                # system dynamics
+                # TODO: mismatch between emulator and trained system model!
+                # TODO: standardize use of y as outputs and not states
+                if args.system_data == 'emulator':
+                    x_denorm, _ = system_emualtor.simulate(U=uopt.reshape(-1, system_emualtor.nu), nsim=1, x0=x_denorm)  # simulate open loop
+                    x_denorm = x_denorm.squeeze()
+                    # normalize
+                    x_norm, _, _ = dataset.min_max_norm(x_denorm, norms['Ymin'], norms['Ymax'])
+                elif args.system_data == 'dataset':
+                    u = U[:, 0].reshape(1, nu)
+                    x = Xp[-1, :, :] if k == 0 else xpred.reshape(1, nx)
+                    xpred, ypred, _ = model.model(x=x, U=u,
+                                      D=Df[:, 0].float() if Df is not None else None, nsamples=1)
+                    x_norm = ypred.reshape(1, ny).detach().numpy()
+                    x_denorm = dataset.min_max_denorm(x_norm, norms['Ymin'], norms['Ymax'])
                 X_norm.append(x_norm)
+                X.append(x_denorm)
                 Yp[0:-1, :, :] = Yp[1:, :, :]
                 Yp[-1, :, :] = torch.tensor(x_norm)
             # X_cl = np.asarray(X, dtype=np.float32)

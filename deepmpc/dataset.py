@@ -73,22 +73,6 @@ def load_data_from_emulator(system='LorenzSystem', nsim=None, ninit=None, ts=Non
     else:
         model.parameters()
     X, Y, U, D = model.simulate(nsim=nsim, ninit=ninit, ts=ts) # simulate open loop
-
-    # if isinstance(model, emulators.ODE_Autonomous):
-    #     model.parameters()  # load model parameters
-    #     X = model.simulate(nsim=nsim, ninit=ninit, ts=ts) # simulate open loop
-    #     Y = X   # fully observable
-    # elif isinstance(model, emulators.ODE_NonAutonomous):
-    #     model.parameters()  # load model parameters
-    #     X, U = model.simulate(nsim=nsim, ninit=ninit, ts=ts) # simulate open loop
-    #     Y = X   # fully observable
-    # elif isinstance(model, emulators.GymWrapper):
-    #     model.parameters(system=system)  # load model parameters
-    #     X, Reward, U = model.simulate(nsim=nsim, ninit=ninit, ts=ts)
-    #     Y = Reward   # rewards used as outputs
-    # elif isinstance(model, emulators.BuildingEnvelope):
-    #     model.parameters(system=system)  # load model parameters
-    #     X, Y, U, D, Q = model.simulate(nsim=nsim, ninit=ninit, ts=ts)
     return Y, U, D
 
 # TODO: old code, delete if load_data_from_emulator is stable

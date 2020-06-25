@@ -43,7 +43,7 @@ systems = {'tank': 'datafile', 'vehicle3': 'datafile', 'aero': 'datafile', 'flex
 # selected system for test - one per each class
 # classes = {dataset, nonautonomous ODE, autonomous ODE, OpenAIgym, SSM}
 test_systems = {'tank': 'datafile', 'CSTR': 'emulator', 'LorenzSystem': 'emulator',
-                    'CartPole-v1': 'emulator', 'Reno_full': 'emulator'}
+                'CartPole-v1': 'emulator', 'SimpleSingleZone': 'emulator', 'Reno_full': 'emulator'}
 
 # TODO: issues with plot.Animator
 for system, data_type in test_systems.items():

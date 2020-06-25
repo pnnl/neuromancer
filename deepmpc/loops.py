@@ -13,7 +13,7 @@ y =  fy(x)
 x = estim(yp,up,dp,x_prev)
 u = policy(x,u,d,r)
 
-Dynamical models from ssm.py
+Dynamical models from dynamics.py
 estimator from estimators.py
 policy from  policies.py
 """
@@ -24,14 +24,14 @@ import torch.nn as nn
 #local imports
 import estimators
 import policies
-import ssm
+import dynamics
 from blocks import MLP
 
 
 class OpenLoop(nn.Module):
-    def __init__(self, model=ssm.BlockSSM, estim=estimators.LinearEstimator, Q_e=1.0, **linargs):
+    def __init__(self, model=dynamics.BlockSSM, estim=estimators.LinearEstimator, Q_e=1.0, **linargs):
         """
-        :param model: SSM mappings, see ssm.py
+        :param model: SSM mappings, see dynamics.py
         :param estim: state estimator mapping, see estimators.py
 
         input data trajectories:
@@ -57,10 +57,10 @@ class OpenLoop(nn.Module):
 
 
 class ClosedLoop(nn.Module):
-    def __init__(self, model=ssm.BlockSSM, estim=estimators.LinearEstimator,
+    def __init__(self, model=dynamics.BlockSSM, estim=estimators.LinearEstimator,
                  policy=policies.LinearPolicy, Q_e=1.0, **linargs):
         """
-        :param model: SSM mappings, see ssm.py
+        :param model: SSM mappings, see dynamics.py
         :param estim: state estimator mapping, see estimators.py
 
         input data trajectories:
@@ -108,12 +108,12 @@ if __name__ == '__main__':
     # block  SSM
     fx, fu, fd = [MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx, nu, nd]]
     fy = MLP(nx, ny, hsizes=[64, 64, 64])
-    model1 = ssm.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
+    model1 = dynamics.BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
     model_out = model1(x0, Uf, Df)
 
     # black box SSM
     fxud = MLP(nx + nu + nd, nx, hsizes=[64, 64, 64])
-    model2 = ssm.BlackSSM(nx, nu, nd, ny, fxud, fy)
+    model2 = dynamics.BlackSSM(nx, nu, nd, ny, fxud, fy)
     model_out = model2(x0, Uf, Df)
 
     # TODO: issue with the estimator switching 0th index with 1st index

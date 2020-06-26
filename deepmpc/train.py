@@ -85,7 +85,7 @@ def parse_args():
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
     model_group.add_argument('-policy', type=str,
-                             choices=['rnn', 'mlp', 'linear'], default='linear')
+                             choices=['rnn', 'mlp', 'linear'], default='rnn')
     # TODO: closed loop trains with linear policy, with rnn and mlp crashes
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='linear')
@@ -179,7 +179,7 @@ def model_setup(args, device, nx, ny, nu, nd):
                  'rnn': estimators.RNNEstimator,
                  'kf': estimators.LinearKalmanFilter}[args.state_estimator](ny, nx,
                                                                             bias=args.bias,
-                                                                            hsized=[nx]*args.n_layers,
+                                                                            hsizes=[nx]*args.n_layers,
                                                                             num_layers=2, Linear=linmap,
                                                                             ss_model=ss_model)
     if args.loop == 'open':
@@ -191,10 +191,11 @@ def model_setup(args, device, nx, ny, nu, nd):
                      'mlp': policies.MLPPolicy,
                      'rnn': policies.RNNPolicy}[args.policy](nx, nu, nd, ny, N=args.nsteps,
                                                                                 bias=args.bias,
-                                                                                hsized=[nx]*args.n_layers,
-                                                                                num_layers=2,
-                                                                                nonlin=nonlinmap,
-                                                                                Linear=linmap)
+                                                                                Linear=linmap,
+                                                                                hsizes=[nx]*args.n_layers,
+                                                                                num_layers=2
+                                                                                )
+
         model = loops.ClosedLoop(model=ss_model, estim=estimator,
                                  policy=policy, Q_e=args.Q_e).to(device)
     nweights = sum([i.numel() for i in list(model.parameters()) if i.requires_grad])

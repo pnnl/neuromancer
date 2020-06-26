@@ -26,7 +26,7 @@ class StaticPolicy(nn.Module):
 
 class LinearPolicy(nn.Module):
     def __init__(self, nx, nu, nd, ny, N=1, bias=False,
-                 Linear=linear.Linear, **linargs):
+                 Linear=linear.Linear, nonlin=None, hsizes=None, num_layers=None):
         """
 
         :param nx: (int) dimension of state
@@ -37,7 +37,7 @@ class LinearPolicy(nn.Module):
         """
         super().__init__()
         self.nx, self.nu, self.nd, self.ny, self.N = nx, nu, nd, ny, N
-        self.linear = Linear(nx+N*(nd+ny), N*nu, bias=bias, **linargs)
+        self.linear = Linear(nx+N*(nd+ny), N*nu, bias=bias)
 
 #   shall we create separate module called constraints and passing various options as arguments here?
     def regularize(self):
@@ -59,11 +59,11 @@ class LinearPolicy(nn.Module):
 
 class MLPPolicy(nn.Module):
     def __init__(self, nx, nu, nd, ny, N=1, bias=True,
-                 Linear=linear.Linear, nonlin=F.relu, hsizes=[64], **linargs):
+                 Linear=linear.Linear, nonlin=F.relu, hsizes=[64], num_layers=None):
         super().__init__()
         self.nx, self.nu, self.nd, self.ny, self.N = nx, nu, nd, ny, N
         self.net = MLP(insize=nx+N*(nd+ny), outsize=N*nu, bias=bias,
-                       Linear=Linear, nonlin=nonlin, hsizes=hsizes, **linargs)
+                       Linear=Linear, nonlin=nonlin, hsizes=hsizes)
 
     def reg_error(self):
         return self.net.reg_error()
@@ -85,12 +85,14 @@ class MLPPolicy(nn.Module):
 
 
 class RNNPolicy(nn.Module):
-    def __init__(self, nx, nu, nd, ny, N=1, bias=False, num_layers=1,
-                 nonlin=F.gelu, Linear=linear.Linear, **linargs):
+    def __init__(self, nx, nu, nd, ny, N=1, bias=False,
+                  Linear=linear.Linear, nonlin=F.gelu, hsizes=None, num_layers=1):
         super().__init__()
         self.nx, self.nu, self.nd, self.ny, self.N = nx, nu, nd, ny, N
-        self.RNN = RNN(nx+N*(nd+ny), N*nu, num_layers=num_layers,
-                       bias=bias, nonlin=nonlin, Linear=Linear, **linargs)
+        self.insize = nx+N*(nd+ny)
+        self.outsize = N*nu
+        self.RNN = RNN(self.insize, self.outsize, num_layers=num_layers,
+                       bias=bias, nonlin=nonlin, Linear=Linear)
 
     def reg_error(self):
         return self.RNN.reg_error()

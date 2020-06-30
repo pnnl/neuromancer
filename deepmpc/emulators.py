@@ -769,6 +769,7 @@ class BuildingEnvelope(SSM):
 
         file_path = systems[system]
         file = loadmat(file_path)
+        self.system = system
         self.linear = linear  # if True use only linear building envelope model with Q as U
         #  LTI SSM model
         self.A = file['Ad']
@@ -806,7 +807,7 @@ class BuildingEnvelope(SSM):
             self.n_dT = self.dT_max.shape[0]
             self.nu = self.n_mf + self.n_dT
         # initial conditions and disturbance profiles
-        if system == 'SimpleSingleZone':
+        if self.system == 'SimpleSingleZone':
             self.x0 = file['x0'].reshape(self.nx)
         else:
             self.x0 = 0*np.ones(self.nx, dtype=np.float32)  # initial conditions

@@ -85,8 +85,7 @@ def parse_args():
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
     model_group.add_argument('-policy', type=str,
-                             choices=['rnn', 'mlp', 'linear'], default='rnn')
-    # TODO: closed loop trains with linear policy, with rnn and mlp crashes
+                             choices=['rnn', 'mlp', 'linear'], default='mlp')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
@@ -323,14 +322,28 @@ if __name__ == '__main__':
             # closed loop control with emulator
             # TODO: in case of dataset have option to load learned model
             Uinit = np.zeros([args.nsteps, nu])
-            Dp, Df, d = None, None, None  #  temporary fix
+            # Dp, Df, d = None, None, None  #  temporary fix
             # Dp = torch.zeros(args.nsteps, 1, nd)
             # Df = torch.zeros(args.nsteps, 1, nd)
+
+            if args.system_data == 'datafile':
+                Y, U, D = dataset.load_data_from_file(system=args.system)  # load data from file
+            elif args.system_data == 'emulator':
+                Y, U, D = dataset.load_data_from_emulator(system=args.system, nsim=args.nsim)
+            Dpast = D[:-args.nsteps] if D is not None else None
+            Dfuture = D[args.nsteps:] if D is not None else None
+            Dp = torch.tensor(Dpast[0:args.nsteps, :]).reshape(args.nsteps, 1, nd) if D is not None else None
+            Df = torch.tensor(Dfuture[0:args.nsteps, :]).reshape(args.nsteps, 1, nd) if D is not None else None
 
             # initialize state trajectories
             if args.system_data == 'emulator':
                 system_emualtor = emulators.systems[args.system]()
-                system_emualtor.parameters()
+                if isinstance(system_emualtor, emulators.GymWrapper):
+                    system_emualtor.parameters(system=args.system)
+                elif isinstance(system_emualtor, emulators.BuildingEnvelope):
+                    system_emualtor.parameters(system=args.system, linear=True)
+                else:
+                    system_emualtor.parameters()
                 nsim = args.nsim if args.nsim is not None else system_emualtor.nsim
                 # simulate system over nsteps to fill in Yp with Up = zeros
                 X, Y, _, _ = system_emualtor.simulate(U=Uinit, nsim=args.nsteps, x0=system_emualtor.x0)  # simulate open loop
@@ -346,17 +359,19 @@ if __name__ == '__main__':
                 Up = torch.tensor(Uinit).reshape(args.nsteps, 1, nu).float()
                 Xp, Yp, _ = model.model(x=x0, U=Up,
                                 D=Df.float() if Df is not None else None, nsamples=1)
-            # references
-            Ref = np.ones([nsim, ny])
-            Ref[:, 0] = 0.5*Ref[:, 0]
-            Ref[:, 1] = 0.2*Ref[:, 1]
-            Rf = torch.tensor(Ref[0:args.nsteps,:]).reshape(args.nsteps, 1, ny)
-            Rf[:, :, 0] = Rf[:, :, 0]
-            Rf[:, :, 1] = Rf[:, :, 1]
+            # # references
+            # Ref = emulators.Periodic(nx=Y.shape[1], nsim=Y.shape[0],
+            #                        numPeriods=np.ceil(Y.shape[0] / 100).astype(int),
+            #                        xmax=0, xmin=1, form='sin')
+            # Rf = torch.tensor(Ref[0:args.nsteps,:]).reshape(args.nsteps, 1, ny)
+            Ref = 0.5 * np.ones([nsim, ny])
+            Rf = torch.tensor(Ref[0:args.nsteps, :]).reshape(args.nsteps, 1, ny)
             # TODO: generalize for time varying reference with signals from emulators
 
             Y, Y_norm, Uopt, Uopt_norm = [], [], [], []
-            for k in range(nsim):
+            for k in range(nsim-2*args.nsteps):
+                Dp = torch.tensor(Dpast[k:args.nsteps+k, :]).reshape(args.nsteps, 1, nd) if D is not None else None
+                Df = torch.tensor(Dfuture[k:args.nsteps+k, :]).reshape(args.nsteps, 1, nd) if D is not None else None
                 x0, _ = model.estim(Yp.float(), Up.float(),
                                     Dp.float() if Dp is not None else None)
                 U, _ = model.policy(x0, Df.float() if Df is not None else None, Rf.float())
@@ -391,9 +406,11 @@ if __name__ == '__main__':
             # X_cl = np.asarray(X, dtype=np.float32)
             # U_cl = np.asarray(Uopt, dtype=np.float32)
             # Ref = dataset.min_max_denorm(Ref, norms['Ymin'], norms['Ymax'])
-            Y_cl = np.asarray(Y_norm, dtype=np.float32)
+            # Ref_denorm = dataset.min_max_denorm(Ref, norms['Ymin'], norms['Ymax'])
+            Y_cl = np.asarray(Y_norm, dtype=np.float32).reshape(-1, ny)
             U_cl = np.asarray(Uopt_norm, dtype=np.float32)
             plot.pltCL(Y=Y_cl, R=Ref, U=U_cl, figname=os.path.join(args.savedir, 'closed.png'))
+        #     TODO: double check denormalization
 
         ########################################
         ########## SAVE ARTIFACTS ##############

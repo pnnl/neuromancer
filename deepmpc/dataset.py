@@ -68,10 +68,13 @@ def load_data_from_emulator(system='LorenzSystem', nsim=None, ninit=None, ts=Non
     """
     systems = emulators.systems # list of available emulators
     model = systems[system]()  # instantiate model class
-    if isinstance(model, emulators.GymWrapper) or isinstance(model, emulators.BuildingEnvelope):
+    if isinstance(model, emulators.GymWrapper):
         model.parameters(system=system)
+    elif isinstance(model, emulators.BuildingEnvelope):
+        model.parameters(system=system, linear=True)
     else:
         model.parameters()
+
     X, Y, U, D = model.simulate(nsim=nsim, ninit=ninit, ts=ts) # simulate open loop
     return Y, U, D
 

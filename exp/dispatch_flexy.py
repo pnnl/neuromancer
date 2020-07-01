@@ -7,7 +7,7 @@ parser.add_argument('-hours', type=int, help='number of gpu hours to request for
 parser.add_argument('-partition', type=str, help='Partition of gpus to access', default='shared_dlt')
 parser.add_argument('-allocation', type=str, help='Allocation name for billing', default='deepmpc')
 parser.add_argument('-env', type=str, help='Name of conda environment for running code.', default='mpc2')
-parser.add_argument('-results', type=str, help='Where to log mlflow results', default='/qfs/projects/deepmpc/mlflow/buildings_exp_2020_6_11/mlruns')
+parser.add_argument('-results', type=str, help='Where to log mlflow results', default='/qfs/projects/deepmpc/mlflow/flexy_exp_2020_6_30/mlruns')
 parser.add_argument('-exp_folder', type=str, help='Where to save sbatch scripts and log files',
                     default='sbatch/')
 parser.add_argument('-nsamples', type=int, help='Number of samples for each experimental configuration',
@@ -32,12 +32,6 @@ template = '#!/bin/bash\n' +\
 
 os.system('mkdir %s' % args.exp_folder)
 
-# TODO: customize bulding training to be more gray box
-# TODO: customize ssm hammerstein model for each building
-# TODO: customize linear maps factorization for each block separately
-# TODO: or categorization of input variables to include more structure
-# TODO: use only subset of D as observables
-# TODO: realistic input profiles for building models
 systems = ['flexy_air']
 linear_map = ['linear', 'pf', 'softSVD']
 nonlinear_map = ['mlp', 'residual_mlp', 'rnn']

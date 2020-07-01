@@ -10,9 +10,10 @@ from abc import ABC, abstractmethod
 import numpy as np
 # import numdifftools as nd
 import plot
-from scipy.integrate import odeint
-import gym
-import control
+# TODO: temporary dispatch fix, update environment
+# from scipy.integrate import odeint
+# import gym
+# import control
 
 ####################################
 ###### Internal Emulators ##########

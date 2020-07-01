@@ -44,8 +44,7 @@ import policies
 import loops
 import linear
 import blocks
-# TODO: temporary dispatch fix, update environment
-# import emulators
+import emulators
 
 def parse_args():
     parser = argparse.ArgumentParser()

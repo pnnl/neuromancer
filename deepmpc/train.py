@@ -52,18 +52,18 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=500)
+    opt_group.add_argument('-epochs', type=int, default=1000)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=32,
+    data_group.add_argument('-nsteps', type=int, default=120,
                             help='Number of steps for open loop during training.')
-    data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='emulator',
+    data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='datafile',
                             help='source type of the dataset')
-    data_group.add_argument('-system', choices=list(emulators.systems.keys()), default='CSTR',
+    data_group.add_argument('-system', choices=list(emulators.systems.keys()), default='flexy_air',
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=None,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
@@ -72,7 +72,7 @@ def parse_args():
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
-    data_group.add_argument('-loop', type=str, choices=['closed', 'open'], default='closed',
+    data_group.add_argument('-loop', type=str, choices=['closed', 'open'], default='open',
                             help='Defines open or closed loop for learning dynamics or control, respectively')
 
     ##################
@@ -80,8 +80,8 @@ def parse_args():
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
                              default='blackbox')
-    model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
-    model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
+    model_group.add_argument('-nx_hidden', type=int, default=10, help='Number of hidden states per output')
+    model_group.add_argument('-n_layers', type=int, default=4, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
     model_group.add_argument('-policy', type=str,
@@ -327,7 +327,7 @@ if __name__ == '__main__':
             # Df = torch.zeros(args.nsteps, 1, nd)
 
             if args.system_data == 'datafile':
-                Y, U, D = dataset.load_data_from_file(system=args.system)  # load data from file
+                Y, U, D = dataset.load_data_from_file(system=args.system, nsim=args.nsim)  # load data from file
             elif args.system_data == 'emulator':
                 Y, U, D = dataset.load_data_from_emulator(system=args.system, nsim=args.nsim)
             Dpast = D[:-args.nsteps] if D is not None else None

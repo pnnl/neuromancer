@@ -33,7 +33,7 @@ def min_max_denorm(M, Mmin, Mmax):
 #  frame= load_data_sysID(file_path, type='csv') AT note: better to check file extension than add argument
 #  make data generation based on pandas df as inputs
 #  Data_sysID(identifier='pandas', data_file='frame', norm)
-def load_data_from_file(system='aero'):
+def load_data_from_file(system='aero', nsim=1000, ninit=0):
     """
     :param file_path: path to .mat file with dataset: y,u,d,Ts
     :return:
@@ -59,6 +59,9 @@ def load_data_from_file(system='aero'):
         Y = data.filter(regex='y').values if data.filter(regex='y').values.size != 0 else None
         U = data.filter(regex='u').values if data.filter(regex='u').values.size != 0 else None
         D = data.filter(regex='d').values if data.filter(regex='d').values.size != 0 else None
+    Y = Y[ninit:nsim, :] if Y is not None else None
+    U = U[ninit:nsim, :] if U is not None else None
+    D = D[ninit:nsim, :] if D is not None else None
     return Y, U, D
 
 # TODO: include U and D as optional arg
@@ -179,7 +182,7 @@ def data_setup(args, device):
 
     # TODO: include reference in the datafiles and emulators
     if args.system_data == 'datafile':
-        Y, U, D = load_data_from_file(system=args.system)  # load data from file
+        Y, U, D = load_data_from_file(system=args.system, nsim=args.nsim)  # load data from file
     elif args.system_data == 'emulator':
         Y, U, D = load_data_from_emulator(system=args.system, nsim=args.nsim)
 

@@ -5,16 +5,14 @@ External Emulators - third party models
 """
 
 from scipy.io import loadmat
-from scipy import signal
+# from scipy import signal
 from abc import ABC, abstractmethod
 import numpy as np
-import numdifftools as nd
+# import numdifftools as nd
 import plot
-import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 import gym
 import control
-import warnings
 
 ####################################
 ###### Internal Emulators ##########

@@ -60,7 +60,7 @@ for system in systems:
                                       '-linear_map %s ' % linear + \
                                       '-nonlinear_map %s ' % nonlinear + \
                                       '-nsteps %s ' % nsteps + \
-                                      '-mlflow ' + \
+                                      '-logger mlflow ' + \
                                       '-ssm_type %s ' % model +\
                                       '-nx_hidden 10 ' + \
                                       '%s ' % bias + \
@@ -89,7 +89,7 @@ for system in systems:
                                   '-linear_map %s ' % linear + \
                                   '-nonlinear_map %s ' % nonlinear + \
                                   '-nsteps %s ' % nsteps + \
-                                  '-mlflow ' + \
+                                  '-logger mlflow ' + \
                                   '-ssm_type blackbox ' + \
                                   '-nx_hidden 10 ' +\
                                   '%s ' % bias + \

@@ -33,6 +33,7 @@ template = '#!/bin/bash\n' +\
 os.system('mkdir %s' % args.exp_folder)
 
 systems = ['flexy_air']
+# systems_path = ['./datasets/Flexy_air/flexy_air_data.csv']
 linear_map = ['linear', 'pf', 'softSVD']
 nonlinear_map = ['mlp', 'residual_mlp', 'rnn']
 models = ['blocknlin']
@@ -50,7 +51,7 @@ for system in systems:
                     for nonlinear in nonlinear_map:
                         for nsteps in nsteps_range:
                             for i in range(args.nsamples): # 10 samples for each configuration
-                                cmd = 'python ./deepmpc/train.py ' +\
+                                cmd = 'python train.py ' +\
                                       '-gpu 0 ' + \
                                       '-lr 0.003 ' + \
                                       '-epochs 10000 ' + \
@@ -79,7 +80,7 @@ for system in systems:
                 for nonlinear in nonlinear_map:
                     for nsteps in nsteps_range:
                         for i in range(args.nsamples): # 10 samples for each configuration
-                            cmd = 'python ./deepmpc/train.py ' +\
+                            cmd = 'python train.py ' +\
                                   '-gpu 0 ' + \
                                   '-lr 0.003 ' + \
                                   '-epochs 10000 ' + \

@@ -360,6 +360,7 @@ if __name__ == '__main__':
                                       figname=os.path.join(args.savedir, f'open_movie_{args.linear_map}2.mp4'),
                                       freq=args.freq)
 
+        # TODO: test and debug closed loop simulation in all variants
         ########################################
         ########## Closed LOOP RESPONSE ########
         ########################################
@@ -405,12 +406,12 @@ if __name__ == '__main__':
                 Xp, Yp, _ = model.model(x=x0, U=Up,
                                 D=Df.float() if Df is not None else None, nsamples=1)
             # initialize references
-            # Ref = emulators.Periodic(nx=Y.shape[1], nsim=Y.shape[0],
-            #                        numPeriods=np.ceil(Y.shape[0] / 100).astype(int),
-            #                        xmax=0, xmin=1, form='sin')
+            Ref = emulators.Periodic(nx=Y.shape[1], nsim=Y.shape[0],
+                                   numPeriods=np.ceil(Y.shape[0] / 300).astype(int),
+                                   xmax=0.4, xmin=0.7, form='sin')
             # Rf = torch.tensor(Ref[0:args.nsteps,:]).reshape(args.nsteps, 1, ny)
-            Ref = 0.5 * np.ones([nsim, ny])
-            # Ref[:, 1:ny] = 0.0*Ref[:, 1:ny]
+            # Ref = 0.5 * np.ones([nsim, ny])
+            Ref[:, 1:ny] = 0.0*Ref[:, 1:ny]
             Rf = torch.tensor(Ref[0:args.nsteps, :]).reshape(args.nsteps, 1, ny)
             # TODO: generalize for time varying reference with signals from emulators
 

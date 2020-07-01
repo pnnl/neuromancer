@@ -194,8 +194,8 @@ def pltCL(Y, R=None, U=None, D=None, X=None, figname=None):
                   array is not None]
 
     fig, ax = plt.subplots(nrows=len(plot_setup), ncols=1, figsize=(20, 16), squeeze=False)
-    custom_lines = [Line2D([0], [0], color='gray', lw=4, linestyle='-'),
-                    Line2D([0], [0], color='gray', lw=4, linestyle='--')]
+    custom_lines = [Line2D([0], [0], color='gray', lw=4, linestyle='--'),
+                    Line2D([0], [0], color='gray', lw=4, linestyle='-')]
     for j, (name, notation, array) in enumerate(plot_setup):
         if notation == 'Y' and R is not None:
             colors = get_colors(array.shape[1])

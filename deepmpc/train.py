@@ -52,14 +52,14 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=500)
+    opt_group.add_argument('-epochs', type=int, default=5000)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=1,
+    data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='datafile',
                             help='source type of the dataset')
@@ -67,7 +67,7 @@ def parse_args():
                             help='select particular dataset with keyword')
     # data_group.add_argument('-system', choices=list(emulators.systems.keys()), default='flexy_air',
     #                         help='select particular dataset with keyword')
-    data_group.add_argument('-nsim', type=int, default=None,
+    data_group.add_argument('-nsim', type=int, default=6000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
                                  'train, dev, and test will be split evenly from contiguous, sequential, '
                                  'non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,'
@@ -89,7 +89,7 @@ def parse_args():
     model_group.add_argument('-policy', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='mlp')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
-                             default='pf')
+                             default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
                              choices=['mlp', 'rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
@@ -99,9 +99,9 @@ def parse_args():
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
     weight_group.add_argument('-Q_con_u', type=float,  default=0.2, help='Hidden input constraints penalty weight.')
     weight_group.add_argument('-Q_con_x', type=float,  default=0.2, help='Hidden state constraints penalty weight.')
-    weight_group.add_argument('-Q_dx_ud', type=float,  default=0.2,
+    weight_group.add_argument('-Q_dx_ud', type=float,  default=0.0,
                               help='Maximal influence of u and d on hidden state in one time step penalty weight.')
-    weight_group.add_argument('-Q_dx', type=float,  default=0.2,
+    weight_group.add_argument('-Q_dx', type=float,  default=0.0,
                               help='Penalty weight on hidden state difference in one time step.')
     weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_y', type=float,  default=1.0, help='Output tracking penalty weight')

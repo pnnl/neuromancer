@@ -50,7 +50,7 @@ for system in systems:
                     for nonlinear in nonlinear_map:
                         for nsteps in nsteps_range:
                             for i in range(args.nsamples): # 10 samples for each configuration
-                                cmd = 'python train.py ' +\
+                                cmd = 'python ./deepmpc/train.py ' +\
                                       '-gpu 0 ' + \
                                       '-lr 0.003' + \
                                       '-epochs 10000 ' + \
@@ -79,7 +79,7 @@ for system in systems:
                 for nonlinear in nonlinear_map:
                     for nsteps in nsteps_range:
                         for i in range(args.nsamples): # 10 samples for each configuration
-                            cmd = 'python train.py ' +\
+                            cmd = 'python ./deepmpc/train.py ' +\
                                   '-gpu 0 ' + \
                                   '-lr 0.003' + \
                                   '-epochs 10000 ' + \

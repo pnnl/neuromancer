@@ -40,7 +40,7 @@ models = ['blocknlin']
 Q_values = [(0.0, 0.0, 0.0, 0.0), (0.2, 0.2, 0.2, 0.2)]
 constrainted = ['unconstr', 'constr']
 
-# choose nsim: 2880 for 30 days, 5760 for 60 days, 8640 for 90 days
+# TODO: problem with device
 nsteps_range = [1, 8, 16, 32, 64]
 os.system('mkdir temp')
 for system in systems:

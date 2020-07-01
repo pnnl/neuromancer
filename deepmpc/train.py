@@ -52,7 +52,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=10)
+    opt_group.add_argument('-epochs', type=int, default=1000)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
@@ -74,10 +74,11 @@ def parse_args():
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
-    data_group.add_argument('-loop', type=str, choices=['closed', 'open'], default='closed',
+    data_group.add_argument('-loop', type=str, choices=['closed', 'open'], default='open',
                             help='Defines open or closed loop for learning dynamics or control, respectively')
-    data_group.add_argument('-adaptive', type=str, choices=[True, False], default=True,
-                            help='True = simultaneus policy optimization and system ID'
+    data_group.add_argument('-adaptive', type=str, choices=[True, False], default=False,
+                            help='extra option for closed loop'
+                            'True = simultaneus policy optimization and system ID'
                             'False = policy optimization with given estimator and dynamics model parameters')
 
     ##################

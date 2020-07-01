@@ -44,7 +44,8 @@ import policies
 import loops
 import linear
 import blocks
-import emulators
+# TODO: temporary dispatch fix, update environment
+# import emulators
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -63,8 +64,10 @@ def parse_args():
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='datafile',
                             help='source type of the dataset')
-    data_group.add_argument('-system', choices=list(emulators.systems.keys()), default='flexy_air',
+    data_group.add_argument('-system', default='flexy_air',
                             help='select particular dataset with keyword')
+    # data_group.add_argument('-system', choices=list(emulators.systems.keys()), default='flexy_air',
+    #                         help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=None,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
                                  'train, dev, and test will be split evenly from contiguous, sequential, '

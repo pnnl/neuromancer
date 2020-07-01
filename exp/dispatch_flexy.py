@@ -64,7 +64,7 @@ for system in systems:
                                       '-ssm_type %s ' % model +\
                                       '-nx_hidden 10 ' + \
                                       '%s ' % bias + \
-                                      '-Q_con_u %s -Q_con_x %s -Q_dx_ud %s -Q_dx %s' % Q_val + \
+                                      '-Q_con_u %s -Q_con_x %s -Q_dx_ud %s -Q_dx %s ' % Q_val + \
                                       '-exp %s_%s_%s_%s_%s_%s_%s ' % (system, model, constr, bias, linear, nonlinear, nsteps) + \
                                       '-savedir temp/%s_%s_%s_%s_%s_%s_%s_%s ' % (system, model, constr, bias, linear, nonlinear, nsteps, i) # group experiments with same configuration together - TODO: add more params
                                 with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s_%s_%s_%s_%s.slurm' % (system, model, constr, bias, linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
@@ -93,7 +93,7 @@ for system in systems:
                                   '-ssm_type blackbox ' + \
                                   '-nx_hidden 10 ' +\
                                   '%s ' % bias + \
-                                  '-Q_con_u %s -Q_con_x %s -Q_dx_ud %s -Q_dx %s' % Q_val + \
+                                  '-Q_con_u %s -Q_con_x %s -Q_dx_ud %s -Q_dx %s ' % Q_val + \
                                   '-exp %s_blackbox_%s_%s_%s_%s_%s ' % (system, constr, bias, linear, nonlinear, nsteps) + \
                                   '-savedir temp/%s_blackbox_%s_%s_%s_%s_%s_%s ' % (system, constr, bias, linear, nonlinear, nsteps, i)
                             with open(os.path.join(args.exp_folder, 'exp_%s_blackbox_%s_%s_%s_%s_%s_%s.slurm' % (system, constr, bias, linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script

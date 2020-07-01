@@ -69,7 +69,7 @@ nsim = ddu_resampled.shape[0]
 # IO_data = pd.DataFrame(data=np.array([y_filter, u_filter]).T, columns=['y', 'u'])
 IO_data = pd.DataFrame(data=np.array([y_resampled[0:nsim], dy_resampled[0:nsim], ddy_resampled[0:nsim],
                                       u_resampled[0:nsim], du_resampled[0:nsim], ddu_resampled[0:nsim]]).T,
-                       columns=['y1', 'y2', 'y3', 'u1', 'u2', 'u3'])
+                       columns=['y1', 'y2', 'y3', 'u1', 'd1', 'd2'])
 IO_data.to_csv('flexy_air_data.csv', index=False)
 
 D = IO_data.filter(regex='d').values if IO_data.filter(regex='d').values.size != 0 else None

@@ -52,14 +52,14 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=1000)
-    opt_group.add_argument('-lr', type=float, default=0.001,
+    opt_group.add_argument('-epochs', type=int, default=500)
+    opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=120,
+    data_group.add_argument('-nsteps', type=int, default=1,
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'], default='datafile',
                             help='source type of the dataset')
@@ -79,9 +79,9 @@ def parse_args():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
-                             default='blackbox')
-    model_group.add_argument('-nx_hidden', type=int, default=10, help='Number of hidden states per output')
-    model_group.add_argument('-n_layers', type=int, default=4, help='Number of hidden layers of single time-step state transition')
+                             default='blocknlin')
+    model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
+    model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='rnn')
     model_group.add_argument('-policy', type=str,
@@ -264,6 +264,7 @@ if __name__ == '__main__':
         optimizer.step()
     anime.make_and_save(os.path.join(args.savedir, f'{args.linear_map}_transition_matrix.mp4'))
 
+    # TODO: shall we make assesment a standalone script or functions within train.py
     plt.style.use('classic')
     with torch.no_grad():
         ########################################
@@ -319,8 +320,6 @@ if __name__ == '__main__':
         ########## Closed LOOP RESPONSE ########
         ########################################
         if args.loop == 'closed':
-            # closed loop control with emulator
-            # TODO: in case of dataset have option to load learned model
             Uinit = np.zeros([args.nsteps, nu])
             # Dp, Df, d = None, None, None  #  temporary fix
             # Dp = torch.zeros(args.nsteps, 1, nd)
@@ -351,8 +350,8 @@ if __name__ == '__main__':
                 y_denorm = Y[-1, :]
                 Yp = torch.tensor(Y).reshape(args.nsteps, 1, ny)
                 Up = torch.tensor(Uinit).reshape(args.nsteps, 1, nu)
-            elif args.system_data == 'dataset':
-                # TODO: temporary fix
+            elif args.system_data == 'datafile':
+                # TODO: in case of datafile have option to load learned model
                 nsim = args.nsim if args.nsim is not None else \
                     3 * train_data[0].shape[0] * train_data[0].shape[1]
                 x0 = torch.zeros([1, nx])
@@ -392,7 +391,7 @@ if __name__ == '__main__':
                     y_denorm = y_denorm.squeeze()
                     # normalize
                     y_norm, _, _ = dataset.min_max_norm(y_denorm, norms['Ymin'], norms['Ymax'])
-                elif args.system_data == 'dataset':
+                elif args.system_data == 'datafile':
                     u = U[:, 0].reshape(1, nu)
                     x = Xp[-1, :, :] if k == 0 else xpred.reshape(1, nx)
                     xpred, ypred, _ = model.model(x=x, U=u,

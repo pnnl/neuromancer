@@ -81,7 +81,7 @@ for system in systems:
                         for i in range(args.nsamples): # 10 samples for each configuration
                             cmd = 'python ./deepmpc/train.py ' +\
                                   '-gpu 0 ' + \
-                                  '-lr 0.003' + \
+                                  '-lr 0.003 ' + \
                                   '-epochs 10000 ' + \
                                   '-location %s ' % args.results + \
                                   '-system_data %s ' % 'datafile' + \

@@ -74,7 +74,7 @@ def parse_args():
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
-    data_group.add_argument('-loop', type=str, choices=['closed', 'open'], default='open',
+    data_group.add_argument('-loop', type=str, choices=['closed', 'open'], default='closed',
                             help='Defines open or closed loop for learning dynamics or control, respectively')
     data_group.add_argument('-adaptive', type=str, choices=[True, False], default=False,
                             help='extra option for closed loop'
@@ -206,7 +206,6 @@ def model_setup(args, device, nx, ny, nu, nd):
             estimator.load_state_dict(torch.load(os.path.join(args.savedir, 'best_estim.pth')))
             dynamics_model = dynamics_model.requires_grad_(False)
             estimator = estimator.requires_grad_(False)
-        #     TODO: check wheter the parameters of dynamics and estimator are changing during training
         model = loops.ClosedLoop(model=dynamics_model, estim=estimator,
                                  policy=policy, Q_e=args.Q_e).to(device)
     nweights = sum([i.numel() for i in list(model.parameters()) if i.requires_grad])

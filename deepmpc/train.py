@@ -52,7 +52,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=500)
+    opt_group.add_argument('-epochs', type=int, default=10)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
@@ -74,8 +74,11 @@ def parse_args():
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
-    data_group.add_argument('-loop', type=str, choices=['closed', 'open'], default='open',
+    data_group.add_argument('-loop', type=str, choices=['closed', 'open'], default='closed',
                             help='Defines open or closed loop for learning dynamics or control, respectively')
+    data_group.add_argument('-adaptive', type=str, choices=[True, False], default=True,
+                            help='True = simultaneus policy optimization and system ID'
+                            'False = policy optimization with given estimator and dynamics model parameters')
 
     ##################
     # MODEL PARAMETERS
@@ -167,12 +170,12 @@ def model_setup(args, device, nx, ny, nu, nd):
                  'rnn': blocks.RNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
     # state space model setup
-    ss_model = {'blackbox': dynamics.blackbox,
+    dynamics_model = {'blackbox': dynamics.blackbox,
                 'blocknlin': dynamics.blocknlin,
                 'hammerstein': dynamics.hammerstein,
                 'hw': dynamics.hw}[args.ssm_type](args, linmap, nonlinmap, nx, nu, nd, ny, args.n_layers)
     # state space model weights
-    ss_model.Q_dx, ss_model.Q_dx_ud, ss_model.Q_con_x, ss_model.Q_con_u, ss_model.Q_sub = \
+    dynamics_model.Q_dx, dynamics_model.Q_dx_ud, dynamics_model.Q_con_x, dynamics_model.Q_con_u, dynamics_model.Q_sub = \
         args.Q_dx, args.Q_dx_ud, args.Q_con_x, args.Q_con_u, args.Q_sub
     # state estimator setup
     estimator = {'linear': estimators.LinearEstimator,
@@ -182,10 +185,10 @@ def model_setup(args, device, nx, ny, nu, nd):
                                                                             bias=args.bias,
                                                                             hsizes=[nx]*args.n_layers,
                                                                             num_layers=2, Linear=linmap,
-                                                                            ss_model=ss_model)
+                                                                            ss_model=dynamics_model)
     if args.loop == 'open':
         # open loop model setup
-        model = loops.OpenLoop(model=ss_model, estim=estimator, Q_e=args.Q_e).to(device)
+        model = loops.OpenLoop(model=dynamics_model, estim=estimator, Q_e=args.Q_e).to(device)
     elif args.loop == 'closed':
         # state estimator setup
         policy = {'linear': policies.LinearPolicy,
@@ -196,8 +199,14 @@ def model_setup(args, device, nx, ny, nu, nd):
                                                                                 hsizes=[nx]*args.n_layers,
                                                                                 num_layers=2
                                                                                 )
-
-        model = loops.ClosedLoop(model=ss_model, estim=estimator,
+        if not args.adaptive:
+            # in case of non-adaptive policy optimization load trained system model and estimator
+            dynamics_model.load_state_dict(torch.load(os.path.join(args.savedir, 'best_dynamics.pth')))
+            estimator.load_state_dict(torch.load(os.path.join(args.savedir, 'best_estim.pth')))
+            dynamics_model = dynamics_model.requires_grad_(False)
+            estimator = estimator.requires_grad_(False)
+        #     TODO: check wheter the parameters of dynamics and estimator are changing during training
+        model = loops.ClosedLoop(model=dynamics_model, estim=estimator,
                                  policy=policy, Q_e=args.Q_e).to(device)
     nweights = sum([i.numel() for i in list(model.parameters()) if i.requires_grad])
     if args.logger in ['mlflow', 'wandb']:
@@ -211,6 +220,7 @@ if __name__ == '__main__':
     model = model_setup(args, device, nx, ny, nu, nd)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
+    #  TODO: how do we get rid of the following lines in high level API?
     # Grab only first nsteps for previous observed states as input to state estimator
     data_open = [dev_data[0][:, 0:1, :]] + [dataset.unbatch_data(d) if d is not None else d for d in dev_data[1:]]
     anime = plot.Animator(data_open[1], model)
@@ -218,10 +228,14 @@ if __name__ == '__main__':
     #######################################
     ### N-STEP AHEAD TRAINING
     #######################################
+    # TODO: hide the model loading and statistics inside some high level train init function
     elapsed_time = 0
     start_time = time.time()
     best_looploss = np.finfo(np.float32).max
     best_model = deepcopy(model.state_dict())
+    best_estim = deepcopy(model.estim.state_dict())
+    best_dynamics = deepcopy(model.model.state_dict())
+    best_policy = deepcopy(model.policy.state_dict()) if args.loop == 'closed' else None
 
     for i in range(args.epochs):
         model.train()
@@ -230,6 +244,7 @@ if __name__ == '__main__':
         ##################################
         # DEVELOPMENT SET EVALUATION
         ###################################
+        # TODO: wrap this in  function called train_eval for high level API
         with torch.no_grad():
             model.eval()
             # MSE loss
@@ -245,6 +260,9 @@ if __name__ == '__main__':
 
             if looploss < best_looploss:
                 best_model = deepcopy(model.state_dict())
+                best_estim = deepcopy(model.estim.state_dict())
+                best_dynamics = deepcopy(model.model.state_dict())
+                best_policy = deepcopy(model.policy.state_dict()) if args.loop == 'closed' else None
                 best_looploss = looploss
             if args.logger in ['mlflow', 'wandb']:
                 mlflow.log_metrics({'trainloss': loss.item(),
@@ -260,13 +278,30 @@ if __name__ == '__main__':
             if args.ssm_type not in ['blackbox', 'blocknlin']:
                 anime(Y_out, data_open[1])
 
+        # TODO: continue in high level API here
         optimizer.zero_grad()
         loss += train_reg.squeeze()
         loss.backward()
         optimizer.step()
+
+    #     TODO: hide this animation function in high level API function called train_visualize or train_plot
     anime.make_and_save(os.path.join(args.savedir, f'{args.linear_map}_transition_matrix.mp4'))
 
-    # TODO: shall we make assesment a standalone script or functions within train.py
+    ########################################
+    ########## SAVE ARTIFACTS ##############
+    ########################################
+    # TODO: hide this in function: train_log
+    torch.save(best_model, os.path.join(args.savedir, 'best_model.pth'))
+    torch.save(best_estim, os.path.join(args.savedir, 'best_estim.pth'))
+    torch.save(best_dynamics, os.path.join(args.savedir, 'best_dynamics.pth'))
+    torch.save(best_policy, os.path.join(args.savedir, 'best_policy.pth')) if args.loop == 'closed' else None
+
+    if args.logger in ['mlflow', 'wandb']:
+        mlflow.log_artifacts(args.savedir)
+        os.system(f'rm -rf {args.savedir}')
+
+    # TODO: shall we make assesment a standalone script or functions within train.py?
+    # TODO: ideally all the following should be hidden for the high level user friendly API
     plt.style.use('classic')
     with torch.no_grad():
         ########################################
@@ -289,6 +324,7 @@ if __name__ == '__main__':
                        U=np.concatenate(Upred) if U_out is not None else None,
                        D=np.concatenate(Dpred) if D_out is not None else None,
                        figname=os.path.join(args.savedir, 'nstep_OL.png'))
+
         elif args.loop == 'closed':
             plot.pltCL(Y=np.concatenate(Ypred), R=np.concatenate(Rpred),
                        U=np.concatenate(Upred) if U_out is not None else None,
@@ -328,19 +364,22 @@ if __name__ == '__main__':
         ########## Closed LOOP RESPONSE ########
         ########################################
         if args.loop == 'closed':
-            Uinit = np.zeros([args.nsteps, nu])
-            # Dp, Df, d = None, None, None  #  temporary fix
-            # Dp = torch.zeros(args.nsteps, 1, nd)
-            # Df = torch.zeros(args.nsteps, 1, nd)
+            # initialize dynamics model in case of non-adaptive policy optimization
+            if not args.adaptive:
+                model.model.load_state_dict(torch.load(os.path.join(args.savedir, 'best_dynamics.pth')))
+                model.estim.load_state_dict(torch.load(os.path.join(args.savedir, 'best_estim.pth')))
 
-            if args.system_data == 'datafile':
-                Y, U, D = dataset.load_data_from_file(system=args.system, nsim=args.nsim)  # load data from file
-            elif args.system_data == 'emulator':
+            # initialize disturbances and control actions
+            if args.system_data == 'emulator':
                 Y, U, D = dataset.load_data_from_emulator(system=args.system, nsim=args.nsim)
+            elif args.system_data == 'datafile':
+                Y, U, D = dataset.load_data_from_file(system=args.system, nsim=args.nsim)  # load data from file
+            D, _, _ = dataset.min_max_norm(D) if D is not None else None
             Dpast = D[:-args.nsteps] if D is not None else None
             Dfuture = D[args.nsteps:] if D is not None else None
             Dp = torch.tensor(Dpast[0:args.nsteps, :]).reshape(args.nsteps, 1, nd) if D is not None else None
             Df = torch.tensor(Dfuture[0:args.nsteps, :]).reshape(args.nsteps, 1, nd) if D is not None else None
+            Uinit = np.zeros([args.nsteps, nu])
 
             # initialize state trajectories
             if args.system_data == 'emulator':
@@ -359,22 +398,23 @@ if __name__ == '__main__':
                 Yp = torch.tensor(Y).reshape(args.nsteps, 1, ny)
                 Up = torch.tensor(Uinit).reshape(args.nsteps, 1, nu)
             elif args.system_data == 'datafile':
-                # TODO: in case of datafile have option to load learned model
                 nsim = args.nsim if args.nsim is not None else \
                     3 * train_data[0].shape[0] * train_data[0].shape[1]
                 x0 = torch.zeros([1, nx])
                 Up = torch.tensor(Uinit).reshape(args.nsteps, 1, nu).float()
                 Xp, Yp, _ = model.model(x=x0, U=Up,
                                 D=Df.float() if Df is not None else None, nsamples=1)
-            # # references
+            # initialize references
             # Ref = emulators.Periodic(nx=Y.shape[1], nsim=Y.shape[0],
             #                        numPeriods=np.ceil(Y.shape[0] / 100).astype(int),
             #                        xmax=0, xmin=1, form='sin')
             # Rf = torch.tensor(Ref[0:args.nsteps,:]).reshape(args.nsteps, 1, ny)
             Ref = 0.5 * np.ones([nsim, ny])
+            # Ref[:, 1:ny] = 0.0*Ref[:, 1:ny]
             Rf = torch.tensor(Ref[0:args.nsteps, :]).reshape(args.nsteps, 1, ny)
             # TODO: generalize for time varying reference with signals from emulators
 
+            # simulate closed loop
             Y, Y_norm, Uopt, Uopt_norm = [], [], [], []
             for k in range(nsim-2*args.nsteps):
                 Dp = torch.tensor(Dpast[k:args.nsteps+k, :]).reshape(args.nsteps, 1, nd) if D is not None else None
@@ -391,13 +431,11 @@ if __name__ == '__main__':
                 Uopt.append(uopt)
 
                 # system dynamics
-                # TODO: mismatch between emulator and trained system model
                 if args.system_data == 'emulator':
                     x_denorm, y_denorm, _, _ = system_emualtor.simulate(U=uopt.reshape(-1, system_emualtor.nu),
                                                                         nsim=1, x0=x_denorm)  # simulate open loop
                     x_denorm = x_denorm.squeeze()
                     y_denorm = y_denorm.squeeze()
-                    # normalize
                     y_norm, _, _ = dataset.min_max_norm(y_denorm, norms['Ymin'], norms['Ymax'])
                 elif args.system_data == 'datafile':
                     u = U[:, 0].reshape(1, nu)
@@ -417,13 +455,4 @@ if __name__ == '__main__':
             Y_cl = np.asarray(Y_norm, dtype=np.float32).reshape(-1, ny)
             U_cl = np.asarray(Uopt_norm, dtype=np.float32)
             plot.pltCL(Y=Y_cl, R=Ref, U=U_cl, figname=os.path.join(args.savedir, 'closed.png'))
-        #     TODO: double check denormalization
-
-        ########################################
-        ########## SAVE ARTIFACTS ##############
-        ########################################
-        torch.save(best_model, os.path.join(args.savedir, 'best_model.pth'))
-        if args.logger in ['mlflow', 'wandb']:
-            mlflow.log_artifacts(args.savedir)
-            os.system(f'rm -rf {args.savedir}')
 

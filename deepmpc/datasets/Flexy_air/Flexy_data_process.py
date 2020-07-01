@@ -34,6 +34,7 @@ ddy_filter = np.diff(dy_filter)
 ddu_filter = np.diff(du_filter)
 # resample time series
 new_samples = np.floor(y_filter.shape[0]/5).astype(int)
+r_resampled = signal.resample(r, new_samples)
 y_resampled = signal.resample(y_filter, new_samples)
 u_resampled = signal.resample(u_filter, new_samples)
 dy_resampled = signal.resample(dy_filter, new_samples)
@@ -46,7 +47,7 @@ fig, ax = plt.subplots(4, 1, figsize=(8, 8))
 ax[0].plot(y, label='Y')
 ax[0].plot(y_filter, label='Y filtered')
 ax[0].plot(t_resampled, y_resampled, label='Y resampled')
-ax[0].plot(r, '--', label='R')
+ax[0].plot(t_resampled, r_resampled, '--', label='R')
 ax[0].set(ylabel='Y')
 ax[1].plot(u, label='U')
 ax[1].plot(u_filter, label='U filtered')
@@ -68,8 +69,8 @@ nsim = ddu_resampled.shape[0]
 # save filtered data for system ID
 # IO_data = pd.DataFrame(data=np.array([y_filter, u_filter]).T, columns=['y', 'u'])
 IO_data = pd.DataFrame(data=np.array([y_resampled[0:nsim], dy_resampled[0:nsim], ddy_resampled[0:nsim],
-                                      u_resampled[0:nsim], du_resampled[0:nsim], ddu_resampled[0:nsim]]).T,
-                       columns=['y1', 'y2', 'y3', 'u1', 'd1', 'd2'])
+                                      r_resampled[0:nsim], u_resampled[0:nsim]]).T,
+                       columns=['y1', 'y2', 'y3', 'u1', 'd1'])
 IO_data.to_csv('flexy_air_data.csv', index=False)
 
 D = IO_data.filter(regex='d').values if IO_data.filter(regex='d').values.size != 0 else None

@@ -52,7 +52,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=5000)
+    opt_group.add_argument('-epochs', type=int, default=500)
     opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
@@ -142,7 +142,7 @@ def step(model, data):
         Yp, Yf, Up, Dp, Df, Rf = data
         X_pred, Y_pred, U_pred, reg_error = model(Yp, Up, Dp, Df, Rf, nsamples=Yf.shape[0])
         loss = criterion(Y_pred.squeeze(), Rf.squeeze())
-    return loss, reg_error, X_pred, Y_pred, U_pred
+    return loss, reg_error, X_pred, Y_pred, U_pred, Df
 
 def arg_setup():
     args = parse_args()
@@ -225,7 +225,7 @@ if __name__ == '__main__':
 
     for i in range(args.epochs):
         model.train()
-        loss, train_reg, _, _, _ = step(model, train_data)
+        loss, train_reg, _, _, _, _ = step(model, train_data)
 
         ##################################
         # DEVELOPMENT SET EVALUATION
@@ -233,11 +233,11 @@ if __name__ == '__main__':
         with torch.no_grad():
             model.eval()
             # MSE loss
-            dev_loss, dev_reg, X_pred, Y_pred, U_pred = step(model, dev_data)
+            dev_loss, dev_reg, X_pred, Y_pred, U_pred, D_pred = step(model, dev_data)
             # open loop loss
             if args.loop == 'open':
                 # TODO: error here during closed loop when using  data_open
-                looploss, reg_error, X_out, Y_out, U_out = step(model, data_open)
+                looploss, reg_error, X_out, Y_out, U_out, D_out = step(model, data_open)
             elif args.loop == 'closed':
                 looploss = dev_loss
                 reg_error = dev_reg
@@ -273,44 +273,50 @@ if __name__ == '__main__':
         ########## NSTEP TRAIN RESPONSE ########
         ########################################
         model.load_state_dict(best_model)
-        Ytrue, Ypred, Upred, Rpred = [], [], [], []
+        Ytrue, Ypred, Upred, Rpred, Dpred = [], [], [], [], []
         for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
-            loss, reg, X_out, Y_out, U_out = step(model, dset)
+            loss, reg, X_out, Y_out, U_out, D_out = step(model, dset)
             if args.logger in ['mlflow', 'wandb']:
                 mlflow.log_metrics({f'nstep_{dname}_loss': loss.item(), f'nstep_{dname}_reg': reg.item()})
             Y_target = dset[1]
             Upred.append(U_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nu)) if U_out is not None else None
+            Dpred.append(D_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, nd)) if D_out is not None else None
             Ypred.append(Y_out.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
             Ytrue.append(Y_target.transpose(0, 1).detach().cpu().numpy().reshape(-1, ny))
             Rpred.append(dset[-1].transpose(0, 1).detach().cpu().numpy().reshape(-1, ny)) if args.loop == 'closed' else None
         if args.loop == 'open':
             plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
                        U=np.concatenate(Upred) if U_out is not None else None,
+                       D=np.concatenate(Dpred) if D_out is not None else None,
                        figname=os.path.join(args.savedir, 'nstep_OL.png'))
         elif args.loop == 'closed':
             plot.pltCL(Y=np.concatenate(Ypred), R=np.concatenate(Rpred),
                        U=np.concatenate(Upred) if U_out is not None else None,
+                       D=np.concatenate(Dpred) if D_out is not None else None,
                        figname=os.path.join(args.savedir, 'nstep_CL.png'))
 
         ########################################
         ########## OPEN LOOP RESPONSE ##########
         ########################################
         if args.loop == 'open':
-            Ytrue, Ypred, Upred = [], [], []
+            Ytrue, Ypred, Upred, Dpred = [], [], [], []
             for dset, dname in zip([train_data, dev_data, test_data], ['train', 'dev', 'test']):
                 data = [dset[0][:, 0:1, :]] + [dataset.unbatch_data(d) if d is not None else d for d in dset[1:]]
                 # data = [dataset.unbatch_data(d) if d is not None else d for d in dset]
                 # TODO: error here during closed loop does not handle well unbatched data
-                openloss, reg_error, X_out, Y_out, U_out = step(model, data)
+                openloss, reg_error, X_out, Y_out, U_out, D_out = step(model, data)
                 print(f'{dname}_open_loss: {openloss}')
                 if args.logger in ['mlflow', 'wandb']:
                     mlflow.log_metrics({f'open_{dname}_loss': openloss.item(), f'open_{dname}_reg': reg_error.item()})
                 Y_target = data[1]
                 Upred.append(U_out.detach().cpu().numpy().reshape(-1, nu)) if U_out is not None else None
+                Dpred.append(D_out.detach().cpu().numpy().reshape(-1, nd)) if D_out is not None else None
+                # Upred.append(U_out.detach().cpu().numpy().reshape(-1, nu)) if U_out is not None else None
                 Ypred.append(Y_out.detach().cpu().numpy().reshape(-1, ny))
                 Ytrue.append(Y_target.detach().cpu().numpy().reshape(-1, ny))
             plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
                        U=np.concatenate(Upred) if U_out is not None else None,
+                       D=np.concatenate(Dpred) if D_out is not None else None,
                        figname=os.path.join(args.savedir, 'open.png'))
             if args.make_movie:
                 plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0),

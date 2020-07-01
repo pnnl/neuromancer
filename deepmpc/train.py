@@ -87,7 +87,7 @@ def parse_args():
     model_group.add_argument('-policy', type=str,
                              choices=['rnn', 'mlp', 'linear'], default='mlp')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
-                             default='linear')
+                             default='pf')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
                              choices=['mlp', 'rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')

@@ -8,8 +8,9 @@ import matplotlib.animation as animation
 from matplotlib.lines import Line2D
 from matplotlib.gridspec import GridSpec
 from mpl_toolkits.mplot3d import Axes3D
-import pyts.image as pytsimg
-import pyts.multivariate.image as pytsmvimg
+# TODO: include in a new environment
+# import pyts.image as pytsimg
+# import pyts.multivariate.image as pytsmvimg
 
 def get_colors(k):
     """

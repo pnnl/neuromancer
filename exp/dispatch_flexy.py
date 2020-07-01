@@ -35,7 +35,7 @@ os.system('mkdir %s' % args.exp_folder)
 systems = ['flexy_air']
 linear_map = ['linear', 'pf', 'softSVD']
 nonlinear_map = ['mlp', 'residual_mlp', 'rnn']
-models = ['hw', 'blocknlin']
+models = ['blocknlin']
 Q_values = [(0.0, 0.0, 0.0, 0.0), (0.2, 0.2, 0.2, 0.2)]
 constrainted = ['unconstr', 'constr']
 

@@ -62,7 +62,7 @@ for system in systems:
                                       '-nsteps %s ' % nsteps + \
                                       '-mlflow ' + \
                                       '-ssm_type %s ' % model +\
-                                      '-nx_hidden 10' + \
+                                      '-nx_hidden 10 ' + \
                                       '%s ' % bias + \
                                       '-Q_con_u %s -Q_con_x %s -Q_dx_ud %s -Q_dx %s' % Q_val + \
                                       '-exp %s_%s_%s_%s_%s_%s_%s ' % (system, model, constr, bias, linear, nonlinear, nsteps) + \
@@ -91,7 +91,7 @@ for system in systems:
                                   '-nsteps %s ' % nsteps + \
                                   '-mlflow ' + \
                                   '-ssm_type blackbox ' + \
-                                  '-nx_hidden 10' +\
+                                  '-nx_hidden 10 ' +\
                                   '%s ' % bias + \
                                   '-Q_con_u %s -Q_con_x %s -Q_dx_ud %s -Q_dx %s' % Q_val + \
                                   '-exp %s_blackbox_%s_%s_%s_%s_%s ' % (system, constr, bias, linear, nonlinear, nsteps) + \

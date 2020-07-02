@@ -27,6 +27,8 @@ import policies
 import dynamics
 from blocks import MLP
 
+# TODO: custom loss functions with templates
+# IDEA: user should have opportunity to define custom loss functions easily via high level API
 
 class OpenLoop(nn.Module):
     def __init__(self, model=dynamics.BlockSSM, estim=estimators.LinearEstimator, Q_e=1.0, **linargs):
@@ -77,6 +79,7 @@ class ClosedLoop(nn.Module):
 
     def forward(self, Yp, Up, Dp, Df, Rf, nsamples=1):
         x0, reg_error_estim = self.estim(Yp, Up, Dp)
+        # TODO: how do we make policy design more flexible for the user?
         Uf, reg_error_policy = self.policy(x0, Df, Rf)
         Uf = Uf.unsqueeze(2).reshape(Uf.shape[0], self.model.nu, -1)
         Uf = Uf.permute(2,0,1)

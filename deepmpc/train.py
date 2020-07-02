@@ -387,7 +387,6 @@ class Problem():
         #######################################
         ### N-STEP AHEAD TRAINING
         #######################################
-        # TODO: hide the model loading and statistics inside some high level train init function
         elapsed_time = 0
         start_time = time.time()
         best_looploss = np.finfo(np.float32).max
@@ -407,7 +406,6 @@ class Problem():
             ##################################
             # DEVELOPMENT SET EVALUATION
             ###################################
-            # TODO: wrap this in  function called train_eval for high level API
             with torch.no_grad():
                 self.model.eval()
                 # MSE loss
@@ -441,16 +439,13 @@ class Problem():
                 if args.ssm_type not in ['blackbox', 'blocknlin']:
                     anime(Y_out, data_open[1])
 
-            # TODO: continue in high level API here
             self.optimizer.zero_grad()
             loss += train_reg.squeeze()
             loss.backward()
             self.optimizer.step()
 
-        #     TODO: hide this animation function in high level API function called train_visualize or train_plot
         anime.make_and_save(os.path.join(args.savedir, f'{args.linear_map}_transition_matrix.mp4'))
 
-        # TODO: hide this in function: train_log
         torch.save(best_model, os.path.join(args.savedir, 'best_model.pth'))
         torch.save(best_estim, os.path.join(args.savedir, 'best_estim.pth'))
         torch.save(best_dynamics, os.path.join(args.savedir, 'best_dynamics.pth'))
@@ -468,7 +463,7 @@ class Problem():
 
 if __name__ == '__main__':
 
-    ########## DATA AND MODEL DEFINITION ############
+    ########## DATA AND MODEL SETUP ############
     args, device = arg_setup()
     train_data, dev_data, test_data, nx, ny, nu, nd, norms = dataset.data_setup(args=args, device='cpu')
     model = model_setup(args, device, nx, ny, nu, nd)

@@ -19,10 +19,9 @@ from blocks import MLP
 from rnn import RNN, RNNCell
 
 
-# this option could be used for system ID with given U
-class StaticPolicy(nn.Module):
-    pass
-
+# TODO: how do we make policy design more flexible for the user?
+# TODO: in particular how do we make the feature design customizable?
+# IDEA: instead of separating x, D, R, lump everything together in a feature vector specified by the user
 
 class LinearPolicy(nn.Module):
     def __init__(self, nx, nu, nd, ny, N=1, bias=False,

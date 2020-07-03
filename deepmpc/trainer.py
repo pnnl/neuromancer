@@ -21,6 +21,7 @@ class Problem:
 
         best_looploss = np.finfo(np.float32).max
         best_model = deepcopy(self.model.state_dict())
+        self.visualizer.train()
 
         for i in range(self.epochs):
 
@@ -44,6 +45,36 @@ class Problem:
         self.logger.save_artifacts({'best_model.pth': best_model, **plots})
 
         return best_model
+
+    def evaluate(self, best_model):
+
+        self.visualizer.eval()
+        self.model.load_state_dict(best_model)
+
+        with torch.no_grad():
+            ########################################
+            ########## NSTEP TRAIN RESPONSE ########
+            ########################################
+            all_output = dict()
+            for dset, dname in zip([self.dataset.train_data, self.dataset.dev_data, self.dataset.test_data],
+                                   ['train', 'dev', 'test']):
+                output = self.model.n_step(dset)
+                self.logger.log_metrics(output)
+                all_output = {**all_output, **output}
+            self.visualizer.plot(all_output, self.dataset, best_model)
+
+            ########################################
+            ########## OPEN LOOP RESPONSE ##########
+            ########################################
+            all_output = dict()
+            for data, dname in zip([self.dataset.train_loop, self.dataset.dev_loop, self.dataset.test_loop],
+                                   ['train', 'dev', 'test']):
+                output = self.model.loop_step(data)
+                self.logger.log_metrics(output)
+                all_output = {**all_output, **output}
+            self.visualizer.plot(all_output, self.dataset, best_model)
+        plots = self.visualizer.output()
+        self.logger.log_artifacts(plots)
 
 
 

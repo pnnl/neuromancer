@@ -32,6 +32,9 @@ import torch.nn.functional as F
 # TODO: should we define the constraints as functions instead of modules?
 # would make sense as they have no learnable parameters
 # alternatively we could create a learnable variants where bounds would be parameters and not inputs
+# TODO: motivation for learnable constraints - see research tangents
+# e.g., reachability analysis given fixed model
+# e.g., learning lipschitz constants for NN
 
 class Penalty(nn.Module):
     def __init__(self, penalty=F.relu, weight=1.0):
@@ -43,7 +46,8 @@ class Penalty(nn.Module):
 class MinPenalty(Penalty):
     def __init__(self, penalty=F.relu, weight=1.0):
         """
-        penalty on violating minimum threshold inequality constraint:  x \ge xmin
+        penalty on violating threshold inequality constraint:  x \ge xmin
+        residual: s = penalty(-x + xmin)
         admissible penalty functions: relu, relu6, softplus, SoftExponential
         """
         super().__init__(penalty, weight)
@@ -55,7 +59,8 @@ class MinPenalty(Penalty):
 class MaxPenalty(Penalty):
     def __init__(self, penalty=F.relu, weight=1.0):
         """
-        penalty on violating maximum threshold inequality constraint: x \le xmax
+        penalty on violating threshold inequality constraint: x \le xmax
+        residual: s = penalty(x - xmax)
         admissible penalty functions: relu, relu6, softplus, SoftExponential
         """
         super().__init__(penalty, weight)
@@ -78,6 +83,24 @@ class MinMaxPenalty(Penalty):
         return self.weight*self.penalty(-x + xmin) + self.penalty(x - xmax)
 
 
+class EqualPenalty(Penalty):
+    def __init__(self, penalty='square', weight=1.0):
+        """
+        penalty on equality constraint x = b
+        residual: s = penalty(x - b)
+        admissible penalties: square, abs
+        """
+        super().__init__(penalty, weight)
+
+    def forward(self, x, b):
+        if self.penalty == 'square':
+            dx = (x - b) * (x - b)
+        elif self.penalty == 'abs':
+            dx = (x - b).abs()
+        return self.weight*dx
+
+
+# TODO: dx penalty is obsolete as it is a special case of equality constraint
 class dxPenalty(Penalty):
     def __init__(self, penalty='square', weight=1.0):
         """

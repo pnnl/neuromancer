@@ -12,8 +12,13 @@ class BasicLogger:
         self.savedir = savedir
         self.verbosity = verbosity
         self.start_time = time.time()
+        self.step = 0
 
-    def log_metrics(self, output, step):
+    def log_metrics(self, output, step=None):
+        if step is None:
+            step = self.step
+        else:
+            self.step = step
         if step % self.verbosity == 0:
             elapsed_time = time.time() - self.start_time
             entries = [f'epoch: {step}']

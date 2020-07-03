@@ -30,6 +30,7 @@ from blocks import MLP
 # TODO: custom loss functions with templates
 # IDEA: user should have opportunity to define custom loss functions easily via high level API
 
+
 class OpenLoop(nn.Module):
     def __init__(self, model=dynamics.BlockSSM, estim=estimators.LinearEstimator, Q_e=1.0, **linargs):
         """
@@ -46,6 +47,33 @@ class OpenLoop(nn.Module):
         self.model = model
         self.estim = estim
         self.Q_e = Q_e
+        self.criterion =  torch.nn.MSELoss()
+
+    def n_step(self, data):
+        Yp, Yf, Up, Uf, Dp, Df = data.values()
+        X_pred, Y_pred, reg_error = self.forward(Yp, Up, Uf, Dp, Df, nsamples=Yf.shape[0])
+        U_pred = Uf
+        loss = self.criterion(Y_pred.squeeze(), Yf.squeeze())
+        return {f'{data.name}_nstep_obj_loss': loss,
+                f'{data.name}_nstep_reg_error': reg_error,
+                f'{data.name}_nstep_loss': loss + reg_error,
+                'X_pred': X_pred,
+                'Y_pred': Y_pred,
+                'U_pred': U_pred,
+                'Df': Df}
+
+    def loop_step(self, data):
+        Yp, Yf, Up, Uf, Dp, Df = data.values()
+        X_pred, Y_pred, reg_error = self.forward(Yp, Up, Uf, Dp, Df, nsamples=Yf.shape[0])
+        U_pred = Uf
+        loss = self.criterion(Y_pred.squeeze(), Yf.squeeze())
+        return {f'{data.name}_loop_obj_loss': loss,
+                f'{data.name}_loop_reg_error': reg_error,
+                f'{data.name}_loop_loss': loss + reg_error,
+                'X_pred': X_pred,
+                'Y_pred': Y_pred,
+                'U_pred': U_pred,
+                'Df': Df}
 
     def forward(self, Yp, Up, Uf, Dp, Df, nsamples=1):
         x0, reg_error_estim = self.estim(Yp, Up, Dp)

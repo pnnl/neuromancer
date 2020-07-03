@@ -18,10 +18,10 @@ class BasicLogger:
             elapsed_time = time.time() - self.start_time
             entries = [f'epoch: {step}']
             for k, v in output.items():
-                if type(v) is float:
-                    entries += f'{k}: {v:.5f}'
-                elif type(v) is int or type(v) is str:
-                    entries += f'{k}: {v}'
+                try:
+                    entries += f'{k}: {v.item():.5f}'
+                except AttributeError:
+                    pass
             entries += {f'eltime: {elapsed_time}'}
             print('\t'.join(entries))
 
@@ -46,8 +46,8 @@ class WandBLogger(BasicLogger):
     def log_metrics(self, output, step):
         super().log_metrics(output, step)
         for k, v in output:
-            if isinstance(v, numbers.Number):
-                wandb.log({k: v}, step=step)
+            if isinstance(v.item(), numbers.Number):
+                wandb.log({k: v.item()}, step=step)
 
     def log_artifacts(self, artifacts):
         super().log_artifacts(artifacts)
@@ -62,7 +62,7 @@ class MLFlowLogger(BasicLogger):
         super().log_metrics(output, step)
         for k, v in output:
             try:
-                mlflow.log_metric(k, v, step=step)
+                mlflow.log_metric(k, v.item(), step=step)
             except mlflow.exceptions.MlflowException:
                 pass
 

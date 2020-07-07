@@ -21,6 +21,7 @@ policy from  policies.py
 # pytorch imports
 import torch
 import torch.nn as nn
+from abc import ABC, abstractmethod
 #local imports
 import estimators
 import policies
@@ -31,8 +32,83 @@ from blocks import MLP
 # IDEA: user should have opportunity to define custom loss functions easily via high level API
 
 
-class OpenLoop(nn.Module):
-    def __init__(self, model, estim, Q_e=1.0):
+class EstimatorLoss(nn.Module):
+    def __init__(self, weight=1.0):
+        self.weight = weight
+
+    def forward(self, x0, Xf):
+        torch.nn.functional.mse_loss(x0[1:], Xf[-1, :-1:, :])
+
+
+# objectives = [Equal(['x0','Xf'], weight=1.0), ConstantMin(['x'],xmin=1.0) ]
+#
+# # Equal('2*x0+5*Xf+2*Uf' == 0)
+#
+# x = Problem(objectives)
+
+
+g(x, b) = 0
+h(x, c) <= 0
+
+
+class Objective(ABC):
+    def __init__(self, variable_names, loss, weight=1.0):
+        """
+
+        :param variable_names: (str)
+        :param loss: (callable) Number of arguments of the callable should equal the number of strings in variable names
+        :param weight: (float) Weight of objective for calculating multi-objective loss function
+        """
+        self.variable_names = variable_names
+        self.weight = weight
+        self.loss = loss
+
+    @abstractmethod
+    def function(self, *args):
+        """
+
+        :param args: Number of arguments in the function should equal the number of strings in variable names
+        :return: 0-dimensional torch.Tensor that can be cast as a floating point number
+        """
+
+    def __call__(self, variables):
+        """
+
+        :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
+        :return: 0-dimensional torch.Tensor that can be cast as a floating point number
+        """
+        return self.function(*[variables[k] for k in self.variable_names])
+
+
+class Problem(nn.Module, ABC):
+
+    def __init__(self, objectives):
+        """
+
+        :param objectives:
+        """
+        super().__init__()
+        self.objectives = objectives
+
+    def _calculate_loss(self, variables):
+        loss = 0.0
+        for variable_names, objective in self.objectives:
+            loss += objective(variables)
+        return loss
+
+    def forward(self, data):
+        output_dict = self.step(data)
+        loss = self._calculate_loss({**data, **output_dict})
+        output_dict = {'loss': loss, **output_dict}
+        return {f'{data.name}_{k}': v for k, v in output_dict.items()}
+
+    @abstractmethod
+    def step(self, input_dict):
+        pass
+
+
+class OpenLoop(Problem):
+    def __init__(self, objectives, model, estim, Q_e=1.0):
         """
         :param model: SSM mappings, see dynamics.py
         :param estim: state estimator mapping, see estimators.py
@@ -43,12 +119,18 @@ class OpenLoop(nn.Module):
         D: measured disturbances p (past), f (future)
         nsamples: prediction horizon length
         """
-        super().__init__()
+        self.objectives = [Objective(['x1_model', 'x0_estimator'], torch.nn.functional.mse_loss, weight=1.0),
+                           Objective(['reg_error_estim', 'reg_error_model'], lambda reg1, reg2: reg1 + reg2, weight=1.0),
+                           Objective(['Yp', 'Yf'], torch.nn.functional.mse_loss, weight=1.0),
+                           Objective(['Xf'], lambda x: (x[1:] - x[:-1])*(x[1:] - x[:-1]))]# reg errors ... estimator loss ... model tracking loss
+        self.objectives += objectives
+        super().__init__(self.objectives)
+
         self.model = model
         self.estim = estim
         self.Q_e = Q_e
 
-    def forward(self, data):
+    def step(self, data):
         Yp, Up, Uf, Dp, Df, nsamples = data['Yp'], data['Up'], data['Uf'], data['Dp'], data['Df'], data['Yf'].shape[0]
         x0, reg_error_estim = self.estim(Yp, Up, Dp)
         Xf, Yf, reg_error_model = self.model(x=x0, U=Uf, D=Df, nsamples=nsamples)
@@ -56,11 +138,13 @@ class OpenLoop(nn.Module):
         # the state estimation of the next sequential batch. Warning: This will not perform as expected
         # if batches are shuffled in SGD (we are using full GD so we are okay here.
         # estim_error = self.Q_e*torch.nn.functional.mse_loss(x0[1:], Xf[-1, :-1:, :])
+
         return {f'{data.name}_reg_error_estim': reg_error_estim,
                 f'{data.name}_reg_error_model': reg_error_model,
-                f'{data.name}_X_pred': Xf,
-                f'{data.name}_Y_pred': Yf,
-                f'{data.name}_x0': x0}
+                f'{data.name}_Xf': Xf,
+                f'{data.name}_Yf': Yf,
+                f'{data.name}_x1_model':  Xf[-1, :-1:, :],
+                f'{data.name}_x0_estimator': x0[1:]}
 
 
 class ClosedLoop(nn.Module):

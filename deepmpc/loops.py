@@ -32,7 +32,7 @@ from blocks import MLP
 
 
 class OpenLoop(nn.Module):
-    def __init__(self, model=dynamics.BlockSSM, estim=estimators.LinearEstimator, Q_e=1.0, **linargs):
+    def __init__(self, model, estim, Q_e=1.0):
         """
         :param model: SSM mappings, see dynamics.py
         :param estim: state estimator mapping, see estimators.py
@@ -47,43 +47,20 @@ class OpenLoop(nn.Module):
         self.model = model
         self.estim = estim
         self.Q_e = Q_e
-        self.criterion =  torch.nn.MSELoss()
 
-    def n_step(self, data):
-        Yp, Yf, Up, Uf, Dp, Df = data.values()
-        X_pred, Y_pred, reg_error = self.forward(Yp, Up, Uf, Dp, Df, nsamples=Yf.shape[0])
-        U_pred = Uf
-        loss = self.criterion(Y_pred.squeeze(), Yf.squeeze())
-        return {f'{data.name}_nstep_obj_loss': loss,
-                f'{data.name}_nstep_reg_error': reg_error,
-                f'{data.name}_nstep_loss': loss + reg_error,
-                'X_pred': X_pred,
-                'Y_pred': Y_pred,
-                'U_pred': U_pred,
-                'Df': Df}
-
-    def loop_step(self, data):
-        Yp, Yf, Up, Uf, Dp, Df = data.values()
-        X_pred, Y_pred, reg_error = self.forward(Yp, Up, Uf, Dp, Df, nsamples=Yf.shape[0])
-        U_pred = Uf
-        loss = self.criterion(Y_pred.squeeze(), Yf.squeeze())
-        return {f'{data.name}_loop_obj_loss': loss,
-                f'{data.name}_loop_reg_error': reg_error,
-                f'{data.name}_loop_loss': loss + reg_error,
-                'X_pred': X_pred,
-                'Y_pred': Y_pred,
-                'U_pred': U_pred,
-                'Df': Df}
-
-    def forward(self, Yp, Up, Uf, Dp, Df, nsamples=1):
+    def forward(self, data):
+        Yp, Up, Uf, Dp, Df, nsamples = data['Yp'], data['Up'], data['Uf'], data['Dp'], data['Df'], data['Yf'].shape[0]
         x0, reg_error_estim = self.estim(Yp, Up, Dp)
         Xf, Yf, reg_error_model = self.model(x=x0, U=Uf, D=Df, nsamples=nsamples)
         # Calculate mse for smoother state estimator predictions. Last prediction of SSM for a batch should equal
         # the state estimation of the next sequential batch. Warning: This will not perform as expected
         # if batches are shuffled in SGD (we are using full GD so we are okay here.
-        estim_error = self.Q_e*torch.nn.functional.mse_loss(x0[1:], Xf[-1, :-1:, :])
-        reg_error = reg_error_model + reg_error_estim + estim_error
-        return Xf, Yf, reg_error
+        # estim_error = self.Q_e*torch.nn.functional.mse_loss(x0[1:], Xf[-1, :-1:, :])
+        return {f'{data.name}_reg_error_estim': reg_error_estim,
+                f'{data.name}_reg_error_model': reg_error_model,
+                f'{data.name}_X_pred': Xf,
+                f'{data.name}_Y_pred': Yf,
+                f'{data.name}_x0': x0}
 
 
 class ClosedLoop(nn.Module):
@@ -278,7 +255,7 @@ class Model(nn.Module):
         self.parameters = None  # e.g., constraints bounds, references, disturbances - obtained from dataset
         self.model_compiled = None
 
-        
+
     def forward(self, **linargs):
         # TODO: how to handle varying arguments based on the model type?
         # define specific forward passes based on the model type? e.g., open loop, closed loop, optimization problem?

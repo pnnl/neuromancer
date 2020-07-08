@@ -135,7 +135,14 @@ class ClosedLoop(Problem):
         self.policy = policy
 
     def step(self, data):
-        Yp, Up, Uf, Dp, Df, nsamples = data['Yp'], data['Up'], data['Uf'], data['Dp'], data['Df'], data['Yf'].shape[0]
+        # TODO: we want to have flexible policy definition with custom variables as arguments
+        # for instance data can have additional parameters such as Xmin, Xmax, which we can use
+        # We may have data dictionary with varying keys depending on application with only subset of mandatory keys such as Yp, Up
+        # we want something like this:  define variable names via data.keys(), load variable values via data.values()
+        # and then we can concatenate the selected data for the policy of estimator maps
+        # or we can hand the data dict with flags to both policy and estimator
+        # where flags would indicate the use of the data in each submodule
+        Yp, Up, Rf, Dp, Df, nsamples = data['Yp'], data['Up'], data['Rf'], data['Dp'], data['Df'], data['Yf'].shape[0]
         x0, reg_error_estim = self.estim(Yp, Up, Dp)
         Uf, reg_error_policy = self.policy(x0, Df, Rf)
         Uf = Uf.unsqueeze(2).reshape(Uf.shape[0], self.model.nu, -1)
@@ -149,6 +156,31 @@ class ClosedLoop(Problem):
                 'xN_model':  Xf[-1, :-1, :],
                 'x0_estimator': x0[1:],
                 'Uf': Uf}
+
+
+class pOP(Problem):
+    def __init__(self, constraints, policy):
+        """
+        parametric optimization problem (pOP)
+             min_Theta objective(X,S,data)
+             s.t. S = constraints(X,data)
+                  X = policy_Theta(data)
+        :param constraints: list of Objective objects
+        :param policy: problem solution mapping X = f(Theta), see policies.py
+        input data:
+        whatever works with constraints
+        """
+        super().__init__(constraints)
+        self.objectives += []
+        self.policy = policy
+
+    def step(self, data):
+        # TODO: unwrapper of whatever is inside data
+        data1, nsamples = data['data1'], data['data1'].shape[0]
+        X, reg_error_policy = self.policy(data1)
+        return {'reg_error_policy': reg_error_policy,
+                'X': X}
+
 
 
 if __name__ == '__main__':

@@ -125,6 +125,7 @@ class ClosedLoop(Problem):
         R: desired references f (future)
         """
         super().__init__(constraints)
+        # TODO: ['xN_model', 'x0_estimator'] - I am not sure about this constraint
         self.objectives += [Objective(['xN_model', 'x0_estimator'], torch.nn.functional.mse_loss, weight=1.0),
                             Objective(['reg_error_estim', 'reg_error_model'], lambda reg1, reg2: reg1 + reg2,
                                       weight=1.0),
@@ -138,9 +139,13 @@ class ClosedLoop(Problem):
         # TODO: we want to have flexible policy definition with custom variables as arguments
         # for instance data can have additional parameters such as Xmin, Xmax, which we can use
         # We may have data dictionary with varying keys depending on application with only subset of mandatory keys such as Yp, Up
-        # we want something like this:  define variable names via data.keys(), load variable values via data.values()
-        # and then we can concatenate the selected data for the policy of estimator maps
-        # or we can hand the data dict with flags to both policy and estimator
+        # we want something like this:
+            #  from types import SimpleNamespace
+            #  d = {'a': 1, 'b': 2}
+            #  n = SimpleNamespace(**d)
+            #  n.a
+        # and then we can concatenate the selected data for the policy
+        # or we can hand the data dict with flags to all submodules and unpack them inside
         # where flags would indicate the use of the data in each submodule
         Yp, Up, Rf, Dp, Df, nsamples = data['Yp'], data['Up'], data['Rf'], data['Dp'], data['Df'], data['Yf'].shape[0]
         x0, reg_error_estim = self.estim(Yp, Up, Dp)
@@ -216,7 +221,7 @@ if __name__ == '__main__':
     pol = policies.LinearPolicy(nx, nu, nd, ny, Nf)
     pol_out = pol(x0, Df, Rf)
 
-    ol = OpenLoop(model1,est)
+    ol = OpenLoop([],model1,est)
     ol_out = ol(Yp, Up, Uf, Dp, Df)
 
     cl = ClosedLoop(model1, est, pol)

@@ -26,8 +26,9 @@ Types of constaints:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import warnings
 #local imports
-
+import loops
 
 # TODO: should we define the constraints as functions instead of modules?
 # would make sense as they have no learnable parameters
@@ -99,34 +100,95 @@ class EqualPenalty(Penalty):
             dx = (x - b).abs()
         return self.weight*dx
 
-
-# TODO: dx penalty is obsolete as it is a special case of equality constraint
-class dxPenalty(Penalty):
-    def __init__(self, penalty='square', weight=1.0):
-        """
-        one time step residual penalty
-        residual: dx_k = penalty(x_k- x_{k-1})
-        admissible penalties: square, abs
-        """
-        super().__init__(penalty, weight)
-
-    def forward(self, x, x_prev):
-        if self.penalty == 'square':
-            dx = (x - x_prev) * (x - x_prev)
-        elif self.penalty == 'abs':
-            dx = (x - x_prev).abs()
-        return self.weight*dx
-
-
 class QuadraticPenalty(Penalty):
     def __init(self, penalty='quadratic', weight=1.0):
         super().__init__(penalty, weight)
 
 
+
+
+# TODO: do we want? higher level API for objective/constraints definition with pre-defined most commonly used types
+def equals(x1, x2, weight=1.0, penalty=torch.nn.functional.mse_loss):
+    """
+    high level wrapper equality constraint x1 = x2
+
+    :param x1: (dict, {str: torch.Tensor})
+    :param x2: (dict, {str: torch.Tensor})
+    :return: Objective object
+    """
+    if isinstance(x1, str):
+        a = x1
+    elif isinstance(x1, dict):
+        a = list(x1.keys())
+    else:
+        warnings.warn('argument must be string or dictionary')
+    if isinstance(x2, str):
+        b = x2
+    elif isinstance(x2, dict):
+        b = list(x2.keys())
+    else:
+        warnings.warn('argument must be string or dictionary')
+    expression = loops.Objective([a, b], penalty, weight=weight)
+    return expression
+
+
+def le(x, xmax, weight=1.0, penalty=F.relu, p=2):
+    """
+    high level wrapper less or equal then constraint: x \le xmax
+
+    :param x: (dict, {str: torch.Tensor})
+    :param xmax: (dict, {str: torch.Tensor})
+    :param weight: weight of the penalty
+    :param penalty: type of the penalty
+    :param p: order of the penalty
+    :return: Objective object
+    """
+    if isinstance(x, str):
+        a = x
+    elif isinstance(x, dict):
+        a = list(x.keys())
+    else:
+        warnings.warn('argument must be string or dictionary')
+    if isinstance(xmax, str):
+        b = xmax
+    elif isinstance(xmax, dict):
+        b = list(xmax.keys())
+    else:
+        warnings.warn('argument must be string or dictionary')
+    expression = loops.Objective([a, b], lambda x, xmax: weight * (penalty(x - xmax))**p, weight=weight)
+    return expression
+
+def ge(x, xmin, weight=1.0, penalty=F.relu, p=2):
+    """
+    high level wrapper greater or equal then constraint: x \ge xmin
+
+    :param x: (dict, {str: torch.Tensor})
+    :param xmax: (dict, {str: torch.Tensor})
+    :param weight: weight of the penalty
+    :param penalty: type of the penalty
+    :param p: order of the penalty
+    :return: Objective object
+    """
+    if isinstance(x, str):
+        a = x
+    elif isinstance(x, dict):
+        a = list(x.keys())
+    else:
+        warnings.warn('argument must be string or dictionary')
+    if isinstance(xmin, str):
+        b = xmin
+    elif isinstance(xmin, dict):
+        b = list(xmin.keys())
+    else:
+        warnings.warn('argument must be string or dictionary')
+    expression = loops.Objective([a, b], lambda x, xmin: weight * (penalty(-x + xmin))**p, weight=weight)
+    return expression
+
+
 # https://en.wikipedia.org/wiki/Quadratically_constrained_quadratic_program
 # do we need this? or can we just use the min max constraints on the outputs of Polynomial block?
 
-constraints = [MinPenalty, MaxPenalty, MinMaxPenalty, dxPenalty]
+constraints = [MinPenalty, MaxPenalty, MinMaxPenalty, EqualPenalty]
 
 
 if __name__ == '__main__':
@@ -142,11 +204,20 @@ if __name__ == '__main__':
     xmin_con = MinPenalty()
     xmax_con = MaxPenalty()
     xminmax_con = MinMaxPenalty()
-    dx_con1 = dxPenalty()
-    dx_con2 = dxPenalty(penalty='abs')
+    dx_con1 = EqualPenalty()
+    dx_con2 = EqualPenalty(penalty='abs')
 
     print(xmin_con(x, x_min).shape)
     print(xmax_con(x, x_max).shape)
     print(xminmax_con(x, x_min, x_max).shape)
     print(dx_con1(x, x_prev).shape)
     print(dx_con2(x, x_prev).shape)
+
+    # testing new objective wrappers
+    data = {'x': x, 'x_min': x_min, 'x_max': x_max}
+    X = {'x': x}
+    Xmin = {'x_min': x_min}
+    Xmax = {'x_max': x_max}
+    constr1 = le(X, Xmax)
+    constr2 = le('x', 'x_max')
+    constr3 = equals(X, X)

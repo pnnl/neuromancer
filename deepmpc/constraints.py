@@ -103,8 +103,8 @@ class EqualPenalty(Penalty):
 class QuadraticPenalty(Penalty):
     def __init(self, penalty='quadratic', weight=1.0):
         super().__init__(penalty, weight)
-
-
+        # https://en.wikipedia.org/wiki/Quadratically_constrained_quadratic_program
+        # do we need this? or can we just use the min max constraints on the outputs of Polynomial block?
 
 
 # TODO: do we want? higher level API for objective/constraints definition with pre-defined most commonly used types
@@ -119,13 +119,13 @@ def equals(x1, x2, weight=1.0, penalty=torch.nn.functional.mse_loss):
     if isinstance(x1, str):
         a = x1
     elif isinstance(x1, dict):
-        a = list(x1.keys())
+        a = list(x1.keys())[0]
     else:
         warnings.warn('argument must be string or dictionary')
     if isinstance(x2, str):
         b = x2
     elif isinstance(x2, dict):
-        b = list(x2.keys())
+        b = list(x2.keys())[0]
     else:
         warnings.warn('argument must be string or dictionary')
     expression = loops.Objective([a, b], penalty, weight=weight)
@@ -146,13 +146,13 @@ def le(x, xmax, weight=1.0, penalty=F.relu, p=2):
     if isinstance(x, str):
         a = x
     elif isinstance(x, dict):
-        a = list(x.keys())
+        a = list(x.keys())[0]
     else:
         warnings.warn('argument must be string or dictionary')
     if isinstance(xmax, str):
         b = xmax
     elif isinstance(xmax, dict):
-        b = list(xmax.keys())
+        b = list(xmax.keys())[0]
     else:
         warnings.warn('argument must be string or dictionary')
     expression = loops.Objective([a, b], lambda x, xmax: weight * (penalty(x - xmax))**p, weight=weight)
@@ -172,21 +172,19 @@ def ge(x, xmin, weight=1.0, penalty=F.relu, p=2):
     if isinstance(x, str):
         a = x
     elif isinstance(x, dict):
-        a = list(x.keys())
+        a = list(x.keys())[0]
     else:
         warnings.warn('argument must be string or dictionary')
     if isinstance(xmin, str):
         b = xmin
     elif isinstance(xmin, dict):
-        b = list(xmin.keys())
+        b = list(xmin.keys())[0]
     else:
         warnings.warn('argument must be string or dictionary')
+    #     TODO: we need to pass this through mean
     expression = loops.Objective([a, b], lambda x, xmin: weight * (penalty(-x + xmin))**p, weight=weight)
     return expression
 
-
-# https://en.wikipedia.org/wiki/Quadratically_constrained_quadratic_program
-# do we need this? or can we just use the min max constraints on the outputs of Polynomial block?
 
 constraints = [MinPenalty, MaxPenalty, MinMaxPenalty, EqualPenalty]
 
@@ -220,4 +218,10 @@ if __name__ == '__main__':
     Xmax = {'x_max': x_max}
     constr1 = le(X, Xmax)
     constr2 = le('x', 'x_max')
-    constr3 = equals(X, X)
+    constr3 = ge('x', 'x_min')
+    constr4 = equals(X, X)
+    # eval new constraints
+    con1_val = constr1(data)
+    con2_val = constr2(data)
+    con3_val = constr3(data)
+    con4_val = constr4(data)

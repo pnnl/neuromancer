@@ -90,24 +90,25 @@ class OpenLoop(Problem):
         D: measured disturbances p (past), f (future)
         nsamples: prediction horizon length
         """
+        # TODO: lambda expressions on variables will not yeald to scalar values unless we do mean over samples
         super().__init__(constraints)
         self.objectives += [Objective(['xN_model', 'x0_estimator'], torch.nn.functional.mse_loss, weight=1.0),
                             Objective(['reg_error_estim', 'reg_error_model'], lambda reg1, reg2: reg1 + reg2, weight=1.0),
-                            Objective(['Yp', 'Yf'], torch.nn.functional.mse_loss, weight=1.0),
-                            Objective(['Xf'], lambda x: (x[1:] - x[:-1])*(x[1:] - x[:-1]))]
+                            Objective(['Y_pred', 'Yf'], torch.nn.functional.mse_loss, weight=1.0),
+                            Objective(['X_pred'], lambda x: (x[1:] - x[:-1])*(x[1:] - x[:-1]))]
         self.model = model
         self.estim = estim
 
     def step(self, data):
-        Yp, Up, Uf, Dp, Df, nsamples = data['Yp'], data['Up'], data['Uf'], data['Dp'], data['Df'], data['Yf'].shape[0]
+        Yp, Yf, Up, Uf, Dp, Df, nsamples = data['Yp'], data['Yf'], data['Up'], data['Uf'], data['Dp'], data['Df'], data['Yf'].shape[0]
         x0, reg_error_estim = self.estim(Yp, Up, Dp)
-        Xf, Yf, reg_error_model = self.model(x=x0, U=Uf, D=Df, nsamples=nsamples)
+        X_pred, Y_pred, reg_error_model = self.model(x=x0, U=Uf, D=Df, nsamples=nsamples)
 
         return {'reg_error_estim': reg_error_estim,
                 'reg_error_model': reg_error_model,
-                'Xf': Xf,
-                'Yf': Yf,
-                'xN_model':  Xf[-1, :-1, :],
+                'X_pred': X_pred,
+                'Y_pred': Y_pred,
+                'xN_model':  X_pred[-1, :-1, :],
                 'x0_estimator': x0[1:]}
 
 
@@ -126,11 +127,15 @@ class ClosedLoop(Problem):
         """
         super().__init__(constraints)
         # TODO: ['xN_model', 'x0_estimator'] - I am not sure about this constraint
+        # TODO: add Adaptive control mode
+        #  right now, this would work only for policy optimization  with fixed model params
+        #  ['Y_pred', 'Yf] this constraint should be optional, only in case of adaptive control,
+        #  for adaptive mode: need to instantiate a second model with shared weights to track the system ID loss
         self.objectives += [Objective(['xN_model', 'x0_estimator'], torch.nn.functional.mse_loss, weight=1.0),
                             Objective(['reg_error_estim', 'reg_error_model'], lambda reg1, reg2: reg1 + reg2,
                                       weight=1.0),
-                            Objective(['Yp', 'Yf'], torch.nn.functional.mse_loss, weight=1.0),
-                            Objective(['Xf'], lambda x: (x[1:] - x[:-1]) * (x[1:] - x[:-1]))]
+                            Objective(['Y_pred', 'Rf'], torch.nn.functional.mse_loss, weight=1.0),
+                            Objective(['X_pred'], lambda x: (x[1:] - x[:-1]) * (x[1:] - x[:-1]))]
         self.model = model
         self.estim = estim
         self.policy = policy
@@ -147,18 +152,18 @@ class ClosedLoop(Problem):
         # and then we can concatenate the selected data for the policy
         # or we can hand the data dict with flags to all submodules and unpack them inside
         # where flags would indicate the use of the data in each submodule
-        Yp, Up, Rf, Dp, Df, nsamples = data['Yp'], data['Up'], data['Rf'], data['Dp'], data['Df'], data['Yf'].shape[0]
+        Yp, Yf, Up, Rf, Dp, Df, nsamples = data['Yp'], data['Yf'], data['Up'], data['Rf'], data['Dp'], data['Df'], data['Yf'].shape[0]
         x0, reg_error_estim = self.estim(Yp, Up, Dp)
         Uf, reg_error_policy = self.policy(x0, Df, Rf)
         Uf = Uf.unsqueeze(2).reshape(Uf.shape[0], self.model.nu, -1)
         Uf = Uf.permute(2, 0, 1)
-        Xf, Yf, reg_error_model = self.model(x=x0, U=Uf, D=Df, nsamples=nsamples)
+        X_pred, Y_pred, reg_error_model = self.model(x=x0, U=Uf, D=Df, nsamples=nsamples)
         return {'reg_error_estim': reg_error_estim,
                 'reg_error_model': reg_error_model,
                 'reg_error_policy': reg_error_policy,
-                'Xf': Xf,
-                'Yf': Yf,
-                'xN_model':  Xf[-1, :-1, :],
+                'X_pred': X_pred,
+                'Y_pred': Y_pred,
+                'xN_model':  X_pred[-1, :-1, :],
                 'x0_estimator': x0[1:],
                 'Uf': Uf}
 

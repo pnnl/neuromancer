@@ -7,8 +7,8 @@ from logger import BasicLogger
 from visuals import NoOpVisualizer
 
 
-class Problem:
-    def __init__(self, model, dataset, optimizer, logger=BasicLogger(), visualizer=NoOpVisualizer, epochs=1000):
+class Trainer:
+    def __init__(self, model, dataset, optimizer, logger=BasicLogger(), visualizer=NoOpVisualizer(), epochs=1000):
         super().__init__()
         self.model = model
         self.optimizer = optimizer
@@ -39,7 +39,7 @@ class Problem:
                 if dev_loop_output['dev_loop_obj_loss'] < best_looploss:
                     best_model = deepcopy(self.model.state_dict())
                     best_looploss = dev_loop_output['dev_loop_obj_loss']
-                self.visualizer.plot({**dev_nstep_output, **dev_loop_output}, self.model.state_dict(), best_model)
+                self.visualizer.plot({**dev_nstep_output, **dev_loop_output}, self.dataset, self.model.state_dict())
 
         plots = self.visualizer.output()
         self.logger.save_artifacts({'best_model.pth': best_model, **plots})

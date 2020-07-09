@@ -148,9 +148,12 @@ if __name__ == '__main__':
                                                                             hsizes=[nx] * args.n_layers,
                                                                             num_layers=2, Linear=linmap,
                                                                             ss_model=dynamics_model)
+    # TODO: we need to change forward pass of components and standardize to dictionary input
+    # TODO: we probably need a list of standard dataset keys for pre-defined components
     components = [estimator, dynamics_model]
-    objectives = None # list of objectives
-    model = Problem(objectives, components)
+    objectives = None  # list of objectives
+    constraints = None  # list of constraints defined as objective class
+    model = Problem(objectives, constraints, components)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     visualizer = visuals.NoOpVisualizer()
     trainer = Trainer(model, dataset, optimizer, visualizer=visualizer)

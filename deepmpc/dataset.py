@@ -1,11 +1,6 @@
 """
 # TODO: include reference in the datafiles and emulators
 # TODO: extend datasets with time-varying constraints Ymin, Ymax, Umin, Umax
-# TODO: include U and D as optional arg in load_data_from_emulator
-# TODO: save trained benchmark models from Matlab's System ID
-# TODO: write function to load csv files pre defined format as well
-# TODO: make more generic by adding time-varying constraints
-# TODO: OpenAI gym emulators are not working with this set up
 """
 from abc import ABC, abstractmethod
 from scipy.io import loadmat
@@ -56,10 +51,10 @@ class Dataset(ABC):
 
         self.system, self.nsim, self.norm, self.nsteps, self.device = system, nsim, norm, nsteps, device
         data = self.load_data()
-        data['R'] = emulators.Periodic(nx=data['Y'].shape[1], nsim=data['Y'].shape[0],
-                                       numPeriods=np.ceil(data['Y'].shape[0] / 100).astype(int),
-                                       xmax=0, xmin=1, form='sin')
-
+        # data['R'] = emulators.Periodic(nx=data['Y'].shape[1], nsim=data['Y'].shape[0],
+        #                                numPeriods=np.ceil(data['Y'].shape[0] / 100).astype(int),
+        #                                xmax=0, xmin=1, form='sin')
+        self.data = data
         self.min_max_norms, self.dims, nstep_data, loop_data = dict(), dict(), dict(), dict()
         for k, v in data.items():
             print(k)
@@ -74,7 +69,7 @@ class Dataset(ABC):
             nstep_data[k + 'p'] = batch_data(loop_data[k+'p'], nsteps).to(device)
             nstep_data[k + 'f'] = batch_data(loop_data[k+'f'], nsteps).to(device)
 
-        plot.plot_traj(data, figname=f'{system}.png')
+        plot.plot_traj(data, figname=f'./test/{system}.png')
 
         self.train_data, self.dev_data, self.test_data = self.split_train_test_dev(nstep_data)
         self.train_loop = self.unbatch(self.train_data)
@@ -188,7 +183,9 @@ if __name__ == '__main__':
                'RosslerAttractor': 'emulator', 'LotkaVolterra': 'emulator', 'Brusselator1D': 'emulator',
                'ChuaCircuit': 'emulator', 'Duffing': 'emulator', 'UniversalOscillator': 'emulator',
                'HindmarshRose': 'emulator',
-               'SimpleSingleZone': 'emulator',
+               'SimpleSingleZone': 'emulator', 'Pendulum-v0': 'emulator',
+               'CartPole-v1': 'emulator', 'Acrobot-v1': 'emulator',
+               'MountainCar-v0': 'emulator', 'MountainCarContinuous-v0': 'emulator',
                'Reno_full': 'emulator', 'Reno_ROM40': 'emulator', 'RenoLight_full': 'emulator',
                'RenoLight_ROM40': 'emulator', 'Old_full': 'emulator',
                'Old_ROM40': 'emulator', 'HollandschHuys_full': 'emulator',

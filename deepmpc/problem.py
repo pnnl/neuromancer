@@ -30,7 +30,7 @@ class Objective(nn.Module):
 
 class Problem(nn.Module):
 
-    def __init__(self, objectives: List[Objective],
+    def __init__(self, objectives: List[Objective], constraints: List[Objective],
                  components: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]]):
         """
         This is similar in spirit to a nn.Sequential module. However,
@@ -41,15 +41,19 @@ class Problem(nn.Module):
         from aggregated input and set of outputs from the component modules.
 
         :param objectives: list of Objective objects
+        :param constraints: list of Objective objects
         :param components: list of Component objects
         """
         super().__init__()
         self.objectives = nn.ModuleList(objectives)
+        self.constraints = nn.ModuleList(constraints)
         self.components = nn.ModuleList(components)
 
     def _calculate_loss(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
         loss = 0.0
         for objective in self.objectives:
+            loss += objective(variables)
+        for objective in self.constraints:
             loss += objective(variables)
         return loss
 

@@ -56,6 +56,21 @@ class MinPenalty(Penalty):
         return self.weight*self.penalty(-x + xmin)
 
 
+class StaticMinPenalty(Penalty):
+    def __init__(self, xmin, penalty=F.relu, weight=1.0):
+        """
+        penalty on violating threshold inequality constraint:  x \ge xmin
+        residual: s = penalty(-x + xmin)
+        admissible penalty functions: relu, relu6, softplus, SoftExponential
+        """
+        super().__init__(penalty, weight)
+        self.xmin = xmin
+
+    def forward(self, x):
+        return self.weight*self.penalty(-x + self.xmin)
+
+
+
 class MaxPenalty(Penalty):
     def __init__(self, penalty=F.relu, weight=1.0):
         """

@@ -55,7 +55,7 @@ class Problem(nn.Module):
     def __init__(self, objectives):
         """
 
-        :param objectives:
+        :param objectives: list of Objective objects
         """
         super().__init__()
         self.objectives = objectives
@@ -93,8 +93,7 @@ class OpenLoop(Problem):
         super().__init__(constraints)
         self.objectives += [Objective(['xN_model', 'x0_estimator'], torch.nn.functional.mse_loss, weight=1.0),
                             Objective(['reg_error_estim', 'reg_error_model'], lambda reg1, reg2: reg1 + reg2, weight=1.0),
-                            Objective(['Yp', 'Yf'], torch.nn.functional.mse_loss, weight=1.0),
-                            Objective(['Xf'], lambda x: (x[1:] - x[:-1])*(x[1:] - x[:-1]))]
+                            Objective(['Yp', 'Yf'], torch.nn.functional.mse_loss, weight=1.0)]
         self.model = model
         self.estim = estim
 
@@ -112,7 +111,7 @@ class OpenLoop(Problem):
 
 
 class ClosedLoop(Problem):
-    def __init__(self, constraints, model, estim, policy):
+    def __init__(self, constraints, model, estim, policy, Q_estim=1.0, Q_reg=1.0, Q_policy=1.0, Q_model=1.0):
         """
         :param constraints: list of Objective objects
         :param model: SSM mappings, see dynamics.py
@@ -125,11 +124,12 @@ class ClosedLoop(Problem):
         R: desired references f (future)
         """
         super().__init__(constraints)
-        self.objectives += [Objective(['xN_model', 'x0_estimator'], torch.nn.functional.mse_loss, weight=1.0),
+        self.objectives += [Objective(['xN_model', 'x0_estimator'], torch.nn.functional.mse_loss, weight=Q_estim),
+                            Objective(['Up', 'Uf'], torch.nn.functional.mse_loss, weight=Q_policy)
                             Objective(['reg_error_estim', 'reg_error_model'], lambda reg1, reg2: reg1 + reg2,
-                                      weight=1.0),
-                            Objective(['Yp', 'Yf'], torch.nn.functional.mse_loss, weight=1.0),
-                            Objective(['Xf'], lambda x: (x[1:] - x[:-1]) * (x[1:] - x[:-1]))]
+                                      weight=Q_reg),
+                            Objective(['Yp', 'Yf'], torch.nn.functional.mse_loss, weight=Q_model)]
+        # Objective(['Xf'], lambda x: (x[1:] - x[:-1]) * (x[1:] - x[:-1]))
         self.model = model
         self.estim = estim
         self.policy = policy

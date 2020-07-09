@@ -20,6 +20,7 @@ class Trainer:
         self.logger = logger
         self.visualizer = visualizer
         self.epochs = epochs
+        self.logger.log_weights(self.model)
 
     def train(self):
 

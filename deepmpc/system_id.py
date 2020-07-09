@@ -36,6 +36,7 @@ import logger
 import visuals
 from trainer import Trainer
 from problem import Problem, Objective
+import torch.nn.functional as F
 
 
 def parse_args():
@@ -85,10 +86,7 @@ def parse_args():
     ##################
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
-    weight_group.add_argument('-Q_con_u', type=float,  default=0.2, help='Hidden input constraints penalty weight.')
     weight_group.add_argument('-Q_con_x', type=float,  default=0.2, help='Hidden state constraints penalty weight.')
-    weight_group.add_argument('-Q_dx_ud', type=float,  default=0.0,
-                              help='Maximal influence of u and d on hidden state in one time step penalty weight.')
     weight_group.add_argument('-Q_dx', type=float,  default=0.0,
                               help='Penalty weight on hidden state difference in one time step.')
     weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
@@ -114,20 +112,30 @@ def parse_args():
 
 
 if __name__ == '__main__':
-
-    ########## DATA AND MODEL SETUP ############
+    ###############################
+    ########## LOGGING ############
+    ###############################
     args = parse_args()
     if args.logger == 'mlflow':
         logger = logger.MLFlowLogger(args)
     else:
         logger = logger.BasicLogger(args.savedir, args.verbosity)
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
+
+    ###############################
+    ########## DATA ###############
+    ###############################
     if args.system_data == 'emulator':
         dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
                                   norm=args.norm, nsteps=args.nsteps, device=device)
     else:
         dataset = FileDataset(system=args.system, nsim=args.nsim,
                               norm=args.norm, nsteps=args.nsteps, device=device)
+
+    ##########################################
+    ########## PROBLEM COMPONENTS ############
+    ##########################################
+    nx = dataset.dims['nY']*args.nx_hidden
     linmap = linear.maps[args.linear_map]
     nonlinmap = {'linear': linmap,
                  'mlp': blocks.MLP,
@@ -148,12 +156,31 @@ if __name__ == '__main__':
                                                                             hsizes=[nx] * args.n_layers,
                                                                             num_layers=2, Linear=linmap,
                                                                             ss_model=dynamics_model)
+    dynamics_model.name = 'ssm'
+    estimator.name = 'estim'
     components = [estimator, dynamics_model]
-    objectives = None # list of objectives
+
+    ##########################################
+    ########## MULTI-OBJECTIVE LOSS ##########
+    ##########################################
+    estimator_loss = Objective(['X_pred', 'x0_estim'],
+                               lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0),
+                               weight=args.Q_e)
+    regularization = Objective(['reg_error_estim', 'reg_error_ssm'], lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub)
+    reference_loss = Objective(['Y_pred, Yf'], F.mse.loss, weight=args.Q_y)
+    state_smoothing = Objective(['X_pred'], lambda x: (x[1:] - x[:-1])*(x[1:] - x[:-1]), weight=args.Q_dx)
+    state_lower_bound_penalty = Objective(['X_pred'], lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x)
+    state_upper_bound_penalty = Objective(['X_pred'], lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x)
+
+    objectives = [estimator_loss, regularization, reference_loss,
+                  state_smoothing, state_lower_bound_penalty, state_upper_bound_penalty]
+
+    ##########################################
+    ########## OPTIMIZE SOLUTION ############
+    ##########################################
     model = Problem(objectives, components)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     visualizer = visuals.NoOpVisualizer()
     trainer = Trainer(model, dataset, optimizer, visualizer=visualizer)
-    nweights = sum([i.numel() for i in list(model.parameters()) if i.requires_grad])
     best_model = Trainer.train()
     Trainer.eval(best_model)

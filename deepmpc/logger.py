@@ -14,6 +14,11 @@ class BasicLogger:
         self.start_time = time.time()
         self.step = 0
 
+    def log_weights(self, model):
+        nweights = sum([i.numel() for i in list(model.parameters()) if i.requires_grad])
+        print(f'Number of parameters: {nweights}')
+        return nweights
+
     def log_metrics(self, output, step=None):
         if step is None:
             step = self.step
@@ -54,6 +59,10 @@ class WandBLogger(BasicLogger):
             if isinstance(v.item(), numbers.Number):
                 wandb.log({k: v.item()}, step=step)
 
+    def log_weights(self, model):
+        nweights = super().log_weights(model)
+        wandb.config({'nparams': nweights})
+
     def log_artifacts(self, artifacts):
         super().log_artifacts(artifacts)
         wandb.save(os.path.join(self.savedir, '*'))
@@ -67,6 +76,10 @@ class MLFlowLogger(BasicLogger):
         mlflow.start_run(run_name=args.run)
         params = {k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)}
         mlflow.log_params(params)
+
+    def log_weights(self, model):
+        nweights = super().log_weights(model)
+        mlflow.log_param('nparams',  nweights)
 
     def log_metrics(self, output, step):
         super().log_metrics(output, step)

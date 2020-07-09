@@ -38,8 +38,8 @@ class LinearEstimator(nn.Module):
     def reg_error(self):
         return self.linear.reg_error()
 
-    def forward(self, Ym, *args):
-        return self.linear(Ym[-1]), self.reg_error()
+    def forward(self, data):
+        return {'x0': self.linear(data['Yp'][-1]), f'{self.name}_reg_error': self.reg_error()}
 
 
 class MLPEstimator(nn.Module):

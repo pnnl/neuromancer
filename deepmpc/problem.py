@@ -2,15 +2,8 @@
 
 """
 from typing import Dict, List, Callable
-from abc import ABC, abstractmethod
-# pytorch imports
 import torch
 import torch.nn as nn
-#local imports
-import estimators
-import policies
-import dynamics
-from blocks import MLP
 
 
 class Objective(nn.Module):
@@ -56,7 +49,7 @@ class Problem(nn.Module):
 
     def _calculate_loss(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
         loss = 0.0
-        for variable_names, objective in self.objectives:
+        for objective in self.objectives:
             loss += objective(variables)
         return loss
 
@@ -64,7 +57,7 @@ class Problem(nn.Module):
         output_dict = self.step(data)
         loss = self._calculate_loss(output_dict)
         output_dict = {'loss': loss, **output_dict}
-        return {f'{data.name}_{k}': v for k, v in output_dict.items()}
+        return {f'{data["name"]}_{k}': v for k, v in output_dict.items()}
 
     def step(self, input_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         output_dict = dict()

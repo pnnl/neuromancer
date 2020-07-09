@@ -60,8 +60,13 @@ class WandBLogger(BasicLogger):
 
 
 class MLFlowLogger(BasicLogger):
-    def __init__(self, savedir, verbosity):
+    def __init__(self, args, savedir, verbosity):
         super().__init__(savedir, verbosity)
+        mlflow.set_tracking_uri(args.location)
+        mlflow.set_experiment(args.exp)
+        mlflow.start_run(run_name=args.run)
+        params = {k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)}
+        mlflow.log_params(params)
 
     def log_metrics(self, output, step):
         super().log_metrics(output, step)

@@ -5,7 +5,7 @@
 
 class NoOpVisualizer:
 
-    def plot(self, outputs, best_state_dict, current_state_dict):
+    def plot(self, outputs, best_state_dict, dataset):
         pass
 
     def output(self):

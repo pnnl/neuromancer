@@ -179,6 +179,23 @@ def pltInfoMeasures(X, figname=None):
     pass
 
 
+def plot_traj(data, figname=None):
+    """
+    plot input output closed loop dataset
+    """
+    plot_setup = [(notation, array) for
+                  notation, array in data.items()]
+    fig, ax = plt.subplots(nrows=len(plot_setup), ncols=1, figsize=(20, 16), squeeze=False)
+    for j, (notation, array) in enumerate(plot_setup):
+        ax[j, 0].plot(array, linewidth=3)
+        ax[j, 0].grid(True)
+        ax[j, 0].set_xlabel('Time', fontsize=24)
+        ax[j, 0].set_ylabel(notation, fontsize=24)
+        ax[j, 0].tick_params(axis='x', labelsize=22)
+        ax[j, 0].tick_params(axis='y', labelsize=22)
+    plt.tight_layout()
+    if figname is not None:
+        plt.savefig(figname)
 
 
 

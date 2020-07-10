@@ -10,3 +10,9 @@ class NoOpVisualizer:
 
     def output(self):
         return dict()
+
+    def train(self):
+        pass
+
+    def eval(self):
+        pass

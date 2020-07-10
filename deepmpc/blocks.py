@@ -67,7 +67,7 @@ class MLP(nn.Module):
 
 class ResMLP(MLP):
     def __init__(self, insize, outsize, bias=True,
-                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], skip=1, **linargs):
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], skip=1, linargs=dict()):
         """
 
         :param insize:

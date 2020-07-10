@@ -9,6 +9,12 @@ from loops import Problem
 from dataset import Dataset
 
 
+def reset(module):
+    for mod in module.modules():
+        if hasattr(mod, 'reset') and mod is not module:
+            mod.reset()
+
+
 class Trainer:
 
     def __init__(self, problem: Problem, dataset: Dataset, optimizer: torch.optim.Optimizer,
@@ -28,7 +34,6 @@ class Trainer:
         self.visualizer.train()
 
         for i in range(self.epochs):
-
             self.model.train()
             output = self.model(self.dataset.train_data)
             self.optimizer.zero_grad()
@@ -51,7 +56,7 @@ class Trainer:
         return best_model
 
     def evaluate(self, best_model):
-
+        self.model.eval()
         self.visualizer.eval()
         self.model.load_state_dict(best_model)
 

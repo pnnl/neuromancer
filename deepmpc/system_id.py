@@ -73,7 +73,7 @@ def parse_args():
     model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
-                             choices=['rnn', 'mlp', 'linear'], default='rnn')
+                             choices=['rnn', 'mlp', 'linear'], default='linear')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     else:
         dataset = FileDataset(system=args.system, nsim=args.nsim,
                               norm=args.norm, nsteps=args.nsteps, device=device)
-
+    print([(k, v.shape) for k, v in dataset.dev_loop.items()])
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################
@@ -154,6 +154,7 @@ if __name__ == '__main__':
                  'rnn': estimators.RNNEstimator}[args.state_estimator]({**dataset.dims, 'X': nx}, nsteps=args.nsteps, bias=args.bias,
                                                                        Linear=linmap, nonlin=F.gelu, hsizes=[nx]*args.n_layers, input_keys={'Yp'},
                                                                        linargs=dict(), name='estim')
+
     components = [estimator, dynamics_model]
 
     ##########################################

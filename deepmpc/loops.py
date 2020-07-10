@@ -141,32 +141,32 @@ class Problem(nn.Module):
 #         self.estim = estim
 #         self.policy = policy
 #
-#     def step(self, data):
-#         # TODO: we want to have flexible policy definition with custom variables as arguments
-#         # for instance data can have additional parameters such as Xmin, Xmax, which we can use
-#         # We may have data dictionary with varying keys depending on application with only subset of mandatory keys such as Yp, Up
-#         # we want something like this:
-#             #  from types import SimpleNamespace
-#             #  d = {'a': 1, 'b': 2}
-#             #  n = SimpleNamespace(**d)
-#             #  n.a
-#         # and then we can concatenate the selected data for the policy
-#         # or we can hand the data dict with flags to all submodules and unpack them inside
-#         # where flags would indicate the use of the data in each submodule
-#         Yp, Yf, Up, Rf, Dp, Df, nsamples = data['Yp'], data['Yf'], data['Up'], data['Rf'], data['Dp'], data['Df'], data['Yf'].shape[0]
-#         x0, reg_error_estim = self.estim(Yp, Up, Dp)
-#         Uf, reg_error_policy = self.policy(x0, Df, Rf)
-#         Uf = Uf.unsqueeze(2).reshape(Uf.shape[0], self.model.nu, -1)
-#         Uf = Uf.permute(2, 0, 1)
-#         X_pred, Y_pred, reg_error_model = self.model(x=x0, U=Uf, D=Df, nsamples=nsamples)
-#         return {'reg_error_estim': reg_error_estim,
-#                 'reg_error_model': reg_error_model,
-#                 'reg_error_policy': reg_error_policy,
-#                 'X_pred': X_pred,
-#                 'Y_pred': Y_pred,
-#                 'xN_model':  X_pred[-1, :-1, :],
-#                 'x0_estimator': x0[1:],
-#                 'Uf': Uf}
+    def step(self, data):
+        # TODO: we want to have flexible policy definition with custom variables as arguments
+        # for instance data can have additional parameters such as Xmin, Xmax, which we can use
+        # We may have data dictionary with varying keys depending on application with only subset of mandatory keys such as Yp, Up
+        # we want something like this:
+            #  from types import SimpleNamespace
+            #  d = {'a': 1, 'b': 2}
+            #  n = SimpleNamespace(**d)
+            #  n.a
+        # and then we can concatenate the selected data for the policy
+        # or we can hand the data dict with flags to all submodules and unpack them inside
+        # where flags would indicate the use of the data in each submodule
+        Yp, Yf, Up, Rf, Dp, Df, nsamples = data['Yp'], data['Yf'], data['Up'], data['Rf'], data['Dp'], data['Df'], data['Yf'].shape[0]
+        x0, reg_error_estim = self.estim(Yp, Up, Dp)
+        Uf, reg_error_policy = self.policy(x0, Df, Rf)
+        Uf = Uf.unsqueeze(2).reshape(Uf.shape[0], self.model.nu, -1)
+        Uf = Uf.permute(2, 0, 1)
+        X_pred, Y_pred, reg_error_model = self.model(x=x0, U=Uf, D=Df, nsamples=nsamples)
+        return {'reg_error_estim': reg_error_estim,
+                'reg_error_model': reg_error_model,
+                'reg_error_policy': reg_error_policy,
+                'X_pred': X_pred,
+                'Y_pred': Y_pred,
+                'xN_model':  X_pred[-1, :-1, :],
+                'x0_estimator': x0[1:],
+                'Uf': Uf}
 #
 #
 # class pOP(Problem):

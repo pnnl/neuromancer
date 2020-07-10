@@ -2,7 +2,6 @@
 # TODO: include reference in the datafiles and emulators
 # TODO: extend datasets with time-varying constraints Ymin, Ymax, Umin, Umax
 """
-from abc import ABC, abstractmethod
 from scipy.io import loadmat
 import numpy as np
 import pandas as pd
@@ -15,6 +14,10 @@ import matplotlib.pyplot as plt
 def min_max_denorm(M, Mmin, Mmax):
     """
     denormalize min max norm
+    :param M: (2-d np.array) Data to be normalized
+    :param Mmin: (int) Minimum value
+    :param Mmax: (int) Maximum value
+    :return: (2-d np.array) Un-normalized data
     """
     M_denorm = M*(Mmax - Mmin) + Mmin
     return np.nan_to_num(M_denorm)
@@ -23,17 +26,23 @@ def min_max_denorm(M, Mmin, Mmax):
 def batch_data(data, nsteps):
     """
 
-    :param data: np.array shape=(total_time_steps, dim)
+    :param data: np.array shape=(nsim, dim)
     :param nsteps: (int) n-step prediction horizon
-    :return: torch.tensor shape=(nbatches, nsteps, dim)
+    :return: torch.tensor shape=(nsteps, nsamples, dim)
     """
     nsplits = (data.shape[0]) // nsteps
     leftover = (data.shape[0]) % nsteps
-    data = np.stack(np.split(data[:data.shape[0] - leftover], nsplits))  # nchunks X nsteps X 14
+    data = np.stack(np.split(data[:data.shape[0] - leftover], nsplits))  # nchunks X nsteps X nfeatures
     return torch.tensor(data, dtype=torch.float32).transpose(0, 1)  # nsteps X nsamples X nfeatures
 
 
 def unbatch_data(data):
+    """
+    Data put back together into original sequence.
+
+    :param data: (torch.Tensor, shape=(nsteps, nsamples, dim)
+    :return:  (torch.Tensor, shape=(nsim, 1, dim)
+    """
     return data.transpose(0, 1).reshape(-1, 1, data.shape[-1])
 
 
@@ -44,9 +53,18 @@ class DataDict(dict):
     pass
 
 
-class Dataset(ABC):
+class Dataset:
 
-    def __init__(self, system='aero', nsim=None, norm='UDY', nsteps=32, device='cpu', sequences=dict()):
+    def __init__(self, system=None, nsim=None, norm='UDY', nsteps=32, device='cpu', sequences=dict()):
+        """
+
+        :param system: (str) Identifier for dataset.
+        :param nsim: (int) Total number of time steps in data sequence
+        :param norm: (str) String of letters corresponding to data to be normalized
+        :param nsteps: (int) N-step prediction horizon for batching data
+        :param device: (str) String identifier of device to place data on, e.g. 'cpu', 'cuda:0'
+        :param sequences: (dict str: np.array) Dictionary of supplemental data
+        """
         print(system)
 
         self.system, self.nsim, self.norm, self.nsteps, self.device = system, nsim, norm, nsteps, device
@@ -57,13 +75,11 @@ class Dataset(ABC):
         self.data = data
         self.min_max_norms, self.dims, nstep_data, loop_data = dict(), dict(), dict(), dict()
         for k, v in data.items():
-            print(k)
-            # print(v)
             data[k] = v.reshape(v.shape[0], -1)
             vnorm, vmin, vmax = self.normalize(v)
             data[k] = vnorm
             self.min_max_norms.update({k+'min': vmin, k+'max': vmax})
-            self.dims[k] = v.shape[1]
+            self.dims[k], self.dims[k+'p'], self.dims[k+'f'] = v.shape[1]
             loop_data[k+'p'] = torch.tensor(v[:-nsteps], dtype=torch.float32).to(device)
             loop_data[k + 'f'] = torch.tensor(v[nsteps:], dtype=torch.float32).to(device)
             nstep_data[k + 'p'] = batch_data(loop_data[k+'p'], nsteps).to(device)
@@ -79,14 +95,18 @@ class Dataset(ABC):
         self.train_loop.name, self.dev_loop.name, self.test_loop.name = 'loop_train', 'loop_dev', 'loop_test'
         plt.close('all')
 
-    @abstractmethod
     def load_data(self):
-        pass
+        assert self.system is None and len(self.sequences) > 0, \
+            'User must provide data via the sequences argument for basic Dataset. ' +\
+            'Use FileDataset or EmulatorDataset for predefined datasets'
+        return dict()
 
     def normalize(self, M, Mmin=None, Mmax=None):
             """
-            :param M:
-            :return:
+            :param M: (2-d np.array) Data to be normalized
+            :param Mmin: (int) Optional minimum. If not provided is inferred from data.
+            :param Mmax: (int) Optional maximum. If not provided is inferred from data.
+            :return: (2-d np.array) Min-max normalized data
             """
             Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
             Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
@@ -95,9 +115,9 @@ class Dataset(ABC):
 
     def split_train_test_dev(self, data):
         """
-        exemplary use:
-        # Yp_train, Yp_dev, Yp_test = split_train_test_dev(Yp)
-        # Yf_train, Yf_dev, Yf_test = split_train_test_dev(Yf)
+
+        :param data: (dict, str: 3-d np.array) Complete dataset. dims=(nsteps, nsamples, dim)
+        :return: (3-tuple) Dictionarys for train, dev, and test sets
         """
         train_data, dev_data, test_data = DataDict(), DataDict(), DataDict()
         train_idx = (list(data.values())[0].shape[1] // 3)
@@ -110,6 +130,11 @@ class Dataset(ABC):
         return train_data, dev_data, test_data
 
     def unbatch(self, data):
+        """
+
+        :param data: (dict, str: 3-d np.array) Data broken into samples of n-step prediction horizon sequences
+        :return: (dict, str: 3-d np.array) Data put back together into original sequence. dims=(nsim, 1, dim)
+        """
         unbatched_data = DataDict()
         for k, v in data.items():
             unbatched_data[k] = unbatch_data(v)
@@ -120,7 +145,8 @@ class EmulatorDataset(Dataset):
 
     def load_data(self):
         """
-        dataset creation from the emulator
+        dataset creation from the emulator. system argument to init should be the name of a registered emulator
+        return: (dict, str: 2-d np.array)
         """
         systems = emulators.systems  # list of available emulators
         model = systems[self.system]()  # instantiate model class
@@ -143,8 +169,8 @@ class FileDataset(Dataset):
 
     def load_data(self):
         """
-        :param file_path: path to .mat file with dataset: y,u,d,Ts
-        :return:
+        Load data from files. system argument to init should be a file path to the dataset file
+        :return: (dict, str: 2-d np.array)
         """
         ninit = 0
         Y, U, D = None, None, None

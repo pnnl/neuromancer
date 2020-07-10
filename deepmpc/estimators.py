@@ -1,4 +1,5 @@
 """
+# TODO: Better high level comments
 state estimators for SSM models
 x: states (x0 - initial conditions)
 u: control inputs
@@ -8,79 +9,171 @@ d: uncontrolled inputs (measured disturbances)
 generic mapping:
 x = estim(ym,x0,u,d)
 """
+from typing import Dict
 # pytorch imports
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 #local imports
 import linear
-from blocks import MLP
-from rnn import RNN, RNNCell
+import blocks
 from dynamics import BlockSSM
 
 
-class FullyObservable(nn.Module):
-    def __init__(self, *args, **linargs):
+def check_keys(k1, k2):
+    assert k1 - k2 == set(), \
+        f'Missing values in dataset. Input_keys: {k1}, data_keys: {k2}'
+
+
+class Estimator(nn.Module):
+    def __init__(self, data_dims, nsteps=1, input_keys={'Yp'}, name='policy'):
         super().__init__()
+        check_keys(set(input_keys), set(data_dims.keys()))
+        self.name = name
+        self.nsteps = nsteps
+        self.nx = data_dims['X']
+
+        data_dims = {k: v for k, v in data_dims.items() if k in input_keys}
+        self.sequence_dims_sum = sum(v for k, v in data_dims.items())
+
+        self.input_size = nsteps * self.sequence_dims_sum
+        self.output_size = self.nx
+        self.input_keys = set(input_keys)
 
     def reg_error(self):
-        return torch.zeros(1)
+        return torch.tensor(0.0)
 
-    def forward(self, Ym, *args):
-        return Ym[-1], self.reg_error()
+    def forward(self, data):
+        """
+
+        :param data:
+        :return:
+        """
+        check_keys(self.input_keys, set(data.keys()))
+        features = torch.cat([torch.cat([step for step in data[k]], dim=1) for k in self.input_keys], dim=1)
+        return {'x0': self.net(features), f'{self.name}_reg_error': self.net.reg_error()}
 
 
-class LinearEstimator(nn.Module):
-    def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, **linargs):
+class FullyObservable(nn.Module):
+    def __init__(self, *args, name='full_observable', **linargs):
+        """
+
+        :param name:
+        :param args:
+        :param linargs:
+        """
         super().__init__()
-        self.linear = Linear(insize, outsize, bias=bias, **linargs)
+        self.name = name
+
+    def reg_error(self):
+        return torch.tensor(0.0)
+
+    def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """
+
+        :param data:
+        :return:
+        """
+        return {'x0': data['Yp'][-1], f'{self.name}_reg_error': self.reg_error()}
+
+
+class LinearEstimator(Estimator):
+    def __init__(self, data_dims, nsteps=1, bias=False,
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], input_keys={'Yp'},
+                 linargs=dict(), name='linear_estim'):
+        """
+
+        :param data_dims:
+        :param nsteps:
+        :param bias:
+        :param Linear:
+        :param nonlin:
+        :param hsizes:
+        :param input_keys:
+        :param linargs:
+        :param name:
+        """
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        self.net = Linear(self.input_size, self.output_size, bias=bias, **linargs)
 
     def reg_error(self):
         return self.linear.reg_error()
 
-    def forward(self, data):
-        return {'x0': self.linear(data['Yp'][-1]), f'{self.name}_reg_error': self.reg_error()}
 
+class MLPEstimator(Estimator):
+    """
 
-class MLPEstimator(nn.Module):
-    def __init__(self, insize, outsize, bias=True,
-                 Linear=linear.Linear, nonlin=F.relu, hsizes=[64], **linargs):
-        super().__init__()
-        self.net = MLP(insize, outsize, bias=bias,
-                       Linear=Linear, nonlin=nonlin, hsizes=hsizes, **linargs)
+    """
+    def __init__(self, data_dims, nsteps=1, bias=False,
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], input_keys={'Yp'},
+                 linargs=dict(), name='MLP_estim'):
+        """
+
+        :param data_dims:
+        :param nsteps:
+        :param bias:
+        :param Linear:
+        :param nonlin:
+        :param hsizes:
+        :param input_keys:
+        :param linargs:
+        :param name:
+        """
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        self.net = blocks.MLP(self.input_size, self.output_size, bias=bias,
+                              Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
     def reg_error(self):
         return self.net.reg_error()
 
-    def forward(self, Ym, *args):
-        return self.net(Ym[-1]), self.reg_error()
 
+class RNNEstimator(Estimator):
+    def __init__(self, data_dims, nsteps=1, bias=False,
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], input_keys={'Yp'},
+                 linargs=dict(), name='RNN_estim'):
+        """
 
-class RNNEstimator(nn.Module):
-    def __init__(self, insize, outsize, bias=False, num_layers=1,
-                 nonlin=F.gelu, Linear=linear.Linear, **linargs):
-        super().__init__()
-        self.RNN = RNN(insize, outsize, num_layers=num_layers,
-                       bias=bias, nonlin=nonlin, Linear=Linear, **linargs)
+        :param data_dims:
+        :param nsteps:
+        :param bias:
+        :param Linear:
+        :param nonlin:
+        :param hsizes:
+        :param input_keys:
+        :param linargs:
+        :param name:
+        """
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        self.input_size = self.sequence_dims_sum
+        self.RNN = blocks.RNN(self.input_size, self.output_size, hsizes=hsizes,
+                              bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)
 
     def reg_error(self):
         return self.RNN.reg_error()
 
-    def forward(self, Ym, *args):
-        return self.RNN(Ym)[0][-1].to(Ym.device), self.reg_error().to(Ym.device)
+    def forward(self, data):
+        features = torch.cat([data[k] for k in self.input_keys], dim=2)
+        return {'x0': self.RNN(features), f'{self.name}_reg_error': self.reg_error()}
 
 
 class LinearKalmanFilter(nn.Module):
     """
-    Linear Time-Varyig Linear Kalman Filter
+    Time-Varying Linear Kalman Filter
     """
-    def __init__(self, insize=None, outsize=None, model=None):
+    def __init__(self, insize=None, outsize=None, model=None, name='kalman_estim'):
+        """
+
+        :param insize: Dummy variable for consistent API
+        :param outsize: Dummy variable for consistent API
+        :param model: Dynamics model
+        """
         super().__init__()
         assert model is not None
         assert isinstance(model, BlockSSM)
         assert isinstance(model.fx, linear.LinearBase)
         assert isinstance(model.fy, linear.LinearBase)
         self.model = model
+        self.name = name
         self.Q_init = nn.Parameter(torch.eye(model.nx), requires_grad=False)
         self.R_init = nn.Parameter(torch.eye(model.ny), requires_grad=False)
         self.P_init = nn.Parameter(torch.eye(model.nx), requires_grad=False)
@@ -88,18 +181,19 @@ class LinearKalmanFilter(nn.Module):
         self.x0_estim = nn.Parameter(torch.zeros(1, model.nx), requires_grad=False)
 
     def reg_error(self):
-        return torch.zeros(1)
+        return torch.tensor(0.0)
 
-    def forward(self, Ym, U, D):
+    def forward(self, data):
         x = self.x0_estim
         Q = self.Q_init
         R = self.R_init
         P = self.P_init
         L = self.L_init  # KF gain
-        eye = torch.eye(self.model.nx).to(Ym.device)
+        eye = torch.eye(self.model.nx).to(data['Yp'].device)
 
         # State estimation loop on past data
-        for ym, u, d in zip(Ym, U[:len(Ym)], D[:len(Ym)]):
+        Yp, U, D = data['Yp'], data['Up'], data['Dp']
+        for ym, u, d in zip(Yp, U[:len(Yp)], D[:len(Yp)]):
             # PREDICT STEP:
             x = self.model.fx(x) + self.model.fu(u) + self.model.fd(d)
             y = self.model.fy(x)
@@ -112,7 +206,7 @@ class LinearKalmanFilter(nn.Module):
             L = torch.mm(torch.mm(P, self.model.fy.effective_W()), L_inverse_part)
             P = eye - torch.mm(L, torch.mm(self.model.fy.effective_W().T, P))
 
-        return x, self.reg_error()
+        return {'x0': x, f'{self.name}_reg_error': self.reg_error()}
 
 
 class ExtendedKalmanFilter(nn.Module):
@@ -121,6 +215,7 @@ class ExtendedKalmanFilter(nn.Module):
     TODO: Implement extended Kalman filter
     """
     pass
+
 
 estimators = [FullyObservable, LinearEstimator, MLPEstimator, RNNEstimator]
 
@@ -132,30 +227,30 @@ if __name__ == '__main__':
     Y = torch.rand(N, samples, ny)
     U = torch.rand(N, samples, nu)
     D = torch.rand(N, samples, nd)
-
+    data = {'Yp': Y, 'Up': U, 'Dp': D}
+    data_dims = {'X': nx, 'Yp': ny, 'Up': nu, 'Dp': nd}
+    input_keys = {'Yp', 'Up', 'Dp'}
     for bias in [True, False]:
         for est in estimators:
-            e = est(ny, 15)
-            e_out = e(Y, U, D)
-            print(e_out[0].shape, e_out[1].shape)
-            e = est(ny, 3)
-            e_out = e(Y, U, D)
-            print(e_out[0].shape, e_out[1].shape)
+            e = est(data_dims, nsteps=N, input_keys=input_keys)
+            e_out = e(data)
+            for k, v in e_out.items():
+                print(f'{k}: {v.shape}')
             for lin in set(linear.maps.values()) - linear.square_maps:
-                e = est(ny, 15, bias=bias, Linear=lin)
-                e_out = e(Y, U, D)
-                print(e_out[0].shape, e_out[1].shape)
-                e = est(ny, 3, bias=bias, Linear=lin)
-                e_out = e(Y, U, D)
-                print(e_out[0].shape, e_out[1].shape)
+                print(lin)
+                e = est(data_dims, nsteps=N, input_keys=input_keys, bias=bias, Linear=lin)
+                e_out = e(data)
+                for k, v in e_out.items():
+                    print(f'{k}: {v.shape}')
 
+    print('Kalman filter')
     fx, fu, fd = [linear.Linear(insize, nx) for insize in [nx, nu, nd]]
     fy = linear.Linear(nx, ny)
     model = BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
     est = LinearKalmanFilter(nx, ny, model=model)
-    est_out = est(Y, U, D)
-    print(est_out[0].shape, est_out[1].shape)
-
+    est_out = est(data)
+    for k, v in est_out.items():
+        print(f'{k}: {v.shape}')
 
 
 

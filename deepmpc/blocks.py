@@ -5,7 +5,6 @@ Sparsity inducing prior can be gotten from the LassoLinear in linear module
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import scipy.misc
 #local imports
 import linear
 import rnn
@@ -23,97 +22,18 @@ def expand(x):
     return torch.cat([x, expansion], dim=1)
 
 
-class FunctionBasis(nn.Module):
-    def __init__(self, insize, outsize, basis_functions, bias=False):
-        self.basis_functions = basis_functions
-
-
-class DeepBasisNetwork(nn.Module):
-    pass
-
-# TODO: this is doing someting strange
-class Bilinear(nn.Module):
-    def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, **linargs):
-        """
-        bilinear term: why expansion and not nn.Bilinear?
-        """
-        super().__init__()
-        # self.insize, self.outsize, = insize, outsize
-        self.in_features, self.out_features = insize, outsize
-        self.linear = Linear(insize**2, outsize, bias=bias)
-        self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
-
-    def regularization(self):
-        return self.linear.regularization
-
-    def forward(self, x):
-        return self.linear(expand(x))
-
-
-class BilinearTorch(nn.Module):
-    def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, **linargs):
-        """
-        bilinear term from Torch
-        """
-        super().__init__()
-        self.in_features, self.out_features = insize, outsize
-        self.f = nn.Bilinear(self.in_features, self.in_features, self.out_features, bias=bias)
-        self.error_matrix = nn.Parameter(torch.zeros(1), requires_grad=False)
-
-    def reg_error(self):
-        return self.error_matrix
-
-    def forward(self, x):
-        return self.f(x, x)
-
-
-# TODO: shall we create new file with custom activation functions?
-class SoftExponential(nn.Module):
-    pass
-# https://arxiv.org/abs/1602.01321
-
-
-class Fourier(nn.Module):
-    pass
-
-
-class Chebyshev(nn.Module):
-    pass
-
-
-class Polynomial(nn.Module):
-    pass
-
-class Multinomial(nn.Module):
-    def __init__(self, insize, outsize, p=2, bias=False, lin_cls=linear.Linear, **linargs):
-        super().__init__()
-        self.p = p
-        self.in_features, self.out_features = insize, outsize
-        for i in range(p-1):
-            insize += insize**2
-        self.linear = lin_cls(scipy.misc.comb(insize + p, p + 1), outsize, bias=bias)
-
-    def reg_error(self):
-        return self.linear.regularization
-
-    def forward(self, x):
-        for i in range(self.p):
-            x = expand(x)
-        return self.linear(x)
-
-
-class SINDy():
-    pass
-
-
 class MLP(nn.Module):
     def __init__(self,  insize, outsize, bias=True,
-                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], **linargs):
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], linargs=dict()):
         """
 
-        :param layers: list of ints (insize, h1size, h2size, ..., hnsize, outsize)
-        :param nonlin: Activation function
-        :param bias: Whether to use bias
+        :param insize:
+        :param outsize:
+        :param bias:
+        :param Linear:
+        :param nonlin:
+        :param hsizes:
+        :param linargs:
         """
         super().__init__()
         self.in_features, self.out_features = insize, outsize
@@ -126,19 +46,39 @@ class MLP(nn.Module):
                                             **linargs) for k in range(self.nhidden+1)])
 
     def reg_error(self):
+        """
+
+        :return:
+        """
         return sum([k.reg_error()
                     for k in self.linear
                     if hasattr(k, 'reg_error')])
 
     def forward(self, x):
+        """
+
+        :param x:
+        :return:
+        """
         for lin, nlin in zip(self.linear, self.nonlin):
             x = lin(nlin(x))
         return x
 
 
 class ResMLP(MLP):
-    def __init__(self,  insize, outsize, bias=True,
+    def __init__(self, insize, outsize, bias=True,
                  Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], skip=1, **linargs):
+        """
+
+        :param insize:
+        :param outsize:
+        :param bias:
+        :param Linear:
+        :param nonlin:
+        :param hsizes:
+        :param skip:
+        :param linargs:
+        """
 
         super().__init__(insize, outsize, bias=bias,
                          Linear=Linear, nonlin=nonlin, hsizes=hsizes, **linargs)
@@ -149,6 +89,11 @@ class ResMLP(MLP):
         self.in_features, self.out_features = insize, outsize
 
     def forward(self, x):
+        """
+
+        :param x:
+        :return:
+        """
         px = self.inmap(x)
         for layer, (lin, nlin) in enumerate(zip(self.linear[:-1], self.nonlin[:-1])):
             x = nlin(lin(x))
@@ -159,24 +104,131 @@ class ResMLP(MLP):
 
 
 class RNN(nn.Module):
+    """
+    This wraps the rnn.RNN class for to give output which is a linear map from final hidden state.
+    """
     def __init__(self, insize, outsize, bias=False,
-                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[1], **linargs):
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[1], linargs=dict()):
+        """
+
+        :param insize:
+        :param outsize:
+        :param bias:
+        :param Linear:
+        :param nonlin:
+        :param hsizes:
+        :param linargs:
+        """
         super().__init__()
         assert len(set(hsizes)) == 1
         self.in_features, self.out_features = insize, outsize
-        self.rnn = rnn.RNN(insize, hsizes[0], num_layers=len(hsizes),
-                           bias=bias, nonlinearity=nonlin, Linear=Linear, **linargs)
-        self.output = Linear(hsizes[0], outsize, bias=bias, **linargs)
+        self.rnn = rnn.RNN(insize, hsizes=hsizes,
+                           bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)
+        self.output = Linear(hsizes[-1], outsize, bias=bias, **linargs)
         self.init_states = None
+
+    def reg_error(self):
+        return self.rnn.reg_error()
 
     def reset(self):
         self.init_states = None
 
     def forward(self, x):
-        _, hiddens = self.rnn(x.reshape(1, *x.shape), init_states=self.init_states)
+        """
+
+        :param x: (torch.Tensor, shape=(nsteps, nsamples, dim)) Input sequence is expanded for order 2 tensors
+        :return: (torch.Tensor, shape=(nsamples, outsize)
+        """
+        if len(x.shape) == 2:
+            x = x.reshape(1, *x.shape)
+        _, hiddens = self.rnn(x, init_states=self.init_states)
         hidden = hiddens[-1]
         self.init_states = hiddens
         return self.output(hidden)
+
+
+# class FunctionBasis(nn.Module):
+#     def __init__(self, insize, outsize, basis_functions, bias=False):
+#         self.basis_functions = basis_functions
+#
+#
+# class DeepBasisNetwork(nn.Module):
+#     pass
+
+
+# # TODO: this is doing someting strange
+# class Bilinear(nn.Module):
+#     def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, **linargs):
+#         """
+#         bilinear term: why expansion and not nn.Bilinear?
+#         """
+#         super().__init__()
+#         # self.insize, self.outsize, = insize, outsize
+#         self.in_features, self.out_features = insize, outsize
+#         self.linear = Linear(insize**2, outsize, bias=bias)
+#         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
+#
+#     def regularization(self):
+#         return self.linear.regularization
+#
+#     def forward(self, x):
+#         return self.linear(expand(x))
+#
+#
+# class BilinearTorch(nn.Module):
+#     def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, **linargs):
+#         """
+#         bilinear term from Torch
+#         """
+#         super().__init__()
+#         self.in_features, self.out_features = insize, outsize
+#         self.f = nn.Bilinear(self.in_features, self.in_features, self.out_features, bias=bias)
+#         self.error_matrix = nn.Parameter(torch.zeros(1), requires_grad=False)
+#
+#     def reg_error(self):
+#         return self.error_matrix
+#
+#     def forward(self, x):
+#         return self.f(x, x)
+#
+#
+# # TODO: shall we create new file with custom activation functions?
+# class SoftExponential(nn.Module):
+#     pass
+# # https://arxiv.org/abs/1602.01321
+#
+#
+# class Fourier(nn.Module):
+#     pass
+#
+#
+# class Chebyshev(nn.Module):
+#     pass
+#
+#
+# class Polynomial(nn.Module):
+#     pass
+#
+# class Multinomial(nn.Module):
+#     def __init__(self, insize, outsize, p=2, bias=False, lin_cls=linear.Linear, **linargs):
+#         super().__init__()
+#         self.p = p
+#         self.in_features, self.out_features = insize, outsize
+#         for i in range(p-1):
+#             insize += insize**2
+#         self.linear = lin_cls(scipy.misc.comb(insize + p, p + 1), outsize, bias=bias)
+#
+#     def reg_error(self):
+#         return self.linear.regularization
+#
+#     def forward(self, x):
+#         for i in range(self.p):
+#             x = expand(x)
+#         return self.linear(x)
+#
+#
+# class SINDy():
+#     pass
 
 
 if __name__ == '__main__':

@@ -1,10 +1,12 @@
 """
 Script for training block dynamics models for system identification.
-Current block structure supported are black_box, hammerstein, and hammerstein weiner
+Current block structure supported are black_box, hammerstein, hammerstein-weiner,
+and block models with non-linear main transition dynamics.
+
 Basic model options are:
     + prior on the linear maps of the neural network
     + state estimator
-    + input non-linear map type for inputs and outputs
+    + non-linear map type
     + hidden state dimension
     + Whether to use affine or linear maps (bias term)
 Basic data options are:
@@ -21,9 +23,6 @@ Basic logging options are:
     + weights and bias
 
 More detailed description of options in the parse_args()
-
-# TODO: generalize hsized and num_layers
-
 """
 import argparse
 import torch
@@ -59,8 +58,6 @@ def parse_args():
                             help='source type of the dataset')
     data_group.add_argument('-system', default='flexy_air',
                             help='select particular dataset with keyword')
-    # data_group.add_argument('-system', choices=list(emulators.systems.keys()), default='flexy_air',
-    #                         help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=6000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
                                  'train, dev, and test will be split evenly from contiguous, sequential, '
@@ -135,7 +132,10 @@ if __name__ == '__main__':
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################
-    nx = dataset.dims['nY']*args.nx_hidden
+    nx = dataset.dims['Y']*args.nx_hidden
+    nu = dataset.dims['U'] if 'U' in dataset.dims else 0
+    nd = dataset.dims['D'] if 'D' in dataset.dims else 0
+    ny = dataset.dime['Y']
     linmap = linear.maps[args.linear_map]
     nonlinmap = {'linear': linmap,
                  'mlp': blocks.MLP,
@@ -145,19 +145,15 @@ if __name__ == '__main__':
     dynamics_model = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
-                      'hw': dynamics.hw}[args.ssm_type](linmap, nonlinmap, args.n_hidden, dataset.dims, args.n_layers)
+                      'hw': dynamics.hw}[args.ssm_type](args.bias, linmap, nonlinmap, nx, nu, nd, ny,
+                                                        n_layers=args.n_layers, name='dynamics')
 
     # state estimator setup
     estimator = {'linear': estimators.LinearEstimator,
                  'mlp': estimators.MLPEstimator,
-                 'rnn': estimators.RNNEstimator,
-                 'kf': estimators.LinearKalmanFilter}[args.state_estimator](dataset.dims,
-                                                                            bias=args.bias,
-                                                                            hsizes=[nx] * args.n_layers,
-                                                                            num_layers=2, Linear=linmap,
-                                                                            ss_model=dynamics_model)
-    dynamics_model.name = 'ssm'
-    estimator.name = 'estim'
+                 'rnn': estimators.RNNEstimator}[args.state_estimator]({**dataset.dims, 'X': nx}, nsteps=args.nsteps, bias=args.bias,
+                                                                       Linear=linmap, nonlin=F.gelu, hsizes=[nx]*args.n_layers, input_keys={'Yp'},
+                                                                       linargs=dict(), name='estim')
     components = [estimator, dynamics_model]
 
     ##########################################
@@ -166,7 +162,7 @@ if __name__ == '__main__':
     estimator_loss = Objective(['X_pred', 'x0_estim'],
                                lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0),
                                weight=args.Q_e)
-    regularization = Objective(['reg_error_estim', 'reg_error_ssm'], lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub)
+    regularization = Objective(['estim_reg_error', 'dynamics_reg_error'], lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub)
     reference_loss = Objective(['Y_pred, Yf'], F.mse_loss, weight=args.Q_y)
     state_smoothing = Objective(['X_pred'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx)
     state_lower_bound_penalty = Objective(['X_pred'], lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x)

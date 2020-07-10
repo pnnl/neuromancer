@@ -1,4 +1,5 @@
 """
+TODO: Better high level comments
 policies for SSM models
 x: states
 u: control inputs
@@ -15,8 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 #local imports
 import linear
-from blocks import MLP
-from rnn import RNN, RNNCell
+import blocks
 
 
 def check_keys(k1, k2):
@@ -25,44 +25,55 @@ def check_keys(k1, k2):
 
 
 class Policy(nn.Module):
-    def __init__(self, data_dims, nsteps=1, bias=False,
-                 Linear=linear.Linear, nonlin=None, hsizes=None, num_layers=None, input_keys={'x0'}):
+    def __init__(self, data_dims, nsteps=1, input_keys={'x0'}, name='policy'):
         """
 
-        :param nx: (int) dimension of state
-        :param nu: (int) dimension of inputs
-        :param nd: (int) dimension of disturbances
-        :param ny: (int) dimension of observation/reference
-        :param N: (int) prediction horizon
+        :param data_dims:
+        :param nsteps:
+        :param input_keys:
+        :param name:
         """
         super().__init__()
-        check_keys(set(set(input_keys), data_dims.keys()))
+        check_keys(set(input_keys), set(data_dims.keys()))
+        self.name = name
+        self.nsteps = nsteps
+        self.nu = data_dims['U']
+        self.nx = data_dims['x0']
 
-        nu = data_dims['U']
-        nx = data_dims['x0']
-        data_dims = {k: v for k, v in data_dims if k in input_keys}
-        sequence_dims_sum = sum(v for k, v in data_dims.items() if k != 'x0')
+        data_dims = {k: v for k, v in data_dims.items() if k in input_keys}
+        self.sequence_dims_sum = sum(v for k, v in data_dims.items() if k != 'x0')
 
-        self.input_size = nx + nsteps * sequence_dims_sum
-        self.output_size = nsteps * nu
+        self.input_size = self.nx + nsteps * self.sequence_dims_sum
+        self.output_size = nsteps * self.nu
         self.input_keys = set(input_keys)
 
     def reg_error(self):
+        """
+
+        :return:
+        """
         return self.net.reg_error()
 
     def forward(self, data):
+        """
+
+        :param data:
+        :return:
+        """
         check_keys(self.input_keys, set(data.keys()))
         features = data['x0']
         for k in self.input_keys - {'x0'}:
             new_feat = torch.cat([step for step in data[k]], dim=1)
             features = torch.cat([features, new_feat], dim=1)
-        Uf, reg_error = self.net(features)
-        return {'Uf': Uf, f'{self.name}_reg_error': self.reg_error()}
+        Uf = self.net(features)
+        Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
+        return {'Uf': Uf, f'{self.name}_reg_error': self.net.reg_error()}
 
 
 class LinearPolicy(Policy):
     def __init__(self, data_dims, nsteps=1, bias=False,
-                 Linear=linear.Linear, nonlin=None, hsizes=None, num_layers=None, input_keys={'x0'}):
+                 Linear=linear.Linear, nonlin=None, hsizes=None, input_keys={'x0'},
+                 linargs=dict(), name='linear_policy'):
         """
 
         :param data_dims:
@@ -71,50 +82,65 @@ class LinearPolicy(Policy):
         :param Linear:
         :param nonlin:
         :param hsizes:
-        :param num_layers:
         :param input_keys:
         """
-        super().__init__(data_dims, nsteps=nsteps, bias=bias,
-                         Linear=Linear, nonlin=nonlin, hsizes=hsizes,
-                         num_layers=num_layers, input_keys=input_keys)
-        self.net = Linear(self.input_size, self.output_size, bias=bias)
-
-    def forward(self, data):
-        output = super().forward(data)
-        output['Uf'] = torch.cat([u.reshape(self.nsteps, 1, -1) for u in output['Uf']], dim=1)
-        return output
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        self.net = Linear(self.input_size, self.output_size, bias=bias, **linargs)
 
 
-class MLPPolicy(nn.Module):
+class MLPPolicy(Policy):
     def __init__(self, data_dims, nsteps=1, bias=False,
-                 Linear=linear.Linear, nonlin=None, hsizes=None, num_layers=None, input_keys={'x0'}):
-        super().__init__(data_dims, nsteps=nsteps, bias=bias,
-                         Linear=Linear, nonlin=nonlin, hsizes=hsizes,
-                         num_layers=num_layers, input_keys=input_keys)
-        self.net = MLP(insize=self.input_size, outsize=self.output_size, bias=bias,
-                       Linear=Linear, nonlin=nonlin, hsizes=hsizes)
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], input_keys={'x0'},
+                 linargs=dict(), name='MLP_policy'):
+        """
 
-    def forward(self, data):
-        output = super().forward(data)
-        output['Uf'] = torch.cat([u.reshape(self.nsteps, 1, -1) for u in output['Uf']], dim=1)
-        return output
+        :param data_dims:
+        :param nsteps:
+        :param bias:
+        :param Linear:
+        :param nonlin:
+        :param hsizes:
+        :param input_keys:
+        :param linargs:
+        """
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        self.net = blocks.MLP(insize=self.input_size, outsize=self.output_size, bias=bias,
+                              Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
-class RNNPolicy(nn.Module):
+class RNNPolicy(Policy):
     def __init__(self, data_dims, nsteps=1, bias=False,
-                 Linear=linear.Linear, nonlin=None, hsizes=None, num_layers=None, input_keys={'x0'}):
-        super().__init__(data_dims, nsteps=nsteps, bias=bias,
-                         Linear=Linear, nonlin=nonlin, hsizes=hsizes,
-                         num_layers=num_layers, input_keys=input_keys)
-        self.net = RNN(self.input_size, self.output_size//self.nsteps, num_layers=num_layers,
-                       bias=bias, nonlin=nonlin, Linear=Linear)
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], input_keys={'x0'},
+                 linargs=dict(), name='RNN_policy'):
+        """
+
+        :param data_dims:
+        :param nsteps:
+        :param bias:
+        :param Linear:
+        :param nonlin:
+        :param hsizes:
+        :param input_keys:
+        :param linargs:
+        """
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        self.input_size = self.sequence_dims_sum + self.nx
+        self.net = blocks.RNN(self.input_size, self.output_size, hsizes=hsizes,
+                              bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)
 
     def forward(self, data):
+        """
+
+        :param data:
+        :return:
+        """
         check_keys(self.input_keys, set(data.keys()))
-        features = torch.cat([data[k] for k in self.input_keys], dim=2)
-        x_feats = torch.stack([data['x0'] for d in features.shape[1]], dim=1)
-        features = torch.cat([features, x_feats], dim=1)
-        return self.net(features)
+        features = torch.cat([data[k] for k in self.input_keys - {'x0'}], dim=2)
+        x_feats = torch.stack([data['x0'] for d in range(features.shape[0])], dim=0)
+        features = torch.cat([features, x_feats], dim=2)
+        Uf = self.net(features)
+        Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
+        return {'Uf': Uf, f'{self.name}_reg_error': self.net.reg_error()}
 
 
 # similar structure to Linear Kalman Filter
@@ -133,8 +159,11 @@ if __name__ == '__main__':
     x = torch.rand(samples, nx)
     D = torch.rand(N, samples, nd)
     R = torch.rand(N, samples, ny)
+    data = {'x0': x, 'D': D, 'R': R}
+    data_dims = {'x0': nx, 'D': nd, 'R': ny, 'U': nu}
 
     for pol in policies:
-        p = pol(nx, nu, nd, ny, N)
-        p_out = p(x, D, R)
-        print(p_out[0].shape, p_out[1].shape)
+        p = pol(data_dims, nsteps=10, input_keys={'x0', 'D', 'R'})
+        print(p.name)
+        p_out = p(data)
+        print(p_out['Uf'].shape, p_out[f'{p.name}_reg_error'].shape)

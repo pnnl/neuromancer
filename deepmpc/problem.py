@@ -6,9 +6,6 @@ import torch
 import torch.nn as nn
 
 
-
-
-
 class Objective(nn.Module):
     def __init__(self, variable_names: List[str], loss: Callable[..., torch.Tensor], weight=1.0):
         """
@@ -18,11 +15,12 @@ class Objective(nn.Module):
                                 Arguments to callable should be torch.Tensor and return type a 0-dimensional torch.Tensor
         :param weight: (float) Weight of objective for calculating multi-objective loss function
         """
+        super().__init__()
         self.variable_names = variable_names
         self.weight = weight
         self.loss = loss
 
-    def __call__(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def forward(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
 
         :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
@@ -61,20 +59,21 @@ class Problem(nn.Module):
         return loss
 
     def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+
         output_dict = self.step(data)
+        print([(k, v.shape) for k, v in output_dict.items()])
         loss = self._calculate_loss(output_dict)
         output_dict = {'loss': loss, **output_dict}
-        return {f'{data["name"]}_{k}': v for k, v in output_dict.items()}
+        return {f'{data.name}_{k}': v for k, v in output_dict.items()}
 
     def step(self, input_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        output_dict = dict()
         for component in self.components:
             output_dict = component(input_dict)
             assert set(output_dict.keys()) - set(input_dict.keys()) == set(output_dict.keys()), \
                 f'Name collision in input and output dictionaries, Input_keys: {input_dict.keys()},' \
                 f'Output_keys: {output_dict.keys()}'
             input_dict = {**input_dict, **output_dict}
-        return output_dict
+        return input_dict
 
 
 

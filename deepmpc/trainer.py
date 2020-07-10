@@ -4,7 +4,7 @@ from copy import deepcopy
 import torch
 import numpy as np
 from logger import BasicLogger
-from visuals import Visualizer, NoOpVisualizer
+from visuals import NoOpVisualizer
 from loops import Problem
 from dataset import Dataset
 
@@ -12,8 +12,7 @@ from dataset import Dataset
 class Trainer:
 
     def __init__(self, problem: Problem, dataset: Dataset, optimizer: torch.optim.Optimizer,
-                 logger: BasicLogger = BasicLogger(), visualizer: Visualizer = NoOpVisualizer(), epochs=1000):
-        super().__init__()
+                 logger: BasicLogger = BasicLogger(), visualizer=NoOpVisualizer(), epochs=1000):
         self.model = problem
         self.optimizer = optimizer
         self.dataset = dataset
@@ -33,7 +32,7 @@ class Trainer:
             self.model.train()
             output = self.model(self.dataset.train_data)
             self.optimizer.zero_grad()
-            output['loss'].backward()
+            output['nstep_train_loss'].backward()
             self.optimizer.step()
 
             with torch.no_grad():
@@ -41,9 +40,9 @@ class Trainer:
                 dev_nstep_output = self.model(self.dataset.dev_data)
                 dev_loop_output = self.model(self.dataset.dev_loop)
                 self.logger.log_metrics({**dev_nstep_output, **dev_loop_output}, step=i)
-                if dev_loop_output['loss'] < best_looploss:
+                if dev_loop_output['loop_dev_loss'] < best_looploss:
                     best_model = deepcopy(self.model.state_dict())
-                    best_looploss = dev_loop_output['dev_loop_loss']
+                    best_looploss = dev_loop_output['loop_dev_loss']
                 self.visualizer.plot({**dev_nstep_output, **dev_loop_output}, self.dataset, self.model.state_dict())
 
         plots = self.visualizer.output()

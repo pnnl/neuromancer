@@ -135,7 +135,7 @@ if __name__ == '__main__':
     nx = dataset.dims['Y']*args.nx_hidden
     nu = dataset.dims['U'] if 'U' in dataset.dims else 0
     nd = dataset.dims['D'] if 'D' in dataset.dims else 0
-    ny = dataset.dime['Y']
+    ny = dataset.dims['Y']
     linmap = linear.maps[args.linear_map]
     nonlinmap = {'linear': linmap,
                  'mlp': blocks.MLP,
@@ -159,11 +159,11 @@ if __name__ == '__main__':
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
-    estimator_loss = Objective(['X_pred', 'x0_estim'],
-                               lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0),
+    estimator_loss = Objective(['X_pred', 'x0'],
+                               lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
                                weight=args.Q_e)
     regularization = Objective(['estim_reg_error', 'dynamics_reg_error'], lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub)
-    reference_loss = Objective(['Y_pred, Yf'], F.mse_loss, weight=args.Q_y)
+    reference_loss = Objective(['Y_pred', 'Yf'], F.mse_loss, weight=args.Q_y)
     state_smoothing = Objective(['X_pred'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx)
     state_lower_bound_penalty = Objective(['X_pred'], lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x)
     state_upper_bound_penalty = Objective(['X_pred'], lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x)
@@ -178,5 +178,5 @@ if __name__ == '__main__':
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     visualizer = visuals.NoOpVisualizer()
     trainer = Trainer(model, dataset, optimizer, visualizer=visualizer)
-    best_model = Trainer.train()
+    best_model = trainer.train()
     Trainer.eval(best_model)

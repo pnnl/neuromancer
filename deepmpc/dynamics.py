@@ -175,7 +175,7 @@ def blackbox(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, name='blackbox
     black box state space model for training
     """
     fxud = nonlinmap(nx + nu + nd, nx, hsizes=[nx]*n_layers,
-                     bias=bias, Linear=linmap, skip=1)
+                     bias=bias, Linear=linmap)
     fy = linmap(nx, ny, bias=bias)
     return BlackSSM(nx, nu, nd, ny, fxud, fy, name=name)
 
@@ -184,10 +184,10 @@ def blocknlin(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, name='blocknl
     """
     block nonlinear state space model for training
     """
-    fx = nonlinmap(nx, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linmap, skip=1)
+    fx = nonlinmap(nx, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linmap)
     fy = linmap(nx, ny, bias=bias)
-    fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nu != 0 else None
-    fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nd != 0 else None
+    fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nu != 0 else None
+    fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nd != 0 else None
     return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, name=name)
 
 
@@ -197,8 +197,8 @@ def hammerstein(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, name='hamme
     """
     fx = linmap(nx, nx, bias=bias)
     fy = linmap(nx, ny, bias=bias)
-    fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nu != 0 else None
-    fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nd != 0 else None
+    fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nu != 0 else None
+    fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nd != 0 else None
     return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, name=name)
 
 
@@ -207,9 +207,9 @@ def hw(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, name='hw'):
     hammerstein-weiner state space model for training
     """
     fx = linmap(nx, nx, bias=bias)
-    fy = nonlinmap(nx, ny, bias=bias, hsizes=[nx]*n_layers, Linear=linmap, skip=1)
-    fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nu != 0 else None
-    fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nd != 0 else None
+    fy = nonlinmap(nx, ny, bias=bias, hsizes=[nx]*n_layers, Linear=linmap)
+    fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nu != 0 else None
+    fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nd != 0 else None
     return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, name=name)
 
 
@@ -251,7 +251,7 @@ if __name__ == '__main__':
 #     # TODO: customize for building models separate mass flows and temperatures
 #     # TODO: this would probably require to modify BlockSSM or handle u in fu
 #     fu = blocks.BilinearTorch(nu, nx, bias=args.bias, Linear=linear.Linear) if nu != 0 else None
-#     fd = nonlinmap(nd, nx, bias=args.bias, hsizes=[nx]*n_layers, Linear=linear.Linear, skip=1) if nd != 0 else None
+#     fd = nonlinmap(nd, nx, bias=args.bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nd != 0 else None
 #     return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
 
 # # TODO: implement multistep neural network

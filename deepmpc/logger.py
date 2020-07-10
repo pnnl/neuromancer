@@ -29,10 +29,10 @@ class BasicLogger:
             entries = [f'epoch: {step}']
             for k, v in output.items():
                 try:
-                    entries += f'{k}: {v.item():.5f}'
-                except AttributeError:
+                    entries.append(f'{k}: {v.item():.5f}')
+                except ValueError:
                     pass
-            entries += {f'eltime: {elapsed_time}'}
+            entries.append(f'eltime: {elapsed_time: .5f}')
             print('\t'.join(entries))
 
     def log_artifacts(self, artifacts):

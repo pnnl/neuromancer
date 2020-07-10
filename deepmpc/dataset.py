@@ -79,7 +79,7 @@ class Dataset:
             vnorm, vmin, vmax = self.normalize(v)
             data[k] = vnorm
             self.min_max_norms.update({k+'min': vmin, k+'max': vmax})
-            self.dims[k], self.dims[k+'p'], self.dims[k+'f'] = v.shape[1]
+            self.dims[k], self.dims[k+'p'], self.dims[k+'f'] = v.shape[1], v.shape[1], v.shape[1]
             loop_data[k+'p'] = torch.tensor(v[:-nsteps], dtype=torch.float32).to(device)
             loop_data[k + 'f'] = torch.tensor(v[nsteps:], dtype=torch.float32).to(device)
             nstep_data[k + 'p'] = batch_data(loop_data[k+'p'], nsteps).to(device)

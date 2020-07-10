@@ -81,8 +81,8 @@ class RNN(nn.Module):
                 states.append(h.unsqueeze(0))
             sequence = torch.cat(states, 0)
             final_hiddens.append(h)
-        final_hiddens = torch.stack(final_hiddens, 0)
-        assert torch.equal(sequence[-1, :, :], final_hiddens[-1, :, :])
+        final_hiddens = final_hiddens
+        assert torch.equal(sequence[-1, :, :], final_hiddens[-1])
         return sequence, final_hiddens
 
 

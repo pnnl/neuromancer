@@ -125,7 +125,7 @@ class RNN(nn.Module):
         self.rnn = rnn.RNN(insize, hsizes=hsizes,
                            bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)
         self.output = Linear(hsizes[-1], outsize, bias=bias, **linargs)
-        self.init_states = None
+        self.init_states = list(self.rnn.init_states)
 
     def reg_error(self):
         return self.rnn.reg_error()
@@ -141,10 +141,12 @@ class RNN(nn.Module):
         """
         if len(x.shape) == 2:
             x = x.reshape(1, *x.shape)
-        _, hiddens = self.rnn(x, init_states=self.init_states)
-        hidden = hiddens[-1]
+        # if self.init_states[0].shape[0] == x.shape[1] and not self.training:
+        #     _, hiddens = self.rnn(x, init_states=self.init_states)
+        # else:
+        _, hiddens = self.rnn(x)
         self.init_states = hiddens
-        return self.output(hidden)
+        return self.output(hiddens[-1])
 
 
 # class FunctionBasis(nn.Module):
@@ -242,7 +244,7 @@ if __name__ == '__main__':
     print(block(y).shape)
 
     block = RNN(5, 7, bias=True, hsizes=[64, 64, 64, 64, 64, 64])
-    y = torch.randn([25, 5])
+    y = torch.randn([25, 32, 5])
     print(block(y).shape)
     print(block(y).shape)
     print(block(y).shape)

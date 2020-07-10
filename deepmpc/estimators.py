@@ -36,7 +36,7 @@ class Estimator(nn.Module):
         data_dims = {k: v for k, v in data_dims.items() if k in input_keys}
         self.sequence_dims_sum = sum(v for k, v in data_dims.items())
 
-        self.input_size = nsteps * self.sequence_dims_sum
+        self.input_size = self.sequence_dims_sum
         self.output_size = self.nx
         self.input_keys = set(input_keys)
 
@@ -50,7 +50,7 @@ class Estimator(nn.Module):
         :return:
         """
         check_keys(self.input_keys, set(data.keys()))
-        features = torch.cat([torch.cat([step for step in data[k]], dim=1) for k in self.input_keys], dim=1)
+        features = torch.cat([data[k][-1] for k in self.input_keys], dim=1)
         return {'x0': self.net(features), f'{self.name}_reg_error': self.net.reg_error()}
 
 
@@ -145,15 +145,15 @@ class RNNEstimator(Estimator):
         """
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
         self.input_size = self.sequence_dims_sum
-        self.RNN = blocks.RNN(self.input_size, self.output_size, hsizes=hsizes,
+        self.net = blocks.RNN(self.input_size, self.output_size, hsizes=hsizes,
                               bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)
 
     def reg_error(self):
-        return self.RNN.reg_error()
+        return self.net.reg_error()
 
     def forward(self, data):
         features = torch.cat([data[k] for k in self.input_keys], dim=2)
-        return {'x0': self.RNN(features), f'{self.name}_reg_error': self.reg_error()}
+        return {'x0': self.net(features), f'{self.name}_reg_error': self.reg_error()}
 
 
 class LinearKalmanFilter(nn.Module):
@@ -220,16 +220,16 @@ class ExtendedKalmanFilter(nn.Module):
 estimators = [FullyObservable, LinearEstimator, MLPEstimator, RNNEstimator]
 
 if __name__ == '__main__':
-    nx, ny, nu, nd = 15, 7, 5, 3
+    nx, ny, nu, nd = 15, 7, 5, 2
     N = 40
-    samples = 100
+    samples = 1
     # Data format: (N,samples,dim)
     Y = torch.rand(N, samples, ny)
     U = torch.rand(N, samples, nu)
     D = torch.rand(N, samples, nd)
     data = {'Yp': Y, 'Up': U, 'Dp': D}
     data_dims = {'X': nx, 'Yp': ny, 'Up': nu, 'Dp': nd}
-    input_keys = {'Yp', 'Up', 'Dp'}
+    input_keys = {'Yp'}
     for bias in [True, False]:
         for est in estimators:
             e = est(data_dims, nsteps=N, input_keys=input_keys)

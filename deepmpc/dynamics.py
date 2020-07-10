@@ -1,4 +1,7 @@
 """
+Classes in the module implement the Component interface.
+TODO: Describe Component interface
+
 state space models (SSM)
 x: states
 y: predicted outputs
@@ -19,7 +22,6 @@ any operation perserving dimensions
 # pytorch imports
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 # local imports
 import linear
 import blocks
@@ -28,6 +30,11 @@ import blocks
 def get_modules(model):
     return {name: module for name, module in model.named_modules()
             if len(list(module.named_children())) == 0}
+
+
+def check_keys(k1, k2):
+    assert k1 - k2 == set(), \
+        f'Missing values in dataset. Input_keys: {k1}, data_keys: {k2}'
 
 
 class BlockSSM(nn.Module):
@@ -55,7 +62,7 @@ class BlockSSM(nn.Module):
         assert fx.out_features == nx, "Mismatch in input function size"
         assert fy.in_features == nx, "Mismatch in observable output function size"
         assert fy.out_features == ny, "Mismatch in observable output function size"
-
+        self.input_keys = {'Yf', 'x0'}
         if fu is not None:
             assert fu.in_features == nu, "Mismatch in control input function size"
             assert fu.out_features == nx, "Mismatch in control input function size"
@@ -71,30 +78,20 @@ class BlockSSM(nn.Module):
         self.xod = xod
         # residual network
         self.residual = residual
-        self.s_sub = 0.0
-
-    def running_mean(self, mu, x, n):
-        return mu + (1/n)*(x - mu)
-
-#    include regularization in each module in the framework
-    def regularize(self, N):
-        # submodules regularization penalties
-        self.s_sub = self.running_mean(self.s_sub, sum([k.reg_error() for k in
-                                                        [self.fx, self.fu, self.fd, self.fy]
-                                                        if hasattr(k, 'reg_error')]), N)
 
     def reg_error(self):
-        return self.s_sub
+        # submodules regularization penalties
+        return sum([k.reg_error() for k in [self.fx, self.fu, self.fd, self.fy] if hasattr(k, 'reg_error')])
 
     def reset(self):
         for mod in self.modules():
             if hasattr(mod, 'reset') and mod is not self:
                 mod.reset()
-        self.s_sub = 0.0
 
     def forward(self, data):
         """
         """
+        check_keys(self.input_keys, set(data.keys()))
         nsamples = data['Yf'].shape[0]
         X, Y = [], []
         x = data['x0']
@@ -102,17 +99,16 @@ class BlockSSM(nn.Module):
             x_prev = x
             x = self.fx(x)
             if 'U' in data:
-                fu = self.fu(data['Up'][i])
+                fu = self.fu(data['Uf'][i])
                 x = self.xou(x, fu)
             if 'D' in data:
-                fd = self.fd(data['Dp'][i])
+                fd = self.fd(data['Df'][i])
                 x = x + self.xod(x, fd)
             if self.residual:
                 x = x + x_prev
             y = self.fy(x)
             X.append(x)
             Y.append(y)
-            self.regularize(i+1)
         self.reset()
         return {'X_pred': torch.stack(X), 'Y_pred': torch.stack(Y), f'{self.name}_reg_error': self.reg_error()}
 
@@ -137,81 +133,39 @@ class BlackSSM(nn.Module):
         assert fxud.out_features == nx, "Mismatch in input function size"
         assert fy.in_features == nx, "Mismatch in observable output function size"
         assert fy.out_features == ny, "Mismatch in observable output function size"
-
+        self.input_keys = {'Yf', 'x0'}
         self.nx, self.nu, self.nd, self.ny = nx, nu, nd, ny
         self.fxud, self.fy = fxud, fy
-        # TODO: if fy is None, then use identity without gradient
-
-        # Regularization Initialization
-        self.xmin, self.xmax, self.umin, self.umax = self.con_init()
-        self.Q_dx, self.Q_con_x, self.Q_con_u, self.Q_sub = self.reg_weight_init()
-
-        # slack variables for calculating constraints violations/ regularization error
-        self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.dx_u, self.dx_d, self.s_sub = [0.0] * 8
-
-    def con_init(self):
-        return [-0.2, 1.2, -0.2, 1.2]  # default constraints for normalized dataset
-
-    def reg_weight_init(self):
-        return [0] * 3 + [0.2]  # uncostrained, only regularization
-        # return [0.2] * 4 # suggested new default for constrained HW
-
-    def running_mean(self, mu, x, n):
-        return mu + (1/n)*(x - mu)
-
-    # TODO: update regularization once we agree upon its form
-    def regularize(self, x_prev, x, u, N):
-        # Barrier penalties
-        self.sxmin = self.running_mean(self.sxmin, torch.mean(F.relu(-x + self.xmin)), N)
-        self.sxmax = self.running_mean(self.sxmax, torch.mean(F.relu(x - self.xmax)), N)
-        if u is not None:
-            self.sumin = self.running_mean(self.sumin, torch.mean(F.relu(-u + self.umin)), N)
-            self.sumax = self.running_mean(self.sumax, torch.mean(F.relu(u - self.umax)), N)
-        # one step state residual penalty
-        self.sdx_x = self.running_mean(self.sdx_x, torch.mean((x - x_prev) * (x - x_prev)), N)
-        # submodules regularization penalties
-        self.s_sub = self.running_mean(self.s_sub, sum([k.reg_error() for k in
-                                                        [self.fxud, self.fy]
-                                                        if hasattr(k, 'reg_error')]), N)
 
     def reg_error(self):
-        error = sum([self.Q_con_x * self.sxmin, self.Q_con_x * self.sxmax,
-                     self.Q_con_u * self.sumin, self.Q_con_u * self.sumax,
-                     self.Q_dx * self.sdx_x, self.Q_sub * self.s_sub])
-        self.sxmin, self.sxmax, self.sumin, self.sumax, self.sdx_x, self.s_sub = [0.0] * 6
-        return error
+        # submodules regularization penalties
+        return sum([k.reg_error() for k in [self.fx, self.fu, self.fd, self.fy] if hasattr(k, 'reg_error')])
 
     def reset(self):
         for mod in self.modules():
             if hasattr(mod, 'reset') and mod is not self:
                 mod.reset()
 
-    def forward(self, x, U=None, D=None, nsamples=1):
+    def forward(self, data):
         """
         """
-        if U is not None:
-            nsamples = U.shape[0]
-        elif D is not None:
-            nsamples = D.shape[0]
-
+        check_keys(self.input_keys, set(data.keys()))
+        nsamples = data['Yf'].shape[0]
         X, Y = [], []
         for i in range(nsamples):
-            u = None
             xi = x
-            if U is not None:
-                u = U[i]
+            if 'U' in data:
+                u = data['Uf'][i]
                 xi = torch.cat([xi, u], dim=1)
-            if D is not None:
-                d = D[i]
+            if 'D' in data:
+                d = data['Df'][i]
                 xi = torch.cat([xi, d], dim=1)
-            x_prev = x
             x = self.fxud(xi)
             y = self.fy(x)
             X.append(x)
             Y.append(y)
-            self.regularize(x_prev, x, u, i+1)
         self.reset()
-        return torch.stack(X), torch.stack(Y), self.reg_error()
+        return {'X_pred': torch.stack(X), 'Y_pred': torch.stack(Y), f'{self.name}_reg_error': self.reg_error()}
 
 
 # TODO: implement multistep neural network

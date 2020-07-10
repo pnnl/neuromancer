@@ -6,6 +6,9 @@ import torch
 import torch.nn as nn
 
 
+
+
+
 class Objective(nn.Module):
     def __init__(self, variable_names: List[str], loss: Callable[..., torch.Tensor], weight=1.0):
         """
@@ -30,7 +33,7 @@ class Objective(nn.Module):
 
 class Problem(nn.Module):
 
-    def __init__(self, objectives: List[Objective],
+    def __init__(self, objectives: List[Objective], constraints: List[Objective],
                  components: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]]):
         """
         This is similar in spirit to a nn.Sequential module. However,
@@ -41,16 +44,20 @@ class Problem(nn.Module):
         from aggregated input and set of outputs from the component modules.
 
         :param objectives: list of Objective objects
+        :param constraints: list of Objective objects
         :param components: list of Component objects
         """
         super().__init__()
         self.objectives = nn.ModuleList(objectives)
+        self.constraints = nn.ModuleList(constraints)
         self.components = nn.ModuleList(components)
 
     def _calculate_loss(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
         loss = 0.0
         for objective in self.objectives:
             loss += objective(variables)
+        for constraint in self.constraints:
+            loss += constraint(variables)
         return loss
 
     def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -63,7 +70,9 @@ class Problem(nn.Module):
         output_dict = dict()
         for component in self.components:
             output_dict = component(input_dict)
-            assert set(output_dict.keys()) - set(input_dict.keys()) == set(output_dict.keys())
+            assert set(output_dict.keys()) - set(input_dict.keys()) == set(output_dict.keys()), \
+                f'Name collision in input and output dictionaries, Input_keys: {input_dict.keys()},' \
+                f'Output_keys: {output_dict.keys()}'
             input_dict = {**input_dict, **output_dict}
         return output_dict
 

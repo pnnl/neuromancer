@@ -149,6 +149,7 @@ def step(model, data):
         loss = criterion(Y_pred.squeeze(), Rf.squeeze())
     return loss, reg_error, X_pred, Y_pred, U_pred, Df
 
+
 def arg_setup():
     args = parse_args()
     os.system(f'mkdir {args.savedir}')
@@ -162,6 +163,7 @@ def arg_setup():
         mlflow.log_params(params)
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
     return args, device
+
 
 # TODO: generalize hsized and num_layers
 def model_setup(args, device, nx, ny, nu, nd):

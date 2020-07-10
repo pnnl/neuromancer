@@ -34,7 +34,7 @@ class RNNCell(nn.Module):
 
 
 class RNN(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers=1,
+    def __init__(self, input_size, hidden_size, num_layers=1, output_size=None,
                  bias=False, nonlin=F.gelu, Linear=linear.Linear, **linargs):
         """
 
@@ -52,6 +52,9 @@ class RNN(nn.Module):
         rnn_cells += [RNNCell(hidden_size, hidden_size, bias=bias, nonlin=nonlin,
                       Linear=Linear, **linargs)
                       for k in range(num_layers-1)]
+        if output_size is not None:
+            rnn_cells += [RNNCell(hidden_size, output_size, bias=bias, nonlin=nn.Identity(),
+                                  Linear=Linear, **linargs)]
         self.rnn_cells = nn.ModuleList(rnn_cells)
         self.num_layers = len(rnn_cells)
         self.init_states = nn.ParameterList([nn.Parameter(torch.zeros(1, cell.hidden_size)) for cell in self.rnn_cells])

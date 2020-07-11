@@ -11,6 +11,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import pyts.image as pytsimg
 import pyts.multivariate.image as pytsmvimg
 
+
 def get_colors(k):
     """
     Returns k colors evenly spaced across the color wheel.
@@ -198,7 +199,6 @@ def plot_traj(data, figname=None):
         plt.savefig(figname)
 
 
-
 def pltCL(Y, R=None, U=None, D=None, X=None, figname=None):
     """
     plot input output closed loop dataset
@@ -330,12 +330,12 @@ def trajectory_movie(true_traj, pred_traj, figname='traj.mp4', freq=1, fps=15, d
 
 class Animator:
 
-    def __init__(self, Y, loop):
-        self.loop = loop
+    def __init__(self, Y, dynamics_model):
+        self.model = dynamics_model
         _, nsteps, ny = Y.shape
         plt.style.use('dark_background')
         self.fig = plt.figure(constrained_layout=True)
-        gs = GridSpec(nrows=1+ny, ncols=2, figure=self.fig, width_ratios=[1,1],
+        gs = GridSpec(nrows=1+ny, ncols=2, figure=self.fig, width_ratios=[1, 1],
                       height_ratios=[5] + [1]*ny)
         self.eigax = self.fig.add_subplot(gs[0, 1])
         self.eigax.set_title('State Transition Matrix Eigenvalues')
@@ -369,12 +369,25 @@ class Animator:
             plots.append(ax.plot(Yp[:, k], c='m', label=f'Pred')[0])
         return plots
 
+    def _find_mat(self, module):
+        try:
+            return module.effective_W().detach().cpu().numpy()
+        except AttributeError:
+            for modus in module.children():
+                return self.find_mat(modus)
+
+    def find_mat(self, model):
+        try:
+            return model.fx.effective_W().detach().cpu().numpy()
+        except AttributeError:
+            return self._find_mat(model)
+
     def __call__(self, Y_out, Y_target):
-            mat = self.loop.model.fx.effective_W().detach().cpu().numpy()
-            w, v = LA.eig(mat)
-            self.ims.append([self.matax.imshow(mat),
-                             self.eigax.scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))] +
-                             self.update_traj(Y_out, Y_target))
+        mat = self.find_mat(self.model)
+        w, v = LA.eig(mat)
+        self.ims.append([self.matax.imshow(mat),
+                         self.eigax.scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))] +
+                         self.update_traj(Y_out, Y_target))
 
     def make_and_save(self, filename):
         eig_ani = animation.ArtistAnimation(self.fig, self.ims, interval=50, repeat_delay=3000)

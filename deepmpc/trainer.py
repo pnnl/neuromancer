@@ -4,7 +4,7 @@ from copy import deepcopy
 import torch
 import numpy as np
 from logger import BasicLogger
-from visuals import NoOpVisualizer
+from visuals import Visualizer
 from loops import Problem
 from dataset import Dataset
 
@@ -18,7 +18,7 @@ def reset(module):
 class Trainer:
 
     def __init__(self, problem: Problem, dataset: Dataset, optimizer: torch.optim.Optimizer,
-                 logger: BasicLogger = BasicLogger(), visualizer=NoOpVisualizer(), epochs=1000):
+                 logger: BasicLogger = BasicLogger(), visualizer=Visualizer(), epochs=1000):
         self.model = problem
         self.optimizer = optimizer
         self.dataset = dataset
@@ -31,7 +31,6 @@ class Trainer:
 
         best_looploss = np.finfo(np.float32).max
         best_model = deepcopy(self.model.state_dict())
-        self.visualizer.train()
 
         for i in range(self.epochs):
             self.model.train()
@@ -48,16 +47,15 @@ class Trainer:
                 if dev_loop_output['loop_dev_loss'] < best_looploss:
                     best_model = deepcopy(self.model.state_dict())
                     best_looploss = dev_loop_output['loop_dev_loss']
-                self.visualizer.plot({**dev_nstep_output, **dev_loop_output}, self.dataset, self.model.state_dict())
+                self.visualizer.train_plot({**dev_nstep_output, **dev_loop_output}, i)
 
-        plots = self.visualizer.output()
+        plots = self.visualizer.train_output()
         self.logger.log_artifacts({'best_model.pth': best_model, **plots})
 
         return best_model
 
     def evaluate(self, best_model):
         self.model.eval()
-        self.visualizer.eval()
         self.model.load_state_dict(best_model)
 
         with torch.no_grad():
@@ -67,22 +65,16 @@ class Trainer:
             all_output = dict()
             for dset, dname in zip([self.dataset.train_data, self.dataset.dev_data, self.dataset.test_data],
                                    ['train', 'dev', 'test']):
-                output = self.model(dset)
-                self.logger.log_metrics(output)
-                all_output = {**all_output, **output}
-            self.visualizer.plot(all_output, self.dataset, best_model)
+                all_output = {**all_output, **self.model(dset)}
 
             ########################################
             ########## OPEN LOOP RESPONSE ##########
             ########################################
-            all_output = dict()
             for data, dname in zip([self.dataset.train_loop, self.dataset.dev_loop, self.dataset.test_loop],
                                    ['train', 'dev', 'test']):
-                output = self.model(data)
-                self.logger.log_metrics(output)
-                all_output = {**all_output, **output}
-            self.visualizer.plot(all_output, self.dataset, best_model)
-        plots = self.visualizer.output()
+                all_output = {**all_output, **self.model(data)}
+        self.logger.log_metrics({f'best_{k}': v for k, v in all_output.items()})
+        plots = self.visualizer.eval(all_output)
         self.logger.log_artifacts(plots)
 
 

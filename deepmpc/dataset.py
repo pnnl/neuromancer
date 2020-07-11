@@ -75,16 +75,16 @@ class Dataset:
         self.data = data
         self.min_max_norms, self.dims, nstep_data, loop_data = dict(), dict(), dict(), dict()
         for k, v in data.items():
-            data[k] = v.reshape(v.shape[0], -1)
+            v = v.reshape(v.shape[0], -1)
             vnorm, vmin, vmax = self.normalize(v)
-            data[k] = vnorm
+            v = vnorm
             self.min_max_norms.update({k+'min': vmin, k+'max': vmax})
             self.dims[k], self.dims[k+'p'], self.dims[k+'f'] = v.shape[1], v.shape[1], v.shape[1]
             loop_data[k+'p'] = torch.tensor(v[:-nsteps], dtype=torch.float32).to(device)
             loop_data[k + 'f'] = torch.tensor(v[nsteps:], dtype=torch.float32).to(device)
             nstep_data[k + 'p'] = batch_data(loop_data[k+'p'], nsteps).to(device)
             nstep_data[k + 'f'] = batch_data(loop_data[k+'f'], nsteps).to(device)
-
+            data[k] = v
         plot.plot_traj(data, figname=f'./test/{system}.png')
 
         self.train_data, self.dev_data, self.test_data = self.split_train_test_dev(nstep_data)
@@ -93,6 +93,10 @@ class Dataset:
         self.test_loop = self.unbatch(self.test_data)
         self.train_data.name, self.dev_data.name, self.test_data.name = 'nstep_train', 'nstep_dev', 'nstep_test'
         self.train_loop.name, self.dev_loop.name, self.test_loop.name = 'loop_train', 'loop_dev', 'loop_test'
+        plot.plot_traj({k: torch.cat([self.train_loop[k],
+                                      self.dev_loop[k],
+                                      self.test_loop[k]]).squeeze(1).cpu().detach().numpy()
+                        for k in self.train_data.keys()}, figname=f'./test/{system}_open.png')
         plt.close('all')
 
     def load_data(self):

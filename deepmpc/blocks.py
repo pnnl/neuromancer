@@ -135,16 +135,17 @@ class RNN(nn.Module):
 
     def forward(self, x):
         """
+        There is some logic here so that the RNN will still get context from state in open loop simulation.
 
         :param x: (torch.Tensor, shape=(nsteps, nsamples, dim)) Input sequence is expanded for order 2 tensors
         :return: (torch.Tensor, shape=(nsamples, outsize)
         """
         if len(x.shape) == 2:
             x = x.reshape(1, *x.shape)
-        # if self.init_states[0].shape[0] == x.shape[1] and not self.training:
-        #     _, hiddens = self.rnn(x, init_states=self.init_states)
-        # else:
-        _, hiddens = self.rnn(x)
+        if self.init_states[0].shape[0] == x.shape[1] and not self.training:
+            _, hiddens = self.rnn(x, init_states=self.init_states)
+        else:
+            _, hiddens = self.rnn(x)
         self.init_states = hiddens
         return self.output(hiddens[-1])
 

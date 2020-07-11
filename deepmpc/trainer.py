@@ -44,14 +44,14 @@ class Trainer:
                 self.model.eval()
                 dev_nstep_output = self.model(self.dataset.dev_data)
                 dev_loop_output = self.model(self.dataset.dev_loop)
-                self.logger.log_metrics({**dev_nstep_output, **dev_loop_output}, step=i)
+                self.logger.log_metrics({**dev_nstep_output, **dev_loop_output, **output}, step=i)
                 if dev_loop_output['loop_dev_loss'] < best_looploss:
                     best_model = deepcopy(self.model.state_dict())
                     best_looploss = dev_loop_output['loop_dev_loss']
                 self.visualizer.plot({**dev_nstep_output, **dev_loop_output}, self.dataset, self.model.state_dict())
 
         plots = self.visualizer.output()
-        self.logger.save_artifacts({'best_model.pth': best_model, **plots})
+        self.logger.log_artifacts({'best_model.pth': best_model, **plots})
 
         return best_model
 

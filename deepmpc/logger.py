@@ -33,7 +33,7 @@ class BasicLogger:
                 except ValueError:
                     pass
             entries.append(f'eltime: {elapsed_time: .5f}')
-            print('\t'.join(entries))
+            print('\t'.join([e for e in entries if 'reg_error' not in e]))
 
     def log_artifacts(self, artifacts):
         for k, v in artifacts.items():

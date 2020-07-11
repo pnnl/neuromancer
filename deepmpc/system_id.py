@@ -161,17 +161,17 @@ if __name__ == '__main__':
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
     estimator_loss = Objective(['X_pred', 'x0'],
-                               lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
-                               weight=args.Q_e)
+                                lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
+                                weight=args.Q_e)
     regularization = Objective(['estim_reg_error', 'dynamics_reg_error'], lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub)
     reference_loss = Objective(['Y_pred', 'Yf'], F.mse_loss, weight=args.Q_y)
     state_smoothing = Objective(['X_pred'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx)
-    state_lower_bound_penalty = Objective(['X_pred'], lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x)
-    state_upper_bound_penalty = Objective(['X_pred'], lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x)
+    observation_lower_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x)
+    observation_upper_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x)
 
     # objectives = [estimator_loss, regularization, reference_loss]
     # constraints = [state_smoothing, state_lower_bound_penalty, state_upper_bound_penalty]
-    objectives = [regularization, reference_loss]
+    objectives = [regularization, reference_loss, state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
     constraints = []
     # constraints = [state_smoothing, state_lower_bound_penalty, state_upper_bound_penalty]
 

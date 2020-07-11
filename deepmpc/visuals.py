@@ -1,18 +1,16 @@
 """
 
 """
+import plot
 
 
-class NoOpVisualizer:
+class Visualizer:
 
-    def plot(self, outputs, best_state_dict, dataset):
+    def train_plot(self, outputs, epochs):
         pass
 
-    def output(self):
+    def train_output(self):
         return dict()
 
-    def train(self):
-        pass
-
-    def eval(self):
-        pass
+    def eval(self, outputs):
+        return dict()

@@ -24,6 +24,8 @@ Basic logging options are:
 
 More detailed description of options in the parse_args()
 """
+# import matplotlib
+# matplotlib.use("Agg")
 import argparse
 import torch
 from dataset import EmulatorDataset, FileDataset
@@ -32,10 +34,14 @@ import estimators
 import linear
 import blocks
 import logger
-import visuals
+from visuals import Visualizer
 from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
+import plot
+from dataset import unbatch_data
+import numpy as np
+import os
 
 
 def parse_args():
@@ -69,7 +75,7 @@ def parse_args():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
-                             default='blocknlin')
+                             default='hw')
     model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
@@ -108,6 +114,41 @@ def parse_args():
     return parser.parse_args()
 
 
+class VisualizerOpen(Visualizer):
+
+    def __init__(self, dataset, model, verbosity):
+        self.model = model
+        self.dataset = dataset
+        self.verbosity = verbosity
+        self.anime = plot.Animator(dataset.dev_loop['Yp'], model)
+
+    def train_plot(self, outputs, epoch):
+        if epoch % self.verbosity == 0:
+            self.anime(outputs['loop_dev_Y_pred'], outputs['loop_dev_Yf'])
+
+    def train_output(self):
+        self.anime.make_and_save(os.path.join(args.savedir, 'eigen_animation.mp4'))
+        return dict()
+
+    def eval(self, outputs):
+        dsets = ['train', 'dev', 'test']
+        Ypred = [unbatch_data(outputs[f'nstep_{dset}_Y_pred']).squeeze(1).detach().cpu().numpy() for dset in dsets]
+        Ytrue = [unbatch_data(outputs[f'nstep_{dset}_Yf']).squeeze(1).detach().cpu().numpy() for dset in dsets]
+        plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
+                   figname=os.path.join(args.savedir, 'nstep_OL.png'))
+
+        Ypred = [outputs[f'loop_{dset}_Y_pred'].squeeze(1).detach().cpu().numpy() for dset in dsets]
+        Ytrue = [outputs[f'loop_{dset}_Yf'].squeeze(1).detach().cpu().numpy() for dset in dsets]
+        plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
+                   figname=os.path.join(args.savedir, 'open_OL.png'))
+
+        plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0),
+                              np.concatenate(Ypred).transpose(1, 0),
+                              figname=os.path.join(args.savedir, f'open_movie.mp4'),
+                              freq=self.verbosity)
+        return dict()
+
+
 if __name__ == '__main__':
     ###############################
     ########## LOGGING ############
@@ -124,10 +165,10 @@ if __name__ == '__main__':
     ###############################
     if args.system_data == 'emulator':
         dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
-                                  norm=args.norm, nsteps=args.nsteps, device=device)
+                                  norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     else:
         dataset = FileDataset(system=args.system, nsim=args.nsim,
-                              norm=args.norm, nsteps=args.nsteps, device=device)
+                              norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
 
     ##########################################
     ########## PROBLEM COMPONENTS ############
@@ -169,18 +210,15 @@ if __name__ == '__main__':
     observation_lower_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x)
     observation_upper_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x)
 
-    # objectives = [estimator_loss, regularization, reference_loss]
-    # constraints = [state_smoothing, state_lower_bound_penalty, state_upper_bound_penalty]
-    objectives = [regularization, reference_loss, state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
-    constraints = []
-    # constraints = [state_smoothing, state_lower_bound_penalty, state_upper_bound_penalty]
+    objectives = [regularization, reference_loss] # estimator_loss
+    constraints = [state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
 
     ##########################################
     ########## OPTIMIZE SOLUTION ############
     ##########################################
     model = Problem(objectives, constraints, components)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    visualizer = visuals.NoOpVisualizer()
-    trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer)
+    visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity)
+    trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer, epochs=args.epochs)
     best_model = trainer.train()
     trainer.evaluate(best_model)

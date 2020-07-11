@@ -38,14 +38,6 @@ class BasicLogger:
     def log_artifacts(self, artifacts):
         for k, v in artifacts.items():
             savepath = os.path.join(self.savedir, k)
-            try:
-                v.savefig(savepath)
-            except AttributeError:
-                pass
-            try:
-                v.make_and_save(savepath)
-            except AttributeError:
-                pass
             torch.save(v, savepath)
 
 

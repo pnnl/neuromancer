@@ -2,6 +2,7 @@
 # TODO: include reference in the datafiles and emulators
 # TODO: extend datasets with time-varying constraints Ymin, Ymax, Umin, Umax
 """
+import os
 from scipy.io import loadmat
 import numpy as np
 import pandas as pd
@@ -55,7 +56,9 @@ class DataDict(dict):
 
 class Dataset:
 
-    def __init__(self, system=None, nsim=None, norm='UDY', nsteps=32, device='cpu', sequences=dict()):
+    def __init__(self, system=None, nsim=None, norm='UDY',
+                 nsteps=32, device='cpu', sequences=dict(),
+                 savedir='test'):
         """
 
         :param system: (str) Identifier for dataset.
@@ -66,7 +69,7 @@ class Dataset:
         :param sequences: (dict str: np.array) Dictionary of supplemental data
         """
         print(system)
-
+        self.savedir = savedir
         self.system, self.nsim, self.norm, self.nsteps, self.device = system, nsim, norm, nsteps, device
         data = self.load_data()
         for k, v in sequences.items():
@@ -85,7 +88,7 @@ class Dataset:
             nstep_data[k + 'p'] = batch_data(loop_data[k+'p'], nsteps).to(device)
             nstep_data[k + 'f'] = batch_data(loop_data[k+'f'], nsteps).to(device)
             data[k] = v
-        plot.plot_traj(data, figname=f'./test/{system}.png')
+        plot.plot_traj(data, figname=os.path.join(self.savedir, f'{system}.png'))
 
         self.train_data, self.dev_data, self.test_data = self.split_train_test_dev(nstep_data)
         self.train_loop = self.unbatch(self.train_data)
@@ -96,7 +99,7 @@ class Dataset:
         plot.plot_traj({k: torch.cat([self.train_loop[k],
                                       self.dev_loop[k],
                                       self.test_loop[k]]).squeeze(1).cpu().detach().numpy()
-                        for k in self.train_data.keys()}, figname=f'./test/{system}_open.png')
+                        for k in self.train_data.keys()}, figname=os.path.join(self.savedir, f'{system}_open.png'))
         plt.close('all')
 
     def load_data(self):

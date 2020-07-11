@@ -45,7 +45,7 @@ def parse_args():
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
     opt_group.add_argument('-epochs', type=int, default=500)
-    opt_group.add_argument('-lr', type=float, default=0.003,
+    opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
     #################
@@ -56,7 +56,7 @@ def parse_args():
     data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'],
                             default='datafile',
                             help='source type of the dataset')
-    data_group.add_argument('-system', default='flexy_air',
+    data_group.add_argument('-system', default='aero',
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=6000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
@@ -73,7 +73,7 @@ def parse_args():
     model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
-                             choices=['rnn', 'mlp', 'linear'], default='linear')
+                             choices=['rnn', 'mlp', 'linear'], default='rnn')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
@@ -103,7 +103,7 @@ def parse_args():
                            help='Where to write mlflow experiment tracking stuff')
     log_group.add_argument('-run', default='deepmpc',
                            help='Some name to tell what the experiment run was about.')
-    log_group.add_argument('-logger', choices=['mlflow', 'stdout'],
+    log_group.add_argument('-logger', choices=['mlflow', 'stdout'], default='stdout',
                            help='Logging setup to use')
     return parser.parse_args()
 
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     if args.logger == 'mlflow':
         logger = logger.MLFlowLogger(args)
     else:
-        logger = logger.BasicLogger(args.savedir, args.verbosity)
+        logger = logger.BasicLogger(savedir=args.savedir, verbosity=args.verbosity)
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
 
     ###############################
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     else:
         dataset = FileDataset(system=args.system, nsim=args.nsim,
                               norm=args.norm, nsteps=args.nsteps, device=device)
-    print([(k, v.shape) for k, v in dataset.dev_loop.items()])
+
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################
@@ -169,8 +169,11 @@ if __name__ == '__main__':
     state_lower_bound_penalty = Objective(['X_pred'], lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x)
     state_upper_bound_penalty = Objective(['X_pred'], lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x)
 
-    objectives = [estimator_loss, regularization, reference_loss]
-    constraints = [state_smoothing, state_lower_bound_penalty, state_upper_bound_penalty]
+    # objectives = [estimator_loss, regularization, reference_loss]
+    # constraints = [state_smoothing, state_lower_bound_penalty, state_upper_bound_penalty]
+    objectives = [regularization, reference_loss]
+    constraints = []
+    # constraints = [state_smoothing, state_lower_bound_penalty, state_upper_bound_penalty]
 
     ##########################################
     ########## OPTIMIZE SOLUTION ############
@@ -178,6 +181,6 @@ if __name__ == '__main__':
     model = Problem(objectives, constraints, components)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     visualizer = visuals.NoOpVisualizer()
-    trainer = Trainer(model, dataset, optimizer, visualizer=visualizer)
+    trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer)
     best_model = trainer.train()
-    Trainer.eval(best_model)
+    trainer.evaluate(best_model)

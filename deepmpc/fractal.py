@@ -47,7 +47,7 @@ class FractalBlock(nn.Module):
         """
 
         :param x: bs X dim
-        :return: x_agg list of bs X dim
+        :return: x_agg list of bs X dim tensors which has len num_zooms + 1
         """
         z_agg = []
         if self.residual:
@@ -82,13 +82,12 @@ class RecurrentFractal(nn.Module):
         """
 
         :param X: (num_steps X bs X dim)
-        :return: list of tensors
-        shapes=(num_steps/2^numzooms, bs, dim), (numsteps/2^(numzooms-1), bs, dim), ... (numsteps, bs, dim)
+        :return: preds: a list of tensors shapes=(num_steps/2^numzooms, bs, dim), (numsteps/2^(numzooms-1), bs, dim), ... (numsteps, bs, dim)
+                 loss: a scalar tensor
         """
-        print(type(self.num_zooms))
-        for i in range(len(Xtrue[::8])):
+        for i in range(len(Xtrue[::2**self.num_zooms])):
             if self.residual:
-                x0 += torch.mean(torch.stack(self.step(x0), dim=0))#self.step(torch.mean(torch.stack(x), dim=0))
+                x0 += torch.mean(torch.stack(self.step(x0), dim=0))
             else:
                 x0 = torch.mean(torch.stack(self.step(x0)), dim=0)
         return self.calculate_loss(Xtrue)

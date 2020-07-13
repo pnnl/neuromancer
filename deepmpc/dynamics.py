@@ -140,7 +140,7 @@ class BlackSSM(nn.Module):
 
     def reg_error(self):
         # submodules regularization penalties
-        return sum([k.reg_error() for k in [self.fx, self.fu, self.fd, self.fy] if hasattr(k, 'reg_error')])
+        return sum([k.reg_error() for k in [self.fxud, self.fy] if hasattr(k, 'reg_error')])
 
     def reset(self):
         for mod in self.modules():

@@ -384,10 +384,13 @@ class Animator:
 
     def __call__(self, Y_out, Y_target):
         mat = self.find_mat(self.model)
-        w, v = LA.eig(mat)
-        self.ims.append([self.matax.imshow(mat),
-                         self.eigax.scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))] +
-                         self.update_traj(Y_out, Y_target))
+        if mat.shape[0] == mat.shape[1]:
+            w, v = LA.eig(mat)
+            self.ims.append([self.matax.imshow(mat),
+                             self.eigax.scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))] +
+                             self.update_traj(Y_out, Y_target))
+        else:
+            print('Warning state transition matrix of black box model is not suqare')
 
     def make_and_save(self, filename):
         eig_ani = animation.ArtistAnimation(self.fig, self.ims, interval=50, repeat_delay=3000)

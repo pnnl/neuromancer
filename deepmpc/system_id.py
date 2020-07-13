@@ -60,11 +60,11 @@ def parse_args():
     data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'],
-                            default='datafile',
+                            default='emulator',
                             help='source type of the dataset')
-    data_group.add_argument('-system', default='aero',
+    data_group.add_argument('-system', default='Reno_full',
                             help='select particular dataset with keyword')
-    data_group.add_argument('-nsim', type=int, default=6000,
+    data_group.add_argument('-nsim', type=int, default=1200,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
                                  'train, dev, and test will be split evenly from contiguous, sequential, '
                                  'non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,'
@@ -75,7 +75,7 @@ def parse_args():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
-                             default='hw')
+                             default='blackbox')
     model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
@@ -201,6 +201,7 @@ if __name__ == '__main__':
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
+    # TODO: estimator_loss - why only the last sample from the batch is used?
     estimator_loss = Objective(['X_pred', 'x0'],
                                 lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
                                 weight=args.Q_e)

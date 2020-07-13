@@ -50,6 +50,9 @@ class Estimator(nn.Module):
         :return:
         """
         check_keys(self.input_keys, set(data.keys()))
+        # TODO: double check the use of [-1]
+        # we want to map the past trajectory of all variables to the initial state
+        # not only the last state
         features = torch.cat([data[k][-1] for k in self.input_keys], dim=1)
         return {'x0': self.net(features), f'{self.name}_reg_error': self.net.reg_error()}
 

@@ -73,7 +73,7 @@ class MLFlowLogger(BasicLogger):
         nweights = super().log_weights(model)
         mlflow.log_param('nparams',  nweights)
 
-    def log_metrics(self, output, step):
+    def log_metrics(self, output, step=0):
         super().log_metrics(output, step)
         for k, v in output:
             try:

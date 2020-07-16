@@ -20,43 +20,6 @@ import blocks
 from dynamics import BlockSSM
 
 
-def check_keys(k1, k2):
-    assert k1 - k2 == set(), \
-        f'Missing values in dataset. Input_keys: {k1}, data_keys: {k2}'
-
-
-class Estimator(nn.Module):
-    def __init__(self, data_dims, nsteps=1, input_keys={'Yp'}, name='policy'):
-        super().__init__()
-        check_keys(set(input_keys), set(data_dims.keys()))
-        self.name = name
-        self.nsteps = nsteps
-        self.nx = data_dims['X']
-
-        data_dims = {k: v for k, v in data_dims.items() if k in input_keys}
-        self.sequence_dims_sum = sum(v for k, v in data_dims.items())
-
-        self.input_size = self.sequence_dims_sum
-        self.output_size = self.nx
-        self.input_keys = set(input_keys)
-
-    def reg_error(self):
-        return torch.tensor(0.0)
-
-    def forward(self, data):
-        """
-
-        :param data:
-        :return:
-        """
-        check_keys(self.input_keys, set(data.keys()))
-        # TODO: double check the use of [-1]
-        # we want to map the past trajectory of all variables to the initial state
-        # not only the last state
-        features = torch.cat([data[k][-1] for k in self.input_keys], dim=1)
-        return {'x0': self.net(features), f'{self.name}_reg_error': self.net.reg_error()}
-
-
 class FullyObservable(nn.Module):
     def __init__(self, *args, name='full_observable', **linargs):
         """
@@ -80,6 +43,43 @@ class FullyObservable(nn.Module):
         return {'x0': data['Yp'][-1], f'{self.name}_reg_error': self.reg_error()}
 
 
+def check_keys(k1, k2):
+    assert k1 - k2 == set(), \
+        f'Missing values in dataset. Input_keys: {k1}, data_keys: {k2}'
+
+
+class Estimator(nn.Module):
+    def __init__(self, data_dims, nsteps=1, input_keys={'Yp'}, name='policy'):
+        super().__init__()
+        check_keys(set(input_keys), set(data_dims.keys()))
+        self.name = name
+        self.nsteps = nsteps
+        self.nx = data_dims['X']
+
+        data_dims = {k: v for k, v in data_dims.items() if k in input_keys}
+        self.sequence_dims_sum = sum(v for k, v in data_dims.items())
+
+        self.input_size = self.sequence_dims_sum
+        self.output_size = self.nx
+        self.input_keys = set(input_keys)
+
+    def reg_error(self):
+        return self.net.reg_error()
+
+    def forward(self, data):
+        """
+
+        :param data:
+        :return:
+        """
+        check_keys(self.input_keys, set(data.keys()))
+        # TODO: double check the use of [-1]
+        # we want to map the past trajectory of all variables to the initial state
+        # not only the last state
+        features = torch.cat([data[k][-1] for k in self.input_keys], dim=1)
+        return {'x0': self.net(features), f'{self.name}_reg_error': self.net.reg_error()}
+
+
 class LinearEstimator(Estimator):
     def __init__(self, data_dims, nsteps=1, bias=False,
                  Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], input_keys={'Yp'},
@@ -98,9 +98,6 @@ class LinearEstimator(Estimator):
         """
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
         self.net = Linear(self.input_size, self.output_size, bias=bias, **linargs)
-
-    def reg_error(self):
-        return self.linear.reg_error()
 
 
 class MLPEstimator(Estimator):
@@ -126,8 +123,20 @@ class MLPEstimator(Estimator):
         self.net = blocks.MLP(self.input_size, self.output_size, bias=bias,
                               Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
-    def reg_error(self):
-        return self.net.reg_error()
+
+class ResMLPEstimator(Estimator):
+    """
+
+    """
+    def __init__(self, data_dims, nsteps=1, bias=False,
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], input_keys={'Yp'},
+                 linargs=dict(), name='ResMLP_estim'):
+        """
+
+        """
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        self.net = blocks.ResMLP(self.input_size, self.output_size, bias=bias,
+                                 Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
 class RNNEstimator(Estimator):
@@ -220,7 +229,7 @@ class ExtendedKalmanFilter(nn.Module):
     pass
 
 
-estimators = [FullyObservable, LinearEstimator, MLPEstimator, RNNEstimator]
+estimators = [FullyObservable, LinearEstimator, MLPEstimator, RNNEstimator, ResMLPEstimator]
 
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 2

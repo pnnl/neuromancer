@@ -371,26 +371,30 @@ class Animator:
 
     def _find_mat(self, module):
         try:
-            return module.effective_W().detach().cpu().numpy()
+            mat = module.effective_W().detach().cpu().numpy()
+            if len(set(mat.shape)) != 1:
+                raise AttributeError
+            return mat
         except AttributeError:
             for modus in module.children():
                 return self.find_mat(modus)
+            return np.eye(4)
 
     def find_mat(self, model):
         try:
-            return model.fx.effective_W().detach().cpu().numpy()
+            mat = model.fx.effective_W().detach().cpu().numpy()
+            if len(set(mat.shape)) != 1:
+                raise AttributeError
+            return mat
         except AttributeError:
             return self._find_mat(model)
 
     def __call__(self, Y_out, Y_target):
         mat = self.find_mat(self.model)
-        if mat.shape[0] == mat.shape[1]:
-            w, v = LA.eig(mat)
-            self.ims.append([self.matax.imshow(mat),
-                             self.eigax.scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))] +
-                             self.update_traj(Y_out, Y_target))
-        else:
-            print('Warning state transition matrix of black box model is not suqare')
+        w, v = LA.eig(mat)
+        self.ims.append([self.matax.imshow(mat),
+                         self.eigax.scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))] +
+                         self.update_traj(Y_out, Y_target))
 
     def make_and_save(self, filename):
         eig_ani = animation.ArtistAnimation(self.fig, self.ims, interval=50, repeat_delay=3000)

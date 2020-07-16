@@ -79,7 +79,7 @@ def parse_args():
     model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
-                             choices=['rnn', 'mlp', 'linear'], default='rnn')
+                             choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='rnn')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
@@ -90,7 +90,7 @@ def parse_args():
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
     weight_group.add_argument('-Q_con_x', type=float,  default=0.2, help='Hidden state constraints penalty weight.')
-    weight_group.add_argument('-Q_dx', type=float,  default=0.0,
+    weight_group.add_argument('-Q_dx', type=float,  default=0.2,
                               help='Penalty weight on hidden state difference in one time step.')
     weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_y', type=float,  default=1.0, help='Output tracking penalty weight')
@@ -192,18 +192,24 @@ if __name__ == '__main__':
     # state estimator setup
     estimator = {'linear': estimators.LinearEstimator,
                  'mlp': estimators.MLPEstimator,
-                 'rnn': estimators.RNNEstimator}[args.state_estimator]({**dataset.dims, 'X': nx}, nsteps=args.nsteps, bias=args.bias,
-                                                                       Linear=linmap, nonlin=F.gelu, hsizes=[nx]*args.n_layers, input_keys={'Yp'},
-                                                                       linargs=dict(), name='estim')
+                 'rnn': estimators.RNNEstimator,
+                 'residual_mlp': estimators.ResMLPEstimator}[args.state_estimator]({**dataset.dims, 'X': nx},
+                                                                                   nsteps=args.nsteps,
+                                                                                   bias=args.bias,
+                                                                                   Linear=linmap,
+                                                                                   nonlin=F.gelu,
+                                                                                   hsizes=[nx]*args.n_layers,
+                                                                                   input_keys={'Yp'},
+                                                                                   linargs=dict(),
+                                                                                   name='estim')
 
     components = [estimator, dynamics_model]
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
-    # TODO: estimator_loss - why only the last sample from the batch is used?
     estimator_loss = Objective(['X_pred', 'x0'],
-                                lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
+                                lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),  # arrival cost
                                 weight=args.Q_e)
     regularization = Objective(['estim_reg_error', 'dynamics_reg_error'], lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub)
     reference_loss = Objective(['Y_pred', 'Yf'], F.mse_loss, weight=args.Q_y)

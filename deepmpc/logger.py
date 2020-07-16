@@ -41,28 +41,30 @@ class BasicLogger:
             torch.save(v, savepath)
 
 
-class WandBLogger(BasicLogger):
-    def __init__(self, savedir, verbosity):
-        super().__init__(savedir, verbosity)
-
-    def log_metrics(self, output, step):
-        super().log_metrics(output, step)
-        for k, v in output:
-            if isinstance(v.item(), numbers.Number):
-                wandb.log({k: v.item()}, step=step)
-
-    def log_weights(self, model):
-        nweights = super().log_weights(model)
-        wandb.config({'nparams': nweights})
-
-    def log_artifacts(self, artifacts):
-        super().log_artifacts(artifacts)
-        wandb.save(os.path.join(self.savedir, '*'))
+# class WandBLogger(BasicLogger):
+#     def __init__(self, savedir, verbosity):
+#         super().__init__(savedir, verbosity)
+#
+#     def log_metrics(self, output, step):
+#         super().log_metrics(output, step)
+#         for k, v in output:
+#             if isinstance(v.item(), numbers.Number):
+#                 wandb.log({k: v.item()}, step=step)
+#
+#     def log_weights(self, model):
+#         nweights = super().log_weights(model)
+#         wandb.config({'nparams': nweights})
+#
+#     def log_artifacts(self, artifacts):
+#         super().log_artifacts(artifacts)
+#         wandb.save(os.path.join(self.savedir, '*'))
 
 
 class MLFlowLogger(BasicLogger):
     def __init__(self, args, savedir, verbosity):
         super().__init__(savedir, verbosity)
+        os.system('mkdir %s ' '/'.join(args.location.split('/')[:-1]))
+        os.system('mkdir %s ' '/'.join(args.location.split('/')))
         mlflow.set_tracking_uri(args.location)
         mlflow.set_experiment(args.exp)
         mlflow.start_run(run_name=args.run)

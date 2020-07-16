@@ -1,6 +1,8 @@
 """
 # TODO: include reference in the datafiles and emulators
 # TODO: extend datasets with time-varying constraints Ymin, Ymax, Umin, Umax
+# TODO put in assert to check data equality after manipulations
+# TODO Moving horizon dataset
 """
 import os
 from scipy.io import loadmat
@@ -181,7 +183,6 @@ class FileDataset(Dataset):
         """
         ninit = 0
         Y, U, D = None, None, None
-        # list of available datasets
         systems_datapaths = {'tank': './datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
                              'vehicle3': './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
                              'aero': './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat',

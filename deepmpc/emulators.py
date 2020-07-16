@@ -18,6 +18,9 @@ import control
 ###### Internal Emulators ##########
 ####################################
 
+# data['R'] = emulators.Periodic(nx=data['Y'].shape[1], nsim=data['Y'].shape[0],
+#                                numPeriods=np.ceil(data['Y'].shape[0] / 100).astype(int),
+#                                xmax=0, xmin=1, form='sin')
 
 """
 Base Classes

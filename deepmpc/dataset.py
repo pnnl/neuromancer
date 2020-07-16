@@ -113,7 +113,7 @@ class Dataset:
 
         for dset in self.train_data, self.dev_data, self.test_data, self.train_loop, self.dev_loop, self.test_loop:
             for k, v in dset.items():
-                dset[k] = torch.tensor(v, dtype=torch.float32)
+                dset[k] = torch.tensor(v, dtype=torch.float32).to(device)
 
     def load_data(self):
         assert self.system is None and len(self.sequences) > 0, \

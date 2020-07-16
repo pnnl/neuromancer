@@ -1,8 +1,8 @@
 """
 # TODO: include reference in the datafiles and emulators
 # TODO: extend datasets with time-varying constraints Ymin, Ymax, Umin, Umax
-# TODO put in assert to check data equality after manipulations
 # TODO Moving horizon dataset
+# TODO Mini-batching
 """
 import os
 from scipy.io import loadmat
@@ -31,22 +31,25 @@ def batch_data(data, nsteps):
 
     :param data: np.array shape=(nsim, dim)
     :param nsteps: (int) n-step prediction horizon
-    :return: torch.tensor shape=(nsteps, nsamples, dim)
+    :return: np.array shape=(nsteps, nsamples, dim)
     """
     nsplits = (data.shape[0]) // nsteps
     leftover = (data.shape[0]) % nsteps
     data = np.stack(np.split(data[:data.shape[0] - leftover], nsplits))  # nchunks X nsteps X nfeatures
-    return torch.tensor(data, dtype=torch.float32).transpose(0, 1)  # nsteps X nsamples X nfeatures
+    return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
 
 
 def unbatch_data(data):
     """
     Data put back together into original sequence.
 
-    :param data: (torch.Tensor, shape=(nsteps, nsamples, dim)
+    :param data: (torch.Tensor or np.array, shape=(nsteps, nsamples, dim)
     :return:  (torch.Tensor, shape=(nsim, 1, dim)
     """
-    return data.transpose(0, 1).reshape(-1, 1, data.shape[-1])
+    if isinstance(data, torch.Tensor):
+        return data.transpose(1, 0).reshape(-1, 1, data.shape[-1])
+    else:
+        return data.transpose(1, 0, 2).reshape(-1, 1, data.shape[-1])
 
 
 class DataDict(dict):
@@ -85,24 +88,32 @@ class Dataset:
             v = vnorm
             self.min_max_norms.update({k+'min': vmin, k+'max': vmax})
             self.dims[k], self.dims[k+'p'], self.dims[k+'f'] = v.shape[1], v.shape[1], v.shape[1]
-            loop_data[k+'p'] = torch.tensor(v[:-nsteps], dtype=torch.float32).to(device)
-            loop_data[k + 'f'] = torch.tensor(v[nsteps:], dtype=torch.float32).to(device)
-            nstep_data[k + 'p'] = batch_data(loop_data[k+'p'], nsteps).to(device)
-            nstep_data[k + 'f'] = batch_data(loop_data[k+'f'], nsteps).to(device)
+            # loop_data[k+'p'] = torch.tensor(v[:-nsteps], dtype=torch.float32).to(device)
+            # loop_data[k + 'f'] = torch.tensor(v[nsteps:], dtype=torch.float32).to(device)
+            loop_data[k + 'p'] = v[:-nsteps]
+            loop_data[k + 'f'] = v[nsteps:]
+            nstep_data[k + 'p'] = batch_data(loop_data[k+'p'], nsteps)
+            nstep_data[k + 'f'] = batch_data(loop_data[k+'f'], nsteps)
             data[k] = v
         plot.plot_traj(data, figname=os.path.join(self.savedir, f'{system}.png'))
-
         self.train_data, self.dev_data, self.test_data = self.split_train_test_dev(nstep_data)
+
         self.train_loop = self.unbatch(self.train_data)
         self.dev_loop = self.unbatch(self.dev_data)
         self.test_loop = self.unbatch(self.test_data)
         self.train_data.name, self.dev_data.name, self.test_data.name = 'nstep_train', 'nstep_dev', 'nstep_test'
         self.train_loop.name, self.dev_loop.name, self.test_loop.name = 'loop_train', 'loop_dev', 'loop_test'
-        plot.plot_traj({k: torch.cat([self.train_loop[k],
-                                      self.dev_loop[k],
-                                      self.test_loop[k]]).squeeze(1).cpu().detach().numpy()
-                        for k in self.train_data.keys()}, figname=os.path.join(self.savedir, f'{system}_open.png'))
+        all_loop = {k: np.concatenate([self.train_loop[k], self.dev_loop[k], self.test_loop[k]]).squeeze(1)
+                    for k in self.train_data.keys()}
+        for k in self.train_data.keys():
+            assert np.array_equal(all_loop[k], loop_data[k][:all_loop[k].shape[0]]), \
+                f'Reshaped data {k} is not equal to truncated original data'
+        plot.plot_traj(all_loop, figname=os.path.join(self.savedir, f'{system}_open.png'))
         plt.close('all')
+
+        for dset in self.train_data, self.dev_data, self.test_data, self.train_loop, self.dev_loop, self.test_loop:
+            for k, v in dset.items():
+                dset[k] = torch.tensor(v, dtype=torch.float32)
 
     def load_data(self):
         assert self.system is None and len(self.sequences) > 0, \

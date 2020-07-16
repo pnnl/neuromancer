@@ -120,7 +120,7 @@ class VisualizerOpen(Visualizer):
         self.model = model
         self.dataset = dataset
         self.verbosity = verbosity
-        self.anime = plot.Animator(dataset.dev_loop['Yp'], model)
+        self.anime = plot.Animator(dataset.dev_loop['Yp'].detach().cpu().numpy(), model)
 
     def train_plot(self, outputs, epoch):
         if epoch % self.verbosity == 0:

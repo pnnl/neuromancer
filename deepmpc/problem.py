@@ -61,7 +61,6 @@ class Problem(nn.Module):
     def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
 
         output_dict = self.step(data)
-        # print([(k, v.shape) for k, v in output_dict.items()])
         loss = self._calculate_loss(output_dict)
         output_dict = {'loss': loss, **output_dict}
         return {f'{data.name}_{k}': v for k, v in output_dict.items()}

@@ -223,7 +223,7 @@ if __name__ == '__main__':
     ##########################################
     ########## OPTIMIZE SOLUTION ############
     ##########################################
-    model = Problem(objectives, constraints, components)
+    model = Problem(objectives, constraints, components).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer, epochs=args.epochs)

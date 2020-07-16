@@ -32,7 +32,7 @@ class LinearBase(nn.Module, ABC):
             torch.nn.init.uniform_(self.bias, -bound, bound)
 
     def reg_error(self):
-        return torch.tensor(0.0)
+        return torch.tensor(0.0).to(self.weight.device)
 
     @abstractmethod
     def effective_W(self):

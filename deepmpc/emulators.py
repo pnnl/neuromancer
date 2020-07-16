@@ -895,7 +895,6 @@ class Building_hf_Small(EmulatorBase):
         self.D = loadmat(file_path)['D'].T # pre-defined disturbance profiles
         M_flow, DT = self.control_profile_DAE()
         self.U = self.equations(M_flow, DT)
-        # print('U', self.U.shape)
 
     def equations(self, m_flow, dT):
         U = m_flow * self.rho * self.cp * self.time_reg * dT
@@ -918,7 +917,6 @@ class Building_hf_Small(EmulatorBase):
             u = np.asmatrix(self.U[k]).T
             x = self.A * np.asmatrix(X[k]).T + self.B * u + self.E * d
             X[k + 1] = x.flatten()
-        # print(X.shape, Y.shape)
         return self.U[:nsim], X, Y
 """
 Linear PDEs

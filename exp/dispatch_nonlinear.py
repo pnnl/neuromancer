@@ -29,7 +29,7 @@ template = '#!/bin/bash\n' +\
            'source activate %s\n\n' % args.env
 
 os.system('mkdir %s' % args.exp_folder)
-datatypes = ['emulator', 'emulator', 'emulator', 'emulator', 'datafile', 'datafile', 'datafile']
+datatypes = ['emulator', 'emulator', 'emulator', 'emulator', 'datafile', 'datafile']
 systems = ['CSTR', 'TwoTank', 'LorenzSystem', 'LotkaVolterra', 'aero', 'flexy_air']
 linear_map = ['linear', 'pf', 'softSVD']
 nonlinear_map = ['mlp', 'residual_mlp', 'rnn']

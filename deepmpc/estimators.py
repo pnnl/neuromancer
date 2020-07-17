@@ -49,7 +49,7 @@ def check_keys(k1, k2):
 
 
 class Estimator(nn.Module):
-    def __init__(self, data_dims, nsteps=1, input_keys={'Yp'}, name='policy'):
+    def __init__(self, data_dims, nsteps=1, input_keys={'Yp'}, name='estimator'):
         super().__init__()
         check_keys(set(input_keys), set(data_dims.keys()))
         self.name = name
@@ -62,6 +62,7 @@ class Estimator(nn.Module):
         self.input_size = self.sequence_dims_sum
         self.output_size = self.nx
         self.input_keys = set(input_keys)
+        self.output_keys = {'x0', f'{self.name}_reg_error'}
 
     def reg_error(self):
         return self.net.reg_error()

@@ -40,6 +40,9 @@ class BasicLogger:
             savepath = os.path.join(self.savedir, k)
             torch.save(v, savepath)
 
+    def clean_up(self):
+        pass
+
 
 # class WandBLogger(BasicLogger):
 #     def __init__(self, savedir, verbosity):

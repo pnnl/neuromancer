@@ -50,8 +50,8 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=500)
-    opt_group.add_argument('-lr', type=float, default=0.001,
+    opt_group.add_argument('-epochs', type=int, default=1000)
+    opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
     #################
@@ -79,7 +79,7 @@ def parse_args():
     model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
-                             choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='rnn')
+                             choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
@@ -95,6 +95,7 @@ def parse_args():
     weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_y', type=float,  default=1.0, help='Output tracking penalty weight')
     weight_group.add_argument('-Q_e', type=float,  default=1.0, help='State estimator hidden prediction penalty weight')
+    weight_group.add_argument('-Q_con_fdu', type=float,  default=0.2, help='Penalty weight on control actions and disturbances.')
 
     ####################
     # LOGGING PARAMETERS
@@ -221,8 +222,23 @@ if __name__ == '__main__':
     observation_lower_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x)
     observation_upper_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x)
 
-    objectives = [regularization, reference_loss] # estimator_loss
+    objectives = [regularization, reference_loss]  # estimator_loss
     constraints = [state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
+
+    if 'fU_pred' in output_keys:
+        inputs_max_influence_lb = Objective(['fU_pred'], lambda x: torch.mean(F.relu(-x + 0.2)),
+                                              weight=args.Q_con_fdu)
+        inputs_max_influence_ub = Objective(['fU_pred'], lambda x: torch.mean(F.relu(x - 0.2)),
+                                            weight=args.Q_con_fdu)
+        constraints.append(inputs_max_influence_lb)
+        constraints.append(inputs_max_influence_ub)
+    if 'fU_pred' in output_keys:
+        disturbances_max_influence_lb = Objective(['fD_pred'], lambda x: torch.mean(F.relu(-x + 0.2)),
+                                            weight=args.Q_con_fdu)
+        disturbances_max_influence_ub = Objective(['fD_pred'], lambda x: torch.mean(F.relu(x - 0.2)),
+                                            weight=args.Q_con_fdu)
+        constraints.append(disturbances_max_influence_lb)
+        constraints.append(disturbances_max_influence_ub)
 
     ##########################################
     ########## OPTIMIZE SOLUTION ############

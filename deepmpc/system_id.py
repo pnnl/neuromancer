@@ -177,6 +177,7 @@ if __name__ == '__main__':
     nu = dataset.dims['U'] if 'U' in dataset.dims else 0
     nd = dataset.dims['D'] if 'D' in dataset.dims else 0
     ny = dataset.dims['Y']
+    dataset_keys = set(dataset.dev_data.keys())
     linmap = linear.maps[args.linear_map]
     nonlinmap = {'linear': linmap,
                  'mlp': blocks.MLP,
@@ -187,7 +188,7 @@ if __name__ == '__main__':
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
                       'hw': dynamics.hw}[args.ssm_type](args.bias, linmap, nonlinmap, nx, nu, nd, ny,
-                                                        n_layers=args.n_layers, name='dynamics')
+                                                        n_layers=args.n_layers, input_keys={'x0', 'Yf'}, name='dynamics')
 
     # state estimator setup
     estimator = {'linear': estimators.LinearEstimator,
@@ -204,6 +205,9 @@ if __name__ == '__main__':
                                                                                    name='estim')
 
     components = [estimator, dynamics_model]
+    # component variables
+    input_keys = set.union(*[comp.input_keys for comp in components])
+    output_keys = set.union(*[comp.output_keys for comp in components])
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########

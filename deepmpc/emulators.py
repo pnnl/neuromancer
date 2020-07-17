@@ -780,7 +780,7 @@ class BuildingEnvelope(SSM):
         self.G = file['Gd']
         self.F = file['Fd']
         #  constraints bounds
-        self.ts = file['Ts']  # sampling time
+        self.ts = file['Ts']  # sampling time TODO: not correct value for some building models
         # self.TSup = file['TSup']  # supply temperature
         self.umax = file['umax'].squeeze()  # max heat per zone
         self.umin = file['umin'].squeeze() # min heat per zone
@@ -818,12 +818,14 @@ class BuildingEnvelope(SSM):
         self.y_ss = file['y_ss']
         # default simulation setup
         self.ninit = 0
-        self.nsim = 1200
+        self.nsim = np.min([8640, self.D.shape[0]])
         if self.linear:
-            self.U = Periodic(nx=self.nu, nsim=self.nsim, numPeriods=6, xmax=self.umax, xmin=self.umin, form='sin')
+            self.U = Periodic(nx=self.nu, nsim=self.nsim, numPeriods=21, xmax=self.umax/2, xmin=self.umin, form='sin')
         else:
-            self.M_flow = Periodic(nx=self.n_mf, nsim=self.nsim, numPeriods=6, xmax=self.mf_max, xmin=self.mf_min, form='sin')
-            self.DT = Periodic(nx=self.n_dT, nsim=self.nsim, numPeriods=9, xmax=self.dT_max, xmin=self.dT_min, form='cos')
+            self.M_flow = self.mf_max/2+RandomWalk(nx=self.n_mf, nsim=self.nsim, xmax=self.mf_max/2, xmin=self.mf_min, sigma=0.05)
+            # self.M_flow = Periodic(nx=self.n_mf, nsim=self.nsim, numPeriods=21, xmax=self.mf_max, xmin=self.mf_min, form='sin')
+            # self.DT = Periodic(nx=self.n_dT, nsim=self.nsim, numPeriods=15, xmax=self.dT_max/2, xmin=self.dT_min, form='cos')
+            self.DT = RandomWalk(nx=self.n_dT, nsim=self.nsim, xmax=self.dT_max*0.6, xmin=self.dT_min, sigma=0.05)
             self.U = np.hstack([self.M_flow, self.DT])
 
     # equations defining single step of the dynamical system
@@ -840,84 +842,6 @@ class BuildingEnvelope(SSM):
 
 
 
-# TODO: this model is outdated and can be removed
-class Building_hf_Small(EmulatorBase):
-    def __init__(self):
-        super().__init__()
-
-    def control_profile_DAE(self, m_nominal_max=500, m_nominal_min=0,
-                            dT_nominal_max=20, dT_nominal_min=-10, samples_day=288,
-                            sim_days=7):
-        """
-        m_nominal_max: maximal nominal mass flow l/h
-        m_nominal_min: minimal nominal mass flow
-        """
-        #    mass flow
-        m_flow_day = m_nominal_min + m_nominal_max * (
-                    0.5 + 0.5 * np.sin(np.arange(0, 2 * np.pi, 2 * np.pi / samples_day)))  # daily control profile
-        M_flow = np.tile(m_flow_day, sim_days).reshape(-1, 1)  # samples_day*sim_days
-        #    delta T
-        dT_day = dT_nominal_min + (dT_nominal_max - dT_nominal_min) * (
-                    0.5 + 0.5 * np.cos(np.arange(0, 2 * np.pi, 2 * np.pi / samples_day)))  # daily control profile
-        DT = np.tile(dT_day, sim_days).reshape(-1, 1)
-        return M_flow, DT
-
-    def parameters(self, system='building_small', file_path='./emulators/buildings/disturb.mat'):
-        self.A = np.matrix([[0.9950, 0.0017, 0.0000, 0.0031], [0.0007, 0.9957, 0.0003, 0.0031],
-                            [0.0000, 0.0003, 0.9834, 0.0000], [0.2015, 0.4877, 0.0100, 0.2571]])
-        self.B = np.matrix([[1.7586e-06], [1.7584e-06],
-                            [1.8390e-10], [5.0563e-04]])
-        self.E = np.matrix([[0.0002, 0.0000, 0.0000], [0.0002, 0.0000, 0.0000],
-                            [0.0163, 0.0000, 0.0000], [0.0536, 0.0005, 0.0001]])
-        self.C = np.matrix([[0.0, 0.0, 0.0, 1.0]])
-        self.x = 20 * np.ones(4, dtype=np.float32)
-        #         heat flow equation constants
-        self.rho = 0.997  # density  of water kg/1l
-        self.cp = 4185.5  # specific heat capacity of water J/(kg/K)
-        self.time_reg = 1 / 3600  # time regularization of the mass flow 1 hour = 3600 seconds
-
-        self.dT_max = 40  # maximal temperature difference deg C
-        self.dT_min = 0  # minimal temperature difference deg C
-
-        # problem dimensions
-        self.nx = 4
-        self.ny = 1
-        self.nu = self.B.shape[1]
-        self.nd = self.E.shape[1]
-        self.n_mf = self.B.shape[1]
-        self.n_dT = 1
-        self.mf_max = 500  # maximal nominal mass flow l/h
-        self.mf_min = 0  # minimal nominal mass flow l/h
-        self.dT_max = 40  # maximal temperature difference deg C
-        self.dT_min = 0  # minimal temperature difference deg C
-        # initial conditions and disturbance profiles
-        self.x0 = 0 * np.ones(self.nx, dtype=np.float32)  # initial conditions
-        self.D = loadmat(file_path)['D'].T # pre-defined disturbance profiles
-        M_flow, DT = self.control_profile_DAE()
-        self.U = self.equations(M_flow, DT)
-
-    def equations(self, m_flow, dT):
-        U = m_flow * self.rho * self.cp * self.time_reg * dT
-        return U
-
-    def simulate(self, ninit, nsim, M_flow, DT, D):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param U: (ndarray, shape=(nsim, self.nu)) Control profile matrix
-        :param D: (ndarray, shape=(nsim, self.nd)) Disturbance matrix
-        :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
-        :return: The response matrices are aligned, i.e. X[k] is the state of the system that Y[k] is indicating
-        """
-        Y = np.zeros((nsim, 1))  # output trajectory placeholders
-        X = np.zeros((nsim + 1, 4))
-        X[0] = 20 * np.ones(4, dtype=np.float32)
-        for k in range(nsim):
-            Y[k] = self.C * np.asmatrix(X[k]).T
-            d = np.asmatrix(D[k]).T
-            u = np.asmatrix(self.U[k]).T
-            x = self.A * np.asmatrix(X[k]).T + self.B * u + self.E * d
-            X[k + 1] = x.flatten()
-        return self.U[:nsim], X, Y
 """
 Linear PDEs
 """
@@ -1370,6 +1294,34 @@ class GymWrapper(EmulatorBase):
 ###### Base Control Profiles for System excitation #######
 ##########################################################
 
+def RandomWalk(nx=1, nsim=100, xmax=1, xmin=0, sigma=0.05):
+    """
+
+    :param nx:
+    :param nsim:
+    :param xmax:
+    :param xmin:
+    :return:
+    """
+    if type(xmax) is not np.ndarray:
+        xmax = np.asarray(nx*[xmax]).ravel()
+    if type(xmin) is not np.ndarray:
+        xmin = np.asarray(nx*[xmin]).ravel()
+
+    Signals = []
+    for k in range(nx):
+        Signal = [0]
+        for t in range(1, nsim):
+            yt = Signal[t - 1] + np.random.normal(0, sigma)
+            if (yt > 1):
+                yt = Signal[t - 1] - abs(np.random.normal(0, sigma))
+            elif (yt < 0):
+                yt = Signal[t - 1] + abs(np.random.normal(0, sigma))
+            Signal.append(yt)
+        Signals.append(xmin[k] + (xmax[k] - xmin[k])*np.asarray(Signal))
+    return np.asarray(Signals).T
+
+
 def WhiteNoise(nx=1, nsim=100, xmax=1, xmin=0):
     """
     White Noise
@@ -1509,11 +1461,10 @@ if __name__ == '__main__':
 
     # building model
     ninit = 0
-    nsim = 1200
     building = BuildingEnvelope()   # instantiate building class
     building.parameters(system='HollandschHuys_full', linear=False)      # load model parameters
     # simulate open loop building
-    X, Y, U, D= building.simulate(ninit=ninit, nsim=nsim)
+    X, Y, U, D= building.simulate(ninit=ninit)
     # plot trajectories
     plot.pltOL(Y=Y, U=U, D=D, X=X)
     plot.pltPhase(X=Y)

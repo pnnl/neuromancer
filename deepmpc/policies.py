@@ -46,6 +46,7 @@ class Policy(nn.Module):
         self.input_size = self.nx + nsteps * self.sequence_dims_sum
         self.output_size = nsteps * self.nu
         self.input_keys = set(input_keys)
+        self.output_keys = {'Uf', f'{self.name}_reg_error'}
 
     def reg_error(self):
         """

@@ -74,6 +74,7 @@ class Trainer:
                                    ['train', 'dev', 'test']):
                 all_output = {**all_output, **self.model(data)}
         self.logger.log_metrics({f'best_{k}': v for k, v in all_output.items()})
+        # TODO: error if data are NaN
         plots = self.visualizer.eval(all_output)
         self.logger.log_artifacts(plots)
 

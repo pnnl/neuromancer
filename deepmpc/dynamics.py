@@ -39,7 +39,8 @@ def check_keys(k1, k2):
 
 class BlockSSM(nn.Module):
     def __init__(self, nx, nu, nd, ny, fx, fy, fu=None, fd=None,
-                 xou=torch.add, xod=torch.add, residual=False, name='block_ssm'):
+                 xou=torch.add, xod=torch.add, residual=False,
+                 input_keys={'Yf', 'x0'}, name='block_ssm'):
         """
         atomic block state space model
         :param nx: (int) dimension of state
@@ -58,11 +59,13 @@ class BlockSSM(nn.Module):
         # y =  fy(x)
         """
         super().__init__()
+        self.name = name
         assert fx.in_features == nx, "Mismatch in input function size"
         assert fx.out_features == nx, "Mismatch in input function size"
         assert fy.in_features == nx, "Mismatch in observable output function size"
         assert fy.out_features == ny, "Mismatch in observable output function size"
-        self.input_keys = {'Yf', 'x0'}
+        self.input_keys = set(input_keys)
+        self.output_keys = {'X_pred', 'Y_pred', 'fU_pred', 'fD_pred', f'{self.name}_reg_error'}
         if fu is not None:
             assert fu.in_features == nu, "Mismatch in control input function size"
             assert fu.out_features == nx, "Mismatch in control input function size"
@@ -70,7 +73,6 @@ class BlockSSM(nn.Module):
             assert fd.in_features == nd, "Mismatch in disturbance function size"
             assert fd.out_features == nx, "Mismatch in disturbance function size"
 
-        self.name = name
         self.nx, self.nu, self.nd, self.ny = nx, nu, nd, ny
         self.fx, self.fu, self.fd, self.fy = fx, fu, fd, fy
         # block operators
@@ -93,7 +95,7 @@ class BlockSSM(nn.Module):
         """
         check_keys(self.input_keys, set(data.keys()))
         nsteps = data['Yf'].shape[0]
-        X, Y = [], []
+        X, Y, FD, FU = [], [], [], []
         x = data['x0']
         for i in range(nsteps):
             x_prev = x
@@ -109,12 +111,16 @@ class BlockSSM(nn.Module):
             y = self.fy(x)
             X.append(x)
             Y.append(y)
+            FU.append(fu)
+            FD.append(fd)
         self.reset()
-        return {'X_pred': torch.stack(X), 'Y_pred': torch.stack(Y), f'{self.name}_reg_error': self.reg_error()}
+        return {'X_pred': torch.stack(X), 'Y_pred': torch.stack(Y),
+                'fU_pred': torch.stack(FU), 'fD_pred': torch.stack(FD),
+                f'{self.name}_reg_error': self.reg_error()}
 
 
 class BlackSSM(nn.Module):
-    def __init__(self, nx, nu, nd, ny, fxud, fy, name='black_ssm'):
+    def __init__(self, nx, nu, nd, ny, fxud, fy, input_keys={'Yf', 'x0'}, name='black_ssm'):
         """
         atomic black box state space model
         :param nx: (int) dimension of state
@@ -134,7 +140,8 @@ class BlackSSM(nn.Module):
         assert fxud.out_features == nx, "Mismatch in input function size"
         assert fy.in_features == nx, "Mismatch in observable output function size"
         assert fy.out_features == ny, "Mismatch in observable output function size"
-        self.input_keys = {'Yf', 'x0'}
+        self.input_keys = set(input_keys)
+        self.output_keys = {'X_pred', 'Y_pred', f'{self.name}_reg_error'}
         self.nx, self.nu, self.nd, self.ny = nx, nu, nd, ny
         self.fxud, self.fy = fxud, fy
 
@@ -170,17 +177,17 @@ class BlackSSM(nn.Module):
         return {'X_pred': torch.stack(X), 'Y_pred': torch.stack(Y), f'{self.name}_reg_error': self.reg_error()}
 
 
-def blackbox(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, name='blackbox'):
+def blackbox(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, input_keys={'x0', 'Yf'}, name='blackbox'):
     """
     black box state space model for training
     """
     fxud = nonlinmap(nx + nu + nd, nx, hsizes=[nx]*n_layers,
                      bias=bias, Linear=linmap)
     fy = linmap(nx, ny, bias=bias)
-    return BlackSSM(nx, nu, nd, ny, fxud, fy, name=name)
+    return BlackSSM(nx, nu, nd, ny, fxud, fy, input_keys=input_keys, name=name)
 
 
-def blocknlin(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, name='blocknlin'):
+def blocknlin(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, input_keys={'x0', 'Yf'}, name='blocknlin'):
     """
     block nonlinear state space model for training
     """
@@ -188,10 +195,10 @@ def blocknlin(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, name='blocknl
     fy = linmap(nx, ny, bias=bias)
     fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nu != 0 else None
     fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nd != 0 else None
-    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, name=name)
+    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, input_keys=input_keys, name=name)
 
 
-def hammerstein(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, name='hammerstein'):
+def hammerstein(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, input_keys={'x0', 'Yf'}, name='hammerstein'):
     """
     hammerstein state space model for training
     """
@@ -199,10 +206,10 @@ def hammerstein(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, name='hamme
     fy = linmap(nx, ny, bias=bias)
     fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nu != 0 else None
     fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nd != 0 else None
-    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, name=name)
+    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, input_keys=input_keys, name=name)
 
 
-def hw(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, name='hw'):
+def hw(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, input_keys={'x0', 'Yf'}, name='hw'):
     """
     hammerstein-weiner state space model for training
     """
@@ -210,7 +217,7 @@ def hw(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, name='hw'):
     fy = nonlinmap(nx, ny, bias=bias, hsizes=[nx]*n_layers, Linear=linmap)
     fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nu != 0 else None
     fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nd != 0 else None
-    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, name=name)
+    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, input_keys=input_keys, name=name)
 
 
 ssm_models_atoms = [BlockSSM, BlackSSM]

@@ -63,8 +63,6 @@ class BasicLogger:
 class MLFlowLogger(BasicLogger):
     def __init__(self, args, savedir, verbosity):
         super().__init__(savedir, verbosity)
-        os.system('mkdir %s ' % '/'.join(args.location.split('/')[:-1]))
-        os.system('mkdir %s ' % '/'.join(args.location.split('/')))
         mlflow.set_tracking_uri(args.location)
         mlflow.set_experiment(args.exp)
         mlflow.start_run(run_name=args.run)

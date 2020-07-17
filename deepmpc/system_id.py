@@ -155,7 +155,7 @@ if __name__ == '__main__':
     ###############################
     args = parse_args()
     if args.logger == 'mlflow':
-        logger = logger.MLFlowLogger(args)
+        logger = logger.MLFlowLogger(args, args.savedir, args.verbosity)
     else:
         logger = logger.BasicLogger(savedir=args.savedir, verbosity=args.verbosity)
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
@@ -233,3 +233,4 @@ if __name__ == '__main__':
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer, epochs=args.epochs)
     best_model = trainer.train()
     trainer.evaluate(best_model)
+    logger.clean_up()

@@ -77,13 +77,19 @@ class MLFlowLogger(BasicLogger):
 
     def log_metrics(self, output, step=0):
         super().log_metrics(output, step)
-        for k, v in output:
+        for k, v in output.items():
             try:
                 mlflow.log_metric(k, v.item(), step=step)
-            except mlflow.exceptions.MlflowException:
+            except: # TODO catch only the exceptions we intend to here
                 pass
 
     def log_artifacts(self, artifacts):
         super().log_artifacts(artifacts)
         mlflow.log_artifacts(self.savedir)
-        os.system(f'rm {self.savedir}')
+
+    def clean_up(self):
+        """
+        Remove temporary files from file system
+        """
+        os.system(f'rm -rf {self.savedir}')
+

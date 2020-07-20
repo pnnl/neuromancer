@@ -1,7 +1,6 @@
 """
 # TODO: include reference in the datafiles and emulators
 # TODO: extend datasets with time-varying constraints Ymin, Ymax, Umin, Umax
-# TODO Moving horizon dataset
 # TODO Mini-batching
 """
 import os

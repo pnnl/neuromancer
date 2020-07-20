@@ -34,7 +34,7 @@ import estimators
 import linear
 import blocks
 import logger
-from visuals import Visualizer
+from visuals import Visualizer, VisualizerTrajectories
 from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
@@ -50,8 +50,8 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=1000)
-    opt_group.add_argument('-lr', type=float, default=0.003,
+    opt_group.add_argument('-epochs', type=int, default=100)
+    opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
     #################
@@ -64,7 +64,7 @@ def parse_args():
                             help='source type of the dataset')
     data_group.add_argument('-system', default='Reno_full',
                             help='select particular dataset with keyword')
-    data_group.add_argument('-nsim', type=int, default=1200,
+    data_group.add_argument('-nsim', type=int, default=8640,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
                                  'train, dev, and test will be split evenly from contiguous, sequential, '
                                  'non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,'
@@ -81,7 +81,7 @@ def parse_args():
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
-                             default='linear')
+                             default='softSVD')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
                              choices=['mlp', 'rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
@@ -90,12 +90,12 @@ def parse_args():
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
     weight_group.add_argument('-Q_con_x', type=float,  default=0.2, help='Hidden state constraints penalty weight.')
-    weight_group.add_argument('-Q_dx', type=float,  default=0.2,
+    weight_group.add_argument('-Q_dx', type=float,  default=0.0,
                               help='Penalty weight on hidden state difference in one time step.')
     weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_y', type=float,  default=1.0, help='Output tracking penalty weight')
     weight_group.add_argument('-Q_e', type=float,  default=1.0, help='State estimator hidden prediction penalty weight')
-    weight_group.add_argument('-Q_con_fdu', type=float,  default=0.2, help='Penalty weight on control actions and disturbances.')
+    weight_group.add_argument('-Q_con_fdu', type=float,  default=0.4, help='Penalty weight on control actions and disturbances.')
 
     ####################
     # LOGGING PARAMETERS
@@ -209,6 +209,8 @@ if __name__ == '__main__':
     # component variables
     input_keys = set.union(*[comp.input_keys for comp in components])
     output_keys = set.union(*[comp.output_keys for comp in components])
+    plot_keys = {'Yf', 'Y_pred', 'X_pred', 'Uf', 'Df'}   # variables to be plotted
+    # plot_keys = {'Yf', 'Y_pred', 'X_pred', 'Uf', 'Df', 'x0', 'dynamics_reg_error', 'estim_reg_error'}   # variables to be plotted
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
@@ -226,16 +228,16 @@ if __name__ == '__main__':
     constraints = [state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
 
     if 'fU_pred' in output_keys:
-        inputs_max_influence_lb = Objective(['fU_pred'], lambda x: torch.mean(F.relu(-x + 0.2)),
+        inputs_max_influence_lb = Objective(['fU_pred'], lambda x: torch.mean(F.relu(-x + 0.05)),
                                               weight=args.Q_con_fdu)
-        inputs_max_influence_ub = Objective(['fU_pred'], lambda x: torch.mean(F.relu(x - 0.2)),
+        inputs_max_influence_ub = Objective(['fU_pred'], lambda x: torch.mean(F.relu(x - 0.05)),
                                             weight=args.Q_con_fdu)
         constraints.append(inputs_max_influence_lb)
         constraints.append(inputs_max_influence_ub)
     if 'fU_pred' in output_keys:
-        disturbances_max_influence_lb = Objective(['fD_pred'], lambda x: torch.mean(F.relu(-x + 0.2)),
+        disturbances_max_influence_lb = Objective(['fD_pred'], lambda x: torch.mean(F.relu(-x + 0.05)),
                                             weight=args.Q_con_fdu)
-        disturbances_max_influence_ub = Objective(['fD_pred'], lambda x: torch.mean(F.relu(x - 0.2)),
+        disturbances_max_influence_ub = Objective(['fD_pred'], lambda x: torch.mean(F.relu(x - 0.05)),
                                             weight=args.Q_con_fdu)
         constraints.append(disturbances_max_influence_lb)
         constraints.append(disturbances_max_influence_ub)
@@ -245,7 +247,8 @@ if __name__ == '__main__':
     ##########################################
     model = Problem(objectives, constraints, components).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity)
+    # visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity)
+    visualizer = VisualizerTrajectories(dataset, dynamics_model, plot_keys, args.verbosity)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer, epochs=args.epochs)
     best_model = trainer.train()
     trainer.evaluate(best_model)

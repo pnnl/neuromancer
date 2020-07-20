@@ -48,6 +48,7 @@ class Trainer:
                     best_model = deepcopy(self.model.state_dict())
                     best_looploss = dev_loop_output['loop_dev_loss']
                 self.visualizer.train_plot({**dev_nstep_output, **dev_loop_output}, i)
+        #         TODO: add inputs to visualizer
 
         plots = self.visualizer.train_output()
         self.logger.log_artifacts({'best_model.pth': best_model, **plots})
@@ -76,6 +77,7 @@ class Trainer:
         self.logger.log_metrics({f'best_{k}': v for k, v in all_output.items()})
         # TODO: error if data are NaN
         plots = self.visualizer.eval(all_output)
+        #         TODO: add inputs to visualizer
         self.logger.log_artifacts(plots)
 
 

@@ -26,6 +26,32 @@ def min_max_denorm(M, Mmin, Mmax):
     return np.nan_to_num(M_denorm)
 
 
+# TODO: variant with midstep - defining the moving horizon skip step, default = 1
+def batch_mh_data(data, nsteps):
+    """
+    moving horizon batching
+
+    :param data: np.array shape=(nsim, dim)
+    :param nsteps: (int) n-step prediction horizon
+    :return: np.array shape=(nsteps, nsamples, dim)
+    """
+    end_step = data.shape[0] - nsteps
+    data = np.asarray([data[k:k+nsteps, :] for k in range(0, end_step)])  # nchunks X nsteps X nfeatures
+    return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
+
+def unbatch_mh_data(data):
+    """
+    Data put back together into original sequence from moving horizon dataset.
+
+    :param data: (torch.Tensor or np.array, shape=(nsteps, nsamples, dim)
+    :return:  (torch.Tensor, shape=(nsim, 1, dim)
+    """
+    data_unmove = np.asarray([data[0, k, :] for k in range(0, data.shape[1])])
+    if isinstance(data, torch.Tensor):
+        data_unmove = torch.Tensor(data_unmove)
+    return data_unmove.reshape(-1, 1, data_unmove.shape[-1])
+
+
 def batch_data(data, nsteps):
     """
 
@@ -61,7 +87,7 @@ class DataDict(dict):
 
 class Dataset:
 
-    def __init__(self, system=None, nsim=None, norm='UDY',
+    def __init__(self, system=None, nsim=None, norm='UDY', batch_type='mh',
                  nsteps=32, device='cpu', sequences=dict(),
                  savedir='test'):
         """
@@ -69,6 +95,7 @@ class Dataset:
         :param system: (str) Identifier for dataset.
         :param nsim: (int) Total number of time steps in data sequence
         :param norm: (str) String of letters corresponding to data to be normalized
+        :param batch_type: (str) Type of the batch generator, expects: 'mh' or 'chunk'
         :param nsteps: (int) N-step prediction horizon for batching data
         :param device: (str) String identifier of device to place data on, e.g. 'cpu', 'cuda:0'
         :param sequences: (dict str: np.array) Dictionary of supplemental data
@@ -92,15 +119,24 @@ class Dataset:
             # loop_data[k + 'f'] = torch.tensor(v[nsteps:], dtype=torch.float32).to(device)
             loop_data[k + 'p'] = v[:-nsteps]
             loop_data[k + 'f'] = v[nsteps:]
-            nstep_data[k + 'p'] = batch_data(loop_data[k+'p'], nsteps)
-            nstep_data[k + 'f'] = batch_data(loop_data[k+'f'], nsteps)
+            if batch_type == 'mh':
+                nstep_data[k + 'p'] = batch_mh_data(loop_data[k + 'p'], nsteps)
+                nstep_data[k + 'f'] = batch_mh_data(loop_data[k + 'f'], nsteps)
+            else:
+                nstep_data[k + 'p'] = batch_data(loop_data[k+'p'], nsteps)
+                nstep_data[k + 'f'] = batch_data(loop_data[k+'f'], nsteps)
             data[k] = v
         plot.plot_traj(data, figname=os.path.join(self.savedir, f'{system}.png'))
         self.train_data, self.dev_data, self.test_data = self.split_train_test_dev(nstep_data)
 
-        self.train_loop = self.unbatch(self.train_data)
-        self.dev_loop = self.unbatch(self.dev_data)
-        self.test_loop = self.unbatch(self.test_data)
+        if batch_type == 'mh':
+            self.train_loop = self.unbatch_mh(self.train_data)
+            self.dev_loop = self.unbatch_mh(self.dev_data)
+            self.test_loop = self.unbatch_mh(self.test_data)
+        else:
+            self.train_loop = self.unbatch(self.train_data)
+            self.dev_loop = self.unbatch(self.dev_data)
+            self.test_loop = self.unbatch(self.test_data)
         self.train_data.name, self.dev_data.name, self.test_data.name = 'nstep_train', 'nstep_dev', 'nstep_test'
         self.train_loop.name, self.dev_loop.name, self.test_loop.name = 'loop_train', 'loop_dev', 'loop_test'
         all_loop = {k: np.concatenate([self.train_loop[k], self.dev_loop[k], self.test_loop[k]]).squeeze(1)
@@ -158,6 +194,17 @@ class Dataset:
         unbatched_data = DataDict()
         for k, v in data.items():
             unbatched_data[k] = unbatch_data(v)
+        return unbatched_data
+
+    def unbatch_mh(self, data):
+        """
+
+        :param data: (dict, str: 3-d np.array) Data broken into samples of n-step prediction horizon sequences
+        :return: (dict, str: 3-d np.array) Data put back together into original sequence. dims=(nsim, 1, dim)
+        """
+        unbatched_data = DataDict()
+        for k, v in data.items():
+            unbatched_data[k] = unbatch_mh_data(v)
         return unbatched_data
 
 

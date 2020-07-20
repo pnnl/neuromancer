@@ -32,6 +32,7 @@ from dataset import EmulatorDataset, FileDataset
 import dynamics
 import estimators
 import emulators
+import policies
 import linear
 import blocks
 import logger
@@ -59,7 +60,7 @@ def parse_args():
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=32,
-                            help='Number of steps for open loop during training.')
+                            help='control policy prediction horizon.')
     data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'],
                             default='emulator',
                             help='source type of the dataset')
@@ -72,31 +73,28 @@ def parse_args():
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
+
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
-    model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
-                             default='blocknlin')
-    model_group.add_argument('-nx_hidden', type=int, default=10, help='Number of hidden states per output')
-    model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
-    model_group.add_argument('-state_estimator', type=str,
+    model_group.add_argument('-n_hidden', type=int, default=10, help='Number of hidden states')
+    model_group.add_argument('-n_layers', type=int, default=2,
+                             help='Number of hidden layers of single time-step state transition')
+    model_group.add_argument('-policy', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='pf')
-    model_group.add_argument('-nonlinear_map', type=str, default='mlp',
-                             choices=['mlp', 'rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
+    model_group.add_argument('-system_id', required=True, help='path to pytorch pretrained dynamics and state estimator model from system ID')
+    model_group.add_argument('-policy_features', nargs='+', default=['x0'], help='Policy features')
 
     ##################
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
-    weight_group.add_argument('-Q_con_x', type=float,  default=1.0, help='Hidden state constraints penalty weight.')
-    weight_group.add_argument('-Q_dx', type=float,  default=0.0,
-                              help='Penalty weight on hidden state difference in one time step.')
-    weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
-    weight_group.add_argument('-Q_y', type=float,  default=1.0, help='Output tracking penalty weight')
-    weight_group.add_argument('-Q_e', type=float,  default=1.0, help='State estimator hidden prediction penalty weight')
-    weight_group.add_argument('-Q_con_fdu', type=float,  default=0.0, help='Penalty weight on control actions and disturbances.')
+    weight_group.add_argument('-Q_con_y', type=float, default=1.0, help='Output constraints penalty weight.')
+    weight_group.add_argument('-Q_con_u', type=float, default=1.0, help='Input constraints penalty weight.')
+    weight_group.add_argument('-Q_sub', type=float, default=0.2, help='Linear maps regularization weight.')
+    weight_group.add_argument('-Q_r', type=float, default=1.0, help='Reference tracking penalty weight')
 
     ####################
     # LOGGING PARAMETERS
@@ -116,6 +114,7 @@ def parse_args():
     return parser.parse_args()
 
 
+# TODO: add default Open and Closed loop visualizers to visuals.py
 class VisualizerOpen(Visualizer):
 
     def __init__(self, dataset, model, verbosity):
@@ -159,12 +158,13 @@ def logging(args):
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
     return Logger, device
 
-def dataset_load(args):
+
+def dataset_load(args, sequences):
     if args.system_data == 'emulator':
-        dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
+        dataset = EmulatorDataset(system=args.system, nsim=args.nsim, sequences=sequences,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     else:
-        dataset = FileDataset(system=args.system, nsim=args.nsim,
+        dataset = FileDataset(system=args.system, nsim=args.nsim, sequences=sequences,
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     return dataset
 
@@ -179,87 +179,90 @@ if __name__ == '__main__':
     ###############################
     ########## DATA ###############
     ###############################
-    dataset = dataset_load(args)
+
+
+    'Y_min'
+
+    dataset = dataset_load(args, sequences)
+
 
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################
-    nx = dataset.dims['Y']*args.nx_hidden
-    nu = dataset.dims['U'] if 'U' in dataset.dims else 0
-    nd = dataset.dims['D'] if 'D' in dataset.dims else 0
-    ny = dataset.dims['Y']
+
+    system_id_problem = torch.load(args.system_id)
+    estimator = system_id_problem.components[0]
+    dynamics_model = system_id_problem.components[1]
+
+    nx = dynamics_model.nx
+    nu = dynamics_model.nu
+    nd = dynamics_model.nd
+    ny = dynamics_model.ny
+    nh_policy = args.n_hidden
     dataset_keys = set(dataset.dev_data.keys())
     linmap = linear.maps[args.linear_map]
-    nonlinmap = {'linear': linmap,
-                 'mlp': blocks.MLP,
-                 'rnn': blocks.RNN,
-                 'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
-    # state space model setup
-    dynamics_model = {'blackbox': dynamics.blackbox,
-                      'blocknlin': dynamics.blocknlin,
-                      'hammerstein': dynamics.hammerstein,
-                      'hw': dynamics.hw}[args.ssm_type](args.bias, linmap, nonlinmap, nx, nu, nd, ny,
-                                                        n_layers=args.n_layers, input_keys={'x0', 'Yf'}, name='dynamics')
 
     # state estimator setup
-    estimator = {'linear': estimators.LinearEstimator,
-                 'mlp': estimators.MLPEstimator,
-                 'rnn': estimators.RNNEstimator,
-                 'residual_mlp': estimators.ResMLPEstimator}[args.state_estimator]({**dataset.dims, 'X': nx},
+    policy = {'linear': policies.LinearPolicy,
+                 'mlp': policies.MLPEstimator,
+                 'rnn': policies.RNNEstimator,
+                 'residual_mlp': policies.ResMLPEstimator}[args.policy]({**dataset.dims, 'X': nx},
                                                                                    nsteps=args.nsteps,
                                                                                    bias=args.bias,
                                                                                    Linear=linmap,
                                                                                    nonlin=F.gelu,
-                                                                                   hsizes=[nx]*args.n_layers,
-                                                                                   input_keys={'Yp'},
+                                                                                   hsizes=[nh_policy] * args.n_layers,
+                                                                                   input_keys=set(args.policy_features),
                                                                                    linargs=dict(),
-                                                                                   name='estim')
+                                                                                   name='policy')
 
-    components = [estimator, dynamics_model]
+    components = [estimator, policy, dynamics_model]
 
     # component variables
     input_keys = set.union(*[comp.input_keys for comp in components])
     output_keys = set.union(*[comp.output_keys for comp in components])
-    plot_keys = {'Yf', 'Y_pred', 'X_pred', 'fU_pred', 'fD_pred'}   # variables to be plotted
+    plot_keys = {'Y_pred', 'X_pred', 'U_pred'}  # variables to be plotted
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
-    estimator_loss = Objective(['X_pred', 'x0'],
-                                lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),  # arrival cost
-                                weight=args.Q_e)
-    regularization = Objective(['estim_reg_error', 'dynamics_reg_error'], lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub)
-    reference_loss = Objective(['Y_pred', 'Yf'], F.mse_loss, weight=args.Q_y)
-    state_smoothing = Objective(['X_pred'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx)
-    observation_lower_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x)
-    observation_upper_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x)
+    regularization = Objective(['policy_reg_error'], lambda reg: reg,
+                               weight=args.Q_sub)
+    reference_loss = Objective(['Y_pred', 'Rf'], F.mse_loss, weight=args.Q_r)
+    #  TODO: expand control dataset with constraints and references
+    observation_lower_bound_penalty = Objective(['Y_pred', 'Y_min'], lambda x, xmin: torch.mean(F.relu(-x + -xmin)),
+                                                weight=args.Q_con_x)
+    observation_upper_bound_penalty = Objective(['Y_pred', 'Y_max'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
+                                                weight=args.Q_con_y)
+    inputs_lower_bound_penalty = Objective(['U_pred', 'U_min'], lambda x, xmin: torch.mean(F.relu(-x + -xmin)),
+                                                weight=args.Q_con_x)
+    inputs_upper_bound_penalty = Objective(['U_pred', 'U_max'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
+                                           weight=args.Q_con_y)
 
     objectives = [regularization, reference_loss]  # estimator_loss
-    constraints = [state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
+    constraints = [observation_lower_bound_penalty, observation_upper_bound_penalty,
+                   inputs_lower_bound_penalty, inputs_upper_bound_penalty]
 
-    if 'fU_pred' in output_keys:
-        inputs_max_influence_lb = Objective(['fU_pred'], lambda x: torch.mean(F.relu(-x + 0.05)),
-                                              weight=args.Q_con_fdu)
-        inputs_max_influence_ub = Objective(['fU_pred'], lambda x: torch.mean(F.relu(x - 0.05)),
-                                            weight=args.Q_con_fdu)
-        constraints.append(inputs_max_influence_lb)
-        constraints.append(inputs_max_influence_ub)
-    if 'fD_pred' in output_keys:
-        disturbances_max_influence_lb = Objective(['fD_pred'], lambda x: torch.mean(F.relu(-x + 0.05)),
-                                            weight=args.Q_con_fdu)
-        disturbances_max_influence_ub = Objective(['fD_pred'], lambda x: torch.mean(F.relu(x - 0.05)),
-                                            weight=args.Q_con_fdu)
-        constraints.append(disturbances_max_influence_lb)
-        constraints.append(disturbances_max_influence_ub)
+    # TODO: CL training
+    # 1, joint system ID and control - need system ID dataset + control dataset with some performance metric  to track
+    #       need two instances of the dynamical model and state estimator
+    # 2, fixed model and do only policy optization - need control dataset, and only control objectives
+    #       requires_grad = False for the loaded model - add some option for loading selected component parameters
+    # 3, online learning with subset of the parameter updates
+
+    # TODO: CL evaluation
+    # 1, using emulator
+    # 2, using learned model
 
     ##########################################
     ########## OPTIMIZE SOLUTION ############
     ##########################################
     model = Problem(objectives, constraints, components).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity)
-    # visualizer = VisualizerTrajectories(dataset, dynamics_model, plot_keys, args.verbosity)
+    visualizer = VisualizerTrajectories(dataset, dynamics_model, plot_keys, args.verbosity)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer, epochs=args.epochs)
     best_model = trainer.train()
     trainer.evaluate(best_model)
+    # TODO: add simulator class for dynamical models? - evaluates open and closed loop
+    # simulator = Simulator(best_model, dataset, emulator=emulators.systems[args.system], logger=logger, visualizer=visualizer)
     logger.clean_up()

@@ -52,7 +52,7 @@ class Trainer:
         #   TODO: add loss function to visualizer
 
         plots = self.visualizer.train_output()
-        self.logger.log_artifacts({'best_model.pth': best_model, **plots})
+        self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, 'best_model.pth': self.model, **plots})
 
         return best_model
 

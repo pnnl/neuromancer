@@ -86,14 +86,14 @@ class DataDict(dict):
 
 class Dataset:
 
-    def __init__(self, system=None, nsim=None, norm='UDY', batch_type='mh',
+    def __init__(self, system=None, nsim=None, norm=['Y'], batch_type='mh',
                  nsteps=32, device='cpu', sequences=dict(),
                  savedir='test'):
         """
 
         :param system: (str) Identifier for dataset.
         :param nsim: (int) Total number of time steps in data sequence
-        :param norm: (str) String of letters corresponding to data to be normalized
+        :param norm: (str) String of letters corresponding to data to be normalized, e.g. ['Y','U','D']
         :param batch_type: (str) Type of the batch generator, expects: 'mh' or 'chunk'
         :param nsteps: (int) N-step prediction horizon for batching data
         :param device: (str) String identifier of device to place data on, e.g. 'cpu', 'cuda:0'
@@ -102,33 +102,44 @@ class Dataset:
         print(system)
         self.savedir = savedir
         self.system, self.nsim, self.norm, self.nsteps, self.device = system, nsim, norm, nsteps, device
-        data = self.load_data()
-        for k, v in sequences.items():
-            assert v.shape[0] == data['Y'][0].shape
-        data = {**data, **sequences}
-        self.data = data
-        self.min_max_norms, self.dims, nstep_data, loop_data = dict(), dict(), dict(), dict()
+        self.batch_type = batch_type
+        self.data = self.load_data()
+        self.add_sequences(sequences)
+        self.min_max_norms, self.dims,  self.nstep_data, self.loop_data = dict(), dict(), dict(), dict()
+        assert set(norm) & set(self.data.keys()) == set(norm), \
+            f'Specified keys to normalize are not in dataset keys: {list(self.data.keys())}'
+        self.data = self.norm_data(self.data, self.norm)
+        self.make_nstep()
+        self.make_loop()
+
+    def norm_data(self, data, norm):
         for k, v in data.items():
             v = v.reshape(v.shape[0], -1)
-            vnorm, vmin, vmax = self.normalize(v)
-            v = vnorm
-            self.min_max_norms.update({k+'min': vmin, k+'max': vmax})
-            self.dims[k], self.dims[k+'p'], self.dims[k+'f'] = v.shape[1], v.shape[1], v.shape[1]
-            # loop_data[k+'p'] = torch.tensor(v[:-nsteps], dtype=torch.float32).to(device)
-            # loop_data[k + 'f'] = torch.tensor(v[nsteps:], dtype=torch.float32).to(device)
-            loop_data[k + 'p'] = v[:-nsteps]
-            loop_data[k + 'f'] = v[nsteps:]
-            if batch_type == 'mh':
-                nstep_data[k + 'p'] = batch_mh_data(loop_data[k + 'p'], nsteps)
-                nstep_data[k + 'f'] = batch_mh_data(loop_data[k + 'f'], nsteps)
-            else:
-                nstep_data[k + 'p'] = batch_data(loop_data[k+'p'], nsteps)
-                nstep_data[k + 'f'] = batch_data(loop_data[k+'f'], nsteps)
-            data[k] = v
-        plot.plot_traj(data, figname=os.path.join(self.savedir, f'{system}.png'))
-        self.train_data, self.dev_data, self.test_data = self.split_train_test_dev(nstep_data)
+            if k in norm:
+                v, vmin, vmax = self.normalize(v)
+                self.min_max_norms.update({k + 'min': vmin, k + 'max': vmax})
+                data[k] = v
+        return data
 
-        if batch_type == 'mh':
+    def make_nstep(self):
+        # TODO: This recreates dataset each time data is added. Fix for larger datasets
+        for k, v in self.data.items():
+            self.dims[k], self.dims[k + 'p'], self.dims[k + 'f'] = v.shape[1], v.shape[1], v.shape[1]
+            self.loop_data[k + 'p'] = v[:-self.nsteps]
+            self.loop_data[k + 'f'] = v[self.nsteps:]
+
+            if self.batch_type == 'mh':
+                self.nstep_data[k + 'p'] = batch_mh_data(self.loop_data[k + 'p'], self.nsteps)
+                self.nstep_data[k + 'f'] = batch_mh_data(self.loop_data[k + 'f'], self.nsteps)
+            else:
+                self.nstep_data[k + 'p'] = batch_data(self.loop_data[k + 'p'], self.nsteps)
+                self.nstep_data[k + 'f'] = batch_data(self.loop_data[k + 'f'], self.nsteps)
+            self.data[k] = v
+        plot.plot_traj(self.data, figname=os.path.join(self.savedir, f'{system}.png'))
+        self.train_data, self.dev_data, self.test_data = self.split_train_test_dev(self.nstep_data)
+
+    def make_loop(self):
+        if self.batch_type == 'mh':
             self.train_loop = self.unbatch_mh(self.train_data)
             self.dev_loop = self.unbatch_mh(self.dev_data)
             self.test_loop = self.unbatch_mh(self.test_data)
@@ -141,14 +152,28 @@ class Dataset:
         all_loop = {k: np.concatenate([self.train_loop[k], self.dev_loop[k], self.test_loop[k]]).squeeze(1)
                     for k in self.train_data.keys()}
         for k in self.train_data.keys():
-            assert np.array_equal(all_loop[k], loop_data[k][:all_loop[k].shape[0]]), \
+            assert np.array_equal(all_loop[k], self.loop_data[k][:all_loop[k].shape[0]]), \
                 f'Reshaped data {k} is not equal to truncated original data'
         plot.plot_traj(all_loop, figname=os.path.join(self.savedir, f'{system}_open.png'))
         plt.close('all')
 
         for dset in self.train_data, self.dev_data, self.test_data, self.train_loop, self.dev_loop, self.test_loop:
             for k, v in dset.items():
-                dset[k] = torch.tensor(v, dtype=torch.float32).to(device)
+                dset[k] = torch.tensor(v, dtype=torch.float32).to(self.device)
+    #             TODO: this is not visitbe from outside
+
+    # def add_sequences(self, sequences):
+    #     for k, v in sequences.items():
+    #         assert v.shape[0] == self.data['Y'].shape[0]
+    #     self.data = {**self.data, **sequences}
+
+    def add_sequences(self, sequences, norm=[]):
+        for k, v in sequences.items():
+            assert v.shape[0] == self.data['Y'].shape[0]
+        for k in norm:
+            self.norm.append(k)
+        sequences = self.norm_data(sequences, norm)
+        self.data = {**self.data, **sequences}
 
     def load_data(self):
         assert self.system is None and len(self.sequences) > 0, \
@@ -289,4 +314,10 @@ if __name__ == '__main__':
         elif data_type == 'datafile':
             dataset = FileDataset(system)
 
+    # testing adding sequences
+    nsim, ny = dataset.data['Y'].shape
+    new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
+    dataset.add_sequences(new_sequences, norm=['Ymax', 'Ymin'])
+    dataset.make_nstep()
+    dataset.make_loop()
 

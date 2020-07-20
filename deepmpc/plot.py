@@ -182,7 +182,10 @@ def pltInfoMeasures(X, figname=None):
 
 def plot_traj(data, figname=None):
     """
-    plot input output closed loop dataset
+
+    :param data: dictionary
+    :param figname: string
+    :return:
     """
     plot_setup = [(notation, array) for
                   notation, array in data.items()]

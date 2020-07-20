@@ -50,7 +50,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=100)
+    opt_group.add_argument('-epochs', type=int, default=1000)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
@@ -75,13 +75,13 @@ def parse_args():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
-                             default='blackbox')
+                             default='hw')
     model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
-                             default='softSVD')
+                             default='pf')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
                              choices=['mlp', 'rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
@@ -89,7 +89,7 @@ def parse_args():
     ##################
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
-    weight_group.add_argument('-Q_con_x', type=float,  default=0.2, help='Hidden state constraints penalty weight.')
+    weight_group.add_argument('-Q_con_x', type=float,  default=1.0, help='Hidden state constraints penalty weight.')
     weight_group.add_argument('-Q_dx', type=float,  default=0.0,
                               help='Penalty weight on hidden state difference in one time step.')
     weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
@@ -115,6 +115,7 @@ def parse_args():
     return parser.parse_args()
 
 
+# TODO: add default Open and Closed loop visualizers to visuals.py
 class VisualizerOpen(Visualizer):
 
     def __init__(self, dataset, model, verbosity):
@@ -150,26 +151,35 @@ class VisualizerOpen(Visualizer):
         return dict()
 
 
-if __name__ == '__main__':
-    ###############################
-    ########## LOGGING ############
-    ###############################
-    args = parse_args()
+def logging(args):
     if args.logger == 'mlflow':
-        logger = logger.MLFlowLogger(args, args.savedir, args.verbosity)
+        Logger = logger.MLFlowLogger(args, args.savedir, args.verbosity)
     else:
-        logger = logger.BasicLogger(savedir=args.savedir, verbosity=args.verbosity)
+        Logger = logger.BasicLogger(savedir=args.savedir, verbosity=args.verbosity)
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
+    return Logger, device
 
-    ###############################
-    ########## DATA ###############
-    ###############################
+def dataset_load(args):
     if args.system_data == 'emulator':
         dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     else:
         dataset = FileDataset(system=args.system, nsim=args.nsim,
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
+    return dataset
+
+
+if __name__ == '__main__':
+    ###############################
+    ########## LOGGING ############
+    ###############################
+    args = parse_args()
+    logger, device = logging(args)
+
+    ###############################
+    ########## DATA ###############
+    ###############################
+    dataset = dataset_load(args)
 
     ##########################################
     ########## PROBLEM COMPONENTS ############
@@ -206,11 +216,12 @@ if __name__ == '__main__':
                                                                                    name='estim')
 
     components = [estimator, dynamics_model]
+
     # component variables
     input_keys = set.union(*[comp.input_keys for comp in components])
     output_keys = set.union(*[comp.output_keys for comp in components])
-    plot_keys = {'Yf', 'Y_pred', 'X_pred', 'Uf', 'Df'}   # variables to be plotted
-    # plot_keys = {'Yf', 'Y_pred', 'X_pred', 'Uf', 'Df', 'x0', 'dynamics_reg_error', 'estim_reg_error'}   # variables to be plotted
+    plot_keys = {'Yf', 'Y_pred', 'X_pred', 'fU_pred', 'fD_pred'}   # variables to be plotted
+    # plot_keys = {'Yf', 'Y_pred', 'X_pred', 'fU_pred', 'fD_pred', 'Uf', 'Df', 'x0', 'dynamics_reg_error', 'estim_reg_error'}   # variables to be plotted
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
@@ -241,6 +252,7 @@ if __name__ == '__main__':
                                             weight=args.Q_con_fdu)
         constraints.append(disturbances_max_influence_lb)
         constraints.append(disturbances_max_influence_ub)
+    #     TODO: add smootheninc constraints on fD, fU, check magnutudes of simulation models
 
     ##########################################
     ########## OPTIMIZE SOLUTION ############

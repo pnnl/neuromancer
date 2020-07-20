@@ -69,16 +69,25 @@ class Trainer:
                                    ['train', 'dev', 'test']):
                 all_output = {**all_output, **self.model(dset)}
 
+            # TODO: should we create standalone simulator class for OL and CL?
+            # TODO: keep only train response in trainer?
+
             ########################################
             ########## OPEN LOOP RESPONSE ##########
             ########################################
             for data, dname in zip([self.dataset.train_loop, self.dataset.dev_loop, self.dataset.test_loop],
                                    ['train', 'dev', 'test']):
                 all_output = {**all_output, **self.model(data)}
+
+            ########################################
+            ########## CLOSED LOOP RESPONSE ########
+            ########################################
+        #     TODO: simulate closed loop with emulators or trained model
+
+        self.all_output = all_output
         self.logger.log_metrics({f'best_{k}': v for k, v in all_output.items()})
-        # TODO: error if data are NaN
-        plots = self.visualizer.eval(all_output)
         #  TODO: add inputs to visualizer
+        plots = self.visualizer.eval(all_output)
         self.logger.log_artifacts(plots)
 
 

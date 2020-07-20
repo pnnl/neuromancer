@@ -31,6 +31,7 @@ import torch
 from dataset import EmulatorDataset, FileDataset
 import dynamics
 import estimators
+import emulators
 import linear
 import blocks
 import logger
@@ -75,13 +76,15 @@ def parse_args():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
-                             default='hw')
-    model_group.add_argument('-nx_hidden', type=int, default=5, help='Number of hidden states per output')
+                             default='blocknlin')
+    model_group.add_argument('-nx_hidden', type=int, default=10, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='pf')
+    # TODO: pf seems to work properly only with blackbox and blocknlin
+    # when used with linear transform it generates unstable state trajectoruies - maybe there is a transpose somewhere
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
                              choices=['mlp', 'rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
@@ -264,4 +267,6 @@ if __name__ == '__main__':
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer, epochs=args.epochs)
     best_model = trainer.train()
     trainer.evaluate(best_model)
+    # TODO: add simulator class for dynamical models? - evaluates open and closed loop
+    # simulator = Simulator(best_model, dataset, emulator=emulators.systems[args.system], logger=logger, visualizer=visualizer)
     logger.clean_up()

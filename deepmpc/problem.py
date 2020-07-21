@@ -59,6 +59,7 @@ class Problem(nn.Module):
         for constraint in self.constraints:
             loss += constraint(variables)
         return loss
+    # TODO: beak down the loss to individual components for tracking
 
     def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
 

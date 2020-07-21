@@ -172,15 +172,36 @@ if __name__ == '__main__':
                  'mlp': blocks.MLP,
                  'rnn': blocks.RNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
-    # state space model setup
-    dynamics_model = {'blackbox': dynamics.blackbox,
+    # state space model setup for control
+    dynamics_model_ctrl = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
                       'hw': dynamics.hw}[args.ssm_type](args.bias, linmap_model, nonlinmap, nx, nu, nd, ny,
-                                                        n_layers=args.n_layers, input_keys={'x0', 'Yf'}, name='dynamics')
-    # TODO: need to create new variable Yp_ctrl as estimator input key - dynamically updated based on Yf
-    # state estimator setup
-    estimator = {'linear': estimators.LinearEstimator,
+                                                        n_layers=args.n_layers, input_keys={'x0_ctrl', 'Yf'}, name='dynamics_ctrl')
+    # state space model setup for adaptive system id
+    dynamics_model_id = {'blackbox': dynamics.blackbox,
+                      'blocknlin': dynamics.blocknlin,
+                      'hammerstein': dynamics.hammerstein,
+                      'hw': dynamics.hw}[args.ssm_type](args.bias, linmap_model, nonlinmap, nx, nu, nd, ny,
+                                                        n_layers=args.n_layers, input_keys={'x0_estim', 'Yf'}, name='dynamics_id')
+    # TODO: need to create new variable Yp_ctrl - dynamically updated based on Yf
+    # TODO: need to adjust output keys to pair with x0_ctrl and x0_estim
+    # state estimator setup for control model
+    estimator_ctrl = {'linear': estimators.LinearEstimator,
+                 'mlp': estimators.MLPEstimator,
+                 'rnn': estimators.RNNEstimator,
+                 'residual_mlp': estimators.ResMLPEstimator
+                 }[args.state_estimator]({**dataset.dims, 'X': nx},
+                   nsteps=args.nsteps,
+                   bias=args.bias,
+                   Linear=linmap_model,
+                   nonlin=F.gelu,
+                   hsizes=[nx]*args.n_layers,
+                   input_keys={'Yp_ctrl'},
+                   linargs=dict(),
+                   name='estim')
+    # state estimator setup for system id model
+    estimator_id = {'linear': estimators.LinearEstimator,
                  'mlp': estimators.MLPEstimator,
                  'rnn': estimators.RNNEstimator,
                  'residual_mlp': estimators.ResMLPEstimator
@@ -194,15 +215,17 @@ if __name__ == '__main__':
                    linargs=dict(),
                    name='estim')
 
+    # TODO: setup sharing parameters bewteen ctrl and id models
+    # TODO: should we create adaptive versions of dynamics? and estimator? both with two instances?
+
     # # TODO: FIX load model params
     # # https: // stackoverflow.com / questions / 8804830 / python - multiprocessing - picklingerror - cant - pickle - type - function
     # system_id_problem = torch.load(args.system_id)
     # estimator = system_id_problem.components[0]
     # dynamics_model = system_id_problem.components[1]
 
-    # don't update learned model parameters
-    dynamics_model.requires_grad_(False)
-    estimator.requires_grad_(False)
+    # TODO: implement update only subset of model parameters
+    # TODO: OR append error models to base dynamics classes - parametric and additive error terms
 
     nh_policy = args.n_hidden
     dataset_keys = set(dataset.dev_data.keys())
@@ -222,7 +245,7 @@ if __name__ == '__main__':
                linargs=dict(),
                name='policy')
 
-    components = [estimator, policy, dynamics_model]
+    components = [estimator_id, dynamics_model_id, estimator_ctrl, policy, dynamics_model_ctrl]
 
     # component variables
     # TODO: create custom definition of I/O keys for flexible modeling?
@@ -257,7 +280,7 @@ if __name__ == '__main__':
     ##########################################
     model = Problem(objectives, constraints, components).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    visualizer = VisualizerTrajectories(dataset, dynamics_model, plot_keys, args.verbosity)
+    visualizer = VisualizerTrajectories(dataset, dynamics_model_ctrl, plot_keys, args.verbosity)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer, epochs=args.epochs)
     best_model = trainer.train()
     trainer.evaluate(best_model)

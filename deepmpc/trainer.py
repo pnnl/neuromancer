@@ -39,21 +39,30 @@ class Trainer:
             output['nstep_train_loss'].backward()
             self.optimizer.step()
 
+            # TODO: HACK
+            # TODO: create eval dataset method linked with the dataset
             with torch.no_grad():
                 self.model.eval()
                 dev_nstep_output = self.model(self.dataset.dev_data)
-                dev_loop_output = self.model(self.dataset.dev_loop)
-                self.logger.log_metrics({**dev_nstep_output, **dev_loop_output, **output}, step=i)
+                if self.dataset.type == 'openloop':
+                    dev_loop_output = self.model(self.dataset.dev_loop)
+                    self.logger.log_metrics({**dev_nstep_output, **dev_loop_output, **output}, step=i)
+                elif self.dataset.type == 'closedloop':
+                # # TODO: placeholder
+                    dev_loop_output = {'loop_dev_loss': 0}
+                    self.logger.log_metrics({**dev_nstep_output,  **output}, step=i)
                 if dev_loop_output['loop_dev_loss'] < best_looploss:
                     best_model = deepcopy(self.model.state_dict())
                     best_looploss = dev_loop_output['loop_dev_loss']
                 self.visualizer.train_plot({**dev_nstep_output, **dev_loop_output}, i)
-        #   TODO: add inputs to visualizer
-        #   TODO: add loss function to visualizer
 
+        #   TODO: plot loss function via visualizer
         plots = self.visualizer.train_output()
-        self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, 'best_model.pth': self.model, **plots})
+        self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, **plots})
 
+        # TODO: _pickle.PicklingError: Can't pickle <function <lambda>
+        # self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, 'best_model.pth': self.model, **plots})
+        # https: // stackoverflow.com / questions / 8804830 / python - multiprocessing - picklingerror - cant - pickle - type - function
         return best_model
 
     def evaluate(self, best_model):
@@ -69,24 +78,25 @@ class Trainer:
                                    ['train', 'dev', 'test']):
                 all_output = {**all_output, **self.model(dset)}
 
-            # TODO: should we create standalone simulator class for OL and CL?
-            # TODO: keep only train response in trainer?
-
+            # TODO: keep only nstep train response in trainer?
+            # TODO: should we create standalone simulator class for OL and CL responses?
             ########################################
             ########## OPEN LOOP RESPONSE ##########
             ########################################
-            for data, dname in zip([self.dataset.train_loop, self.dataset.dev_loop, self.dataset.test_loop],
-                                   ['train', 'dev', 'test']):
-                all_output = {**all_output, **self.model(data)}
+            if self.dataset.type == 'openloop':
+                for data, dname in zip([self.dataset.train_loop, self.dataset.dev_loop, self.dataset.test_loop],
+                                       ['train', 'dev', 'test']):
+                    all_output = {**all_output, **self.model(data)}
 
             ########################################
             ########## CLOSED LOOP RESPONSE ########
             ########################################
-        #     TODO: simulate closed loop with emulators or trained model
+            elif self.dataset.type == 'closedloop':
+                pass
+                #  TODO: simulate closed loop with emulators or trained model
 
         self.all_output = all_output
         self.logger.log_metrics({f'best_{k}': v for k, v in all_output.items()})
-        #  TODO: add inputs to visualizer
         plots = self.visualizer.eval(all_output)
         self.logger.log_artifacts(plots)
 

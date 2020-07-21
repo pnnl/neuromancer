@@ -46,7 +46,7 @@ class Policy(nn.Module):
         self.input_size = self.nx + nsteps * self.sequence_dims_sum
         self.output_size = nsteps * self.nu
         self.input_keys = set(input_keys)
-        self.output_keys = {'Uf', f'{self.name}_reg_error'}
+        self.output_keys = {'U_pred', f'{self.name}_reg_error'}
 
     def reg_error(self):
         """
@@ -68,7 +68,7 @@ class Policy(nn.Module):
             features = torch.cat([features, new_feat], dim=1)
         Uf = self.net(features)
         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
-        return {'Uf': Uf, f'{self.name}_reg_error': self.net.reg_error()}
+        return {'U_pred': Uf, f'{self.name}_reg_error': self.net.reg_error()}
 
 
 class LinearPolicy(Policy):
@@ -141,7 +141,7 @@ class RNNPolicy(Policy):
         features = torch.cat([features, x_feats], dim=2)
         Uf = self.net(features)
         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
-        return {'Uf': Uf, f'{self.name}_reg_error': self.net.reg_error()}
+        return {'U_pred': Uf, f'{self.name}_reg_error': self.net.reg_error()}
 
 
 # similar structure to Linear Kalman Filter
@@ -167,4 +167,4 @@ if __name__ == '__main__':
         p = pol(data_dims, nsteps=10, input_keys={'x0', 'D', 'R'})
         print(p.name)
         p_out = p(data)
-        print(p_out['Uf'].shape, p_out[f'{p.name}_reg_error'].shape)
+        print(p_out['U_pred'].shape, p_out[f'{p.name}_reg_error'].shape)

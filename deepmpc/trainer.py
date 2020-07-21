@@ -5,7 +5,7 @@ import torch
 import numpy as np
 from logger import BasicLogger
 from visuals import Visualizer
-from loops import Problem
+from problem import Problem
 from dataset import Dataset
 
 

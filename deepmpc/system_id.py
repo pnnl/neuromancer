@@ -31,7 +31,6 @@ import torch
 from dataset import EmulatorDataset, FileDataset
 import dynamics
 import estimators
-import emulators
 import linear
 import blocks
 import logger
@@ -39,10 +38,6 @@ from visuals import VisualizerOpen, VisualizerTrajectories
 from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
-import plot
-from dataset import unbatch_data
-import numpy as np
-import os
 
 
 def parse_args():
@@ -168,7 +163,9 @@ if __name__ == '__main__':
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
                       'hw': dynamics.hw}[args.ssm_type](args.bias, linmap, nonlinmap, nx, nu, nd, ny,
-                                                        n_layers=args.n_layers, input_keys={'x0', 'Yf'}, name='dynamics')
+                                                        n_layers=args.n_layers,
+                                                        input_keys=['Yf', 'x0', 'Uf', 'Df'],
+                                                        name='dynamics')
 
     # state estimator setup
     estimator = {'linear': estimators.LinearEstimator,
@@ -180,15 +177,16 @@ if __name__ == '__main__':
                                                                                    Linear=linmap,
                                                                                    nonlin=F.gelu,
                                                                                    hsizes=[nx]*args.n_layers,
-                                                                                   input_keys={'Yp'},
+                                                                                   input_keys=['Yp'],
+                                                                                   output_keys=['x0'],
                                                                                    linargs=dict(),
                                                                                    name='estim')
 
     components = [estimator, dynamics_model]
 
     # component variables
-    input_keys = set.union(*[comp.input_keys for comp in components])
-    output_keys = set.union(*[comp.output_keys for comp in components])
+    input_keys = set.union(*[set(comp.input_keys) for comp in components])
+    output_keys = set.union(*[set(comp.output_keys) for comp in components])
     plot_keys = {'Yf', 'Y_pred', 'X_pred', 'fU_pred', 'fD_pred'}   # variables to be plotted
 
     ##########################################

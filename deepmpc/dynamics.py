@@ -33,14 +33,15 @@ def get_modules(model):
 
 
 def check_keys(k1, k2):
-    assert k1 - k2 == set(), \
-        f'Missing values in dataset. Input_keys: {k1}, data_keys: {k2}'
+    assert set(k1) - set(k2) == set(), \
+        f'Missing values in dataset. Input_keys: {set(k1)}, data_keys: {set(k2)}'
 
 
 class BlockSSM(nn.Module):
     def __init__(self, nx, nu, nd, ny, fx, fy, fu=None, fd=None,
                  xou=torch.add, xod=torch.add, residual=False,
-                 input_keys={'Yf', 'x0'}, name='block_ssm'):
+                 input_keys=['Yf', 'x0', 'Uf', 'Df'], output_keys=['X_pred', 'Y_pred', 'fU_pred', 'fD_pred'],
+                 name='block_ssm'):
         """
         atomic block state space model
         :param nx: (int) dimension of state
@@ -53,6 +54,8 @@ class BlockSSM(nn.Module):
         :param fy: function R^{nx} -> R^(ny}
         :param xou: Shape preserving binary operator (e.g. +, -, *)
         :param xod: Shape preserving binary operator (e.g. +, -, *)
+        :param input_keys: (list of str) input keys in expected order: Y, x0, U, D
+        :param output_keys: (list of str) output keys in expected order: X_pred, Y_pred, fU_pred, fD_pred
 
         generic structured system dynamics:   
         # x+ = fx(x) o fu(u) o fd(d)
@@ -64,8 +67,11 @@ class BlockSSM(nn.Module):
         assert fx.out_features == nx, "Mismatch in input function size"
         assert fy.in_features == nx, "Mismatch in observable output function size"
         assert fy.out_features == ny, "Mismatch in observable output function size"
-        self.input_keys = set(input_keys)
-        self.output_keys = {'X_pred', 'Y_pred', 'fU_pred', 'fD_pred', f'{self.name}_reg_error'}
+        assert 2 <= len(input_keys) <= 4, "Mismatch in number of input keys, requires at least 2 keys and at most 4 keys"
+        assert len(output_keys) == 4, "Mismatch in number of output keys, requires 4"
+        self.input_keys = input_keys
+        self.output_keys = output_keys
+        self.output_keys.append(f'{self.name}_reg_error')
         if fu is not None:
             assert fu.in_features == nu, "Mismatch in control input function size"
             assert fu.out_features == nx, "Mismatch in control input function size"
@@ -94,36 +100,35 @@ class BlockSSM(nn.Module):
         """
         """
         check_keys(self.input_keys, set(data.keys()))
-        nsteps = data['Yf'].shape[0]
+        nsteps = data[self.input_keys[0]].shape[0]
         X, Y, FD, FU = [], [], [], []
-        x = data['x0']
+        x = data[self.input_keys[1]]
         for i in range(nsteps):
             x_prev = x
             x = self.fx(x)
-            if 'U_pred' in data:
-                fu = self.fu(data['U_pred'][i])
+            if len(self.input_keys) > 2 and self.input_keys[2] in data:
+                fu = self.fu(data[self.input_keys[2]][i])
                 x = self.xou(x, fu)
-            elif 'Uf' in data:
-                fu = self.fu(data['Uf'][i])
-                x = self.xou(x, fu)
-            if 'Df' in data:
-                fd = self.fd(data['Df'][i])
+                FU.append(fu)
+            if len(self.input_keys) > 3 and self.input_keys[3] in data:
+                fd = self.fd(data[self.input_keys[3]][i])
                 x = x + self.xod(x, fd)
+                FD.append(fd)
             if self.residual:
                 x = x + x_prev
             y = self.fy(x)
             X.append(x)
             Y.append(y)
-            FU.append(fu)
-            FD.append(fd)
         self.reset()
-        return {'X_pred': torch.stack(X), 'Y_pred': torch.stack(Y),
-                'fU_pred': torch.stack(FU), 'fD_pred': torch.stack(FD),
-                f'{self.name}_reg_error': self.reg_error()}
+        return {self.output_keys[0]: torch.stack(X), self.output_keys[1]: torch.stack(Y),
+                       self.output_keys[4]: self.reg_error(),
+                       self.output_keys[2]: torch.stack(FU) if not not FU else None,
+                       self.output_keys[3]: torch.stack(FD) if not not FD else None}
 
 
 class BlackSSM(nn.Module):
-    def __init__(self, nx, nu, nd, ny, fxud, fy, input_keys={'Yf', 'x0'}, name='black_ssm'):
+    def __init__(self, nx, nu, nd, ny, fxud, fy, input_keys=['Yf', 'x0', 'Uf', 'Df'],
+                 output_keys=['X_pred', 'Y_pred'], name='black_ssm'):
         """
         atomic black box state space model
         :param nx: (int) dimension of state
@@ -132,6 +137,8 @@ class BlackSSM(nn.Module):
         :param ny: (int) dimension of observation
         :param fxud: function R^{nx+nu+nd} -> R^(nx}
         :param fy: function R^{nx} -> R^(ny}
+        :param input_keys: (list of str) input keys in expected order: Y, x0, U, D
+        :param output_keys: (list of str) output keys in expected order: X_pred, Y_pred
 
         generic unstructured system dynamics:
         # x+ = fxud(x,u,d)
@@ -143,8 +150,11 @@ class BlackSSM(nn.Module):
         assert fxud.out_features == nx, "Mismatch in input function size"
         assert fy.in_features == nx, "Mismatch in observable output function size"
         assert fy.out_features == ny, "Mismatch in observable output function size"
-        self.input_keys = set(input_keys)
-        self.output_keys = {'X_pred', 'Y_pred', f'{self.name}_reg_error'}
+        assert 2 <= len(input_keys) <= 4, "Mismatch in number of input keys, requires at least 2 keys and at most 4 keys"
+        assert len(output_keys) == 2, "Mismatch in number of output keys, requires 2"
+        self.input_keys = input_keys
+        self.output_keys = output_keys
+        self.output_keys.append(f'{self.name}_reg_error')
         self.nx, self.nu, self.nd, self.ny = nx, nu, nd, ny
         self.fxud, self.fy = fxud, fy
 
@@ -161,39 +171,38 @@ class BlackSSM(nn.Module):
         """
         """
         check_keys(self.input_keys, set(data.keys()))
-        nsamples = data['Yf'].shape[0]
+        nsteps = data[self.input_keys[0]].shape[0]
         X, Y = [], []
-        x = data['x0']
-        for i in range(nsamples):
+        x = data[self.input_keys[1]]
+        for i in range(nsteps):
             xi = x
-            if 'U_pred' in data:
-                u = data['U_pred'][i]
+            if len(self.input_keys) > 2 and self.input_keys[2] in data:
+                u = data[self.input_keys[2]][i]
                 xi = torch.cat([xi, u], dim=1)
-            elif 'Uf' in data:
-                u = data['Uf'][i]
-                xi = torch.cat([xi, u], dim=1)
-            if 'Df' in data:
-                d = data['Df'][i]
+            if len(self.input_keys) > 3 and self.input_keys[3] in data:
+                d = data[self.input_keys[3]][i]
                 xi = torch.cat([xi, d], dim=1)
             x = self.fxud(xi)
             y = self.fy(x)
             X.append(x)
             Y.append(y)
         self.reset()
-        return {'X_pred': torch.stack(X), 'Y_pred': torch.stack(Y), f'{self.name}_reg_error': self.reg_error()}
+        return {self.output_keys[0]: torch.stack(X), self.output_keys[1]: torch.stack(Y), self.output_keys[2]: self.reg_error()}
 
 
-def blackbox(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, input_keys={'x0', 'Yf'}, name='blackbox'):
+def blackbox(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2,
+             input_keys=['Yf', 'x0', 'Uf', 'Df'], output_keys=['X_pred', 'Y_pred'], name='blackbox'):
     """
     black box state space model for training
     """
     fxud = nonlinmap(nx + nu + nd, nx, hsizes=[nx]*n_layers,
                      bias=bias, Linear=linmap)
     fy = linmap(nx, ny, bias=bias)
-    return BlackSSM(nx, nu, nd, ny, fxud, fy, input_keys=input_keys, name=name)
+    return BlackSSM(nx, nu, nd, ny, fxud, fy, input_keys=input_keys, output_keys=output_keys, name=name)
 
 
-def blocknlin(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, input_keys={'x0', 'Yf'}, name='blocknlin'):
+def blocknlin(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2,
+              input_keys=['Yf', 'x0', 'Uf', 'Df'], output_keys=['X_pred', 'Y_pred', 'fU_pred', 'fD_pred'], name='blocknlin'):
     """
     block nonlinear state space model for training
     """
@@ -201,10 +210,11 @@ def blocknlin(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, input_keys={'
     fy = linmap(nx, ny, bias=bias)
     fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nu != 0 else None
     fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nd != 0 else None
-    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, input_keys=input_keys, name=name)
+    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, input_keys=input_keys, output_keys=output_keys, name=name)
 
 
-def hammerstein(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, input_keys={'x0', 'Yf'}, name='hammerstein'):
+def hammerstein(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2,
+                input_keys=['Yf', 'x0', 'Uf', 'Df'], output_keys=['X_pred', 'Y_pred', 'fU_pred', 'fD_pred'], name='hammerstein'):
     """
     hammerstein state space model for training
     """
@@ -212,10 +222,11 @@ def hammerstein(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, input_keys=
     fy = linmap(nx, ny, bias=bias)
     fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nu != 0 else None
     fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nd != 0 else None
-    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, input_keys=input_keys, name=name)
+    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, input_keys=input_keys, output_keys=output_keys, name=name)
 
 
-def hw(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, input_keys={'x0', 'Yf'}, name='hw'):
+def hw(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2,
+       input_keys=['Yf', 'x0', 'Uf', 'Df'], output_keys=['X_pred', 'Y_pred', 'fU_pred', 'fD_pred'], name='hw'):
     """
     hammerstein-weiner state space model for training
     """
@@ -223,7 +234,7 @@ def hw(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2, input_keys={'x0', 'Y
     fy = nonlinmap(nx, ny, bias=bias, hsizes=[nx]*n_layers, Linear=linmap)
     fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nu != 0 else None
     fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linear.Linear) if nd != 0 else None
-    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, input_keys=input_keys, name=name)
+    return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, input_keys=input_keys, output_keys=output_keys, name=name)
 
 
 ssm_models_atoms = [BlockSSM, BlackSSM]
@@ -242,16 +253,24 @@ if __name__ == '__main__':
     # block SSM
     fx, fu, fd = [blocks.MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx, nu, nd]]
     fy = blocks.MLP(nx, ny, hsizes=[64, 64, 64])
+    model = BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd,
+                     input_keys=['Yf', 'x0', 'Uf', 'Df'], output_keys=['X_pred', 'Y_pred', 'fU_pred', 'fD_pred'])
     model = BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd)
     output = model(data)
     # black box SSM
     fxud = blocks.MLP(nx+nu+nd, nx, hsizes=[64, 64, 64])
     fy = linear.Linear(nx, ny)
-    model = BlackSSM(nx, nu, nd, ny, fxud, fy)
+    model = BlackSSM(nx, nu, nd, ny, fxud, fy,
+                     input_keys=['Yf', 'x0', 'Uf', 'Df'], output_keys=['X_pred', 'Y_pred'])
+    # model = BlackSSM(nx, nu, nd, ny, fxud, fy)
     output = model(data)
     fxud = blocks.RNN(nx + nu + nd, nx, hsizes=[64, 64, 64])
-    model = BlackSSM(nx, nu, nd, ny, fxud, fy)
+    model = BlackSSM(nx, nu, nd, ny, fxud, fy,
+                     input_keys=['Yf', 'x0', 'Uf', 'Df'], output_keys=['X_pred', 'Y_pred'])
     output = model(data)
+#     TODO: error when called model class twice without specifying I/O keys
+#      AssertionError: Mismatch in number of output keys, requires 2
+
 
 #
 # def hammerstein_bilinearfu(args, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2):

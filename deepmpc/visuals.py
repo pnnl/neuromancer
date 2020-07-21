@@ -63,7 +63,7 @@ class VisualizerTrajectories(Visualizer):
         self.model = model
         self.dataset = dataset
         self.verbosity = verbosity
-        self.plot_keys = plot_keys.intersection(set.union(*[model.input_keys, model.output_keys]))
+        self.plot_keys = plot_keys.intersection(set.union(*[set(model.input_keys), set(model.output_keys)]))
 
         # if epoch % self.verbosity == 0:
         #     data = {k: v.squeeze().detach().cpu().numpy()

@@ -44,12 +44,11 @@ class FullyObservable(nn.Module):
 
 
 def check_keys(k1, k2):
-    assert k1 - k2 == set(), \
-        f'Missing values in dataset. Input_keys: {k1}, data_keys: {k2}'
-
+    assert set(k1) - set(k2) == set(), \
+        f'Missing values in dataset. Input_keys: {set(k1)}, data_keys: {set(k2)}'
 
 class Estimator(nn.Module):
-    def __init__(self, data_dims, nsteps=1, input_keys={'Yp'}, name='estimator'):
+    def __init__(self, data_dims, nsteps=1, input_keys=['Yp'], output_keys=['x0'], name='estimator'):
         super().__init__()
         check_keys(set(input_keys), set(data_dims.keys()))
         self.name = name
@@ -61,8 +60,9 @@ class Estimator(nn.Module):
 
         self.input_size = self.sequence_dims_sum
         self.output_size = self.nx
-        self.input_keys = set(input_keys)
-        self.output_keys = {'x0', f'{self.name}_reg_error'}
+        self.input_keys = input_keys
+        output_keys.append(f'{self.name}_reg_error')
+        self.output_keys = output_keys
 
     def reg_error(self):
         return self.net.reg_error()
@@ -74,16 +74,18 @@ class Estimator(nn.Module):
         :return:
         """
         check_keys(self.input_keys, set(data.keys()))
-        # TODO: double check the use of [-1]
+        # TODO: extend the use of [-1] for full trajectory estimators
         # we want to map the past trajectory of all variables to the initial state
         # not only the last state
         features = torch.cat([data[k][-1] for k in self.input_keys], dim=1)
-        return {'x0': self.net(features), f'{self.name}_reg_error': self.net.reg_error()}
+        return {self.output_keys[0]: self.net(features), self.output_keys[1]: self.net.reg_error()}
+        # return {'x0': self.net(features), f'{self.name}_reg_error': self.net.reg_error()}
 
 
 class LinearEstimator(Estimator):
     def __init__(self, data_dims, nsteps=1, bias=False,
-                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], input_keys={'Yp'},
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64],
+                 input_keys=['Yp'], output_keys=['x0'],
                  linargs=dict(), name='linear_estim'):
         """
 
@@ -97,7 +99,8 @@ class LinearEstimator(Estimator):
         :param linargs:
         :param name:
         """
-        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys,
+                         output_keys=output_keys, name=name)
         self.net = Linear(self.input_size, self.output_size, bias=bias, **linargs)
 
 
@@ -106,7 +109,8 @@ class MLPEstimator(Estimator):
 
     """
     def __init__(self, data_dims, nsteps=1, bias=False,
-                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], input_keys={'Yp'},
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64],
+                 input_keys=['Yp'], output_keys=['x0'],
                  linargs=dict(), name='MLP_estim'):
         """
 
@@ -120,7 +124,8 @@ class MLPEstimator(Estimator):
         :param linargs:
         :param name:
         """
-        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys,
+                         output_keys=output_keys, name=name)
         self.net = blocks.MLP(self.input_size, self.output_size, bias=bias,
                               Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
@@ -130,19 +135,22 @@ class ResMLPEstimator(Estimator):
 
     """
     def __init__(self, data_dims, nsteps=1, bias=False,
-                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], input_keys={'Yp'},
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64],
+                 input_keys=['Yp'], output_keys=['x0'],
                  linargs=dict(), name='ResMLP_estim'):
         """
 
         """
-        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys,
+                         output_keys=output_keys, name=name)
         self.net = blocks.ResMLP(self.input_size, self.output_size, bias=bias,
                                  Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
 class RNNEstimator(Estimator):
     def __init__(self, data_dims, nsteps=1, bias=False,
-                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], input_keys={'Yp'},
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64],
+                 input_keys=['Yp'], output_keys=['x0'],
                  linargs=dict(), name='RNN_estim'):
         """
 
@@ -156,7 +164,8 @@ class RNNEstimator(Estimator):
         :param linargs:
         :param name:
         """
-        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys,
+                         output_keys=output_keys, name=name)
         self.input_size = self.sequence_dims_sum
         self.net = blocks.RNN(self.input_size, self.output_size, hsizes=hsizes,
                               bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)
@@ -166,9 +175,10 @@ class RNNEstimator(Estimator):
 
     def forward(self, data):
         features = torch.cat([data[k] for k in self.input_keys], dim=2)
-        return {'x0': self.net(features), f'{self.name}_reg_error': self.reg_error()}
+        # return {'x0': self.net(features), f'{self.name}_reg_error': self.reg_error()}
+        return {self.output_keys[0]: self.net(features), self.output_keys[1]: self.net.reg_error()}
 
-
+# TODO: KF needs update
 class LinearKalmanFilter(nn.Module):
     """
     Time-Varying Linear Kalman Filter
@@ -242,16 +252,18 @@ if __name__ == '__main__':
     D = torch.rand(N, samples, nd)
     data = {'Yp': Y, 'Up': U, 'Dp': D}
     data_dims = {'X': nx, 'Yp': ny, 'Up': nu, 'Dp': nd}
-    input_keys = {'Yp'}
+    input_keys = ['Yp']
+    output_keys = ['x0']
+
     for bias in [True, False]:
         for est in estimators:
-            e = est(data_dims, nsteps=N, input_keys=input_keys)
+            e = est(data_dims, nsteps=N, input_keys=input_keys, output_keys=output_keys)
             e_out = e(data)
             for k, v in e_out.items():
                 print(f'{k}: {v.shape}')
             for lin in set(linear.maps.values()) - linear.square_maps:
                 print(lin)
-                e = est(data_dims, nsteps=N, input_keys=input_keys, bias=bias, Linear=lin)
+                e = est(data_dims, nsteps=N, input_keys=input_keys, output_keys=output_keys, bias=bias, Linear=lin)
                 e_out = e(data)
                 for k, v in e_out.items():
                     print(f'{k}: {v.shape}')

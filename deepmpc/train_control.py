@@ -30,8 +30,6 @@ from visuals import Visualizer, VisualizerTrajectories
 from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
-import plot
-from dataset import unbatch_data
 import numpy as np
 
 
@@ -177,7 +175,8 @@ if __name__ == '__main__':
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
                       'hw': dynamics.hw}[args.ssm_type](args.bias, linmap_model, nonlinmap, nx, nu, nd, ny,
-                                                        n_layers=args.n_layers, input_keys={'x0', 'Yf'}, name='dynamics')
+                                                        n_layers=args.n_layers,
+                                                        input_keys=['Yf', 'x0', 'Uf', 'Df'], name='dynamics')
     # TODO: need to create new variable Yp_ctrl as estimator input key - dynamically updated based on Yf
     # state estimator setup
     estimator = {'linear': estimators.LinearEstimator,
@@ -190,7 +189,8 @@ if __name__ == '__main__':
                    Linear=linmap_model,
                    nonlin=F.gelu,
                    hsizes=[nx]*args.n_layers,
-                   input_keys={'Yp'},
+                   input_keys=['Yp'],
+                   output_keys=['x0'],
                    linargs=dict(),
                    name='estim')
 
@@ -218,7 +218,8 @@ if __name__ == '__main__':
                Linear=linmap,
                nonlin=F.gelu,
                hsizes=[nh_policy] * args.n_layers,
-               input_keys=set(args.policy_features),
+               input_keys=args.policy_features,
+               output_keys=['U_pred'],
                linargs=dict(),
                name='policy')
 
@@ -229,8 +230,8 @@ if __name__ == '__main__':
     # TODO: useful for models with more complicated components
     # TODO OBJECTIVE: able to define custom acyclic graph with custom binding variables
     # TODO: acyclic graph definition as adjacency matrix over union of I/O keys
-    input_keys = set.union(*[comp.input_keys for comp in components])
-    output_keys = set.union(*[comp.output_keys for comp in components])
+    input_keys = set.union(*[set(comp.input_keys) for comp in components])
+    output_keys = set.union(*[set(comp.output_keys) for comp in components])
     plot_keys = {'Y_pred', 'X_pred', 'U_pred'}  # variables to be plotted
 
     ##########################################

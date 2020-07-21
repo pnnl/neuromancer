@@ -83,11 +83,11 @@ class DataDict(dict):
     """
     pass
 
-
+# TODO: not sure about adding type attribute
 class Dataset:
 
-    def __init__(self, system=None, nsim=None, norm=['Y'], batch_type='mh',
-                 nsteps=32, device='cpu', sequences=dict(),
+    def __init__(self, system=None, nsim=None, norm=['Y'], batch_type='batch',
+                 nsteps=32, device='cpu', sequences=dict(), type='openloop',
                  savedir='test'):
         """
 
@@ -98,8 +98,10 @@ class Dataset:
         :param nsteps: (int) N-step prediction horizon for batching data
         :param device: (str) String identifier of device to place data on, e.g. 'cpu', 'cuda:0'
         :param sequences: (dict str: np.array) Dictionary of supplemental data
+        :param type: (str) String identifier of dataset type, must be ['static', 'openloop', 'closedloop']
         """
         print(system)
+        self.type = type
         self.savedir = savedir
         self.system, self.nsim, self.norm, self.nsteps, self.device = system, nsim, norm, nsteps, device
         self.batch_type = batch_type
@@ -111,6 +113,8 @@ class Dataset:
         self.data = self.norm_data(self.data, self.norm)
         self.make_nstep()
         self.make_loop()
+
+    # TODO: create eval method for performance assesment in trainer
 
     def norm_data(self, data, norm):
         for k, v in data.items():
@@ -135,7 +139,7 @@ class Dataset:
                 self.nstep_data[k + 'p'] = batch_data(self.loop_data[k + 'p'], self.nsteps)
                 self.nstep_data[k + 'f'] = batch_data(self.loop_data[k + 'f'], self.nsteps)
             self.data[k] = v
-        plot.plot_traj(self.data, figname=os.path.join(self.savedir, f'{system}.png'))
+        plot.plot_traj(self.data, figname=os.path.join(self.savedir, f'{self.system}.png'))
         self.train_data, self.dev_data, self.test_data = self.split_train_test_dev(self.nstep_data)
 
     def make_loop(self):
@@ -154,7 +158,7 @@ class Dataset:
         for k in self.train_data.keys():
             assert np.array_equal(all_loop[k], self.loop_data[k][:all_loop[k].shape[0]]), \
                 f'Reshaped data {k} is not equal to truncated original data'
-        plot.plot_traj(all_loop, figname=os.path.join(self.savedir, f'{system}_open.png'))
+        plot.plot_traj(all_loop, figname=os.path.join(self.savedir, f'{self.system}_open.png'))
         plt.close('all')
 
         for dset in self.train_data, self.dev_data, self.test_data, self.train_loop, self.dev_loop, self.test_loop:

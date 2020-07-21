@@ -100,7 +100,10 @@ class BlockSSM(nn.Module):
         for i in range(nsteps):
             x_prev = x
             x = self.fx(x)
-            if 'Uf' in data:
+            if 'U_pred' in data:
+                fu = self.fu(data['U_pred'][i])
+                x = self.xou(x, fu)
+            elif 'Uf' in data:
                 fu = self.fu(data['Uf'][i])
                 x = self.xou(x, fu)
             if 'Df' in data:
@@ -163,7 +166,10 @@ class BlackSSM(nn.Module):
         x = data['x0']
         for i in range(nsamples):
             xi = x
-            if 'Uf' in data:
+            if 'U_pred' in data:
+                u = data['U_pred'][i]
+                xi = torch.cat([xi, u], dim=1)
+            elif 'Uf' in data:
                 u = data['Uf'][i]
                 xi = torch.cat([xi, u], dim=1)
             if 'Df' in data:

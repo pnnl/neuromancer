@@ -35,7 +35,7 @@ import emulators
 import linear
 import blocks
 import logger
-from visuals import Visualizer, VisualizerTrajectories
+from visuals import VisualizerOpen, VisualizerTrajectories
 from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
@@ -51,7 +51,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=1000)
+    opt_group.add_argument('-epochs', type=int, default=100)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
@@ -72,6 +72,10 @@ def parse_args():
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
+    data_group.add_argument('-dataset_type', type=str, choices=['openloop', 'closedloop'],
+                            default='openloop',
+                            help='training type of the dataset')
+
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
@@ -114,41 +118,6 @@ def parse_args():
     log_group.add_argument('-logger', choices=['mlflow', 'stdout'], default='stdout',
                            help='Logging setup to use')
     return parser.parse_args()
-
-
-class VisualizerOpen(Visualizer):
-
-    def __init__(self, dataset, model, verbosity):
-        self.model = model
-        self.dataset = dataset
-        self.verbosity = verbosity
-        self.anime = plot.Animator(dataset.dev_loop['Yp'].detach().cpu().numpy(), model)
-
-    def train_plot(self, outputs, epoch):
-        if epoch % self.verbosity == 0:
-            self.anime(outputs['loop_dev_Y_pred'], outputs['loop_dev_Yf'])
-
-    def train_output(self):
-        self.anime.make_and_save(os.path.join(args.savedir, 'eigen_animation.mp4'))
-        return dict()
-
-    def eval(self, outputs):
-        dsets = ['train', 'dev', 'test']
-        Ypred = [unbatch_data(outputs[f'nstep_{dset}_Y_pred']).squeeze(1).detach().cpu().numpy() for dset in dsets]
-        Ytrue = [unbatch_data(outputs[f'nstep_{dset}_Yf']).squeeze(1).detach().cpu().numpy() for dset in dsets]
-        plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
-                   figname=os.path.join(args.savedir, 'nstep_OL.png'))
-
-        Ypred = [outputs[f'loop_{dset}_Y_pred'].squeeze(1).detach().cpu().numpy() for dset in dsets]
-        Ytrue = [outputs[f'loop_{dset}_Yf'].squeeze(1).detach().cpu().numpy() for dset in dsets]
-        plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
-                   figname=os.path.join(args.savedir, 'open_OL.png'))
-
-        plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0),
-                              np.concatenate(Ypred).transpose(1, 0),
-                              figname=os.path.join(args.savedir, f'open_movie.mp4'),
-                              freq=self.verbosity)
-        return dict()
 
 
 def logging(args):
@@ -257,7 +226,7 @@ if __name__ == '__main__':
     ##########################################
     model = Problem(objectives, constraints, components).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity)
+    visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity, args.savedir)
     # visualizer = VisualizerTrajectories(dataset, dynamics_model, plot_keys, args.verbosity)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer, epochs=args.epochs)
     best_model = trainer.train()

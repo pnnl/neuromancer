@@ -171,7 +171,7 @@ if __name__ == '__main__':
                      'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
                      'R': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
                      'Y_ctrl_': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0)}
-    dataset.add_sequences(new_sequences)
+    dataset.add_data(new_sequences)
     dataset.make_nstep()
     dataset.make_loop()
 
@@ -182,6 +182,7 @@ if __name__ == '__main__':
     nu = dataset.dims['U'] if 'U' in dataset.dims else 0
     nd = dataset.dims['D'] if 'D' in dataset.dims else 0
     ny = dataset.dims['Y']
+    dataset.add_variable({'x0': nx, 'U_pred': nu})
 
     # recreate dynamics components
     linmap_model = linear.maps[args.linear_map_model]
@@ -190,7 +191,7 @@ if __name__ == '__main__':
                  'rnn': blocks.RNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
     # state space model setup
-
+    # TODO: update dynamics model to be compiant with dataset.dims input just like estim and policy
     if args.ssm_type == 'blackbox':
         dyn_output_keys = ['X_pred', 'Y_pred']
     else:
@@ -198,7 +199,8 @@ if __name__ == '__main__':
     dynamics_model = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
-                      'hw': dynamics.hw}[args.ssm_type](args.bias, linmap_model, nonlinmap, nx, nu, nd, ny,
+                      'hw': dynamics.hw
+                      }[args.ssm_type](args.bias, linmap_model, nonlinmap, nx, nu, nd, ny,
                                                         n_layers=args.n_layers,
                                                         input_keys=['Yf', 'x0', 'U_pred', 'Df'],
                                                         output_keys=dyn_output_keys,
@@ -208,7 +210,7 @@ if __name__ == '__main__':
                  'mlp': estimators.MLPEstimator,
                  'rnn': estimators.RNNEstimator,
                  'residual_mlp': estimators.ResMLPEstimator
-                 }[args.state_estimator]({**dataset.dims, 'x0': nx},
+                 }[args.state_estimator](dataset.dims,
                    nsteps=args.nsteps,
                    bias=args.bias,
                    Linear=linmap_model,
@@ -230,7 +232,7 @@ if __name__ == '__main__':
     policy = {'linear': policies.LinearPolicy,
                  'mlp': policies.MLPPolicy,
                  'rnn': policies.RNNPolicy
-              }[args.policy]({**dataset.dims, 'x0': nx, 'U_pred': nu},
+              }[args.policy](dataset.dims,
                nsteps=args.nsteps,
                bias=args.bias,
                Linear=linmap,

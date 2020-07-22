@@ -240,6 +240,7 @@ def hw(bias, linmap, nonlinmap, nx, nu, nd, ny, n_layers=2,
     return BlockSSM(nx, nu, nd, ny, fx, fy, fu, fd, input_keys=input_keys, output_keys=output_keys, name=name)
 
 
+
 ssm_models_atoms = [BlockSSM, BlackSSM]
 ssm_models_train = [blackbox, hammerstein, hw, blocknlin]
 

@@ -2,7 +2,7 @@
 
 """
 import plot
-from dataset import unbatch_data
+from datasets import unbatch_data
 import os
 import numpy as np
 

@@ -37,7 +37,7 @@ More detailed description of options in the parse_args()
 # matplotlib.use("Agg")
 import argparse
 import torch
-from dataset import EmulatorDataset, FileDataset
+from datasets import EmulatorDataset, FileDataset
 import dynamics
 import estimators
 import emulators

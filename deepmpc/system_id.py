@@ -28,7 +28,7 @@ More detailed description of options in the parse_args()
 # matplotlib.use("Agg")
 import argparse
 import torch
-from dataset import EmulatorDataset, FileDataset
+from datasets import EmulatorDataset, FileDataset
 import dynamics
 import estimators
 import linear
@@ -81,7 +81,7 @@ def parse_args():
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
-                             default='pf')
+                             default='softSVD')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
                              choices=['mlp', 'rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')

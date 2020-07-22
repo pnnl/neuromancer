@@ -6,7 +6,7 @@ import numpy as np
 from logger import BasicLogger
 from visuals import Visualizer
 from problem import Problem
-from dataset import Dataset
+from datasets import Dataset
 
 
 def reset(module):

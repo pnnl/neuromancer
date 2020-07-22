@@ -173,7 +173,7 @@ if __name__ == '__main__':
                      'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
                      'R': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
                      'Y_ctrl_': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0)}
-    dataset.add_sequences(new_sequences)
+    dataset.add_data(new_sequences)
     dataset.make_nstep()
     dataset.make_loop()
 
@@ -184,6 +184,8 @@ if __name__ == '__main__':
     nu = dataset.dims['U'] if 'U' in dataset.dims else 0
     nd = dataset.dims['D'] if 'D' in dataset.dims else 0
     ny = dataset.dims['Y']
+    dataset.add_variable({'x0_ctrl': nx, 'x0_id': nx, 'U_ctrl': nu})
+
     # recreate dynamics components
     linmap_model = linear.maps[args.linear_map_model]
     nonlinmap = {'linear': linmap_model,
@@ -222,7 +224,7 @@ if __name__ == '__main__':
                  'mlp': estimators.MLPEstimator,
                  'rnn': estimators.RNNEstimator,
                  'residual_mlp': estimators.ResMLPEstimator
-                 }[args.state_estimator]({**dataset.dims, 'x0_ctrl': nx},
+                 }[args.state_estimator](dataset.dims,
                    nsteps=args.nsteps,
                    bias=args.bias,
                    Linear=linmap_model,
@@ -237,7 +239,7 @@ if __name__ == '__main__':
                  'mlp': estimators.MLPEstimator,
                  'rnn': estimators.RNNEstimator,
                  'residual_mlp': estimators.ResMLPEstimator
-                 }[args.state_estimator]({**dataset.dims, 'x0_id': nx},
+                 }[args.state_estimator](dataset.dims,
                    nsteps=args.nsteps,
                    bias=args.bias,
                    Linear=linmap_model,
@@ -256,7 +258,7 @@ if __name__ == '__main__':
     policy = {'linear': policies.LinearPolicy,
                  'mlp': policies.MLPPolicy,
                  'rnn': policies.RNNPolicy
-              }[args.policy]({**dataset.dims, 'x0_ctrl': nx, 'U_ctrl': nu},
+              }[args.policy](dataset.dims,
                nsteps=args.nsteps,
                bias=args.bias,
                Linear=linmap,

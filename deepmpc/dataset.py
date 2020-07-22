@@ -11,6 +11,7 @@ import torch
 import plot
 import emulators
 import matplotlib.pyplot as plt
+from typing import Dict, List, Callable
 
 
 def min_max_denorm(M, Mmin, Mmax):
@@ -106,7 +107,7 @@ class Dataset:
         self.system, self.nsim, self.norm, self.nsteps, self.device = system, nsim, norm, nsteps, device
         self.batch_type = batch_type
         self.data = self.load_data()
-        self.add_sequences(sequences)
+        self.add_data(sequences)
         self.min_max_norms, self.dims,  self.nstep_data, self.loop_data = dict(), dict(), dict(), dict()
         assert set(norm) & set(self.data.keys()) == set(norm), \
             f'Specified keys to normalize are not in dataset keys: {list(self.data.keys())}'
@@ -171,13 +172,25 @@ class Dataset:
     #         assert v.shape[0] == self.data['Y'].shape[0]
     #     self.data = {**self.data, **sequences}
 
-    def add_sequences(self, sequences, norm=[]):
+    def add_data(self, sequences, norm=[]):
         for k, v in sequences.items():
             assert v.shape[0] == self.data['Y'].shape[0]
         for k in norm:
             self.norm.append(k)
         sequences = self.norm_data(sequences, norm)
         self.data = {**self.data, **sequences}
+
+    def del_data(self, keys):
+        for k in keys:
+            self.data.pop(k)
+
+    def add_variable(self, var: Dict[str, int]):
+        for k, v in var.items():
+            self.dims[k] = v
+
+    def del_variable(self, keys):
+        for k in keys:
+            self.dims.pop(k)
 
     def load_data(self):
         assert self.system is None and len(self.sequences) > 0, \
@@ -321,7 +334,7 @@ if __name__ == '__main__':
     # testing adding sequences
     nsim, ny = dataset.data['Y'].shape
     new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
-    dataset.add_sequences(new_sequences, norm=['Ymax', 'Ymin'])
+    dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
     dataset.make_nstep()
     dataset.make_loop()
 

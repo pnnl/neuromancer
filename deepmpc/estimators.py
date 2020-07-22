@@ -21,7 +21,8 @@ from dynamics import BlockSSM
 
 
 class FullyObservable(nn.Module):
-    def __init__(self, *args, name='full_observable', **linargs):
+    def __init__(self, *args, input_keys=['Yp'], output_keys=['x0'],
+                 name='full_observable', **linargs):
         """
 
         :param name:
@@ -30,6 +31,9 @@ class FullyObservable(nn.Module):
         """
         super().__init__()
         self.name = name
+        self.input_keys = input_keys
+        output_keys.append(f'{self.name}_reg_error')
+        self.output_keys = output_keys
 
     def reg_error(self):
         return torch.tensor(0.0)
@@ -40,7 +44,7 @@ class FullyObservable(nn.Module):
         :param data:
         :return:
         """
-        return {'x0': data['Yp'][-1], f'{self.name}_reg_error': self.reg_error()}
+        return {self.output_keys[0]: data['Yp'][-1], self.output_keys[1]: self.reg_error()}
 
 
 def check_keys(k1, k2):
@@ -53,7 +57,7 @@ class Estimator(nn.Module):
         check_keys(set(input_keys), set(data_dims.keys()))
         self.name = name
         self.nsteps = nsteps
-        self.nx = data_dims['X']
+        self.nx = data_dims[output_keys[0]]
 
         data_dims = {k: v for k, v in data_dims.items() if k in input_keys}
         self.sequence_dims_sum = sum(v for k, v in data_dims.items())

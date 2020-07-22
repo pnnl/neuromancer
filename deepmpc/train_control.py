@@ -12,6 +12,25 @@ Script for training control policy
 # 1, using emulator
 # 2, using learned model
 
+# TODO: fix load model
+# model_group.add_argument('-system_id', required=True, default='./test/best_model.pth', help='path to pytorch pretrained dynamics and state estimator model from system ID')
+# # TODO: FIX load model params
+# # https: // stackoverflow.com / questions / 8804830 / python - multiprocessing - picklingerror - cant - pickle - type - function
+# system_id_problem = torch.load(args.system_id)
+# estimator = system_id_problem.components[0]
+# dynamics_model = system_id_problem.components[1]
+
+TODO: MISC
+    # # OPTIONAL: plot problem graph of component connections
+    # # maps internal component intecations via by mapping: output_keys -> input_keys
+    # n_in = len(input_keys)
+    # n_out = len(output_keys)
+    # ModelConnections = np.zeros([n_in, n_out])
+    # for i, k in enumerate(input_keys):
+    #     if k in output_keys:
+    #         ModelConnections[i, output_keys.index(k)] = 1
+
+
 More detailed description of options in the parse_args()
 """
 # import matplotlib
@@ -77,8 +96,6 @@ def parse_args():
                              default='pf')
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-policy_features', nargs='+', default=['x0'], help='Policy features')
-    # TODO: fix load model
-    # model_group.add_argument('-system_id', required=True, default='./test/best_model.pth', help='path to pytorch pretrained dynamics and state estimator model from system ID')
 
     # to recreate model
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
@@ -152,7 +169,8 @@ if __name__ == '__main__':
     nu = dataset.data['U'].shape[1]
     new_sequences = {'Y_max': np.ones([nsim, ny]), 'Y_min': np.zeros([nsim, ny]),
                      'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
-                     'R': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0)}
+                     'R': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
+                     'Y_ctrl_': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0)}
     dataset.add_sequences(new_sequences)
     dataset.make_nstep()
     dataset.make_loop()
@@ -164,6 +182,7 @@ if __name__ == '__main__':
     nu = dataset.dims['U'] if 'U' in dataset.dims else 0
     nd = dataset.dims['D'] if 'D' in dataset.dims else 0
     ny = dataset.dims['Y']
+
     # recreate dynamics components
     linmap_model = linear.maps[args.linear_map_model]
     nonlinmap = {'linear': linmap_model,
@@ -171,48 +190,47 @@ if __name__ == '__main__':
                  'rnn': blocks.RNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
     # state space model setup
+
+    if args.ssm_type == 'blackbox':
+        dyn_output_keys = ['X_pred', 'Y_pred']
+    else:
+        dyn_output_keys = ['X_pred', 'Y_pred', 'fU_pred', 'fD_pred']
     dynamics_model = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
                       'hw': dynamics.hw}[args.ssm_type](args.bias, linmap_model, nonlinmap, nx, nu, nd, ny,
                                                         n_layers=args.n_layers,
-                                                        input_keys=['Yf', 'x0', 'Uf', 'Df'], name='dynamics')
-    # TODO: need to create new variable Yp_ctrl as estimator input key - dynamically updated based on Yf
+                                                        input_keys=['Yf', 'x0', 'U_pred', 'Df'],
+                                                        output_keys=dyn_output_keys,
+                                                        name='dynamics')
     # state estimator setup
     estimator = {'linear': estimators.LinearEstimator,
                  'mlp': estimators.MLPEstimator,
                  'rnn': estimators.RNNEstimator,
                  'residual_mlp': estimators.ResMLPEstimator
-                 }[args.state_estimator]({**dataset.dims, 'X': nx},
+                 }[args.state_estimator]({**dataset.dims, 'x0': nx},
                    nsteps=args.nsteps,
                    bias=args.bias,
                    Linear=linmap_model,
                    nonlin=F.gelu,
                    hsizes=[nx]*args.n_layers,
-                   input_keys=['Yp'],
+                   input_keys=['Y_ctrl_p'],
                    output_keys=['x0'],
                    linargs=dict(),
                    name='estim')
-
-    # # TODO: FIX load model params
-    # # https: // stackoverflow.com / questions / 8804830 / python - multiprocessing - picklingerror - cant - pickle - type - function
-    # system_id_problem = torch.load(args.system_id)
-    # estimator = system_id_problem.components[0]
-    # dynamics_model = system_id_problem.components[1]
 
     # don't update learned model parameters
     dynamics_model.requires_grad_(False)
     estimator.requires_grad_(False)
 
     nh_policy = args.n_hidden
-    dataset_keys = set(dataset.dev_data.keys())
     linmap = linear.maps[args.linear_map]
 
     # control policy setup
     policy = {'linear': policies.LinearPolicy,
                  'mlp': policies.MLPPolicy,
                  'rnn': policies.RNNPolicy
-              }[args.policy]({**dataset.dims, 'x0': nx},
+              }[args.policy]({**dataset.dims, 'x0': nx, 'U_pred': nu},
                nsteps=args.nsteps,
                bias=args.bias,
                Linear=linmap,
@@ -226,13 +244,10 @@ if __name__ == '__main__':
     components = [estimator, policy, dynamics_model]
 
     # component variables
-    # TODO: create custom definition of I/O keys for flexible modeling?
-    # TODO: useful for models with more complicated components
-    # TODO OBJECTIVE: able to define custom acyclic graph with custom binding variables
-    # TODO: acyclic graph definition as adjacency matrix over union of I/O keys
-    input_keys = set.union(*[set(comp.input_keys) for comp in components])
-    output_keys = set.union(*[set(comp.output_keys) for comp in components])
-    plot_keys = {'Y_pred', 'X_pred', 'U_pred'}  # variables to be plotted
+    input_keys = list(set.union(*[set(comp.input_keys) for comp in components]))
+    output_keys = list(set.union(*[set(comp.output_keys) for comp in components]))
+    dataset_keys = list(set(dataset.train_data.keys()))
+    plot_keys = ['Y_pred', 'X_pred', 'U_pred']  # variables to be plotted
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
@@ -249,7 +264,7 @@ if __name__ == '__main__':
     inputs_upper_bound_penalty = Objective(['U_pred', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                            weight=args.Q_con_u)
 
-    objectives = [regularization, reference_loss]  # estimator_loss
+    objectives = [regularization, reference_loss]
     constraints = [observation_lower_bound_penalty, observation_upper_bound_penalty,
                    inputs_lower_bound_penalty, inputs_upper_bound_penalty]
 

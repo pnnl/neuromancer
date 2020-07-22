@@ -152,7 +152,6 @@ if __name__ == '__main__':
     nu = dataset.dims['U'] if 'U' in dataset.dims else 0
     nd = dataset.dims['D'] if 'D' in dataset.dims else 0
     ny = dataset.dims['Y']
-    dataset_keys = set(dataset.dev_data.keys())
     linmap = linear.maps[args.linear_map]
     nonlinmap = {'linear': linmap,
                  'mlp': blocks.MLP,
@@ -171,23 +170,25 @@ if __name__ == '__main__':
     estimator = {'linear': estimators.LinearEstimator,
                  'mlp': estimators.MLPEstimator,
                  'rnn': estimators.RNNEstimator,
-                 'residual_mlp': estimators.ResMLPEstimator}[args.state_estimator]({**dataset.dims, 'X': nx},
-                                                                                   nsteps=args.nsteps,
-                                                                                   bias=args.bias,
-                                                                                   Linear=linmap,
-                                                                                   nonlin=F.gelu,
-                                                                                   hsizes=[nx]*args.n_layers,
-                                                                                   input_keys=['Yp'],
-                                                                                   output_keys=['x0'],
-                                                                                   linargs=dict(),
-                                                                                   name='estim')
+                 'residual_mlp': estimators.ResMLPEstimator
+                 }[args.state_estimator]({**dataset.dims, 'x0': nx},
+                   nsteps=args.nsteps,
+                   bias=args.bias,
+                   Linear=linmap,
+                   nonlin=F.gelu,
+                   hsizes=[nx]*args.n_layers,
+                   input_keys=['Yp'],
+                   output_keys=['x0'],
+                   linargs=dict(),
+                   name='estim')
 
     components = [estimator, dynamics_model]
 
     # component variables
-    input_keys = set.union(*[set(comp.input_keys) for comp in components])
-    output_keys = set.union(*[set(comp.output_keys) for comp in components])
-    plot_keys = {'Yf', 'Y_pred', 'X_pred', 'fU_pred', 'fD_pred'}   # variables to be plotted
+    input_keys = list(set.union(*[set(comp.input_keys) for comp in components]))
+    output_keys = list(set.union(*[set(comp.output_keys) for comp in components]))
+    dataset_keys = list(set(dataset.train_data.keys()))
+    plot_keys = ['Yf', 'Y_pred', 'X_pred', 'fU_pred', 'fD_pred']   # variables to be plotted
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
@@ -201,7 +202,7 @@ if __name__ == '__main__':
     observation_lower_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x)
     observation_upper_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x)
 
-    objectives = [regularization, reference_loss]  # estimator_loss
+    objectives = [regularization, reference_loss]
     constraints = [state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
 
     if 'fU_pred' in output_keys:

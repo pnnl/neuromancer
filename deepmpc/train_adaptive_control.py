@@ -12,6 +12,23 @@ Script for training control policy
 # 1, using emulator
 # 2, using learned model
 
+
+TODO: MISC
+# TODO: setup sharing parameters bewteen ctrl and id models
+# TODO: should we create adaptive versions of dynamics? and estimator? both with two instances?
+#
+# TODO: fix load model
+# model_group.add_argument('-system_id', required=True, default='./test/best_model.pth', help='path to pytorch pretrained dynamics and state estimator model from system ID')
+# # TODO: FIX load model params
+# # https: // stackoverflow.com / questions / 8804830 / python - multiprocessing - picklingerror - cant - pickle - type - function
+# system_id_problem = torch.load(args.system_id)
+# estimator = system_id_problem.components[0]
+# dynamics_model = system_id_problem.components[1]
+#
+# TODO: implement update only subset of model parameters
+# TODO: OR append error models to base dynamics classes - parametric and additive error terms
+
+
 More detailed description of options in the parse_args()
 """
 # import matplotlib
@@ -78,9 +95,7 @@ def parse_args():
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='pf')
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
-    model_group.add_argument('-policy_features', nargs='+', default=['x0'], help='Policy features')
-    # TODO: fix load model
-    # model_group.add_argument('-system_id', required=True, default='./test/best_model.pth', help='path to pytorch pretrained dynamics and state estimator model from system ID')
+    model_group.add_argument('-policy_features', nargs='+', default=['x0_ctrl'], help='Policy features')
 
     # to recreate model
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
@@ -100,7 +115,9 @@ def parse_args():
     weight_group.add_argument('-Q_con_y', type=float, default=1.0, help='Output constraints penalty weight.')
     weight_group.add_argument('-Q_con_u', type=float, default=1.0, help='Input constraints penalty weight.')
     weight_group.add_argument('-Q_sub', type=float, default=0.2, help='Linear maps regularization weight.')
-    weight_group.add_argument('-Q_r', type=float, default=1.0, help='Reference tracking penalty weight')
+    weight_group.add_argument('-Q_r', type=float, default=1.0, help='Reference tracking weight')
+    weight_group.add_argument('-Q_y', type=float, default=1.0, help='System id output tracking weight')
+
 
     ####################
     # LOGGING PARAMETERS
@@ -154,7 +171,8 @@ if __name__ == '__main__':
     nu = dataset.data['U'].shape[1]
     new_sequences = {'Y_max': np.ones([nsim, ny]), 'Y_min': np.zeros([nsim, ny]),
                      'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
-                     'R': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0)}
+                     'R': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
+                     'Y_ctrl_': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0)}
     dataset.add_sequences(new_sequences)
     dataset.make_nstep()
     dataset.make_loop()
@@ -172,60 +190,63 @@ if __name__ == '__main__':
                  'mlp': blocks.MLP,
                  'rnn': blocks.RNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
+
     # state space model setup for control
+    if args.ssm_type == 'blackbox':
+        dyn_output_keys = ['X_ctrl', 'Y_ctrl']
+    else:
+        dyn_output_keys = ['X_ctrl', 'Y_ctrl', 'fU_ctrl', 'fD_ctrl']
     dynamics_model_ctrl = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
                       'hw': dynamics.hw}[args.ssm_type](args.bias, linmap_model, nonlinmap, nx, nu, nd, ny,
-                                                        n_layers=args.n_layers, input_keys={'x0_ctrl', 'Yf'}, name='dynamics_ctrl')
+                                                        n_layers=args.n_layers,
+                                                        input_keys=['Yf', 'x0_ctrl', 'U_ctrl', 'Df'],
+                                                        output_keys=dyn_output_keys,
+                                                        name='dynamics_ctrl')
     # state space model setup for adaptive system id
+    if args.ssm_type == 'blackbox':
+        dyn_output_keys = ['X_id', 'Y_id']
+    else:
+        dyn_output_keys = ['X_id', 'Y_id', 'fU_id', 'fD_id']
     dynamics_model_id = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
                       'hw': dynamics.hw}[args.ssm_type](args.bias, linmap_model, nonlinmap, nx, nu, nd, ny,
-                                                        n_layers=args.n_layers, input_keys={'x0_estim', 'Yf'}, name='dynamics_id')
-    # TODO: need to create new variable Yp_ctrl - dynamically updated based on Yf
-    # TODO: need to adjust output keys to pair with x0_ctrl and x0_estim
+                                                        n_layers=args.n_layers,
+                                                        input_keys=['Yf', 'x0_id', 'Uf', 'Df'],
+                                                        output_keys=dyn_output_keys,
+                                                        name='dynamics_id')
     # state estimator setup for control model
     estimator_ctrl = {'linear': estimators.LinearEstimator,
                  'mlp': estimators.MLPEstimator,
                  'rnn': estimators.RNNEstimator,
                  'residual_mlp': estimators.ResMLPEstimator
-                 }[args.state_estimator]({**dataset.dims, 'X': nx},
+                 }[args.state_estimator]({**dataset.dims, 'x0_ctrl': nx},
                    nsteps=args.nsteps,
                    bias=args.bias,
                    Linear=linmap_model,
                    nonlin=F.gelu,
                    hsizes=[nx]*args.n_layers,
-                   input_keys={'Yp_ctrl'},
+                   input_keys=['Y_ctrl_p'],
+                   output_keys=['x0_ctrl'],
                    linargs=dict(),
-                   name='estim')
+                   name='estim_ctrl')
     # state estimator setup for system id model
     estimator_id = {'linear': estimators.LinearEstimator,
                  'mlp': estimators.MLPEstimator,
                  'rnn': estimators.RNNEstimator,
                  'residual_mlp': estimators.ResMLPEstimator
-                 }[args.state_estimator]({**dataset.dims, 'X': nx},
+                 }[args.state_estimator]({**dataset.dims, 'x0_id': nx},
                    nsteps=args.nsteps,
                    bias=args.bias,
                    Linear=linmap_model,
                    nonlin=F.gelu,
                    hsizes=[nx]*args.n_layers,
-                   input_keys={'Yp'},
+                   input_keys=['Yp'],
+                   output_keys=['x0_id'],
                    linargs=dict(),
-                   name='estim')
-
-    # TODO: setup sharing parameters bewteen ctrl and id models
-    # TODO: should we create adaptive versions of dynamics? and estimator? both with two instances?
-
-    # # TODO: FIX load model params
-    # # https: // stackoverflow.com / questions / 8804830 / python - multiprocessing - picklingerror - cant - pickle - type - function
-    # system_id_problem = torch.load(args.system_id)
-    # estimator = system_id_problem.components[0]
-    # dynamics_model = system_id_problem.components[1]
-
-    # TODO: implement update only subset of model parameters
-    # TODO: OR append error models to base dynamics classes - parametric and additive error terms
+                   name='estim_id')
 
     nh_policy = args.n_hidden
     dataset_keys = set(dataset.dev_data.keys())
@@ -235,43 +256,42 @@ if __name__ == '__main__':
     policy = {'linear': policies.LinearPolicy,
                  'mlp': policies.MLPPolicy,
                  'rnn': policies.RNNPolicy
-              }[args.policy]({**dataset.dims, 'x0': nx},
+              }[args.policy]({**dataset.dims, 'x0_ctrl': nx, 'U_ctrl': nu},
                nsteps=args.nsteps,
                bias=args.bias,
                Linear=linmap,
                nonlin=F.gelu,
                hsizes=[nh_policy] * args.n_layers,
-               input_keys=set(args.policy_features),
+               input_keys=args.policy_features,
+               output_keys=['U_ctrl'],
                linargs=dict(),
                name='policy')
 
     components = [estimator_id, dynamics_model_id, estimator_ctrl, policy, dynamics_model_ctrl]
 
     # component variables
-    # TODO: create custom definition of I/O keys for flexible modeling?
-    # TODO: useful for models with more complicated components
-    # TODO OBJECTIVE: able to define custom acyclic graph with custom binding variables
-    # TODO: acyclic graph definition as adjacency matrix over union of I/O keys
-    input_keys = set.union(*[comp.input_keys for comp in components])
-    output_keys = set.union(*[comp.output_keys for comp in components])
-    plot_keys = {'Y_pred', 'X_pred', 'U_pred'}  # variables to be plotted
+    input_keys = list(set.union(*[set(comp.input_keys) for comp in components]))
+    output_keys = list(set.union(*[set(comp.output_keys) for comp in components]))
+    dataset_keys = list(set(dataset.train_data.keys()))
+    plot_keys = {'Y_ctrl', 'U_ctrl'}  # variables to be plotted
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
     regularization = Objective(['policy_reg_error'], lambda reg: reg,
                                weight=args.Q_sub)
-    reference_loss = Objective(['Y_pred', 'Rf'], F.mse_loss, weight=args.Q_r)
-    observation_lower_bound_penalty = Objective(['Y_pred', 'Y_minf'], lambda x, xmin: torch.mean(F.relu(-x + -xmin)),
+    reference_loss = Objective(['Y_ctrl', 'Rf'], F.mse_loss, weight=args.Q_r)
+    system_id_loss = Objective(['Y_id', 'Yf'], F.mse_loss, weight=args.Q_y)
+    observation_lower_bound_penalty = Objective(['Y_ctrl', 'Y_minf'], lambda x, xmin: torch.mean(F.relu(-x + -xmin)),
                                                 weight=args.Q_con_y)
-    observation_upper_bound_penalty = Objective(['Y_pred', 'Y_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
+    observation_upper_bound_penalty = Objective(['Y_ctrl', 'Y_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                                 weight=args.Q_con_y)
-    inputs_lower_bound_penalty = Objective(['U_pred', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + -xmin)),
+    inputs_lower_bound_penalty = Objective(['U_ctrl', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + -xmin)),
                                                 weight=args.Q_con_u)
-    inputs_upper_bound_penalty = Objective(['U_pred', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
+    inputs_upper_bound_penalty = Objective(['U_ctrl', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                            weight=args.Q_con_u)
 
-    objectives = [regularization, reference_loss]  # estimator_loss
+    objectives = [regularization, reference_loss, system_id_loss]
     constraints = [observation_lower_bound_penalty, observation_upper_bound_penalty,
                    inputs_lower_bound_penalty, inputs_upper_bound_penalty]
 

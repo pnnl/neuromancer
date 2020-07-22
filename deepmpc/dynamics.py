@@ -37,6 +37,8 @@ def check_keys(k1, k2):
         f'Missing values in dataset. Input_keys: {set(k1)}, data_keys: {set(k2)}'
 
 
+# TODO: we may want to specify nsims explicitly and not via Yf - e.g. for control dataset Yf may not be available
+
 class BlockSSM(nn.Module):
     def __init__(self, nx, nu, nd, ny, fx, fy, fu=None, fd=None,
                  xou=torch.add, xod=torch.add, residual=False,
@@ -54,7 +56,7 @@ class BlockSSM(nn.Module):
         :param fy: function R^{nx} -> R^(ny}
         :param xou: Shape preserving binary operator (e.g. +, -, *)
         :param xod: Shape preserving binary operator (e.g. +, -, *)
-        :param input_keys: (list of str) input keys in expected order: Y, x0, U, D
+        :param input_keys: (list of str) input keys in expected order: nsim, x0, U, D
         :param output_keys: (list of str) output keys in expected order: X_pred, Y_pred, fU_pred, fD_pred
 
         generic structured system dynamics:   
@@ -100,6 +102,7 @@ class BlockSSM(nn.Module):
         """
         """
         check_keys(self.input_keys, set(data.keys()))
+        # nsteps = data[self.input_keys[0]]  # TODO: use this in case nsim is the first key
         nsteps = data[self.input_keys[0]].shape[0]
         X, Y, FD, FU = [], [], [], []
         x = data[self.input_keys[1]]

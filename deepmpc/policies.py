@@ -38,12 +38,10 @@ class Policy(nn.Module):
         check_keys(set(input_keys), set(data_dims.keys()))
         self.name = name
         self.nsteps = nsteps
-        self.nu = data_dims['U']
-        self.nx = data_dims['x0']
-
+        self.nu = data_dims[output_keys[0]]
+        self.nx = data_dims[input_keys[0]]
         data_dims = {k: v for k, v in data_dims.items() if k in input_keys}
-        self.sequence_dims_sum = sum(v for k, v in data_dims.items() if k != 'x0')
-
+        self.sequence_dims_sum = sum(v for k, v in data_dims.items() if k != input_keys[0])
         self.input_size = self.nx + nsteps * self.sequence_dims_sum
         self.output_size = nsteps * self.nu
         self.input_keys = input_keys

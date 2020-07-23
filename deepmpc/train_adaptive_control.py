@@ -191,7 +191,6 @@ if __name__ == '__main__':
                  'mlp': blocks.MLP,
                  'rnn': blocks.RNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
-
     # state space model setup for control
     if args.ssm_type == 'blackbox':
         dyn_output_keys = ['X_ctrl', 'Y_ctrl']

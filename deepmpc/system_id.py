@@ -38,6 +38,7 @@ from visuals import VisualizerOpen, VisualizerTrajectories
 from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
+from simulators import OpenLoopSimulator
 
 
 def parse_args():
@@ -46,7 +47,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=500)
+    opt_group.add_argument('-epochs', type=int, default=10)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
@@ -227,7 +228,11 @@ if __name__ == '__main__':
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity, args.savedir)
     # visualizer = VisualizerTrajectories(dataset, dynamics_model, plot_keys, args.verbosity)
-    trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer, epochs=args.epochs)
+    simulator = OpenLoopSimulator(model=model, dataset=dataset)
+    trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
+                      simulator=simulator, epochs=args.epochs)
     best_model = trainer.train()
-    trainer.evaluate(best_model)
+
+    # TODO: error in evaluate
+    # trainer.evaluate(best_model)
     logger.clean_up()

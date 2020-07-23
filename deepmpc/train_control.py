@@ -37,7 +37,7 @@ More detailed description of options in the parse_args()
 # matplotlib.use("Agg")
 import argparse
 import torch
-from datasets import EmulatorDataset, FileDataset
+from datasets import EmulatorDataset, FileDataset, Dataset
 import dynamics
 import estimators
 import emulators
@@ -50,6 +50,7 @@ from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
 import numpy as np
+from simulators import OpenLoopSimulator, ClosedLoopSimulator
 
 
 def parse_args():
@@ -79,9 +80,9 @@ def parse_args():
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
-    data_group.add_argument('-dataset_type', type=str, choices=['openloop', 'closedloop'],
+    data_group.add_argument('-dataset_name', type=str, choices=['openloop', 'closedloop'],
                             default='closedloop',
-                            help='training type of the dataset')
+                            help='name of the dataset')
 
 
     ##################
@@ -146,10 +147,10 @@ def logging(args):
 
 def dataset_load(args, sequences=dict()):
     if args.system_data == 'emulator':
-        dataset = EmulatorDataset(system=args.system, nsim=args.nsim, sequences=sequences, type=args.dataset_type,
+        dataset = EmulatorDataset(system=args.system, nsim=args.nsim, sequences=sequences, name=args.dataset_name,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     else:
-        dataset = FileDataset(system=args.system, nsim=args.nsim, sequences=sequences, type=args.dataset_type,
+        dataset = FileDataset(system=args.system, nsim=args.nsim, sequences=sequences, name=args.dataset_name,
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     return dataset
 
@@ -195,7 +196,7 @@ if __name__ == '__main__':
     if args.ssm_type == 'blackbox':
         dyn_output_keys = ['X_pred', 'Y_pred']
     else:
-        dyn_output_keys = ['X_pred', 'Y_pred', 'fU_pred', 'fD_pred']
+        dyn_output_keys = ['X_pred', 'Y_pred', 'fU', 'fD']
     dynamics_model = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
@@ -276,9 +277,9 @@ if __name__ == '__main__':
     model = Problem(objectives, constraints, components).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     visualizer = VisualizerTrajectories(dataset, dynamics_model, plot_keys, args.verbosity)
-    trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer, epochs=args.epochs)
+    simulator = ClosedLoopSimulator(model=model, dataset=dataset)
+    trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
+                      simulator=simulator, epochs=args.epochs)
     best_model = trainer.train()
     trainer.evaluate(best_model)
-    # TODO: add simulator class for dynamical models? - evaluates open and closed loop
-    # simulator = Simulator(best_model, dataset, emulator=emulators.systems[args.system], logger=logger, visualizer=visualizer)
     logger.clean_up()

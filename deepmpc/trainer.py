@@ -30,11 +30,12 @@ class Trainer:
         self.logger.log_weights(self.model)
         self.eval_metric = eval_metric
 
+    ########################################
+    ############# TRAIN LOOP ###############
+    ########################################
     def train(self):
-
-        best_looploss = np.finfo(np.float32).max
+        best_devloss = np.finfo(np.float32).max
         best_model = deepcopy(self.model.state_dict())
-
         for i in range(self.epochs):
             self.model.train()
             output = self.model(self.dataset.train_data)
@@ -44,15 +45,13 @@ class Trainer:
 
             with torch.no_grad():
                 self.model.eval()
-                dev_nstep_output = self.model(self.dataset.dev_data)
-
+                dev_data_output = self.model(self.dataset.dev_data)
                 dev_sim_output = self.simulator.dev_eval()
-                self.logger.log_metrics({**dev_nstep_output, **dev_sim_output, **output}, step=i)
-
-                if dev_sim_output[self.eval_metric] < best_looploss:
+                self.logger.log_metrics({**dev_data_output, **dev_sim_output, **output}, step=i)
+                if dev_sim_output[self.eval_metric] < best_devloss:
                     best_model = deepcopy(self.model.state_dict())
-                    best_looploss = dev_sim_output[self.eval_metric]
-                self.visualizer.train_plot({**dev_nstep_output, **dev_sim_output}, i)
+                    best_devloss = dev_sim_output[self.eval_metric]
+                self.visualizer.train_plot({**dev_data_output, **dev_sim_output}, i)
 
         #   TODO: plot loss function via visualizer
         plots = self.visualizer.train_output()
@@ -63,26 +62,29 @@ class Trainer:
         # https: // stackoverflow.com / questions / 8804830 / python - multiprocessing - picklingerror - cant - pickle - type - function
         return best_model
 
+    ########################################
+    ########## EVALUATE MODEL ##############
+    ########################################
     def evaluate(self, best_model):
         self.model.eval()
         self.model.load_state_dict(best_model)
 
         with torch.no_grad():
             ########################################
-            ########## NSTEP TRAIN RESPONSE ########
+            ########### DATASET RESPONSE ###########
             ########################################
             all_output = dict()
-
             for dset, dname in zip([self.dataset.train_data, self.dataset.dev_data, self.dataset.test_data],
                                    ['train', 'dev', 'test']):
                 all_output = {**all_output, **self.model(dset)}
-
-            test_sim_output = self.simulator.dev_eval()
+            ########################################
+            ########## SIMULATOR RESPONSE ##########
+            ########################################
+            test_sim_output = self.simulator.test_eval()
             all_output = {**all_output, **test_sim_output}
 
         self.all_output = all_output
         self.logger.log_metrics({f'best_{k}': v for k, v in all_output.items()})
-        # TODO: error missing KeyError: 'loop_train_Y_pred'
         plots = self.visualizer.eval(all_output)
         self.logger.log_artifacts(plots)
 

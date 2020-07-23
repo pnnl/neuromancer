@@ -78,9 +78,9 @@ def parse_args():
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
-    data_group.add_argument('-dataset_type', type=str, choices=['openloop', 'closedloop'],
+    data_group.add_argument('-dataset_name', type=str, choices=['openloop', 'closedloop'],
                             default='closedloop',
-                            help='training type of the dataset')
+                            help='name of the dataset')
 
 
     ##################

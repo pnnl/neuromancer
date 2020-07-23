@@ -84,11 +84,10 @@ class DataDict(dict):
     """
     pass
 
-# TODO: not sure about adding type attribute
 class Dataset:
 
     def __init__(self, system=None, nsim=None, norm=['Y'], batch_type='batch',
-                 nsteps=32, device='cpu', sequences=dict(), type='openloop',
+                 nsteps=32, device='cpu', sequences=dict(), name='openloop',
                  savedir='test'):
         """
 
@@ -99,23 +98,25 @@ class Dataset:
         :param nsteps: (int) N-step prediction horizon for batching data
         :param device: (str) String identifier of device to place data on, e.g. 'cpu', 'cuda:0'
         :param sequences: (dict str: np.array) Dictionary of supplemental data
-        :param type: (str) String identifier of dataset type, must be ['static', 'openloop', 'closedloop']
+        :param name: (str) String identifier of dataset type, must be ['static', 'openloop', 'closedloop']
         """
         print(system)
-        self.type = type
+        self.name = name
         self.savedir = savedir
         self.system, self.nsim, self.norm, self.nsteps, self.device = system, nsim, norm, nsteps, device
         self.batch_type = batch_type
+        self.sequences = sequences
         self.data = self.load_data()
         self.add_data(sequences)
         self.min_max_norms, self.dims,  self.nstep_data, self.loop_data = dict(), dict(), dict(), dict()
-        assert set(norm) & set(self.data.keys()) == set(norm), \
-            f'Specified keys to normalize are not in dataset keys: {list(self.data.keys())}'
+        for k, v in self.data.items():
+            self.dims[k] = v.shape[1]
+        # # TODO: this assert will prevent us for creating dataset only from sequences
+        # assert set(norm) & set(self.data.keys()) == set(norm), \
+        #     f'Specified keys to normalize are not in dataset keys: {list(self.data.keys())}'
         self.data = self.norm_data(self.data, self.norm)
         self.make_nstep()
         self.make_loop()
-
-    # TODO: create eval method for performance assesment in trainer
 
     def norm_data(self, data, norm):
         for k, v in data.items():
@@ -173,8 +174,9 @@ class Dataset:
     #     self.data = {**self.data, **sequences}
 
     def add_data(self, sequences, norm=[]):
-        for k, v in sequences.items():
-            assert v.shape[0] == self.data['Y'].shape[0]
+        # TODO: we must drop 'Y' as expected key to be generic
+        # for k, v in sequences.items():
+        #     assert v.shape[0] == self.data['Y'].shape[0]
         for k in norm:
             self.norm.append(k)
         sequences = self.norm_data(sequences, norm)
@@ -306,6 +308,10 @@ class FileDataset(Dataset):
             if d is not None:
                 data[k] = d[ninit:self.nsim, :]
         return data
+
+# TODO: create custom dataset class to be able to create dataset class oly from the sequences
+class CustomDataset(Dataset):
+    pass
 
 
 if __name__ == '__main__':

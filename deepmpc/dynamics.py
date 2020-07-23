@@ -56,7 +56,7 @@ class BlockSSM(nn.Module):
         :param fy: function R^{nx} -> R^(ny}
         :param xou: Shape preserving binary operator (e.g. +, -, *)
         :param xod: Shape preserving binary operator (e.g. +, -, *)
-        :param input_keys: (list of str) input keys in expected order: nsim, x0, U, D
+        :param input_keys: (list of str) input keys in expected order: nsim, x0, U, D, TODO: input_keys={'Yf':'Yf', 'x0':'x0', 'Uf':'Uf', 'Df':'Df'},
         :param output_keys: (list of str) output keys in expected order: X_pred, Y_pred, fU_pred, fD_pred
 
         generic structured system dynamics:   
@@ -113,6 +113,7 @@ class BlockSSM(nn.Module):
                 fu = self.fu(data[self.input_keys[2]][i])
                 x = self.xou(x, fu)
                 FU.append(fu)
+            #     TODO: this won't work if we have D but not U
             if len(self.input_keys) > 3 and self.input_keys[3] in data:
                 fd = self.fd(data[self.input_keys[3]][i])
                 x = x + self.xod(x, fd)

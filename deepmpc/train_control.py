@@ -145,7 +145,7 @@ def logging(args):
     return Logger, device
 
 
-def dataset_load(args, sequences=dict()):
+def dataset_load(args, device, sequences=dict()):
     if args.system_data == 'emulator':
         dataset = EmulatorDataset(system=args.system, nsim=args.nsim, sequences=sequences, name=args.dataset_name,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
@@ -165,7 +165,7 @@ if __name__ == '__main__':
     ###############################
     ########## DATA ###############
     ###############################
-    dataset = dataset_load(args)
+    dataset = dataset_load(args, device)
     nsim, ny = dataset.data['Y'].shape
     nu = dataset.data['U'].shape[1]
     new_sequences = {'Y_max': np.ones([nsim, ny]), 'Y_min': np.zeros([nsim, ny]),

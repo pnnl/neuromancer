@@ -124,7 +124,7 @@ def logging(args):
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
     return Logger, device
 
-def dataset_load(args):
+def dataset_load(args, device):
     if args.system_data == 'emulator':
         dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     ###############################
     ########## DATA ###############
     ###############################
-    dataset = dataset_load(args)
+    dataset = dataset_load(args, device)
 
     ##########################################
     ########## PROBLEM COMPONENTS ############

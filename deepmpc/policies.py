@@ -25,6 +25,50 @@ def check_keys(k1, k2):
         f'Missing values in dataset. Input_keys: {set(k1)}, data_keys: {set(k2)}'
 
 
+class SolutionMap(nn.Module):
+    def __init__(self, data_dims, input_keys=['x'], output_keys=['z'], bias=False,
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], linargs=dict(), name='sol_map'):
+        """
+        Solution map for multiparametric programming problems
+        :param data_dims:
+        :param input_keys:
+        :param output_keys:
+        :param name:
+        """
+        super().__init__()
+        check_keys(set(input_keys), set(data_dims.keys()))
+        self.name = name
+        self.input_keys = input_keys
+        output_keys.append(f'{self.name}_reg_error')
+        self.output_keys = output_keys
+        data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
+        self.input_size = sum(v for k, v in data_dims_in.items())
+        self.output_size = data_dims[output_keys[0]]
+        self.net = blocks.MLP(insize=self.input_size, outsize=self.output_size, bias=bias,
+                              Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
+
+    def reg_error(self):
+        """
+
+        :return:
+        """
+        return self.net.reg_error()
+
+    def forward(self, data):
+        """
+
+        :param data:
+        :return:
+        """
+        check_keys(self.input_keys, set(data.keys()))
+        features = data[self.input_keys[0]]
+        for k in self.input_keys[1:]:
+            features = torch.cat([features, data[k]], dim=1)
+        Z = self.net(features)
+        return {self.output_keys[0]: Z, self.output_keys[1]: self.net.reg_error()}
+
+
+
 class Policy(nn.Module):
     def __init__(self, data_dims, nsteps=1, input_keys=['x0'], output_keys=['U_pred'], name='policy'):
         """
@@ -40,8 +84,8 @@ class Policy(nn.Module):
         self.nsteps = nsteps
         self.nu = data_dims[output_keys[0]]
         self.nx = data_dims[input_keys[0]]
-        data_dims = {k: v for k, v in data_dims.items() if k in input_keys}
-        self.sequence_dims_sum = sum(v for k, v in data_dims.items() if k != input_keys[0])
+        data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
+        self.sequence_dims_sum = sum(v for k, v in data_dims_in.items() if k != input_keys[0])
         self.input_size = self.nx + nsteps * self.sequence_dims_sum
         self.output_size = nsteps * self.nu
         self.input_keys = input_keys

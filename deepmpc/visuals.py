@@ -76,3 +76,9 @@ class VisualizerTrajectories(Visualizer):
         for k, v in data.items():
             plot.plot_traj({k: v}, figname=None)
         return dict()
+
+
+
+class VisualizerMPP(Visualizer):
+    def __init__(self, dataset, model, plot_keys, verbosity):
+     pass

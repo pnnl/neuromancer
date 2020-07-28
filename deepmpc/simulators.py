@@ -85,8 +85,7 @@ class ClosedLoopSimulator(Simulator):
         self.nsim = data['Yp'].shape[1]
         self.nsteps = data['Yp'].shape[0]
         Y, X, D, U = [], [], [], []  # emulator trajectories
-        Y_pred, X_pred = [], []  # model output state trajectories
-        U_pred, U_opt = [], []  # policy control trajectories
+        Y_pred, X_pred, U_pred, U_opt = [], [], [], []   # model  trajectories
         # Step_outputs = defaultdict(list)
         for i in range(self.nsim):
             step_data = self.select_step_data(data, i)
@@ -98,12 +97,15 @@ class ClosedLoopSimulator(Simulator):
                 d = dist
             if i > 0:
                 x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d)
-                if 'Y' in self.dataset.norm:
-                    y = self.dataset.normalize(y, Mmin=self.dataset.min_max_norms['Ymin'], Mmax=self.dataset.min_max_norms['Ymax'])
+
                 # overwrite past after n-steps, TODO: owevreite continuously in first n steps
                 if len(Y) > self.nsteps:
-                    # TODO: TypeError: can't convert np.ndarray of type numpy.object_. The only supported types are: float64, float32, float16, int64, int32, int16, int8, uint8, and bool.
-                    step_data['Yp'] = torch.tensor(np.concatenate(Y[-self.nsteps:], 0)).reshape(self.nsteps, 1, -1)
+                    if 'Y' in self.dataset.norm:
+                        Yp_np, _, _ = self.dataset.normalize(np.concatenate(Y[-self.nsteps:]), Mmin=self.dataset.min_max_norms['Ymin'],
+                                                         Mmax=self.dataset.min_max_norms['Ymax'])
+                    else:
+                        Yp_np = np.concatenate(Y[-self.nsteps:])
+                    step_data['Yp'] = torch.tensor(np.concatenate(Yp_np, 0)).reshape(self.nsteps, 1, -1)
                 if len(U_opt) > self.nsteps:
                     step_data['Up'] = torch.cat(U_opt[-self.nsteps:], dim=0).reshape(self.nsteps, 1, -1)
 

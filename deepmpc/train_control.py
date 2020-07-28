@@ -73,7 +73,7 @@ def parse_args():
                             help='source type of the dataset')
     data_group.add_argument('-system', default='Reno_full',
                             help='select particular dataset with keyword')
-    data_group.add_argument('-nsim', type=int, default=8640,
+    data_group.add_argument('-nsim', type=int, default=1200,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
                                  'train, dev, and test will be split evenly from contiguous, sequential, '
                                  'non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,'
@@ -281,9 +281,6 @@ if __name__ == '__main__':
     visualizer = VisualizerTrajectories(dataset, dynamics_model, plot_keys, args.verbosity)
     emulator = emulators.systems[args.system]() if args.system_data == 'emulator' else None
     simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator)
-    # TODO: for sake of speeding up the training
-    #  evaluate simulator only once every n-th epoch
-    # or use dev set metric as eval metric for trian loop and simulate only in .evaluate(model
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
                       simulator=simulator, epochs=args.epochs)
     best_model = trainer.train()

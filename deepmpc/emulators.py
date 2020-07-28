@@ -753,7 +753,7 @@ class BuildingEnvelope(SSM):
         super().__init__()
 
     # parameters of the dynamical system
-    def parameters(self, system='Reno_full', linear=False):
+    def parameters(self, system='Reno_full', linear=True):
         # file paths for different building models
         systems = {'SimpleSingleZone': './emulators/buildings/SimpleSingleZone.mat',
                    'Reno_full': './emulators/buildings/Reno_full.mat',

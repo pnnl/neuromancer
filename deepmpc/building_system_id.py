@@ -28,7 +28,7 @@ More detailed description of options in the parse_args()
 # matplotlib.use("Agg")
 import argparse
 import torch
-from dataset import EmulatorDataset, FileDataset
+from datasets import EmulatorDataset, FileDataset
 import dynamics
 import estimators
 import emulators
@@ -40,7 +40,7 @@ from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
 import plot
-from dataset import unbatch_data
+from datasets import unbatch_data
 import numpy as np
 import os
 
@@ -51,7 +51,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=500)
+    opt_group.add_argument('-epochs', type=int, default=5000)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 

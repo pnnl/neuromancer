@@ -152,33 +152,38 @@ class Dataset:
 
     # TODO: if name = 'closedloop' don't unbatch
     def make_loop(self):
-        if self.batch_type == 'mh':
-            self.train_loop = self.unbatch_mh(self.train_data)
-            self.dev_loop = self.unbatch_mh(self.dev_data)
-            self.test_loop = self.unbatch_mh(self.test_data)
-        else:
-            self.train_loop = self.unbatch(self.train_data)
-            self.dev_loop = self.unbatch(self.dev_data)
-            self.test_loop = self.unbatch(self.test_data)
+        if self.name == 'openloop':
+            if self.batch_type == 'mh':
+                self.train_loop = self.unbatch_mh(self.train_data)
+                self.dev_loop = self.unbatch_mh(self.dev_data)
+                self.test_loop = self.unbatch_mh(self.test_data)
+            else:
+                self.train_loop = self.unbatch(self.train_data)
+                self.dev_loop = self.unbatch(self.dev_data)
+                self.test_loop = self.unbatch(self.test_data)
+
+            all_loop = {k: np.concatenate([self.train_loop[k], self.dev_loop[k], self.test_loop[k]]).squeeze(1)
+                        for k in self.train_data.keys()}
+            for k in self.train_data.keys():
+                assert np.array_equal(all_loop[k], self.loop_data[k][:all_loop[k].shape[0]]), \
+                    f'Reshaped data {k} is not equal to truncated original data'
+            plot.plot_traj(all_loop, figname=os.path.join(self.savedir, f'{self.system}_open.png'))
+            plt.close('all')
+
+        elif self.name == 'closedloop':
+            nstep_data = dict()
+            for k, v in self.data.items():
+                nstep_data[k + 'p'] = batch_mh_data(self.loop_data[k + 'p'], self.nsteps)
+                nstep_data[k + 'f'] = batch_mh_data(self.loop_data[k + 'f'], self.nsteps)
+            self.train_loop, self.dev_loop, self.test_loop = self.split_train_test_dev(nstep_data)
+
         self.train_data.name, self.dev_data.name, self.test_data.name = 'nstep_train', 'nstep_dev', 'nstep_test'
         self.train_loop.name, self.dev_loop.name, self.test_loop.name = 'loop_train', 'loop_dev', 'loop_test'
-        all_loop = {k: np.concatenate([self.train_loop[k], self.dev_loop[k], self.test_loop[k]]).squeeze(1)
-                    for k in self.train_data.keys()}
-        for k in self.train_data.keys():
-            assert np.array_equal(all_loop[k], self.loop_data[k][:all_loop[k].shape[0]]), \
-                f'Reshaped data {k} is not equal to truncated original data'
-        plot.plot_traj(all_loop, figname=os.path.join(self.savedir, f'{self.system}_open.png'))
-        plt.close('all')
-
         for dset in self.train_data, self.dev_data, self.test_data, self.train_loop, self.dev_loop, self.test_loop:
             for k, v in dset.items():
                 dset[k] = torch.tensor(v, dtype=torch.float32).to(self.device)
-    #             TODO: this is not visitbe from outside
 
-    # def add_sequences(self, sequences):
-    #     for k, v in sequences.items():
-    #         assert v.shape[0] == self.data['Y'].shape[0]
-    #     self.data = {**self.data, **sequences}
+
 
     def add_data(self, sequences, norm=[]):
         # TODO: we must drop 'Y' as expected key to be generic
@@ -272,6 +277,7 @@ class EmulatorDataset(Dataset):
             model.parameters(system=self.system)
         elif isinstance(model, emulators.BuildingEnvelope):
             model.parameters(system=self.system, linear=True)
+        #     TODO: handle additional emulator arguments via optional input arguments in load_data
         else:
             model.parameters()
 

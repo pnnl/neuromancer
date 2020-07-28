@@ -45,7 +45,7 @@ import policies
 import linear
 import blocks
 import logger
-from visuals import Visualizer, VisualizerTrajectories
+from visuals import Visualizer, VisualizerTrajectories, VisualizerClosedLoop
 from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
@@ -252,7 +252,7 @@ if __name__ == '__main__':
     input_keys = list(set.union(*[set(comp.input_keys) for comp in components]))
     output_keys = list(set.union(*[set(comp.output_keys) for comp in components]))
     dataset_keys = list(set(dataset.train_data.keys()))
-    plot_keys = ['Y_pred', 'X_pred', 'U_pred']  # variables to be plotted
+    plot_keys = ['Y_pred', 'U_pred']  # variables to be plotted
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
@@ -278,7 +278,7 @@ if __name__ == '__main__':
     ##########################################
     model = Problem(objectives, constraints, components).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    visualizer = VisualizerTrajectories(dataset, dynamics_model, plot_keys, args.verbosity)
+    visualizer = VisualizerClosedLoop(dataset, dynamics_model, plot_keys, args.verbosity)
     emulator = emulators.systems[args.system]() if args.system_data == 'emulator' else None
     simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,

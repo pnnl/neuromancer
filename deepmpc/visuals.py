@@ -79,6 +79,27 @@ class VisualizerTrajectories(Visualizer):
 
 
 
+
+class VisualizerClosedLoop(Visualizer):
+
+    def __init__(self, dataset, model, plot_keys, verbosity):
+        self.model = model
+        self.dataset = dataset
+        self.verbosity = verbosity
+        self.plot_keys = set(plot_keys).intersection(set.union(*[set(model.input_keys), set(model.output_keys)]))
+
+    def eval(self, outputs):
+        data = {k:  unbatch_data(v).squeeze(1).detach().cpu().numpy()
+                for (k, v) in outputs.items() if any([plt_k in k for plt_k in self.plot_keys])}
+        for k, v in data.items():
+            plot.plot_traj({k: v}, figname=None)
+        plot.pltCL(Y=outputs['Y'], U=outputs['U'])
+
+        return dict()
+
+
+
+
 class VisualizerMPP(Visualizer):
     def __init__(self, dataset, model, plot_keys, verbosity):
      pass

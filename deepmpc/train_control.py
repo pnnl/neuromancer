@@ -59,7 +59,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=100)
+    opt_group.add_argument('-epochs', type=int, default=5)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
@@ -147,10 +147,12 @@ def logging(args):
 
 def dataset_load(args, device, sequences=dict()):
     if args.system_data == 'emulator':
-        dataset = EmulatorDataset(system=args.system, nsim=args.nsim, sequences=sequences, name=args.dataset_name,
+        dataset = EmulatorDataset(system=args.system, nsim=args.nsim, sequences=sequences, batch_type='mh',
+                                  name=args.dataset_name,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     else:
-        dataset = FileDataset(system=args.system, nsim=args.nsim, sequences=sequences, name=args.dataset_name,
+        dataset = FileDataset(system=args.system, nsim=args.nsim, sequences=sequences, batch_type='mh',
+                              name=args.dataset_name,
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     return dataset
 
@@ -277,7 +279,11 @@ if __name__ == '__main__':
     model = Problem(objectives, constraints, components).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     visualizer = VisualizerTrajectories(dataset, dynamics_model, plot_keys, args.verbosity)
-    simulator = ClosedLoopSimulator(model=model, dataset=dataset)
+    emulator = emulators.systems[args.system]() if args.system_data == 'emulator' else None
+    simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator)
+    # TODO: for sake of speeding up the training
+    #  evaluate simulator only once every n-th epoch
+    # or use dev set metric as eval metric for trian loop and simulate only in .evaluate(model
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
                       simulator=simulator, epochs=args.epochs)
     best_model = trainer.train()

@@ -137,7 +137,7 @@ class ClosedLoopSimulator(Simulator):
         return {'X_pred': torch.cat(X_pred, dim=1), 'Y_pred': torch.cat(Y_pred, dim=1),
                 'U_pred': torch.cat(U_pred, dim=1), 'U_opt': torch.cat(U_opt, dim=0),
                 'Y': np.concatenate(Y, 0), 'X': np.concatenate(X, 0),
-                'U': np.concatenate(U, 0), 'D': np.concatenate(D, 0)}
+                'U': np.concatenate(U, 0), 'D': np.concatenate(D, 0) if D is not None else None}
 
         # Step_outputs = {torch.cat(v) for k, v in Step_outputs}
         # return Step_outputs

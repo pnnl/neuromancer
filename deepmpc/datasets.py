@@ -100,7 +100,7 @@ class Dataset:
         :param system: (str) Identifier for dataset.
         :param nsim: (int) Total number of time steps in data sequence
         :param norm: (str) String of letters corresponding to data to be normalized, e.g. ['Y','U','D']
-        :param batch_type: (str) Type of the batch generator, expects: 'mh' or 'chunk'
+        :param batch_type: (str) Type of the batch generator, expects: 'mh' or 'batch'
         :param nsteps: (int) N-step prediction horizon for batching data
         :param device: (str) String identifier of device to place data on, e.g. 'cpu', 'cuda:0'
         :param sequences: (dict str: np.array) Dictionary of supplemental data

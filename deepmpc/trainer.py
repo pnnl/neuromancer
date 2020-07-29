@@ -55,11 +55,7 @@ class Trainer:
 
         #   TODO: plot loss function via visualizer
         plots = self.visualizer.train_output()
-        self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, **plots})
-
-        # TODO: _pickle.PicklingError: Can't pickle <function <lambda>
-        # self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, 'best_model.pth': self.model, **plots})
-        # https: // stackoverflow.com / questions / 8804830 / python - multiprocessing - picklingerror - cant - pickle - type - function
+        self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, 'best_model.pth': self.model, **plots})
         return best_model
 
     ########################################
@@ -129,10 +125,6 @@ class TrainerMPP:
         #   TODO: plot loss function via visualizer
         plots = self.visualizer.train_output()
         self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, **plots})
-
-        # TODO: _pickle.PicklingError: Can't pickle <function <lambda>
-        # self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, 'best_model.pth': self.model, **plots})
-        # https: // stackoverflow.com / questions / 8804830 / python - multiprocessing - picklingerror - cant - pickle - type - function
         return best_model, best_model_full
 
     ########################################

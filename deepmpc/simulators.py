@@ -89,7 +89,6 @@ class ClosedLoopSimulator(Simulator):
         # Step_outputs = defaultdict(list)
         for i in range(self.nsim):
             step_data = self.select_step_data(data, i)
-
             dist = step_data['Df'][0].detach().numpy() if step_data['Df'] is not None else None
             if 'D' in self.dataset.norm:
                 d = min_max_denorm(dist, self.dataset.min_max_norms['Dmin'], self.dataset.min_max_norms['Dmax']) if dist is not None else None
@@ -97,7 +96,6 @@ class ClosedLoopSimulator(Simulator):
                 d = dist
             if i > 0:
                 x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d)
-
                 # overwrite past after n-steps, TODO: owevreite continuously in first n steps
                 if len(Y) > self.nsteps:
                     if 'Y' in self.dataset.norm:

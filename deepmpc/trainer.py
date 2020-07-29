@@ -64,6 +64,7 @@ class Trainer:
     def evaluate(self, best_model):
         self.model.eval()
         self.model.load_state_dict(best_model)
+        self.simulator.model.load_state_dict(best_model)
 
         with torch.no_grad():
             ########################################

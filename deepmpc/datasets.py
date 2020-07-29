@@ -84,11 +84,16 @@ class DataDict(dict):
     """
     pass
 
-# TODO: not sure about adding type attribute
+# LATER
+# TODO: Refactor datasets to be closer to pytorch dataset
+# TODO: batcher object
+# TODO: loader object
+# TODO: open loop, closed loop, and static datasets separate
+
 class Dataset:
 
     def __init__(self, system=None, nsim=None, norm=['Y'], batch_type='batch',
-                 nsteps=32, device='cpu', sequences=dict(), type='openloop',
+                 nsteps=1, device='cpu', sequences=dict(), name='openloop',
                  savedir='test'):
         """
 
@@ -99,23 +104,25 @@ class Dataset:
         :param nsteps: (int) N-step prediction horizon for batching data
         :param device: (str) String identifier of device to place data on, e.g. 'cpu', 'cuda:0'
         :param sequences: (dict str: np.array) Dictionary of supplemental data
-        :param type: (str) String identifier of dataset type, must be ['static', 'openloop', 'closedloop']
+        :param name: (str) String identifier of dataset type, must be ['static', 'openloop', 'closedloop']
         """
         print(system)
-        self.type = type
+        self.name = name
         self.savedir = savedir
         self.system, self.nsim, self.norm, self.nsteps, self.device = system, nsim, norm, nsteps, device
         self.batch_type = batch_type
+        self.sequences = sequences
         self.data = self.load_data()
         self.add_data(sequences)
         self.min_max_norms, self.dims,  self.nstep_data, self.loop_data = dict(), dict(), dict(), dict()
-        assert set(norm) & set(self.data.keys()) == set(norm), \
-            f'Specified keys to normalize are not in dataset keys: {list(self.data.keys())}'
+        for k, v in self.data.items():
+            self.dims[k] = v.shape[1]
+        # # TODO: this assert will prevent us for creating dataset only from sequences
+        # assert set(norm) & set(self.data.keys()) == set(norm), \
+        #     f'Specified keys to normalize are not in dataset keys: {list(self.data.keys())}'
         self.data = self.norm_data(self.data, self.norm)
         self.make_nstep()
         self.make_loop()
-
-    # TODO: create eval method for performance assesment in trainer
 
     def norm_data(self, data, norm):
         for k, v in data.items():
@@ -143,38 +150,45 @@ class Dataset:
         plot.plot_traj(self.data, figname=os.path.join(self.savedir, f'{self.system}.png'))
         self.train_data, self.dev_data, self.test_data = self.split_train_test_dev(self.nstep_data)
 
+    # TODO: if name = 'closedloop' don't unbatch
     def make_loop(self):
-        if self.batch_type == 'mh':
-            self.train_loop = self.unbatch_mh(self.train_data)
-            self.dev_loop = self.unbatch_mh(self.dev_data)
-            self.test_loop = self.unbatch_mh(self.test_data)
-        else:
-            self.train_loop = self.unbatch(self.train_data)
-            self.dev_loop = self.unbatch(self.dev_data)
-            self.test_loop = self.unbatch(self.test_data)
+        if self.name == 'openloop':
+            if self.batch_type == 'mh':
+                self.train_loop = self.unbatch_mh(self.train_data)
+                self.dev_loop = self.unbatch_mh(self.dev_data)
+                self.test_loop = self.unbatch_mh(self.test_data)
+            else:
+                self.train_loop = self.unbatch(self.train_data)
+                self.dev_loop = self.unbatch(self.dev_data)
+                self.test_loop = self.unbatch(self.test_data)
+
+            all_loop = {k: np.concatenate([self.train_loop[k], self.dev_loop[k], self.test_loop[k]]).squeeze(1)
+                        for k in self.train_data.keys()}
+            for k in self.train_data.keys():
+                assert np.array_equal(all_loop[k], self.loop_data[k][:all_loop[k].shape[0]]), \
+                    f'Reshaped data {k} is not equal to truncated original data'
+            plot.plot_traj(all_loop, figname=os.path.join(self.savedir, f'{self.system}_open.png'))
+            plt.close('all')
+
+        elif self.name == 'closedloop':
+            nstep_data = dict()
+            for k, v in self.data.items():
+                nstep_data[k + 'p'] = batch_mh_data(self.loop_data[k + 'p'], self.nsteps)
+                nstep_data[k + 'f'] = batch_mh_data(self.loop_data[k + 'f'], self.nsteps)
+            self.train_loop, self.dev_loop, self.test_loop = self.split_train_test_dev(nstep_data)
+
         self.train_data.name, self.dev_data.name, self.test_data.name = 'nstep_train', 'nstep_dev', 'nstep_test'
         self.train_loop.name, self.dev_loop.name, self.test_loop.name = 'loop_train', 'loop_dev', 'loop_test'
-        all_loop = {k: np.concatenate([self.train_loop[k], self.dev_loop[k], self.test_loop[k]]).squeeze(1)
-                    for k in self.train_data.keys()}
-        for k in self.train_data.keys():
-            assert np.array_equal(all_loop[k], self.loop_data[k][:all_loop[k].shape[0]]), \
-                f'Reshaped data {k} is not equal to truncated original data'
-        plot.plot_traj(all_loop, figname=os.path.join(self.savedir, f'{self.system}_open.png'))
-        plt.close('all')
-
         for dset in self.train_data, self.dev_data, self.test_data, self.train_loop, self.dev_loop, self.test_loop:
             for k, v in dset.items():
                 dset[k] = torch.tensor(v, dtype=torch.float32).to(self.device)
-    #             TODO: this is not visitbe from outside
 
-    # def add_sequences(self, sequences):
-    #     for k, v in sequences.items():
-    #         assert v.shape[0] == self.data['Y'].shape[0]
-    #     self.data = {**self.data, **sequences}
+
 
     def add_data(self, sequences, norm=[]):
-        for k, v in sequences.items():
-            assert v.shape[0] == self.data['Y'].shape[0]
+        # TODO: we must drop 'Y' as expected key to be generic
+        # for k, v in sequences.items():
+        #     assert v.shape[0] == self.data['Y'].shape[0]
         for k in norm:
             self.norm.append(k)
         sequences = self.norm_data(sequences, norm)
@@ -193,9 +207,10 @@ class Dataset:
             self.dims.pop(k)
 
     def load_data(self):
-        assert self.system is None and len(self.sequences) > 0, \
-            'User must provide data via the sequences argument for basic Dataset. ' +\
-            'Use FileDataset or EmulatorDataset for predefined datasets'
+        # TODO: adjust this to be able to create empty arbitrary datet
+        # assert self.system is None and len(self.sequences) > 0, \
+        #     'User must provide data via the sequences argument for basic Dataset. ' +\
+        #     'Use FileDataset or EmulatorDataset for predefined datasets'
         return dict()
 
     def normalize(self, M, Mmin=None, Mmax=None):
@@ -262,6 +277,7 @@ class EmulatorDataset(Dataset):
             model.parameters(system=self.system)
         elif isinstance(model, emulators.BuildingEnvelope):
             model.parameters(system=self.system, linear=True)
+        #     TODO: handle additional emulator arguments via optional input arguments in load_data
         else:
             model.parameters()
 
@@ -306,6 +322,107 @@ class FileDataset(Dataset):
             if d is not None:
                 data[k] = d[ninit:self.nsim, :]
         return data
+
+
+
+
+class DatasetMPP:
+
+    def __init__(self, norm=[], device='cpu', sequences=dict(), name='mpp',
+                 savedir='test'):
+        """
+
+        :param system: (str) Identifier for dataset.
+        :param nsim: (int) Total number of time steps in data sequence
+        :param norm: (str) String of letters corresponding to data to be normalized, e.g. ['Y','U','D']
+        :param batch_type: (str) Type of the batch generator, expects: 'mh' or 'chunk'
+        :param nsteps: (int) N-step prediction horizon for batching data
+        :param device: (str) String identifier of device to place data on, e.g. 'cpu', 'cuda:0'
+        :param sequences: (dict str: np.array) Dictionary of supplemental data
+        :param name: (str) String identifier of dataset type, must be ['static', 'openloop', 'closedloop']
+        """
+        self.name = name
+        self.savedir = savedir
+        self.norm, self.device = norm, device
+        self.min_max_norms, self.dims, self.data = dict(), dict(), dict()
+        self.sequences = sequences
+        self.add_data(sequences)
+        for k, v in self.data.items():
+            self.dims[k] = v.shape[1]
+        self.data = self.norm_data(self.data, self.norm)
+        self.make_train_data()
+
+    def norm_data(self, data, norm):
+        for k, v in data.items():
+            v = v.reshape(v.shape[0], -1)
+            if k in norm:
+                v, vmin, vmax = self.normalize(v)
+                self.min_max_norms.update({k + 'min': vmin, k + 'max': vmax})
+                data[k] = v
+        return data
+
+    def make_train_data(self):
+        for k, v in self.data.items():
+            self.dims[k] = v.shape[1]
+        self.train_data, self.dev_data, self.test_data = self.split_train_test_dev(self.data)
+        self.train_data.name, self.dev_data.name, self.test_data.name = 'train', 'dev', 'test'
+        for dset in self.train_data, self.dev_data, self.test_data:
+            for k, v in dset.items():
+                dset[k] = torch.tensor(v, dtype=torch.float32).to(self.device)
+
+    def add_data(self, sequences, norm=[]):
+        for k in norm:
+            self.norm.append(k)
+        sequences = self.norm_data(sequences, norm)
+        self.data = {**self.data, **sequences}
+
+    def del_data(self, keys):
+        for k in keys:
+            self.data.pop(k)
+
+    def add_variable(self, var: Dict[str, int]):
+        for k, v in var.items():
+            self.dims[k] = v
+
+    def del_variable(self, keys):
+        for k in keys:
+            self.dims.pop(k)
+
+    def normalize(self, M, Mmin=None, Mmax=None):
+            """
+            :param M: (2-d np.array) Data to be normalized
+            :param Mmin: (int) Optional minimum. If not provided is inferred from data.
+            :param Mmax: (int) Optional maximum. If not provided is inferred from data.
+            :return: (2-d np.array) Min-max normalized data
+            """
+            Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
+            Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
+            M_norm = (M - Mmin) / (Mmax - Mmin)
+            return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
+
+    def split_train_test_dev(self, data):
+        """
+
+        :param data: (dict, str: 2-d np.array) Complete dataset. dims=(nsamples, dim)
+        :return: (3-tuple) Dictionarys for train, dev, and test sets
+        """
+        train_data, dev_data, test_data = DataDict(), DataDict(), DataDict()
+        train_idx = (list(data.values())[0].shape[0] // 3)
+        dev_idx = train_idx * 2
+        for k, v in data.items():
+            if data is not None:
+                train_data[k] = v[:train_idx, :]
+                dev_data[k] = v[train_idx:dev_idx, :]
+                test_data[k] = v[dev_idx:, :]
+        return train_data, dev_data, test_data
+
+
+
+
+
+# TODO: create custom dataset class to be able to create dataset class oly from the sequences
+class CustomDataset(Dataset):
+    pass
 
 
 if __name__ == '__main__':

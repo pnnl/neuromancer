@@ -28,7 +28,7 @@ More detailed description of options in the parse_args()
 # matplotlib.use("Agg")
 import argparse
 import torch
-from dataset import EmulatorDataset, FileDataset
+from datasets import EmulatorDataset, FileDataset
 import dynamics
 import estimators
 import linear
@@ -38,6 +38,7 @@ from visuals import VisualizerOpen, VisualizerTrajectories
 from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
+from simulators import OpenLoopSimulator
 
 
 def parse_args():
@@ -67,9 +68,9 @@ def parse_args():
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
-    data_group.add_argument('-dataset_type', type=str, choices=['openloop', 'closedloop'],
+    data_group.add_argument('-dataset_name', type=str, choices=['openloop', 'closedloop'],
                             default='openloop',
-                            help='training type of the dataset')
+                            help='name of the dataset')
 
     ##################
     # MODEL PARAMETERS
@@ -90,12 +91,12 @@ def parse_args():
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
     weight_group.add_argument('-Q_con_x', type=float,  default=1.0, help='Hidden state constraints penalty weight.')
-    weight_group.add_argument('-Q_dx', type=float,  default=0.0,
+    weight_group.add_argument('-Q_dx', type=float,  default=0.2,
                               help='Penalty weight on hidden state difference in one time step.')
     weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_y', type=float,  default=1.0, help='Output tracking penalty weight')
     weight_group.add_argument('-Q_e', type=float,  default=1.0, help='State estimator hidden prediction penalty weight')
-    weight_group.add_argument('-Q_con_fdu', type=float,  default=0.0, help='Penalty weight on control actions and disturbances.')
+    weight_group.add_argument('-Q_con_fdu', type=float,  default=0.2, help='Penalty weight on control actions and disturbances.')
 
     ####################
     # LOGGING PARAMETERS
@@ -123,7 +124,7 @@ def logging(args):
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
     return Logger, device
 
-def dataset_load(args):
+def dataset_load(args, device):
     if args.system_data == 'emulator':
         dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
@@ -143,7 +144,7 @@ if __name__ == '__main__':
     ###############################
     ########## DATA ###############
     ###############################
-    dataset = dataset_load(args)
+    dataset = dataset_load(args, device)
 
     ##########################################
     ########## PROBLEM COMPONENTS ############
@@ -188,7 +189,7 @@ if __name__ == '__main__':
     input_keys = list(set.union(*[set(comp.input_keys) for comp in components]))
     output_keys = list(set.union(*[set(comp.output_keys) for comp in components]))
     dataset_keys = list(set(dataset.train_data.keys()))
-    plot_keys = ['Yf', 'Y_pred', 'X_pred', 'fU_pred', 'fD_pred']   # variables to be plotted
+    plot_keys = ['Yf', 'Y_pred', 'X_pred', 'fU', 'fD']   # variables to be plotted
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
@@ -205,17 +206,17 @@ if __name__ == '__main__':
     objectives = [regularization, reference_loss]
     constraints = [state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
 
-    if 'fU_pred' in output_keys:
-        inputs_max_influence_lb = Objective(['fU_pred'], lambda x: torch.mean(F.relu(-x + 0.05)),
+    if 'fU' in output_keys:
+        inputs_max_influence_lb = Objective(['fU'], lambda x: torch.mean(F.relu(-x + 0.05)),
                                               weight=args.Q_con_fdu)
-        inputs_max_influence_ub = Objective(['fU_pred'], lambda x: torch.mean(F.relu(x - 0.05)),
+        inputs_max_influence_ub = Objective(['fU'], lambda x: torch.mean(F.relu(x - 0.05)),
                                             weight=args.Q_con_fdu)
         constraints.append(inputs_max_influence_lb)
         constraints.append(inputs_max_influence_ub)
-    if 'fD_pred' in output_keys:
-        disturbances_max_influence_lb = Objective(['fD_pred'], lambda x: torch.mean(F.relu(-x + 0.05)),
+    if 'fD' in output_keys:
+        disturbances_max_influence_lb = Objective(['fD'], lambda x: torch.mean(F.relu(-x + 0.05)),
                                             weight=args.Q_con_fdu)
-        disturbances_max_influence_ub = Objective(['fD_pred'], lambda x: torch.mean(F.relu(x - 0.05)),
+        disturbances_max_influence_ub = Objective(['fD'], lambda x: torch.mean(F.relu(x - 0.05)),
                                             weight=args.Q_con_fdu)
         constraints.append(disturbances_max_influence_lb)
         constraints.append(disturbances_max_influence_ub)
@@ -226,8 +227,9 @@ if __name__ == '__main__':
     model = Problem(objectives, constraints, components).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity, args.savedir)
-    # visualizer = VisualizerTrajectories(dataset, dynamics_model, plot_keys, args.verbosity)
-    trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer, epochs=args.epochs)
+    simulator = OpenLoopSimulator(model=model, dataset=dataset)
+    trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
+                      simulator=simulator, epochs=args.epochs)
     best_model = trainer.train()
     trainer.evaluate(best_model)
     logger.clean_up()

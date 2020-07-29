@@ -37,7 +37,7 @@ More detailed description of options in the parse_args()
 # matplotlib.use("Agg")
 import argparse
 import torch
-from dataset import EmulatorDataset, FileDataset
+from datasets import EmulatorDataset, FileDataset, Dataset
 import dynamics
 import estimators
 import emulators
@@ -45,11 +45,12 @@ import policies
 import linear
 import blocks
 import logger
-from visuals import Visualizer, VisualizerTrajectories
+from visuals import Visualizer, VisualizerTrajectories, VisualizerClosedLoop
 from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
 import numpy as np
+from simulators import OpenLoopSimulator, ClosedLoopSimulator
 
 
 def parse_args():
@@ -58,7 +59,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=100)
+    opt_group.add_argument('-epochs', type=int, default=5)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
@@ -72,16 +73,16 @@ def parse_args():
                             help='source type of the dataset')
     data_group.add_argument('-system', default='Reno_full',
                             help='select particular dataset with keyword')
-    data_group.add_argument('-nsim', type=int, default=8640,
+    data_group.add_argument('-nsim', type=int, default=1200,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
                                  'train, dev, and test will be split evenly from contiguous, sequential, '
                                  'non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,'
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
-    data_group.add_argument('-dataset_type', type=str, choices=['openloop', 'closedloop'],
+    data_group.add_argument('-dataset_name', type=str, choices=['openloop', 'closedloop'],
                             default='closedloop',
-                            help='training type of the dataset')
+                            help='name of the dataset')
 
 
     ##################
@@ -144,12 +145,14 @@ def logging(args):
     return Logger, device
 
 
-def dataset_load(args, sequences=dict()):
+def dataset_load(args, device, sequences=dict()):
     if args.system_data == 'emulator':
-        dataset = EmulatorDataset(system=args.system, nsim=args.nsim, sequences=sequences, type=args.dataset_type,
+        dataset = EmulatorDataset(system=args.system, nsim=args.nsim, sequences=sequences, batch_type='mh',
+                                  name=args.dataset_name,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     else:
-        dataset = FileDataset(system=args.system, nsim=args.nsim, sequences=sequences, type=args.dataset_type,
+        dataset = FileDataset(system=args.system, nsim=args.nsim, sequences=sequences, batch_type='mh',
+                              name=args.dataset_name,
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     return dataset
 
@@ -164,7 +167,7 @@ if __name__ == '__main__':
     ###############################
     ########## DATA ###############
     ###############################
-    dataset = dataset_load(args)
+    dataset = dataset_load(args, device)
     nsim, ny = dataset.data['Y'].shape
     nu = dataset.data['U'].shape[1]
     new_sequences = {'Y_max': np.ones([nsim, ny]), 'Y_min': np.zeros([nsim, ny]),
@@ -195,7 +198,7 @@ if __name__ == '__main__':
     if args.ssm_type == 'blackbox':
         dyn_output_keys = ['X_pred', 'Y_pred']
     else:
-        dyn_output_keys = ['X_pred', 'Y_pred', 'fU_pred', 'fD_pred']
+        dyn_output_keys = ['X_pred', 'Y_pred', 'fU', 'fD']
     dynamics_model = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
@@ -249,7 +252,7 @@ if __name__ == '__main__':
     input_keys = list(set.union(*[set(comp.input_keys) for comp in components]))
     output_keys = list(set.union(*[set(comp.output_keys) for comp in components]))
     dataset_keys = list(set(dataset.train_data.keys()))
-    plot_keys = ['Y_pred', 'X_pred', 'U_pred']  # variables to be plotted
+    plot_keys = ['Y_pred', 'U_pred']  # variables to be plotted
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
@@ -275,10 +278,11 @@ if __name__ == '__main__':
     ##########################################
     model = Problem(objectives, constraints, components).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    visualizer = VisualizerTrajectories(dataset, dynamics_model, plot_keys, args.verbosity)
-    trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer, epochs=args.epochs)
+    visualizer = VisualizerClosedLoop(dataset, dynamics_model, plot_keys, args.verbosity)
+    emulator = emulators.systems[args.system]() if args.system_data == 'emulator' else None
+    simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator)
+    trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
+                      simulator=simulator, epochs=args.epochs)
     best_model = trainer.train()
     trainer.evaluate(best_model)
-    # TODO: add simulator class for dynamical models? - evaluates open and closed loop
-    # simulator = Simulator(best_model, dataset, emulator=emulators.systems[args.system], logger=logger, visualizer=visualizer)
     logger.clean_up()

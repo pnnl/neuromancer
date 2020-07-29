@@ -4,6 +4,7 @@ import time
 import os
 import torch
 import numbers
+import dill
 
 
 class BasicLogger:
@@ -38,7 +39,7 @@ class BasicLogger:
     def log_artifacts(self, artifacts):
         for k, v in artifacts.items():
             savepath = os.path.join(self.savedir, k)
-            torch.save(v, savepath)
+            torch.save(v, savepath, pickle_module=dill)
 
     def clean_up(self):
         pass

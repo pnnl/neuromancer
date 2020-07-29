@@ -6,7 +6,7 @@ import numpy as np
 from logger import BasicLogger
 from visuals import Visualizer
 from problem import Problem
-from dataset import Dataset
+from datasets import Dataset
 
 
 def reset(module):
@@ -18,20 +18,24 @@ def reset(module):
 class Trainer:
 
     def __init__(self, problem: Problem, dataset: Dataset, optimizer: torch.optim.Optimizer,
-                 logger: BasicLogger = BasicLogger(), visualizer=Visualizer(), epochs=1000):
+                 logger: BasicLogger = BasicLogger(), visualizer=Visualizer(), simulator=None, epochs=1000,
+                 eval_metric='loop_dev_loss'):
         self.model = problem
         self.optimizer = optimizer
         self.dataset = dataset
         self.logger = logger
         self.visualizer = visualizer
+        self.simulator = simulator
         self.epochs = epochs
         self.logger.log_weights(self.model)
+        self.eval_metric = eval_metric
 
+    ########################################
+    ############# TRAIN LOOP ###############
+    ########################################
     def train(self):
-
-        best_looploss = np.finfo(np.float32).max
+        best_devloss = np.finfo(np.float32).max
         best_model = deepcopy(self.model.state_dict())
-
         for i in range(self.epochs):
             self.model.train()
             output = self.model(self.dataset.train_data)
@@ -39,61 +43,106 @@ class Trainer:
             output['nstep_train_loss'].backward()
             self.optimizer.step()
 
-            # TODO: HACK
-            # TODO: create eval dataset method linked with the dataset
             with torch.no_grad():
                 self.model.eval()
-                dev_nstep_output = self.model(self.dataset.dev_data)
-                if self.dataset.type == 'openloop':
-                    dev_loop_output = self.model(self.dataset.dev_loop)
-                    self.logger.log_metrics({**dev_nstep_output, **dev_loop_output, **output}, step=i)
-                elif self.dataset.type == 'closedloop':
-                # # TODO: placeholder
-                    dev_loop_output = {'loop_dev_loss': 0}
-                    self.logger.log_metrics({**dev_nstep_output,  **output}, step=i)
-                if dev_loop_output['loop_dev_loss'] < best_looploss:
+                dev_data_output = self.model(self.dataset.dev_data)
+                dev_sim_output = self.simulator.dev_eval()
+                self.logger.log_metrics({**dev_data_output, **dev_sim_output, **output}, step=i)
+                if dev_sim_output[self.eval_metric] < best_devloss:
                     best_model = deepcopy(self.model.state_dict())
-                    best_looploss = dev_loop_output['loop_dev_loss']
-                self.visualizer.train_plot({**dev_nstep_output, **dev_loop_output}, i)
+                    best_devloss = dev_sim_output[self.eval_metric]
+                self.visualizer.train_plot({**dev_data_output, **dev_sim_output}, i)
+
+        #   TODO: plot loss function via visualizer
+        plots = self.visualizer.train_output()
+        self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, 'best_model.pth': self.model, **plots})
+        return best_model
+
+    ########################################
+    ########## EVALUATE MODEL ##############
+    ########################################
+    def evaluate(self, best_model):
+        self.model.eval()
+        self.model.load_state_dict(best_model)
+        self.simulator.model.load_state_dict(best_model)
+
+        with torch.no_grad():
+            ########################################
+            ########### DATASET RESPONSE ###########
+            ########################################
+            all_output = dict()
+            for dset, dname in zip([self.dataset.train_data, self.dataset.dev_data, self.dataset.test_data],
+                                   ['train', 'dev', 'test']):
+                all_output = {**all_output, **self.model(dset)}
+            ########################################
+            ########## SIMULATOR RESPONSE ##########
+            ########################################
+            test_sim_output = self.simulator.test_eval()
+            all_output = {**all_output, **test_sim_output}
+
+        self.all_output = all_output
+        self.logger.log_metrics({f'best_{k}': v for k, v in all_output.items()})
+        plots = self.visualizer.eval(all_output)
+        self.logger.log_artifacts(plots)
+
+
+class TrainerMPP:
+    def __init__(self, problem: Problem, dataset: Dataset, optimizer: torch.optim.Optimizer,
+                 logger: BasicLogger = BasicLogger(), visualizer=Visualizer(), epochs=1000,
+                 eval_metric='dev_loss'):
+        self.model = problem
+        self.optimizer = optimizer
+        self.dataset = dataset
+        self.logger = logger
+        self.visualizer = visualizer
+        self.epochs = epochs
+        self.logger.log_weights(self.model)
+        self.eval_metric = eval_metric
+
+    ########################################
+    ############# TRAIN LOOP ###############
+    ########################################
+    def train(self):
+        best_devloss = np.finfo(np.float32).max
+        best_model = deepcopy(self.model.state_dict())
+        best_model_full = self.model
+        for i in range(self.epochs):
+            self.model.train()
+            output = self.model(self.dataset.train_data)
+            self.optimizer.zero_grad()
+            output['train_loss'].backward()
+            self.optimizer.step()
+
+            with torch.no_grad():
+                self.model.eval()
+                dev_data_output = self.model(self.dataset.dev_data)
+                self.logger.log_metrics({**dev_data_output, **output}, step=i)
+                if dev_data_output[self.eval_metric] < best_devloss:
+                    best_model = deepcopy(self.model.state_dict())
+                    best_model_full = self.model
+                    best_devloss = dev_data_output[self.eval_metric]
+                self.visualizer.train_plot(dev_data_output, i)
 
         #   TODO: plot loss function via visualizer
         plots = self.visualizer.train_output()
         self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, **plots})
+        return best_model, best_model_full
 
-        # TODO: _pickle.PicklingError: Can't pickle <function <lambda>
-        # self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, 'best_model.pth': self.model, **plots})
-        # https: // stackoverflow.com / questions / 8804830 / python - multiprocessing - picklingerror - cant - pickle - type - function
-        return best_model
-
+    ########################################
+    ########## EVALUATE MODEL ##############
+    ########################################
     def evaluate(self, best_model):
         self.model.eval()
         self.model.load_state_dict(best_model)
 
         with torch.no_grad():
             ########################################
-            ########## NSTEP TRAIN RESPONSE ########
+            ########### DATASET RESPONSE ###########
             ########################################
             all_output = dict()
             for dset, dname in zip([self.dataset.train_data, self.dataset.dev_data, self.dataset.test_data],
                                    ['train', 'dev', 'test']):
                 all_output = {**all_output, **self.model(dset)}
-
-            # TODO: keep only nstep train response in trainer?
-            # TODO: should we create standalone simulator class for OL and CL responses?
-            ########################################
-            ########## OPEN LOOP RESPONSE ##########
-            ########################################
-            if self.dataset.type == 'openloop':
-                for data, dname in zip([self.dataset.train_loop, self.dataset.dev_loop, self.dataset.test_loop],
-                                       ['train', 'dev', 'test']):
-                    all_output = {**all_output, **self.model(data)}
-
-            ########################################
-            ########## CLOSED LOOP RESPONSE ########
-            ########################################
-            elif self.dataset.type == 'closedloop':
-                pass
-                #  TODO: simulate closed loop with emulators or trained model
 
         self.all_output = all_output
         self.logger.log_metrics({f'best_{k}': v for k, v in all_output.items()})

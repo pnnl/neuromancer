@@ -35,7 +35,7 @@ More detailed description of options in the parse_args()
 # matplotlib.use("Agg")
 import argparse
 import torch
-from dataset import EmulatorDataset, FileDataset
+from datasets import EmulatorDataset, FileDataset
 import dynamics
 import estimators
 import emulators
@@ -48,7 +48,6 @@ from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
 import plot
-from dataset import unbatch_data
 import numpy as np
 
 
@@ -79,9 +78,9 @@ def parse_args():
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
-    data_group.add_argument('-dataset_type', type=str, choices=['openloop', 'closedloop'],
+    data_group.add_argument('-dataset_name', type=str, choices=['openloop', 'closedloop'],
                             default='closedloop',
-                            help='training type of the dataset')
+                            help='name of the dataset')
 
 
     ##################
@@ -146,7 +145,7 @@ def logging(args):
     return Logger, device
 
 
-def dataset_load(args, sequences=dict()):
+def dataset_load(args, device, sequences=dict()):
     if args.system_data == 'emulator':
         dataset = EmulatorDataset(system=args.system, nsim=args.nsim, sequences=sequences, type=args.dataset_type,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
@@ -166,7 +165,7 @@ if __name__ == '__main__':
     ###############################
     ########## DATA ###############
     ###############################
-    dataset = dataset_load(args)
+    dataset = dataset_load(args, device)
     nsim, ny = dataset.data['Y'].shape
     nu = dataset.data['U'].shape[1]
     new_sequences = {'Y_max': np.ones([nsim, ny]), 'Y_min': np.zeros([nsim, ny]),
@@ -192,7 +191,6 @@ if __name__ == '__main__':
                  'mlp': blocks.MLP,
                  'rnn': blocks.RNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
-
     # state space model setup for control
     if args.ssm_type == 'blackbox':
         dyn_output_keys = ['X_ctrl', 'Y_ctrl']

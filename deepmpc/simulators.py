@@ -1,5 +1,12 @@
 """
 
+
+TODO: handle pytorch model as emulator
+TODO: overwrite past after n-steps, continuously in first n steps
+TODO: consistent parameters() call for emulators
+TODO: finish eval with model and emulator
+TODO: eval_metric - evaluate closed loop metric based on the simulation results
+
 """
 import torch
 import torch.nn as nn
@@ -43,13 +50,16 @@ class OpenLoopSimulator(Simulator):
 class ClosedLoopSimulator(Simulator):
     def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None):
         super().__init__(model=model, dataset=dataset, emulator=emulator)
-        assert isinstance(emulator, EmulatorBase), f'{type(emulator)} is not EmulatorBase.'
+        assert isinstance(emulator, EmulatorBase) or isinstance(emulator,  nn.Module), \
+            f'{type(emulator)} is not EmulatorBase or nn.Module.'
         self.emulator = emulator
         self.ninit = 0
         self.nsim = self.dataset.nstep_data['Yf'].shape[1]
-        self.emulator.parameters()
-        # TODO: consistent parameters() call for emulators
-
+        self.emulator.parameters() if isinstance(emulator, EmulatorBase) else None
+        if isinstance(emulator, EmulatorBase):
+            self.x0 = self.emulator.x0
+        elif isinstance(emulator, nn.Module):
+            self.x0 = torch.zeros([1, self.emulator.nx])
 
     def select_step_data(self, data, i):
         """
@@ -66,7 +76,6 @@ class ClosedLoopSimulator(Simulator):
         return step_data
 
     def eval_metric(self):
-        # TODO: evaluate closed loop metric based on the simulation results
         pass
 
     def simulate(self, data):
@@ -86,31 +95,45 @@ class ClosedLoopSimulator(Simulator):
         self.nsteps = data['Yp'].shape[0]
         Y, X, D, U = [], [], [], []  # emulator trajectories
         Y_pred, X_pred, U_pred, U_opt = [], [], [], []   # model  trajectories
-        # Step_outputs = defaultdict(list)
         for i in range(self.nsim):
             step_data = self.select_step_data(data, i)
-            dist = step_data['Df'][0].detach().numpy() if step_data['Df'] is not None else None
-            if 'D' in self.dataset.norm:
-                d = min_max_denorm(dist, self.dataset.min_max_norms['Dmin'], self.dataset.min_max_norms['Dmax']) if dist is not None else None
-            else:
-                d = dist
+
+            x = self.x0 if i == 0 else x
             if i > 0:
-                x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d)
-                # overwrite past after n-steps, TODO: owevreite continuously in first n steps
+                # select current step disturbance
+                dist = step_data['Df'][0].detach().numpy() if step_data['Df'] is not None else None
+                if 'D' in self.dataset.norm:
+                    d = min_max_denorm(dist, self.dataset.min_max_norms['Dmin'],
+                                       self.dataset.min_max_norms['Dmax']) if dist is not None else None
+                else:
+                    d = dist
+                # simulate 1 step of the emulator model
+                if isinstance(self.emulator, EmulatorBase):
+                    x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d, x0=x)
+                elif isinstance(self.emulator, nn.Module):
+                    step_data_0 = dict()
+                    step_data_0['U_pred'] = uopt
+                    step_data_0['x0'] = x
+                    for k, v in step_data.items():
+                        step_data_0[k] = v[0]
+                    emulator_output = self.emulator(step_data_0)
+                    x = emulator_output['X_pred'][0]
+                    y = emulator_output['Y_pred'][0]
+                # update u and y trajectory history
                 if len(Y) > self.nsteps:
-                    if 'Y' in self.dataset.norm:
-                        Yp_np, _, _ = self.dataset.normalize(np.concatenate(Y[-self.nsteps:]), Mmin=self.dataset.min_max_norms['Ymin'],
-                                                         Mmax=self.dataset.min_max_norms['Ymax'])
+                    if 'Y' in self.dataset.norm and isinstance(self.emulator, EmulatorBase):
+                        Yp_np, _, _ = self.dataset.normalize(np.concatenate(Y[-self.nsteps:]),
+                                                             Mmin=self.dataset.min_max_norms['Ymin'],
+                                                             Mmax=self.dataset.min_max_norms['Ymax'])
                     else:
                         Yp_np = np.concatenate(Y[-self.nsteps:])
                     step_data['Yp'] = torch.tensor(np.concatenate(Yp_np, 0)).reshape(self.nsteps, 1, -1)
+
                 if len(U_opt) > self.nsteps:
                     step_data['Up'] = torch.cat(U_opt[-self.nsteps:], dim=0).reshape(self.nsteps, 1, -1)
 
-            #     TODO: handle pytorch model as emulator
+            # control policy model
             step_output = self.model(step_data)
-            # for k, v in step_output.items():
-            #     Step_outputs[k].append(v)
 
             # model trajectories
             x_key = [k for k in step_output.keys() if 'X_pred' in k]
@@ -130,8 +153,8 @@ class ClosedLoopSimulator(Simulator):
                 u = uopt.detach().numpy()
             if i > 0:
                 U.append(u)
-                Y.append(y)
-                X.append(x)
+                Y.append(y) if isinstance(self.emulator, EmulatorBase) else Y.append(y.detach().numpy())
+                X.append(x) if isinstance(self.emulator, EmulatorBase) else X.append(x.detach().numpy())
                 D.append(d) if d is not None else None
 
         return {'X_pred': torch.cat(X_pred, dim=1), 'Y_pred': torch.cat(Y_pred, dim=1),
@@ -139,9 +162,6 @@ class ClosedLoopSimulator(Simulator):
                 'Y': np.concatenate(Y, 0), 'X': np.concatenate(X, 0),
                 'U': np.concatenate(U, 0), 'D': np.concatenate(D, 0) if D is not None else None}
 
-        # Step_outputs = {torch.cat(v) for k, v in Step_outputs}
-        # return Step_outputs
-        # #     TODO: dimensions in torch.cat(v) are insonsistent
 
 if __name__ == '__main__':
 
@@ -156,7 +176,6 @@ if __name__ == '__main__':
     dataset.make_nstep()
     dataset.make_loop()
 
-    # TODO: finish eval with model and emulator
     # model = None
     # emulator = None
     # simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator)

@@ -118,6 +118,7 @@ def parse_args():
     weight_group.add_argument('-Q_sub', type=float, default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_r', type=float, default=1.0, help='Reference tracking penalty weight')
 
+
     ####################
     # LOGGING PARAMETERS
     log_group = parser.add_argument_group('LOGGING PARAMETERS')
@@ -279,7 +280,8 @@ if __name__ == '__main__':
     model = Problem(objectives, constraints, components).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     visualizer = VisualizerClosedLoop(dataset, dynamics_model, plot_keys, args.verbosity)
-    emulator = emulators.systems[args.system]() if args.system_data == 'emulator' else None
+    emulator = emulators.systems[args.system]() if args.system_data == 'emulator' \
+        else dynamics_model if args.system_data == 'datafile' else None
     simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
                       simulator=simulator, epochs=args.epochs)

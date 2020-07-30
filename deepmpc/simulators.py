@@ -109,7 +109,7 @@ class ClosedLoopSimulator(Simulator):
                     d = dist
                 # simulate 1 step of the emulator model
                 if isinstance(self.emulator, EmulatorBase):
-                    x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d, x0=x)
+                    x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d, x0=x.flatten())
                 elif isinstance(self.emulator, nn.Module):
                     step_data_0 = dict()
                     step_data_0['U_pred'] = uopt

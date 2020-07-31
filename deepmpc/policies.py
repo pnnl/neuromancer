@@ -1,5 +1,8 @@
 """
 TODO: Better high level comments
+# TODO: current handling of input key x0 via self.input_keys[0] is a tricky one, what if we would like to have more static features?
+# TODO: features handling based on the dimensions
+
 policies for SSM models
 x: states
 u: control inputs
@@ -17,7 +20,6 @@ import torch.nn.functional as F
 #local imports
 import linear
 import blocks
-
 
 
 def check_keys(k1, k2):
@@ -68,7 +70,6 @@ class SolutionMap(nn.Module):
         return {self.output_keys[0]: Z, self.output_keys[1]: self.net.reg_error()}
 
 
-
 class Policy(nn.Module):
     def __init__(self, data_dims, nsteps=1, input_keys=['x0'], output_keys=['U_pred'], name='policy'):
         """
@@ -112,8 +113,8 @@ class Policy(nn.Module):
             features = torch.cat([features, new_feat], dim=1)
         Uf = self.net(features)
         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
-        # return {'U_pred': Uf, f'{self.name}_reg_error': self.net.reg_error()}
         return {self.output_keys[0]: Uf, self.output_keys[1]: self.net.reg_error()}
+
 
 class LinearPolicy(Policy):
     def __init__(self, data_dims, nsteps=1, bias=False,
@@ -192,7 +193,6 @@ class RNNPolicy(Policy):
         Uf = self.net(features)
         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
         return {self.output_keys[0]: Uf, self.output_keys[1]: self.net.reg_error()}
-        # return {'U_pred': Uf, f'{self.name}_reg_error': self.net.reg_error()}
 
 
 # similar structure to Linear Kalman Filter
@@ -202,7 +202,6 @@ class LQRPolicy(nn.Module):
 
 policies = [LinearPolicy, MLPPolicy, RNNPolicy]
 
-# TODO: current handling of input key x0 via self.input_keys[0] is a tricky one, what if we would like to have more static features?
 
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 3
@@ -213,7 +212,7 @@ if __name__ == '__main__':
     D = torch.rand(N, samples, nd)
     R = torch.rand(N, samples, ny)
     data = {'x0': x, 'D': D, 'R': R}
-    data_dims = {'x0': nx, 'D': nd, 'R': ny, 'U': nu}
+    data_dims = {'x0': nx, 'D': nd, 'R': ny, 'U_pred': nu}
 
     for pol in policies:
         p = pol(data_dims, nsteps=10, input_keys=['x0', 'D', 'R'], output_keys=['U_pred'])

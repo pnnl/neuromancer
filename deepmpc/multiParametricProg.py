@@ -1,5 +1,10 @@
 """
 Script for solving multiparametric programming problem
+
+    # TODO: implement these examples
+    # https: // yalmip.github.io / tutorial / multiparametricprogramming /
+    # https: // www.mpt3.org / ParOpt / ParOpt
+
 """
 import argparse
 import torch
@@ -75,10 +80,6 @@ if __name__ == '__main__':
     ###############################
     ########## DATA ###############
     ###############################
-    # TODO: implement these examples
-    # https: // yalmip.github.io / tutorial / multiparametricprogramming /
-    # https: // www.mpt3.org / ParOpt / ParOpt
-
     # problem for verification
     A = torch.tensor([[1.2744, 1.1040, -0.4325],
                   [-2.1320, 0.1314, 0.7086],

@@ -1,5 +1,9 @@
 """
+
+#   TODO: plot loss function via visualizer
+
 """
+
 from copy import deepcopy
 import torch
 import numpy as np
@@ -53,7 +57,6 @@ class Trainer:
                     best_devloss = dev_sim_output[self.eval_metric]
                 self.visualizer.train_plot({**dev_data_output, **dev_sim_output}, i)
 
-        #   TODO: plot loss function via visualizer
         plots = self.visualizer.train_output()
         self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, 'best_model.pth': self.model, **plots})
         return best_model
@@ -123,7 +126,6 @@ class TrainerMPP:
                     best_devloss = dev_data_output[self.eval_metric]
                 self.visualizer.train_plot(dev_data_output, i)
 
-        #   TODO: plot loss function via visualizer
         plots = self.visualizer.train_output()
         self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, **plots})
         return best_model, best_model_full

@@ -1,21 +1,20 @@
 """
-
-
-TODO: handle pytorch model as emulator
+TODO: eval_metric - evaluate closed loop metric based on the simulation results
+use the same interface for objectives as for the problem via _calculate_loss
 TODO: overwrite past after n-steps, continuously in first n steps
 TODO: consistent parameters() call for emulators
-TODO: finish eval with model and emulator
-TODO: eval_metric - evaluate closed loop metric based on the simulation results
+# TODO: finish testing
 
 """
+
 import torch
 import torch.nn as nn
 from emulators import EmulatorBase
 from datasets import EmulatorDataset, FileDataset, min_max_denorm
 from problem import Problem
 from datasets import Dataset, DataDict
-from collections import defaultdict
 import numpy as np
+
 
 class Simulator:
     def __init__(self, model: Problem, dataset: Dataset, emulator: EmulatorBase = None):
@@ -25,7 +24,6 @@ class Simulator:
 
     def dev_eval(self):
         dev_loop_output = self.model(self.dataset.dev_loop)
-        # dev_loop_output = self.simulate(self.dataset.dev_loop)
         return dev_loop_output
 
     def test_eval(self):
@@ -175,7 +173,3 @@ if __name__ == '__main__':
     nu = dataset.data['U'].shape[1]
     dataset.make_nstep()
     dataset.make_loop()
-
-    # model = None
-    # emulator = None
-    # simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator)

@@ -1,5 +1,13 @@
 """
 # TODO: Better high level comments
+
+# TODO: extend the use of [-1] for full trajectory estimators
+# by using moving horizon dataset in online eval using OL simulator class
+# we want to map the past trajectory of all variables to the initial state
+# not only the last state
+# TODO: KF needs update
+# TODO: Implement extended Kalman filter
+
 state estimators for SSM models
 x: states (x0 - initial conditions)
 u: control inputs
@@ -51,6 +59,7 @@ def check_keys(k1, k2):
     assert set(k1) - set(k2) == set(), \
         f'Missing values in dataset. Input_keys: {set(k1)}, data_keys: {set(k2)}'
 
+
 class Estimator(nn.Module):
     def __init__(self, data_dims, nsteps=1, input_keys=['Yp'], output_keys=['x0'], name='estimator'):
         super().__init__()
@@ -78,12 +87,8 @@ class Estimator(nn.Module):
         :return:
         """
         check_keys(self.input_keys, set(data.keys()))
-        # TODO: extend the use of [-1] for full trajectory estimators
-        # we want to map the past trajectory of all variables to the initial state
-        # not only the last state
         features = torch.cat([data[k][-1] for k in self.input_keys], dim=1)
         return {self.output_keys[0]: self.net(features), self.output_keys[1]: self.net.reg_error()}
-        # return {'x0': self.net(features), f'{self.name}_reg_error': self.net.reg_error()}
 
 
 class LinearEstimator(Estimator):
@@ -179,10 +184,9 @@ class RNNEstimator(Estimator):
 
     def forward(self, data):
         features = torch.cat([data[k] for k in self.input_keys], dim=2)
-        # return {'x0': self.net(features), f'{self.name}_reg_error': self.reg_error()}
         return {self.output_keys[0]: self.net(features), self.output_keys[1]: self.net.reg_error()}
 
-# TODO: KF needs update
+
 class LinearKalmanFilter(nn.Module):
     """
     Time-Varying Linear Kalman Filter
@@ -232,16 +236,7 @@ class LinearKalmanFilter(nn.Module):
                                                         torch.mm(P, self.model.fy.effective_W())))
             L = torch.mm(torch.mm(P, self.model.fy.effective_W()), L_inverse_part)
             P = eye - torch.mm(L, torch.mm(self.model.fy.effective_W().T, P))
-
         return {'x0': x, f'{self.name}_reg_error': self.reg_error()}
-
-
-class ExtendedKalmanFilter(nn.Module):
-    """
-    Extended = Kalman Filter
-    TODO: Implement extended Kalman filter
-    """
-    pass
 
 
 estimators = [FullyObservable, LinearEstimator, MLPEstimator, RNNEstimator, ResMLPEstimator]
@@ -255,7 +250,7 @@ if __name__ == '__main__':
     U = torch.rand(N, samples, nu)
     D = torch.rand(N, samples, nd)
     data = {'Yp': Y, 'Up': U, 'Dp': D}
-    data_dims = {'X': nx, 'Yp': ny, 'Up': nu, 'Dp': nd}
+    data_dims = {'x0': nx, 'Yp': ny, 'Up': nu, 'Dp': nd}
     input_keys = ['Yp']
     output_keys = ['x0']
 

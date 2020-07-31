@@ -1,7 +1,11 @@
 """
-# TODO: include reference in the datafiles and emulators
-# TODO: extend datasets with time-varying constraints Ymin, Ymax, Umin, Umax
 # TODO Mini-batching
+# TODO: variant with midstep - defining the moving horizon skip step, default = 1
+# TODO: Refactor datasets to be closer to pytorch dataset
+# TODO: batcher object - solves conditional logic on different tasks and different batching
+# TODO: loader object
+# TODO: open loop, closed loop, and static datasets separate
+
 """
 import os
 from scipy.io import loadmat
@@ -26,7 +30,6 @@ def min_max_denorm(M, Mmin, Mmax):
     return np.nan_to_num(M_denorm)
 
 
-# TODO: variant with midstep - defining the moving horizon skip step, default = 1
 def batch_mh_data(data, nsteps):
     """
     moving horizon batching
@@ -38,6 +41,7 @@ def batch_mh_data(data, nsteps):
     end_step = data.shape[0] - nsteps
     data = np.asarray([data[k:k+nsteps, :] for k in range(0, end_step)])  # nchunks X nsteps X nfeatures
     return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
+
 
 def unbatch_mh_data(data):
     """
@@ -84,11 +88,6 @@ class DataDict(dict):
     """
     pass
 
-# LATER
-# TODO: Refactor datasets to be closer to pytorch dataset
-# TODO: batcher object
-# TODO: loader object
-# TODO: open loop, closed loop, and static datasets separate
 
 class Dataset:
 
@@ -107,6 +106,7 @@ class Dataset:
         :param name: (str) String identifier of dataset type, must be ['static', 'openloop', 'closedloop']
         """
         print(system)
+        assert not (system is None and len(sequences) == 0), 'Trying to instantiate an empty dataset.'
         self.name = name
         self.savedir = savedir
         self.system, self.nsim, self.norm, self.nsteps, self.device = system, nsim, norm, nsteps, device
@@ -114,12 +114,14 @@ class Dataset:
         self.sequences = sequences
         self.data = self.load_data()
         self.add_data(sequences)
-        self.min_max_norms, self.dims,  self.nstep_data, self.loop_data = dict(), dict(), dict(), dict()
+        self.min_max_norms, self.dims,  self.nstep_data, self.shift_data = dict(), dict(), dict(), dict()
         for k, v in self.data.items():
             self.dims[k] = v.shape[1]
-        # # TODO: this assert will prevent us for creating dataset only from sequences
-        # assert set(norm) & set(self.data.keys()) == set(norm), \
-        #     f'Specified keys to normalize are not in dataset keys: {list(self.data.keys())}'
+        self.dims['nsim'] = v.shape[0]
+        self.dims['nsteps'] = self.nsteps
+
+        assert set(norm) & set(self.data.keys()) == set(norm), \
+            f'Specified keys to normalize are not in dataset keys: {list(self.data.keys())}'
         self.data = self.norm_data(self.data, self.norm)
         self.make_nstep()
         self.make_loop()
@@ -133,24 +135,23 @@ class Dataset:
                 data[k] = v
         return data
 
-    def make_nstep(self):
-        # TODO: This recreates dataset each time data is added. Fix for larger datasets
+    def make_nstep(self, overwrite=False):
         for k, v in self.data.items():
-            self.dims[k], self.dims[k + 'p'], self.dims[k + 'f'] = v.shape[1], v.shape[1], v.shape[1]
-            self.loop_data[k + 'p'] = v[:-self.nsteps]
-            self.loop_data[k + 'f'] = v[self.nsteps:]
+            if k + 'p' not in self.shift_data or overwrite:
+                self.dims[k], self.dims[k + 'p'], self.dims[k + 'f'] = v.shape[1], v.shape[1], v.shape[1]
+                self.shift_data[k + 'p'] = v[:-self.nsteps]
+                self.shift_data[k + 'f'] = v[self.nsteps:]
 
-            if self.batch_type == 'mh':
-                self.nstep_data[k + 'p'] = batch_mh_data(self.loop_data[k + 'p'], self.nsteps)
-                self.nstep_data[k + 'f'] = batch_mh_data(self.loop_data[k + 'f'], self.nsteps)
-            else:
-                self.nstep_data[k + 'p'] = batch_data(self.loop_data[k + 'p'], self.nsteps)
-                self.nstep_data[k + 'f'] = batch_data(self.loop_data[k + 'f'], self.nsteps)
-            self.data[k] = v
+                if self.batch_type == 'mh':
+                    self.nstep_data[k + 'p'] = batch_mh_data(self.shift_data[k + 'p'], self.nsteps)
+                    self.nstep_data[k + 'f'] = batch_mh_data(self.shift_data[k + 'f'], self.nsteps)
+                else:
+                    self.nstep_data[k + 'p'] = batch_data(self.shift_data[k + 'p'], self.nsteps)
+                    self.nstep_data[k + 'f'] = batch_data(self.shift_data[k + 'f'], self.nsteps)
+                self.data[k] = v
         plot.plot_traj(self.data, figname=os.path.join(self.savedir, f'{self.system}.png'))
         self.train_data, self.dev_data, self.test_data = self.split_train_test_dev(self.nstep_data)
 
-    # TODO: if name = 'closedloop' don't unbatch
     def make_loop(self):
         if self.name == 'openloop':
             if self.batch_type == 'mh':
@@ -165,7 +166,7 @@ class Dataset:
             all_loop = {k: np.concatenate([self.train_loop[k], self.dev_loop[k], self.test_loop[k]]).squeeze(1)
                         for k in self.train_data.keys()}
             for k in self.train_data.keys():
-                assert np.array_equal(all_loop[k], self.loop_data[k][:all_loop[k].shape[0]]), \
+                assert np.array_equal(all_loop[k], self.shift_data[k][:all_loop[k].shape[0]]), \
                     f'Reshaped data {k} is not equal to truncated original data'
             plot.plot_traj(all_loop, figname=os.path.join(self.savedir, f'{self.system}_open.png'))
             plt.close('all')
@@ -173,8 +174,8 @@ class Dataset:
         elif self.name == 'closedloop':
             nstep_data = dict()
             for k, v in self.data.items():
-                nstep_data[k + 'p'] = batch_mh_data(self.loop_data[k + 'p'], self.nsteps)
-                nstep_data[k + 'f'] = batch_mh_data(self.loop_data[k + 'f'], self.nsteps)
+                nstep_data[k + 'p'] = batch_mh_data(self.shift_data[k + 'p'], self.nsteps)
+                nstep_data[k + 'f'] = batch_mh_data(self.shift_data[k + 'f'], self.nsteps)
             self.train_loop, self.dev_loop, self.test_loop = self.split_train_test_dev(nstep_data)
 
         self.train_data.name, self.dev_data.name, self.test_data.name = 'nstep_train', 'nstep_dev', 'nstep_test'
@@ -183,12 +184,9 @@ class Dataset:
             for k, v in dset.items():
                 dset[k] = torch.tensor(v, dtype=torch.float32).to(self.device)
 
-
-
     def add_data(self, sequences, norm=[]):
-        # TODO: we must drop 'Y' as expected key to be generic
-        # for k, v in sequences.items():
-        #     assert v.shape[0] == self.data['Y'].shape[0]
+        for k, v in sequences.items():
+            assert v.shape[0] == self.dims['nsim']
         for k in norm:
             self.norm.append(k)
         sequences = self.norm_data(sequences, norm)
@@ -196,7 +194,7 @@ class Dataset:
 
     def del_data(self, keys):
         for k in keys:
-            self.data.pop(k)
+            del self.data[k]
 
     def add_variable(self, var: Dict[str, int]):
         for k, v in var.items():
@@ -204,13 +202,12 @@ class Dataset:
 
     def del_variable(self, keys):
         for k in keys:
-            self.dims.pop(k)
+            del self.dims[k]
 
     def load_data(self):
-        # TODO: adjust this to be able to create empty arbitrary datet
-        # assert self.system is None and len(self.sequences) > 0, \
-        #     'User must provide data via the sequences argument for basic Dataset. ' +\
-        #     'Use FileDataset or EmulatorDataset for predefined datasets'
+        assert self.system is None and len(self.sequences) > 0, \
+            'User must provide data via the sequences argument for basic Dataset. ' +\
+            'Use FileDataset or EmulatorDataset for predefined datasets'
         return dict()
 
     def normalize(self, M, Mmin=None, Mmax=None):
@@ -273,13 +270,7 @@ class EmulatorDataset(Dataset):
         """
         systems = emulators.systems  # list of available emulators
         model = systems[self.system]()  # instantiate model class
-        if isinstance(model, emulators.GymWrapper):
-            model.parameters(system=self.system)
-        elif isinstance(model, emulators.BuildingEnvelope):
-            model.parameters(system=self.system, linear=True)
-        #     TODO: handle additional emulator arguments via optional input arguments in load_data
-        else:
-            model.parameters()
+        model.parameters()
 
         X, Y, U, D = model.simulate(nsim=self.nsim)  # simulate open loop
         data = dict()
@@ -322,8 +313,6 @@ class FileDataset(Dataset):
             if d is not None:
                 data[k] = d[ninit:self.nsim, :]
         return data
-
-
 
 
 class DatasetMPP:
@@ -415,14 +404,6 @@ class DatasetMPP:
                 dev_data[k] = v[train_idx:dev_idx, :]
                 test_data[k] = v[dev_idx:, :]
         return train_data, dev_data, test_data
-
-
-
-
-
-# TODO: create custom dataset class to be able to create dataset class oly from the sequences
-class CustomDataset(Dataset):
-    pass
 
 
 if __name__ == '__main__':

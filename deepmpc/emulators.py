@@ -1,4 +1,10 @@
 """
+
+TODO: standardize instantiation of emulators, remove parameters function
+TODO: generate meaningfull reference and input signals for each emulator
+TODO: include visualization option for the trajectories or render of OpenAI gym
+
+
 wrapper for emulator dynamical models
 Internal Emulators - in house ground truth equations
 External Emulators - third party models
@@ -276,9 +282,9 @@ class LinCartPole(EmulatorBase):
     TODO: nonlinear case
     https://apmonitor.com/do/index.php/Main/InvertedPendulum
     """
-    def __init__(self):
+    def __init__(self, Ts=0.1):
         super().__init__()
-        pass
+        self.Ts = Ts
 
     def parameters(self, Ts=0.1):
         self.M = 0.5
@@ -300,7 +306,6 @@ class LinCartPole(EmulatorBase):
         self.C = np.asarray([[1,0,0,0],[0,0,1,0]])
         self.D = np.asarray([[0],[0]])
         self.ssm = control.StateSpace(self.A, self.B, self.C, self.D)
-        self.Ts = Ts
         self.ssmd = self.ssm.sample(self.Ts, method='euler')
 
         self.nx = self.A.shape[0]
@@ -749,8 +754,10 @@ class BuildingEnvelope(SSM):
     different building types are stored in ./emulators/buildings/*.mat
     models obtained from: https://github.com/drgona/BeSim
     """
-    def __init__(self):
+    def __init__(self, system='Reno_full', linear=True):
         super().__init__()
+        self.system = system
+        self.linear = linear
 
     # parameters of the dynamical system
     def parameters(self, system='Reno_full', linear=True):
@@ -1230,8 +1237,9 @@ class GymWrapper(EmulatorBase):
     https://gym.openai.com/read-only.html
     https://github.com/openai/gym
     """
-    def __init__(self):
+    def __init__(self, system='CartPole-v1'):
         super().__init__()
+        self.system = system
 
     # parameters of the dynamical system
     def parameters(self, system='CartPole-v1'):
@@ -1549,8 +1557,6 @@ if __name__ == '__main__':
     # X, Reward, U = gym_model.simulate() # example with default setup
     plot.pltOL(Y=Y, X=X, U=U)
     plot.pltPhase(X=X)
-    # TODO: include visualization option for the trajectories or render of OpenAI gym
-
 
     # Lorenz 96
     lorenz96_model = Lorenz96()  # instantiate model class
@@ -1633,5 +1639,3 @@ if __name__ == '__main__':
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
-
-# TODO: generate meaningfull reference signals for each emulator

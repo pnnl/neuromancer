@@ -1,26 +1,10 @@
 """
 Script for training control policy
 
-# TODO: CL training
-# 1, joint system ID and control - need system ID dataset + control dataset with some performance metric  to track
-#       need two instances of the dynamical model and state estimator
-# 2, fixed model and do only policy optization - need control dataset, and only control objectives
-#       requires_grad = False for the loaded model - add some option for loading selected component parameters
-# 3, online learning with subset of the parameter updates
 
-# TODO: CL evaluation
-# 1, using emulator
-# 2, using learned model
+# TODO: online learning with subset of the parameter updates
 
-# TODO: fix load model
-# model_group.add_argument('-system_id', required=True, default='./test/best_model.pth', help='path to pytorch pretrained dynamics and state estimator model from system ID')
-# # TODO: FIX load model params
-# # https: // stackoverflow.com / questions / 8804830 / python - multiprocessing - picklingerror - cant - pickle - type - function
-# system_id_problem = torch.load(args.system_id)
-# estimator = system_id_problem.components[0]
-# dynamics_model = system_id_problem.components[1]
-
-TODO: MISC
+# TODO:
     # # OPTIONAL: plot problem graph of component connections
     # # maps internal component intecations via by mapping: output_keys -> input_keys
     # n_in = len(input_keys)
@@ -29,7 +13,6 @@ TODO: MISC
     # for i, k in enumerate(input_keys):
     #     if k in output_keys:
     #         ModelConnections[i, output_keys.index(k)] = 1
-
 
 More detailed description of options in the parse_args()
 """
@@ -195,7 +178,6 @@ if __name__ == '__main__':
                  'rnn': blocks.RNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
     # state space model setup
-    # TODO: update dynamics model to be compiant with dataset.dims input just like estim and policy
     if args.ssm_type == 'blackbox':
         dyn_output_keys = ['X_pred', 'Y_pred']
     else:

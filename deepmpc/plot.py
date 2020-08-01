@@ -1,13 +1,19 @@
+"""
+# TODO: stream plots for phase spaces of ODEs
+# TODO: generate correlation network - https://python-graph-gallery.com/327-network-from-correlation-matrix/
+# TODO: plot information-theoretic measures for time series data - https: // elife - asu.github.io / PyInform / timeseries.html
+
+
+"""
+
+
 import numpy as np
 import scipy.linalg as LA
 from scipy import stats
-# import matplotlib
-# matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.lines import Line2D
 from matplotlib.gridspec import GridSpec
-from mpl_toolkits.mplot3d import Axes3D
 import pyts.image as pytsimg
 import pyts.multivariate.image as pytsmvimg
 
@@ -45,7 +51,6 @@ def pltPhase(X, figname=None):
     """
     plot phase space for 2D and 3D state spaces
 
-    # TODO: stream plots for phase spaces of ODEs
     https://matplotlib.org/3.2.1/gallery/images_contours_and_fields/plot_streamplot.html
     https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.streamplot.html
     https://matplotlib.org/3.2.1/api/_as_gen/matplotlib.pyplot.quiver.html
@@ -74,8 +79,6 @@ def pltCorrelate(X, figname=None):
     """
     plot correlation matrices of time series data
     https://realpython.com/numpy-scipy-pandas-correlation-python/
-    # TODO: generate correlation network
-    https://python-graph-gallery.com/327-network-from-correlation-matrix/
     """
     #  Pearson product-moment correlation coefficients.
     fig, axes = plt.subplots(nrows=1, ncols=3, squeeze=False)
@@ -84,14 +87,12 @@ def pltCorrelate(X, figname=None):
     axes[0, 0].set_title('Pearson correlation coefficients')
     axes[0, 0].set_xlabel('$X$')
     axes[0, 0].set_ylabel('$X$')
-    # axes[0, 0].figure.colorbar(im1, ax=axes, format='% .2f')
     # covariance matrix
     C = np.cov(X.T)
     im2 = axes[0, 1].imshow(C)
     axes[0, 1].set_title('Covariance matrix')
     axes[0, 1].set_xlabel('$X$')
     axes[0, 1].set_ylabel('$X$')
-    # axes[0, 1].figure.colorbar(im2, ax=axes, format='% .2f')
     #  Spearman correlation coefficient
     rho, pval = stats.spearmanr(X, X)
     C = rho[0:X.shape[1], 0:X.shape[1]]
@@ -99,9 +100,11 @@ def pltCorrelate(X, figname=None):
     axes[0, 2].set_title('Spearman correlation coefficients')
     axes[0, 2].set_xlabel('$X$')
     axes[0, 2].set_ylabel('$X$')
-    # axes[0, 2].figure.colorbar(im3, ax=axes, format='% .2f')
     plt.tight_layout()
     plt.show()
+    if figname is not None:
+        plt.savefig(figname)
+
 
 def pltRecurrence(X, figname=None):
     """
@@ -149,7 +152,7 @@ def pltRecurrence(X, figname=None):
         row = (np.ceil(i / size) - 1).astype(int)
         col = (i - 1) % size
         C = X_mtf[i - 1]
-        im = axes[row, col].imshow(C)
+        axes[row, col].imshow(C)
         axes[row, col].set_title('Markov Transition Field')
         axes[row, col].set_xlabel('X norm discretized')
         axes[row, col].set_ylabel('X norm discretized')
@@ -170,14 +173,6 @@ def pltRecurrence(X, figname=None):
         axes[row, col].set_ylabel('X norm discretized')
     plt.tight_layout()
     plt.show()
-
-
-def pltInfoMeasures(X, figname=None):
-    """
-    plot information-theoretic measures for time series data
-    https: // elife - asu.github.io / PyInform / timeseries.html
-    """
-    pass
 
 
 def plot_traj(data, figname=None):

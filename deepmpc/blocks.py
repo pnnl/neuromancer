@@ -1,4 +1,13 @@
 """
+TODO: have blocs corresponding to matlab style function basis creation
+TODO: debug bilinear
+TODO: custom activation functions
+TODO: SoftExponential activation from https://arxiv.org/abs/1602.01321
+TODO: Fourier, Chebyshev, Polynomial, basis expansions
+TODO: Finish and test Multinomial basis expansion
+TODO: Implement SINDy block
+TODO: wrapper for pytorch modules e.g.: RNN, LSTM for benchmarking OR check if reg_error in module in components
+
 Function approximators of various degrees of generality.
 Sparsity inducing prior can be gotten from the LassoLinear in linear module
 """
@@ -8,6 +17,7 @@ import torch.nn.functional as F
 #local imports
 import linear
 import rnn
+import scipy
 
 
 def get_modules(model):
@@ -150,88 +160,57 @@ class RNN(nn.Module):
         return self.output(hiddens[-1])
 
 
-# class FunctionBasis(nn.Module):
-#     def __init__(self, insize, outsize, basis_functions, bias=False):
-#         self.basis_functions = basis_functions
-#
-#
-# class DeepBasisNetwork(nn.Module):
-#     pass
+class Bilinear(nn.Module):
+    def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, linargs=dict()):
+        """
+        bilinear term: why expansion and not nn.Bilinear?
+        """
+        super().__init__()
+        # self.insize, self.outsize, = insize, outsize
+        self.in_features, self.out_features = insize, outsize
+        self.linear = Linear(insize**2, outsize, bias=bias, **linargs)
+        self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
+
+    def reg_error(self):
+        return self.linear.reg_error()
+
+    def forward(self, x):
+        return self.linear(expand(x))
 
 
-# # TODO: this is doing someting strange
-# class Bilinear(nn.Module):
-#     def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, **linargs):
-#         """
-#         bilinear term: why expansion and not nn.Bilinear?
-#         """
-#         super().__init__()
-#         # self.insize, self.outsize, = insize, outsize
-#         self.in_features, self.out_features = insize, outsize
-#         self.linear = Linear(insize**2, outsize, bias=bias)
-#         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
-#
-#     def regularization(self):
-#         return self.linear.regularization
-#
-#     def forward(self, x):
-#         return self.linear(expand(x))
-#
-#
-# class BilinearTorch(nn.Module):
-#     def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, **linargs):
-#         """
-#         bilinear term from Torch
-#         """
-#         super().__init__()
-#         self.in_features, self.out_features = insize, outsize
-#         self.f = nn.Bilinear(self.in_features, self.in_features, self.out_features, bias=bias)
-#         self.error_matrix = nn.Parameter(torch.zeros(1), requires_grad=False)
-#
-#     def reg_error(self):
-#         return self.error_matrix
-#
-#     def forward(self, x):
-#         return self.f(x, x)
-#
-#
-# # TODO: shall we create new file with custom activation functions?
-# class SoftExponential(nn.Module):
-#     pass
-# # https://arxiv.org/abs/1602.01321
-#
-#
-# class Fourier(nn.Module):
-#     pass
-#
-#
-# class Chebyshev(nn.Module):
-#     pass
-#
-#
-# class Polynomial(nn.Module):
-#     pass
-#
-# class Multinomial(nn.Module):
-#     def __init__(self, insize, outsize, p=2, bias=False, lin_cls=linear.Linear, **linargs):
-#         super().__init__()
-#         self.p = p
-#         self.in_features, self.out_features = insize, outsize
-#         for i in range(p-1):
-#             insize += insize**2
-#         self.linear = lin_cls(scipy.misc.comb(insize + p, p + 1), outsize, bias=bias)
-#
-#     def reg_error(self):
-#         return self.linear.regularization
-#
-#     def forward(self, x):
-#         for i in range(self.p):
-#             x = expand(x)
-#         return self.linear(x)
-#
-#
-# class SINDy():
-#     pass
+class BilinearTorch(nn.Module):
+    def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, linargs=dict()):
+        """
+        bilinear term from Torch
+        """
+        super().__init__()
+        self.in_features, self.out_features = insize, outsize
+        self.f = nn.Bilinear(self.in_features, self.in_features, self.out_features, bias=bias)
+        self.error_matrix = nn.Parameter(torch.zeros(1), requires_grad=False)
+
+    def reg_error(self):
+        return self.error_matrix
+
+    def forward(self, x):
+        return self.f(x, x)
+
+
+class Multinomial(nn.Module):
+    def __init__(self, insize, outsize, p=2, bias=False, lin_cls=linear.Linear, linargs=dict()):
+        super().__init__()
+        self.p = p
+        self.in_features, self.out_features = insize, outsize
+        for i in range(p-1):
+            insize += insize**2
+        self.linear = lin_cls(scipy.misc.comb(insize + p, p + 1), outsize, bias=bias, **linargs)
+
+    def reg_error(self):
+        return self.linear.regularization
+
+    def forward(self, x):
+        for i in range(self.p):
+            x = expand(x)
+        return self.linear(x)
 
 
 if __name__ == '__main__':
@@ -249,10 +228,6 @@ if __name__ == '__main__':
     print(block(y).shape)
     print(block(y).shape)
     print(block(y).shape)
-
-    # block = Bilinear(5, 7, bias=True)
-    # y = torch.randn([25, 5])
-    # print(block(y).shape)
 
 
 

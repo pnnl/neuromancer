@@ -1,4 +1,6 @@
 """
+# TODO: rnn as nonlinear map is breaking
+
 Script for training block dynamics models for system identification.
 Current block structure supported are black_box, hammerstein, hammerstein-weiner,
 and block models with non-linear main transition dynamics.
@@ -80,10 +82,10 @@ def parse_args():
     model_group.add_argument('-nx_hidden', type=int, default=10, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
-                             choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
+                             choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='rnn')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='pf')
-    model_group.add_argument('-nonlinear_map', type=str, default='mlp',
+    model_group.add_argument('-nonlinear_map', type=str, default='rnn',
                              choices=['mlp', 'rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
 

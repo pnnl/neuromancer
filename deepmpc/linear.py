@@ -2,6 +2,7 @@
 Pytorch weight initializations
 
 # TODO: Confirm sparse parametrizations
+# TODO: Use sparse parametrizations from: DoublyStochasticLinear Sparse structured linear maps in pytorch: https://github.com/HazyResearch/learning-circuits
 torch.nn.init.xavier_normal_(tensor, gain=1.0)
 torch.nn.init.kaiming_normal_(tensor, a=0, mode='fan_in', nonlinearity='leaky_relu')
 torch.nn.init.orthogonal_(tensor, gain=1)
@@ -24,7 +25,6 @@ class LinearBase(nn.Module, ABC):
         self.in_features, self.out_features = insize, outsize
         self.weight = nn.Parameter(torch.Tensor(insize, outsize))
         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
-        # initialize default weights to be standard pytorch init
         torch.nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
         if bias:
             fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight)
@@ -238,7 +238,7 @@ class SVDLinear(LinearBase):
     def __init__(self, insize, outsize, bias=False, sigma_min=0.1, sigma_max=1, **kwargs):
         """
 
-        SVD based regularization of matrix A
+        soft SVD based regularization of matrix A
         A = U*Sigma*V
         U,V = unitary matrices (orthogonal for real matrices A)
         Sigma = diagonal matrix of singular values (square roots of eigenvalues)

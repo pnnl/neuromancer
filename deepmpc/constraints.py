@@ -1,4 +1,12 @@
 """
+# TODO: should we define the constraints as functions instead of modules?
+# TODO: motivation for learnable constraints - see research tangents
+# alternatively we could create a learnable variants where bounds would be parameters and not inputs
+# e.g., reachability analysis given fixed model
+# e.g., learning lipschitz constants for NN
+# TODO: do we want? higher level API for objective/constraints definition with pre-defined most commonly used types
+# TODO: QuadraticPenalty - https://en.wikipedia.org/wiki/Quadratically_constrained_quadratic_program
+
 constraints
 used in model.regularize()
 
@@ -21,21 +29,13 @@ Types of constaints:
     http://www-personal.umich.edu/~mepelman/teaching/NLP/Handouts/NLPnotes12_89.pdf
 """
 
-
 # pytorch imports
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import warnings
-#local imports
-import loops
+from problem import Objective
 
-# TODO: should we define the constraints as functions instead of modules?
-# would make sense as they have no learnable parameters
-# alternatively we could create a learnable variants where bounds would be parameters and not inputs
-# TODO: motivation for learnable constraints - see research tangents
-# e.g., reachability analysis given fixed model
-# e.g., learning lipschitz constants for NN
 
 class Penalty(nn.Module):
     def __init__(self, penalty=F.relu, weight=1.0):
@@ -69,7 +69,6 @@ class StaticMinPenalty(Penalty):
 
     def forward(self, x):
         return self.weight*self.penalty(-x + self.xmin)
-
 
 
 class MaxPenalty(Penalty):
@@ -115,14 +114,7 @@ class EqualPenalty(Penalty):
             dx = (x - b).abs()
         return self.weight*dx
 
-class QuadraticPenalty(Penalty):
-    def __init(self, penalty='quadratic', weight=1.0):
-        super().__init__(penalty, weight)
-        # https://en.wikipedia.org/wiki/Quadratically_constrained_quadratic_program
-        # do we need this? or can we just use the min max constraints on the outputs of Polynomial block?
 
-
-# TODO: do we want? higher level API for objective/constraints definition with pre-defined most commonly used types
 def equals(x1, x2, weight=1.0, penalty=torch.nn.functional.mse_loss):
     """
     high level wrapper equality constraint x1 = x2
@@ -143,7 +135,7 @@ def equals(x1, x2, weight=1.0, penalty=torch.nn.functional.mse_loss):
         b = list(x2.keys())[0]
     else:
         warnings.warn('argument must be string or dictionary')
-    expression = loops.Objective([a, b], penalty, weight=weight)
+    expression = Objective([a, b], penalty, weight=weight)
     return expression
 
 
@@ -170,8 +162,9 @@ def le(x, xmax, weight=1.0, penalty=F.relu, p=2):
         b = list(xmax.keys())[0]
     else:
         warnings.warn('argument must be string or dictionary')
-    expression = loops.Objective([a, b], lambda x, xmax: weight * (penalty(x - xmax))**p, weight=weight)
+    expression = Objective([a, b], lambda x, xmax: torch.mean((penalty(x - xmax))**p), weight=weight)
     return expression
+
 
 def ge(x, xmin, weight=1.0, penalty=F.relu, p=2):
     """
@@ -196,8 +189,7 @@ def ge(x, xmin, weight=1.0, penalty=F.relu, p=2):
         b = list(xmin.keys())[0]
     else:
         warnings.warn('argument must be string or dictionary')
-    #     TODO: we need to pass this through mean
-    expression = loops.Objective([a, b], lambda x, xmin: weight * (penalty(-x + xmin))**p, weight=weight)
+    expression = Objective([a, b], lambda x, xmin: torch.mean((penalty(-x + xmin))**p), weight=weight)
     return expression
 
 

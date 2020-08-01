@@ -1,4 +1,6 @@
 """
+# TODO: add default Closed loop visualizer
+# TODO: VisualizerMPP
 
 """
 import plot
@@ -17,9 +19,6 @@ class Visualizer:
 
     def eval(self, outputs):
         return dict()
-
-
-# TODO: add default Closed loop visualizer
 
 
 class VisualizerOpen(Visualizer):
@@ -57,6 +56,7 @@ class VisualizerOpen(Visualizer):
                               freq=self.verbosity)
         return dict()
 
+
 class VisualizerTrajectories(Visualizer):
 
     def __init__(self, dataset, model, plot_keys, verbosity):
@@ -65,19 +65,12 @@ class VisualizerTrajectories(Visualizer):
         self.verbosity = verbosity
         self.plot_keys = set(plot_keys).intersection(set.union(*[set(model.input_keys), set(model.output_keys)]))
 
-        # if epoch % self.verbosity == 0:
-        #     data = {k: v.squeeze().detach().cpu().numpy()
-        #             for (k, v) in outputs.items() if any([plt_k in k for plt_k in self.plot_keys])}
-        #     plot.plot_traj(data, figname=None)
-
     def eval(self, outputs):
         data = {k:  unbatch_data(v).squeeze(1).detach().cpu().numpy()
                 for (k, v) in outputs.items() if any([plt_k in k for plt_k in self.plot_keys])}
         for k, v in data.items():
             plot.plot_traj({k: v}, figname=None)
         return dict()
-
-
 
 
 class VisualizerClosedLoop(Visualizer):
@@ -94,12 +87,5 @@ class VisualizerClosedLoop(Visualizer):
         for k, v in data.items():
             plot.plot_traj({k: v}, figname=None)
         plot.pltCL(Y=outputs['Y'], U=outputs['U'])
-
         return dict()
 
-
-
-
-class VisualizerMPP(Visualizer):
-    def __init__(self, dataset, model, plot_keys, verbosity):
-     pass

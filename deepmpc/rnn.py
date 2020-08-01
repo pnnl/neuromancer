@@ -83,7 +83,7 @@ class RNN(nn.Module):
             final_hiddens.append(h)
         final_hiddens = final_hiddens
         assert torch.equal(sequence[-1, :, :], final_hiddens[-1])
-        return sequence, final_hiddens
+        return sequence, torch.stack(final_hiddens)
 
 
 if __name__ == '__main__':

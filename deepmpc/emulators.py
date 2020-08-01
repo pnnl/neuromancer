@@ -1,9 +1,14 @@
 """
 
-TODO: standardize instantiation of emulators, remove parameters function
-TODO: generate meaningfull reference and input signals for each emulator
-TODO: include visualization option for the trajectories or render of OpenAI gym
-
+# TODO: standardize instantiation of emulators, remove parameters function
+# TODO: generate meaningfull reference and input signals for each emulator
+# TODO: include visualization option for the trajectories or render of OpenAI gym
+# TODO: debug SEIR model
+# TODO: check loaded Ts value - not correct for some building models
+# TODO: include Nonlinear PDEs - https://en.wikipedia.org/wiki/List_of_nonlinear_partial_differential_equations
+# TODO: Fractals, Cellular automata
+# TODO: double check dimensions of x for OpenAI gym models
+# TODO: Tank - probably not working properly
 
 wrapper for emulator dynamical models
 Internal Emulators - in house ground truth equations
@@ -11,26 +16,18 @@ External Emulators - third party models
 """
 
 from scipy.io import loadmat
-# from scipy import signal
 from abc import ABC, abstractmethod
 import numpy as np
-# import numdifftools as nd
 import plot
 from scipy.integrate import odeint
 import gym
 import control
 
-####################################
-###### Internal Emulators ##########
-####################################
-
-# data['R'] = emulators.Periodic(nx=data['Y'].shape[1], nsim=data['Y'].shape[0],
-#                                numPeriods=np.ceil(data['Y'].shape[0] / 100).astype(int),
-#                                xmax=0, xmin=1, form='sin')
 
 """
 Base Classes
 """
+
 
 class EmulatorBase(ABC):
     """
@@ -53,7 +50,6 @@ class EmulatorBase(ABC):
     @abstractmethod
     def simulate(self, **kwargs):
         pass
-
 
 
 class SSM(EmulatorBase):
@@ -81,10 +77,8 @@ class SSM(EmulatorBase):
         # default simulation setup parameters
         if ninit is None:
             ninit = self.ninit
-            # warnings.warn('ninit was not defined, using default simulation setup')
         if nsim is None:
             nsim = self.nsim
-            # warnings.warn('nsim was not defined, using default simulation setup')
         if x0 is None:
             x = self.x0
         else:
@@ -94,7 +88,6 @@ class SSM(EmulatorBase):
             D = self.D[ninit: ninit + nsim, :] if self.D is not None else None
         if U is None:
             U = self.U[ninit: ninit + nsim, :] if self.U is not None else None
-            # warnings.warn('U was not defined, using default trajectories')
         X, Y = [], []
         for k in range(nsim):
             u = U[k, :] if U is not None else None
@@ -135,13 +128,10 @@ class ODE_Autonomous(EmulatorBase):
         # default simulation setup parameters
         if ninit is None:
             ninit = self.ninit
-            # warnings.warn('ninit was not defined, using default simulation setup')
         if nsim is None:
             nsim = self.nsim
-            # warnings.warn('nsim was not defined, using default simulation setup')
         if ts is None:
             ts = self.ts
-            # warnings.warn('ts was not defined, using default simulation setup')
 
         # initial conditions states + uncontrolled inputs
         if x0 is None:
@@ -191,16 +181,12 @@ class ODE_NonAutonomous(EmulatorBase):
         # default simulation setup parameters
         if ninit is None:
             ninit = self.ninit
-            # warnings.warn('ninit was not defined, using default simulation setup')
         if nsim is None:
             nsim = self.nsim
-            # warnings.warn('nsim was not defined, using default simulation setup')
         if ts is None:
             ts = self.ts
-            # warnings.warn('ts was not defined, using default simulation setup')
         if U is None:
             U = self.U
-            # warnings.warn('U was not defined, using default trajectories')
 
         # initial conditions states + uncontrolled inputs
         if x0 is None:
@@ -230,6 +216,7 @@ class ODE_NonAutonomous(EmulatorBase):
 """
 Linear ODEs and SSMs
 """
+
 
 class ExpGrowth(EmulatorBase):
     """
@@ -274,13 +261,12 @@ Hybrid linear ODEs
 CartPole, bauncing ball
 """
 
+
 class LinCartPole(EmulatorBase):
     """
     Linearized Hybrid model of Inverted pendulum
     http://ctms.engin.umich.edu/CTMS/index.php?example=InvertedPendulum&section=SystemModeling
     http://ctms.engin.umich.edu/CTMS/index.php?example=InvertedPendulum&section=ControlStateSpace
-    TODO: nonlinear case
-    https://apmonitor.com/do/index.php/Main/InvertedPendulum
     """
     def __init__(self, Ts=0.1):
         super().__init__()
@@ -294,7 +280,6 @@ class LinCartPole(EmulatorBase):
         self.g = 9.8
         self.l = 0.3
         self.p = self.I*(self.M+self.m)+self.M*self.m*self.l**2; # denominator for the A and B matrices
-        # self.dumping = 0.1
         self.theta1 = -(self.I+self.m*self.l**2)*self.b/self.p
         self.theta2 = (self.m**2*self.g*self.l**2)/self.p
         self.theta3 = -(self.m*self.l*self.b)/self.p
@@ -352,9 +337,6 @@ class LinCartPole(EmulatorBase):
             assert x0.shape[0] == self.nx, "Mismatch in x0 size"
             x = x0
 
-        # if Ts is not None:
-        #     self.parameters(Ts)
-
         X, Y = [], []
         N = 0
         for u in U:
@@ -369,8 +351,6 @@ class LinCartPole(EmulatorBase):
         Uout = None
         Dout = None
         return Xout, Yout, Uout, Dout
-
-
 
 
 """
@@ -409,7 +389,7 @@ class UniversalOscillator(ODE_Autonomous):
         dx = [dx1, dx2]
         return dx
 
-# TODO: debug
+
 class SEIR_population(EmulatorBase):
     """
     Susceptible, Exposed, Infected, and Recovered (SEIR) population population model
@@ -465,7 +445,6 @@ class SEIR_population(EmulatorBase):
         idt = self.alpha * e - self.gamma * i,
         rdt = self.gamma * i
         dx = [sdt, edt, idt, rdt]
-        # dx = np.asarray([sdt, edt, idt, rdt])
         return dx
 
     # N-step forward simulation of the dynamical system
@@ -787,8 +766,7 @@ class BuildingEnvelope(SSM):
         self.G = file['Gd']
         self.F = file['Fd']
         #  constraints bounds
-        self.ts = file['Ts']  # sampling time TODO: not correct value for some building models
-        # self.TSup = file['TSup']  # supply temperature
+        self.ts = file['Ts']  # sampling time
         self.umax = file['umax'].squeeze()  # max heat per zone
         self.umin = file['umin'].squeeze() # min heat per zone
         if not self.linear:
@@ -848,21 +826,6 @@ class BuildingEnvelope(SSM):
         return x, y
 
 
-
-"""
-Linear PDEs
-"""
-
-
-
-"""
-Nonlinear PDEs
-
-https://en.wikipedia.org/wiki/List_of_nonlinear_partial_differential_equations
-"""
-
-
-
 """
 Chaotic nonlinear ODEs 
 
@@ -886,7 +849,6 @@ class Lorenz96(ODE_Autonomous):
         self.F = 8  # Forcing
         self.x0 = self.F*np.ones(self.N)
         self.x0[19] += 0.01  # Add small perturbation to random variable
-        # self.x0[np.random.randint(0, self.N)] += 0.01  # Add small perturbation to random variable
         # default simulation setup
         self.ninit = 0
         self.nsim = 5001
@@ -1047,7 +1009,6 @@ class RosslerAttractor(ODE_Autonomous):
     def __init__(self):
         super().__init__()
 
-    # parameters of the dynamical system
     def parameters(self):
         super().parameters()
         self.a = 0.2
@@ -1059,7 +1020,6 @@ class RosslerAttractor(ODE_Autonomous):
         self.nsim = 20001
         self.ts = 0.01
 
-    # equations defining the dynamical system
     def equations(self, x, t):
         # Derivatives
         dx1 = - x[1] - x[2]
@@ -1077,7 +1037,6 @@ class LotkaVolterra(ODE_Autonomous):
     def __init__(self):
         super().__init__()
 
-    # parameters of the dynamical system
     def parameters(self):
         super().parameters()
         self.a = 1.
@@ -1090,7 +1049,6 @@ class LotkaVolterra(ODE_Autonomous):
         self.nsim = 2001
         self.ts = 0.1
 
-    # equations defining the dynamical system
     def equations(self, x, t):
         # Derivatives
         dx1 = self.a*x[0] - self.b*x[0]*x[1]
@@ -1107,7 +1065,6 @@ class Brusselator1D(ODE_Autonomous):
     def __init__(self):
         super().__init__()
 
-    # parameters of the dynamical system
     def parameters(self):
         super().parameters()
         self.a = 1.0
@@ -1118,7 +1075,6 @@ class Brusselator1D(ODE_Autonomous):
         self.nsim = 501
         self.ts = 0.1
 
-    # equations defining the dynamical system
     def equations(self, x, t):
         # Derivatives
         dx1 = self.a + x[1]*x[0]**2 -self.b*x[0] - x[0]
@@ -1136,7 +1092,6 @@ class ChuaCircuit(ODE_Autonomous):
     def __init__(self):
         super().__init__()
 
-    # parameters of the dynamical system
     def parameters(self):
         super().parameters()
         self.a = 15.6
@@ -1151,7 +1106,6 @@ class ChuaCircuit(ODE_Autonomous):
         self.nsim = 10001
         self.ts = 0.01
 
-    # equations defining the dynamical system
     def equations(self, x, t):
         fx = self.m1*x[0] + 0.5*(self.m0 - self.m1)*(np.abs(x[0] + 1) - np.abs(x[0] - 1))
         # Derivatives
@@ -1191,34 +1145,6 @@ class Duffing(ODE_Autonomous):
         dx2 = - self.delta*x[1] - self.alpha*x[0] - self.beta*x[0]**3 + self.gamma*np.cos(self.omega*t)
         dx = [dx1, dx2]
         return dx
-
-
-
-
-"""
-Chaotic nonlinear PDEs
-"""
-
-
-
-"""
-Cellular automata
-"""
-
-
-
-"""
-Fractals
-"""
-class Mandelbrot(EmulatorBase):
-    """
-    IDEA: use mandelbrot zoom video as our dataset for training
-    Cool effect
-    """
-    def __init__(self):
-        super().__init__()
-        pass
-
 
 
 
@@ -1461,7 +1387,6 @@ systems = {# non-autonomous ODEs
            }
 
 
-
 if __name__ == '__main__':
     """
     Tests
@@ -1488,7 +1413,6 @@ if __name__ == '__main__':
     twotank_model = TwoTank()  # instantiate model class
     twotank_model.parameters()  # load model parameters
     X, Y, U, D = twotank_model.simulate() # simulate open loop
-    # X = twotank_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U) #  example custom simulation setup
     # plot trajectories
     plot.pltOL(Y=X, U=U)
     plot.pltPhase(X=X)
@@ -1508,23 +1432,10 @@ if __name__ == '__main__':
     tank_model = Tank()  # instantiate model class
     tank_model.parameters()  # load model parameters
     # simulate open loop
-    # TODO: errors
-    # X = tank_model.simulate(ninit, nsim, ts, pump, valve)
-    # # plot trajectories
-    # plot.pltOL(Y=X, U=valve)
+    X = tank_model.simulate(ninit, nsim, ts, pump, valve)
+    # plot trajectories
+    plot.pltOL(Y=X, U=valve)
 
-    #  SEIR
-    ninit = 0
-    nsim = 201
-    ts = 1
-    # Inputs that can be adjusted
-    U = np.asarray([np.zeros((nsim - 1))]).T
-    seir_model = SEIR_population()  # instantiate model class
-    seir_model.parameters()  # load model parameters
-    # simulate open loop
-    # X = seir_model.simulate(ninit, nsim, ts, U)
-    # # plot trajectories
-    # plot.pltOL(Y=X, U=U)
 
     # linear cart pole system
     ninit = 0
@@ -1540,7 +1451,6 @@ if __name__ == '__main__':
     plot.pltOL(Y=Y, X=X, U=U)
     plot.pltPhase(X=X)
 
-    # TODO: double check dimensions of x
     # OpenAi gym environment wrapper
     # tested envs:
     #   1, Classical: 'Pendulum-v0', 'CartPole-v1', 'Acrobot-v1', 'MountainCar-v0',
@@ -1554,7 +1464,6 @@ if __name__ == '__main__':
     if type(gym_model.action_sample) == int:
         U = U.astype(int)
     X, Y, U, D = gym_model.simulate(ninit=ninit, nsim=nsim, U=U)
-    # X, Reward, U = gym_model.simulate() # example with default setup
     plot.pltOL(Y=Y, X=X, U=U)
     plot.pltPhase(X=X)
 

@@ -1,35 +1,19 @@
 """
-TODO: have blocs corresponding to matlab style function basis creation
-TODO: debug bilinear
-TODO: custom activation functions
-TODO: SoftExponential activation from https://arxiv.org/abs/1602.01321
-TODO: Fourier, Chebyshev, Polynomial, basis expansions
-TODO: Finish and test Multinomial basis expansion
-TODO: Implement SINDy block
-TODO: wrapper for pytorch modules e.g.: RNN, LSTM for benchmarking OR check if reg_error in module in components
-
 Function approximators of various degrees of generality.
 Sparsity inducing prior can be gotten from the LassoLinear in linear module
 """
+import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 #local imports
 import linear
 import rnn
-import scipy
 
 
 def get_modules(model):
     return {name: module for name, module in model.named_modules() if len(list(module.named_children())) == 0}
-
-
-def expand(x):
-    """
-    square expansion of tensor x
-    """
-    expansion = torch.matmul(x.unsqueeze(-1), x.unsqueeze(1)).view(-1, x.shape[1]**2)
-    return torch.cat([x, expansion], dim=1)
 
 
 class MLP(nn.Module):
@@ -43,7 +27,7 @@ class MLP(nn.Module):
         :param Linear:
         :param nonlin:
         :param hsizes:
-        :param linargs:
+        :param linargs: (dict) arguments for
         """
         super().__init__()
         self.in_features, self.out_features = insize, outsize
@@ -113,9 +97,50 @@ class ResMLP(MLP):
         return self.linear[-1](x) + self.outmap(px)
 
 
+class PytorchRNN(nn.Module):
+
+    """
+    This wraps the torch.nn.RNN class to give output which is a linear map from final hidden state.
+    """
+
+    def __init__(self, insize, outsize, bias=False,
+                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[10], linargs=dict()):
+        """
+
+        :param insize:
+        :param outsize:
+        :param bias:
+        :param Linear:
+        :param nonlin:
+        :param hsizes:
+        :param linargs:
+        """
+        super().__init__()
+        assert len(set(hsizes)) == 1
+        self.in_features, self.out_features = insize, outsize
+        self.rnn = nn.RNN(insize, hsizes[0],
+                          bias=bias, nonlinearity='relu')
+        self.output = Linear(hsizes[-1], outsize, bias=bias, **linargs)
+
+    def reg_error(self):
+        return self.output.reg_error()
+
+    def forward(self, x):
+        """
+        There is some logic here so that the RNN will still get context from state in open loop simulation.
+
+        :param x: (torch.Tensor, shape=(nsteps, nsamples, dim)) Input sequence is expanded for order 2 tensors
+        :return: (torch.Tensor, shape=(nsamples, outsize)
+        """
+        if len(x.shape) == 2:
+            x = x.reshape(1, *x.shape)
+        _, hiddens = self.rnn(x)
+        return self.output(hiddens[-1])
+
+
 class RNN(nn.Module):
     """
-    This wraps the rnn.RNN class for to give output which is a linear map from final hidden state.
+    This wraps the rnn.RNN class to give output which is a linear map from final hidden state.
     """
     def __init__(self, insize, outsize, bias=False,
                  Linear=linear.Linear, nonlin=F.gelu, hsizes=[1], linargs=dict()):
@@ -138,12 +163,12 @@ class RNN(nn.Module):
         self.init_states = list(self.rnn.init_states)
 
     def reg_error(self):
-        return self.rnn.reg_error()
+        return self.rnn.reg_error() + self.output.reg_error()
 
     def reset(self):
         self.init_states = None
 
-    def forward(self, x):
+    def forward(self, x, hx=None):
         """
         There is some logic here so that the RNN will still get context from state in open loop simulation.
 
@@ -152,30 +177,9 @@ class RNN(nn.Module):
         """
         if len(x.shape) == 2:
             x = x.reshape(1, *x.shape)
-        if self.init_states[0].shape[0] == x.shape[1] and not self.training:
-            _, hiddens = self.rnn(x, init_states=self.init_states)
-        else:
-            _, hiddens = self.rnn(x)
+        _, hiddens = self.rnn(x, init_states=hx)
         self.init_states = hiddens
         return self.output(hiddens[-1])
-
-
-class Bilinear(nn.Module):
-    def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, linargs=dict()):
-        """
-        bilinear term: why expansion and not nn.Bilinear?
-        """
-        super().__init__()
-        # self.insize, self.outsize, = insize, outsize
-        self.in_features, self.out_features = insize, outsize
-        self.linear = Linear(insize**2, outsize, bias=bias, **linargs)
-        self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
-
-    def reg_error(self):
-        return self.linear.reg_error()
-
-    def forward(self, x):
-        return self.linear(expand(x))
 
 
 class BilinearTorch(nn.Module):
@@ -195,25 +199,45 @@ class BilinearTorch(nn.Module):
         return self.f(x, x)
 
 
-class Multinomial(nn.Module):
-    def __init__(self, insize, outsize, p=2, bias=False, lin_cls=linear.Linear, linargs=dict()):
-        super().__init__()
-        self.p = p
-        self.in_features, self.out_features = insize, outsize
-        for i in range(p-1):
-            insize += insize**2
-        self.linear = lin_cls(scipy.misc.comb(insize + p, p + 1), outsize, bias=bias, **linargs)
+class Poly2(nn.Module):
 
-    def reg_error(self):
-        return self.linear.regularization
+    def __init__(self):
+        super().__init__()
 
     def forward(self, x):
-        for i in range(self.p):
-            x = expand(x)
-        return self.linear(x)
+        row_idxs, col_idxs = np.triu_indices(x.shape[-1])
+        expansion = torch.matmul(x.unsqueeze(-1), x.unsqueeze(1))  # outer product
+        expansion = expansion[:, row_idxs, col_idxs]  # upper triangular
+        return torch.cat([x, expansion], dim=-1)  # concatenate
+
+
+class BasisLinear(nn.Module):
+    def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, linargs=dict(),
+                 expand=Poly2()):
+        """
+        For mapping inputs to functional basis feature expansion.
+        """
+        super().__init__()
+        self.in_features, self.out_features = insize, outsize
+        self.expand = expand
+        inlin = self.expand(torch.zeros(1, insize)).shape[-1]
+        self.linear = Linear(inlin, outsize, bias=bias, **linargs)
+        self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
+
+    def reg_error(self):
+        return self.linear.reg_error()
+
+    def forward(self, x):
+        return self.linear(self.expand(x))
 
 
 if __name__ == '__main__':
+
+    expand = Poly2()
+    print(expand(torch.tensor([[2, 3]])))
+
+    expand = Poly2()
+    print(expand(torch.tensor([[2, 5]])))
 
     block = MLP(5, 7, bias=True, hsizes=[5, 10, 2, 7])
     y = torch.randn([25, 5])
@@ -224,10 +248,18 @@ if __name__ == '__main__':
     print(block(y).shape)
 
     block = RNN(5, 7, bias=True, hsizes=[64, 64, 64, 64, 64, 64])
-    y = torch.randn([25, 32, 5])
+    y = torch.randn([32, 25, 5])
     print(block(y).shape)
+
+    block = PytorchRNN(5, 7, bias=True, hsizes=[64, 64, 64, 64, 64, 64])
+    y = torch.randn([32, 25, 5])
     print(block(y).shape)
+
+    block = BasisLinear(5, 7, bias=True)
+    y = torch.randn([25, 5])
     print(block(y).shape)
+
+
 
 
 

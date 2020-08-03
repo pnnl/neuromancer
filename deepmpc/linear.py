@@ -2,7 +2,6 @@
 Pytorch weight initializations
 
 # TODO: Confirm sparse parametrizations
-# TODO: Use sparse parametrizations from: DoublyStochasticLinear Sparse structured linear maps in pytorch: https://github.com/HazyResearch/learning-circuits
 torch.nn.init.xavier_normal_(tensor, gain=1.0)
 torch.nn.init.kaiming_normal_(tensor, a=0, mode='fan_in', nonlinearity='leaky_relu')
 torch.nn.init.orthogonal_(tensor, gain=1)
@@ -14,6 +13,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from butterfly import Butterfly
 
 
 class LinearBase(nn.Module, ABC):
@@ -40,6 +40,25 @@ class LinearBase(nn.Module, ABC):
 
     def forward(self, x):
         return torch.matmul(x, self.effective_W()) + self.bias
+
+
+class ButterflyLinear(LinearBase):
+    """
+    Sparse structured linear maps from: https://github.com/HazyResearch/learning-circuits
+    """
+    def __init__(self, insize, outsize, bias=False,
+                 complex=False, tied_weight=True, increasing_stride=True, ortho_init=False,
+                 **kwargs):
+        super().__init__(insize, outsize, bias=bias)
+        self.linmap = Butterfly(insize, outsize, bias=bias, complex=complex,
+                                tied_weight=tied_weight, increasing_stride=increasing_stride,
+                                ortho_init=ortho_init)
+
+    def effective_W(self):
+        return self.linmap(torch.eye(self.in_features).to(self.linmap.twiddle.device))
+
+    def forward(self, x):
+        return self.linmap(x)
 
 
 class SquareLinear(LinearBase, ABC):
@@ -478,7 +497,8 @@ maps = {'linear': Linear,
         'softSVD': SVDLinear,
         'orthogonal': OrthogonalLinear,
         'psd': PSDLinear,
-        'symplectic': SymplecticLinear}
+        'symplectic': SymplecticLinear,
+        'butterfly': ButterflyLinear}
 
 
 if __name__ == '__main__':

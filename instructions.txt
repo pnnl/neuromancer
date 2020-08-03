@@ -166,3 +166,6 @@ scp drgo694@ohmahgerd:/qfs/projects/deepmpc/mlflow/neurips_exp_2020_5_31/nonlin_
 # check number of files
  ls -l|wc -l
 
+# export environment
+conda-env export > file.yml
+

@@ -1,28 +1,33 @@
 """
+
+# TODO: standardize instantiation of emulators, remove parameters function
+# TODO: generate meaningfull reference and input signals for each emulator
+# TODO: include visualization option for the trajectories or render of OpenAI gym
+# TODO: debug SEIR model
+# TODO: check loaded Ts value - not correct for some building models
+# TODO: include Nonlinear PDEs - https://en.wikipedia.org/wiki/List_of_nonlinear_partial_differential_equations
+# TODO: Fractals, Cellular automata
+# TODO: double check dimensions of x for OpenAI gym models
+# TODO: Tank - probably not working properly
+
 wrapper for emulator dynamical models
 Internal Emulators - in house ground truth equations
 External Emulators - third party models
 """
 
 from scipy.io import loadmat
-from scipy import signal
 from abc import ABC, abstractmethod
 import numpy as np
-import numdifftools as nd
 import plot
-import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 import gym
 import control
-import warnings
 
-####################################
-###### Internal Emulators ##########
-####################################
 
 """
 Base Classes
 """
+
 
 class EmulatorBase(ABC):
     """
@@ -47,6 +52,56 @@ class EmulatorBase(ABC):
         pass
 
 
+class SSM(EmulatorBase):
+    """
+    base class state space model
+    """
+    def __init__(self):
+        super().__init__()
+
+    def parameters(self):
+        self.ninit = 0
+        self.nsim = 1000
+        # steady state values
+        self.x_ss = 0
+        self.y_ss = 0
+
+    def simulate(self, ninit=None, nsim=None, U=None, D=None, x0=None, **kwargs):
+        """
+        :param nsim: (int) Number of steps for open loop response
+        :param U: (ndarray, shape=(nsim, self.nu)) control signals
+        :param D: (ndarray, shape=(nsim, self.nd)) measured disturbance signals
+        :param x: (ndarray, shape=(self.nx)) Initial state.
+        :return: The response matrices, i.e. X, Y, U, D
+        """
+        # default simulation setup parameters
+        if ninit is None:
+            ninit = self.ninit
+        if nsim is None:
+            nsim = self.nsim
+        if x0 is None:
+            x = self.x0
+        else:
+            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
+            x = x0
+        if D is None:
+            D = self.D[ninit: ninit + nsim, :] if self.D is not None else None
+        if U is None:
+            U = self.U[ninit: ninit + nsim, :] if self.U is not None else None
+        X, Y = [], []
+        for k in range(nsim):
+            u = U[k, :] if U is not None else None
+            d = D[k, :] if D is not None else None
+            x, y = self.equations(x, u, d)
+            X.append(x + self.x_ss)
+            Y.append(y - self.y_ss)
+        Xout = np.asarray(X).reshape(nsim, self.nx)
+        Yout = np.asarray(Y).reshape(nsim, self.ny)
+        Uout = np.asarray(U).reshape(nsim, self.nu) if U is not None else None
+        Dout = np.asarray(D).reshape(nsim, self.nd) if D is not None else None
+        return Xout, Yout, Uout, Dout
+
+
 class ODE_Autonomous(EmulatorBase):
     """
     base class autonomous ODE
@@ -60,7 +115,7 @@ class ODE_Autonomous(EmulatorBase):
         self.ts = 0.1
 
     # N-step forward simulation of the dynamical system
-    def simulate(self, ninit=None, nsim=None, ts=None, x0=None):
+    def simulate(self, ninit=None, nsim=None, ts=None, x0=None, **kwargs):
         """
         :param nsim: (int) Number of steps for open loop response
         :param ninit: (float) initial simulation time
@@ -73,13 +128,10 @@ class ODE_Autonomous(EmulatorBase):
         # default simulation setup parameters
         if ninit is None:
             ninit = self.ninit
-            warnings.warn('ninit was not defined, using default simulation setup')
         if nsim is None:
             nsim = self.nsim
-            warnings.warn('nsim was not defined, using default simulation setup')
         if ts is None:
             ts = self.ts
-            warnings.warn('ts was not defined, using default simulation setup')
 
         # initial conditions states + uncontrolled inputs
         if x0 is None:
@@ -88,14 +140,18 @@ class ODE_Autonomous(EmulatorBase):
             assert x0.shape[0] == self.nx, "Mismatch in x0 size"
             x = x0
         # time interval
-        t = np.arange(0, nsim) * ts + ninit
+        t = np.arange(0, nsim+1) * ts + ninit
         X = []
         for N in range(nsim-1):
             dT = [t[N], t[N + 1]]
             xdot = odeint(self.equations, x, dT)
             x = xdot[-1]
             X.append(x)  # updated states trajectories
-        return np.asarray(X)
+        Xout = np.asarray(X)
+        Yout = np.asarray(X)
+        Uout = None
+        Dout = None
+        return Xout, Yout, Uout, Dout
 
 
 class ODE_NonAutonomous(EmulatorBase):
@@ -112,29 +168,25 @@ class ODE_NonAutonomous(EmulatorBase):
         self.ts = 0.1
 
     # N-step forward simulation of the dynamical system
-    def simulate(self, U=None, ninit=None, nsim=None, ts=None, x0=None):
+    def simulate(self, U=None, ninit=None, nsim=None, ts=None, x0=None, **kwargs):
         """
         :param nsim: (int) Number of steps for open loop response
         :param ninit: (float) initial simulation time
         :param ts: (float) step size, sampling time
         :param x0: (float) state initial conditions
         :param x: (ndarray, shape=(self.nx)) states
-        :return: The response matrices, i.e. X
+        :return: X, Y, U, D
         """
 
         # default simulation setup parameters
         if ninit is None:
             ninit = self.ninit
-            warnings.warn('ninit was not defined, using default simulation setup')
         if nsim is None:
             nsim = self.nsim
-            warnings.warn('nsim was not defined, using default simulation setup')
         if ts is None:
             ts = self.ts
-            warnings.warn('ts was not defined, using default simulation setup')
         if U is None:
             U = self.U
-            warnings.warn('U was not defined, using default trajectories')
 
         # initial conditions states + uncontrolled inputs
         if x0 is None:
@@ -143,7 +195,7 @@ class ODE_NonAutonomous(EmulatorBase):
             assert x0.shape[0] == self.nx, "Mismatch in x0 size"
             x = x0
         # time interval
-        t = np.arange(0, nsim) * ts + ninit
+        t = np.arange(0, nsim+1) * ts + ninit
         X = []
         N = 0
         for u in U:
@@ -154,12 +206,17 @@ class ODE_NonAutonomous(EmulatorBase):
             N += 1
             if N == nsim:
                 break
-        return np.asarray(X), np.asarray(U)
+        Xout = np.asarray(X)
+        Yout = np.asarray(X)
+        Uout = np.asarray(U)
+        Dout = None
+        return Xout, Yout, Uout, Dout
 
 
 """
 Linear ODEs and SSMs
 """
+
 
 class ExpGrowth(EmulatorBase):
     """
@@ -204,17 +261,16 @@ Hybrid linear ODEs
 CartPole, bauncing ball
 """
 
+
 class LinCartPole(EmulatorBase):
     """
     Linearized Hybrid model of Inverted pendulum
     http://ctms.engin.umich.edu/CTMS/index.php?example=InvertedPendulum&section=SystemModeling
     http://ctms.engin.umich.edu/CTMS/index.php?example=InvertedPendulum&section=ControlStateSpace
-    TODO: nonlinear case
-    https://apmonitor.com/do/index.php/Main/InvertedPendulum
     """
-    def __init__(self):
+    def __init__(self, Ts=0.1):
         super().__init__()
-        pass
+        self.Ts = Ts
 
     def parameters(self, Ts=0.1):
         self.M = 0.5
@@ -224,7 +280,6 @@ class LinCartPole(EmulatorBase):
         self.g = 9.8
         self.l = 0.3
         self.p = self.I*(self.M+self.m)+self.M*self.m*self.l**2; # denominator for the A and B matrices
-        # self.dumping = 0.1
         self.theta1 = -(self.I+self.m*self.l**2)*self.b/self.p
         self.theta2 = (self.m**2*self.g*self.l**2)/self.p
         self.theta3 = -(self.m*self.l*self.b)/self.p
@@ -236,7 +291,6 @@ class LinCartPole(EmulatorBase):
         self.C = np.asarray([[1,0,0,0],[0,0,1,0]])
         self.D = np.asarray([[0],[0]])
         self.ssm = control.StateSpace(self.A, self.B, self.C, self.D)
-        self.Ts = Ts
         self.ssmd = self.ssm.sample(self.Ts, method='euler')
 
         self.nx = self.A.shape[0]
@@ -283,9 +337,6 @@ class LinCartPole(EmulatorBase):
             assert x0.shape[0] == self.nx, "Mismatch in x0 size"
             x = x0
 
-        # if Ts is not None:
-        #     self.parameters(Ts)
-
         X, Y = [], []
         N = 0
         for u in U:
@@ -295,9 +346,11 @@ class LinCartPole(EmulatorBase):
             N += 1
             if N == nsim:
                 break
-        return np.asarray(X), np.asarray(Y)
-
-
+        Xout = np.asarray(X)
+        Yout = np.asarray(Y)
+        Uout = None
+        Dout = None
+        return Xout, Yout, Uout, Dout
 
 
 """
@@ -336,7 +389,7 @@ class UniversalOscillator(ODE_Autonomous):
         dx = [dx1, dx2]
         return dx
 
-# TODO: debug
+
 class SEIR_population(EmulatorBase):
     """
     Susceptible, Exposed, Infected, and Recovered (SEIR) population population model
@@ -392,7 +445,6 @@ class SEIR_population(EmulatorBase):
         idt = self.alpha * e - self.gamma * i,
         rdt = self.gamma * i
         dx = [sdt, edt, idt, rdt]
-        # dx = np.asarray([sdt, edt, idt, rdt])
         return dx
 
     # N-step forward simulation of the dynamical system
@@ -513,7 +565,7 @@ class TwoTank(ODE_NonAutonomous):
         self.c1 = 0.08  # inlet valve coefficient
         self.c2 = 0.04  # tank outlet coefficient
         # Initial Conditions for the States
-        self.x0 = [0, 0]
+        self.x0 = np.asarray([0, 0])
         # default simulation setup
         self.ninit = 0
         self.nsim = 1001
@@ -525,6 +577,8 @@ class TwoTank(ODE_NonAutonomous):
         pump[551: self.nsim - 1] = 0.2
         valve = np.zeros((self.nsim - 1))
         self.U = np.vstack([pump, valve]).T
+        self.nu = 2
+        self.nx = 2
 
     # equations defining the dynamical system
     def equations(self, x, t, u):
@@ -646,17 +700,20 @@ class LogisticGrowth(EmulatorBase):
         self.k = 2
         self.x0 = 1
         self.nx = 1
+        self.nsim = 1000
 
     # equations defining single step of the dynamical system
     def equations(self, x):
         pass
 
-    def simulate(self, ninit, nsim, x0=None):
+    def simulate(self, ninit=None, nsim=None, x0=None):
         """
         :param nsim: (int) Number of steps for open loop response
         :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
         :return: The response trajectories,  X
         """
+        if nsim is None:
+            nsim = self.nsim
         if x0 is None:
             x = self.x0
         else:
@@ -669,20 +726,23 @@ class LogisticGrowth(EmulatorBase):
         return np.asarray(X)
 
 
-class BuildingEnvelope(EmulatorBase):
+class BuildingEnvelope(SSM):
     """
     building envelope heat transfer model
     linear building envelope dynamics and bilinear heat flow input dynamics
     different building types are stored in ./emulators/buildings/*.mat
     models obtained from: https://github.com/drgona/BeSim
     """
-    def __init__(self):
+    def __init__(self, system='Reno_full', linear=True):
         super().__init__()
+        self.system = system
+        self.linear = linear
 
     # parameters of the dynamical system
-    def parameters(self, system='Reno_full', linear=False):
+    def parameters(self, system='Reno_full', linear=True):
         # file paths for different building models
-        systems = {'Reno_full': './emulators/buildings/Reno_full.mat',
+        systems = {'SimpleSingleZone': './emulators/buildings/SimpleSingleZone.mat',
+                   'Reno_full': './emulators/buildings/Reno_full.mat',
                    'Reno_ROM40': './emulators/buildings/Reno_ROM40.mat',
                    'RenoLight_full': './emulators/buildings/RenoLight_full.mat',
                    'RenoLight_ROM40': './emulators/buildings/RenoLight_ROM40.mat',
@@ -696,6 +756,8 @@ class BuildingEnvelope(EmulatorBase):
 
         file_path = systems[system]
         file = loadmat(file_path)
+        self.system = system
+        self.linear = linear  # if True use only linear building envelope model with Q as U
         #  LTI SSM model
         self.A = file['Ad']
         self.B = file['Bd']
@@ -705,46 +767,50 @@ class BuildingEnvelope(EmulatorBase):
         self.F = file['Fd']
         #  constraints bounds
         self.ts = file['Ts']  # sampling time
-        # self.TSup = file['TSup']  # supply temperature
         self.umax = file['umax'].squeeze()  # max heat per zone
         self.umin = file['umin'].squeeze() # min heat per zone
-        self.dT_max = file['dT_max']  # maximal temperature difference deg C
-        self.dT_min = file['dT_min'] # minimal temperature difference deg C
-        self.mf_max = file['mf_max'].squeeze()  # maximal nominal mass flow l/h
-        self.mf_min = file['mf_min'].squeeze() # minimal nominal mass flow l/h
-        #         heat flow equation constants
-        self.rho = 0.997  # density  of water kg/1l
-        self.cp = 4185.5  # specific heat capacity of water J/(kg/K)
-        self.time_reg = 1 / 3600  # time regularization of the mass flow 1 hour = 3600 seconds
-        # building type
+        if not self.linear:
+            self.dT_max = file['dT_max']  # maximal temperature difference deg C
+            self.dT_min = file['dT_min']  # minimal temperature difference deg C
+            self.mf_max = file['mf_max'].squeeze()  # maximal nominal mass flow l/h
+            self.mf_min = file['mf_min'].squeeze()  # minimal nominal mass flow l/h
+            #   heat flow equation constants
+            self.rho = 0.997  # density  of water kg/1l
+            self.cp = 4185.5  # specific heat capacity of water J/(kg/K)
+            self.time_reg = 1 / 3600  # time regularization of the mass flow 1 hour = 3600 seconds
+            # building type
         self.type = file['type']
         self.HC_system = file['HC_system']
-        self.linear = linear  # if True use only linear building envelope model with Q as U
         # problem dimensions
         self.nx = self.A.shape[0]
         self.ny = self.C.shape[0]
         self.nq = self.B.shape[1]
         self.nd = self.E.shape[1]
-        self.n_mf = self.B.shape[1]
-        self.n_dT = self.dT_max.shape[0]
-        if linear:
+        if self.linear:
             self.nu = self.nq
         else:
+            self.n_mf = self.B.shape[1]
+            self.n_dT = self.dT_max.shape[0]
             self.nu = self.n_mf + self.n_dT
         # initial conditions and disturbance profiles
-        self.x0 = 0 * np.ones(self.nx, dtype=np.float32)  # initial conditions
+        if self.system == 'SimpleSingleZone':
+            self.x0 = file['x0'].reshape(self.nx)
+        else:
+            self.x0 = 0*np.ones(self.nx, dtype=np.float32)  # initial conditions
         self.D = file['disturb'] # pre-defined disturbance profiles
         #  steady states - linearization offsets
         self.x_ss = file['x_ss']
         self.y_ss = file['y_ss']
         # default simulation setup
         self.ninit = 0
-        self.nsim = 1200
-        if linear:
-            self.U = Periodic(nx=self.nu, nsim=self.nsim, numPeriods=6, xmax=self.umax, xmin=self.umin, form='sin')
+        self.nsim = np.min([8640, self.D.shape[0]])
+        if self.linear:
+            self.U = Periodic(nx=self.nu, nsim=self.nsim, numPeriods=21, xmax=self.umax/2, xmin=self.umin, form='sin')
         else:
-            self.M_flow = Periodic(nx=self.n_mf, nsim=self.nsim, numPeriods=6, xmax=self.mf_max, xmin=self.mf_min, form='sin')
-            self.DT = Periodic(nx=self.n_dT, nsim=self.nsim, numPeriods=9, xmax=self.dT_max, xmin=self.dT_min, form='cos')
+            self.M_flow = self.mf_max/2+RandomWalk(nx=self.n_mf, nsim=self.nsim, xmax=self.mf_max/2, xmin=self.mf_min, sigma=0.05)
+            # self.M_flow = Periodic(nx=self.n_mf, nsim=self.nsim, numPeriods=21, xmax=self.mf_max, xmin=self.mf_min, form='sin')
+            # self.DT = Periodic(nx=self.n_dT, nsim=self.nsim, numPeriods=15, xmax=self.dT_max/2, xmin=self.dT_min, form='cos')
+            self.DT = RandomWalk(nx=self.n_dT, nsim=self.nsim, xmax=self.dT_max*0.6, xmin=self.dT_min, sigma=0.05)
             self.U = np.hstack([self.M_flow, self.DT])
 
     # equations defining single step of the dynamical system
@@ -757,137 +823,7 @@ class BuildingEnvelope(EmulatorBase):
             q = m_flow * self.rho * self.cp * self.time_reg * dT
         x = np.matmul(self.A, x) + np.matmul(self.B, q) + np.matmul(self.E, d) + self.G.ravel()
         y = np.matmul(self.C, x) + self.F.ravel()
-        return q, x, y
-
-    # N-step forward simulation of the dynamical system
-    # def simulate(self, ninit, nsim, M_flow, DT, D=None, x0=None):
-    def simulate(self, ninit=None, nsim=None, U=None, D=None, x0=None, **kwargs):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param U: (ndarray, shape=(nsim, self.nu)) temperature difference profile matrix
-        :param D: (ndarray, shape=(nsim, self.nd)) measured disturbance signals
-        :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
-        :return: The response matrices, i.e. U, X, Y, for heat flows, states, and output ndarrays
-        """
-        if ninit is None:
-            ninit = self.ninit
-        if nsim is None:
-            nsim = self.nsim
-        if x0 is None:
-            x = self.x0
-        else:
-            assert x0.shape[0] == self.nx, "Mismatch in x0 size"
-            x = x0
-        if D is None:
-            D = self.D[ninit: ninit+nsim,:]
-        if U is None:
-            U = self.U[ninit: ninit+nsim,:]
-
-        Q, X, Y = [], [], []
-        N = 0
-        for u, d in zip(U, D):
-            N += 1
-            q, x, y = self.equations(x, u, d)
-            Q.append(q)
-            X.append(x + self.x_ss)  # updated states trajectories with initial condition 20 deg C of linearization
-            Y.append(y - self.y_ss)  # updated input trajectories from K to deg C
-            if N == nsim:
-                break
-        return np.asarray(X).squeeze(), np.asarray(Y).squeeze(), \
-               np.asarray(U).squeeze(), np.asarray(D).squeeze(), np.asarray(Q).squeeze()
-
-
-class Building_hf_Small(EmulatorBase):
-    def __init__(self):
-        super().__init__()
-
-    def control_profile_DAE(self, m_nominal_max=500, m_nominal_min=0,
-                            dT_nominal_max=20, dT_nominal_min=-10, samples_day=288,
-                            sim_days=7):
-        """
-        m_nominal_max: maximal nominal mass flow l/h
-        m_nominal_min: minimal nominal mass flow
-        """
-        #    mass flow
-        m_flow_day = m_nominal_min + m_nominal_max * (
-                    0.5 + 0.5 * np.sin(np.arange(0, 2 * np.pi, 2 * np.pi / samples_day)))  # daily control profile
-        M_flow = np.tile(m_flow_day, sim_days).reshape(-1, 1)  # samples_day*sim_days
-        #    delta T
-        dT_day = dT_nominal_min + (dT_nominal_max - dT_nominal_min) * (
-                    0.5 + 0.5 * np.cos(np.arange(0, 2 * np.pi, 2 * np.pi / samples_day)))  # daily control profile
-        DT = np.tile(dT_day, sim_days).reshape(-1, 1)
-        return M_flow, DT
-
-    def parameters(self, system='building_small', file_path='./emulators/buildings/disturb.mat'):
-        self.A = np.matrix([[0.9950, 0.0017, 0.0000, 0.0031], [0.0007, 0.9957, 0.0003, 0.0031],
-                            [0.0000, 0.0003, 0.9834, 0.0000], [0.2015, 0.4877, 0.0100, 0.2571]])
-        self.B = np.matrix([[1.7586e-06], [1.7584e-06],
-                            [1.8390e-10], [5.0563e-04]])
-        self.E = np.matrix([[0.0002, 0.0000, 0.0000], [0.0002, 0.0000, 0.0000],
-                            [0.0163, 0.0000, 0.0000], [0.0536, 0.0005, 0.0001]])
-        self.C = np.matrix([[0.0, 0.0, 0.0, 1.0]])
-        self.x = 20 * np.ones(4, dtype=np.float32)
-        #         heat flow equation constants
-        self.rho = 0.997  # density  of water kg/1l
-        self.cp = 4185.5  # specific heat capacity of water J/(kg/K)
-        self.time_reg = 1 / 3600  # time regularization of the mass flow 1 hour = 3600 seconds
-
-        self.dT_max = 40  # maximal temperature difference deg C
-        self.dT_min = 0  # minimal temperature difference deg C
-
-        # problem dimensions
-        self.nx = 4
-        self.ny = 1
-        self.nu = self.B.shape[1]
-        self.nd = self.E.shape[1]
-        self.n_mf = self.B.shape[1]
-        self.n_dT = 1
-        self.mf_max = 500  # maximal nominal mass flow l/h
-        self.mf_min = 0  # minimal nominal mass flow l/h
-        self.dT_max = 40  # maximal temperature difference deg C
-        self.dT_min = 0  # minimal temperature difference deg C
-        # initial conditions and disturbance profiles
-        self.x0 = 0 * np.ones(self.nx, dtype=np.float32)  # initial conditions
-        self.D = loadmat(file_path)['D'].T # pre-defined disturbance profiles
-        M_flow, DT = self.control_profile_DAE()
-        self.U = self.equations(M_flow, DT)
-        # print('U', self.U.shape)
-
-    def equations(self, m_flow, dT):
-        U = m_flow * self.rho * self.cp * self.time_reg * dT
-        return U
-
-    def simulate(self, ninit, nsim, M_flow, DT, D):
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param U: (ndarray, shape=(nsim, self.nu)) Control profile matrix
-        :param D: (ndarray, shape=(nsim, self.nd)) Disturbance matrix
-        :param x: (ndarray, shape=(self.nx)) Initial state. If not give will use internal state.
-        :return: The response matrices are aligned, i.e. X[k] is the state of the system that Y[k] is indicating
-        """
-        Y = np.zeros((nsim, 1))  # output trajectory placeholders
-        X = np.zeros((nsim + 1, 4))
-        X[0] = 20 * np.ones(4, dtype=np.float32)
-        for k in range(nsim):
-            Y[k] = self.C * np.asmatrix(X[k]).T
-            d = np.asmatrix(D[k]).T
-            u = np.asmatrix(self.U[k]).T
-            x = self.A * np.asmatrix(X[k]).T + self.B * u + self.E * d
-            X[k + 1] = x.flatten()
-        # print(X.shape, Y.shape)
-        return self.U[:nsim], X, Y
-"""
-Linear PDEs
-"""
-
-
-
-"""
-Nonlinear PDEs
-
-https://en.wikipedia.org/wiki/List_of_nonlinear_partial_differential_equations
-"""
-
+        return x, y
 
 
 """
@@ -913,7 +849,6 @@ class Lorenz96(ODE_Autonomous):
         self.F = 8  # Forcing
         self.x0 = self.F*np.ones(self.N)
         self.x0[19] += 0.01  # Add small perturbation to random variable
-        # self.x0[np.random.randint(0, self.N)] += 0.01  # Add small perturbation to random variable
         # default simulation setup
         self.ninit = 0
         self.nsim = 5001
@@ -1017,12 +952,14 @@ class HindmarshRose(ODE_NonAutonomous):
         self.r = 0.01
         self.umin = -10
         self.umax = 10
-        self.x0 = [-5,-10,0]
+        self.x0 = np.asarray([-5,-10,0])
         # default simulation setup
         self.ninit = 0
         self.nsim = 5001
         self.ts = 0.1
         self.U = 3 * np.asarray([np.ones((self.nsim - 1))]).T
+        self.nu = 1
+        self.nx = 3
 
     # equations defining the dynamical system
     def equations(self, x, t, u):
@@ -1072,7 +1009,6 @@ class RosslerAttractor(ODE_Autonomous):
     def __init__(self):
         super().__init__()
 
-    # parameters of the dynamical system
     def parameters(self):
         super().parameters()
         self.a = 0.2
@@ -1084,7 +1020,6 @@ class RosslerAttractor(ODE_Autonomous):
         self.nsim = 20001
         self.ts = 0.01
 
-    # equations defining the dynamical system
     def equations(self, x, t):
         # Derivatives
         dx1 = - x[1] - x[2]
@@ -1102,7 +1037,6 @@ class LotkaVolterra(ODE_Autonomous):
     def __init__(self):
         super().__init__()
 
-    # parameters of the dynamical system
     def parameters(self):
         super().parameters()
         self.a = 1.
@@ -1115,7 +1049,6 @@ class LotkaVolterra(ODE_Autonomous):
         self.nsim = 2001
         self.ts = 0.1
 
-    # equations defining the dynamical system
     def equations(self, x, t):
         # Derivatives
         dx1 = self.a*x[0] - self.b*x[0]*x[1]
@@ -1132,7 +1065,6 @@ class Brusselator1D(ODE_Autonomous):
     def __init__(self):
         super().__init__()
 
-    # parameters of the dynamical system
     def parameters(self):
         super().parameters()
         self.a = 1.0
@@ -1143,7 +1075,6 @@ class Brusselator1D(ODE_Autonomous):
         self.nsim = 501
         self.ts = 0.1
 
-    # equations defining the dynamical system
     def equations(self, x, t):
         # Derivatives
         dx1 = self.a + x[1]*x[0]**2 -self.b*x[0] - x[0]
@@ -1161,7 +1092,6 @@ class ChuaCircuit(ODE_Autonomous):
     def __init__(self):
         super().__init__()
 
-    # parameters of the dynamical system
     def parameters(self):
         super().parameters()
         self.a = 15.6
@@ -1176,7 +1106,6 @@ class ChuaCircuit(ODE_Autonomous):
         self.nsim = 10001
         self.ts = 0.01
 
-    # equations defining the dynamical system
     def equations(self, x, t):
         fx = self.m1*x[0] + 0.5*(self.m0 - self.m1)*(np.abs(x[0] + 1) - np.abs(x[0] - 1))
         # Derivatives
@@ -1219,34 +1148,6 @@ class Duffing(ODE_Autonomous):
 
 
 
-
-"""
-Chaotic nonlinear PDEs
-"""
-
-
-
-"""
-Cellular automata
-"""
-
-
-
-"""
-Fractals
-"""
-class Mandelbrot(EmulatorBase):
-    """
-    IDEA: use mandelbrot zoom video as our dataset for training
-    Cool effect
-    """
-    def __init__(self):
-        super().__init__()
-        pass
-
-
-
-
 ##############################################
 
 ###### External Emulators Interface ##########
@@ -1262,8 +1163,9 @@ class GymWrapper(EmulatorBase):
     https://gym.openai.com/read-only.html
     https://github.com/openai/gym
     """
-    def __init__(self):
+    def __init__(self, system='CartPole-v1'):
         super().__init__()
+        self.system = system
 
     # parameters of the dynamical system
     def parameters(self, system='CartPole-v1'):
@@ -1314,13 +1216,45 @@ class GymWrapper(EmulatorBase):
             N += 1
             if N == nsim:
                 break
-        return np.asarray(X), np.asarray(Reward), np.asarray(U)
+        Xout = np.asarray(X)
+        Yout = np.asarray(Reward).reshape(-1,1)
+        Uout = np.asarray(U)
+        Dout = None
+        return Xout, Yout, Uout, Dout
 
 
 
 ##########################################################
 ###### Base Control Profiles for System excitation #######
 ##########################################################
+
+def RandomWalk(nx=1, nsim=100, xmax=1, xmin=0, sigma=0.05):
+    """
+
+    :param nx:
+    :param nsim:
+    :param xmax:
+    :param xmin:
+    :return:
+    """
+    if type(xmax) is not np.ndarray:
+        xmax = np.asarray(nx*[xmax]).ravel()
+    if type(xmin) is not np.ndarray:
+        xmin = np.asarray(nx*[xmin]).ravel()
+
+    Signals = []
+    for k in range(nx):
+        Signal = [0]
+        for t in range(1, nsim):
+            yt = Signal[t - 1] + np.random.normal(0, sigma)
+            if (yt > 1):
+                yt = Signal[t - 1] - abs(np.random.normal(0, sigma))
+            elif (yt < 0):
+                yt = Signal[t - 1] + abs(np.random.normal(0, sigma))
+            Signal.append(yt)
+        Signals.append(xmin[k] + (xmax[k] - xmin[k])*np.asarray(Signal))
+    return np.asarray(Signals).T
+
 
 def WhiteNoise(nx=1, nsim=100, xmax=1, xmin=0):
     """
@@ -1381,9 +1315,12 @@ def Periodic(nx=1, nsim=100, numPeriods=1, xmax=1, xmin=0, form='sin'):
     :param form: (str) form of the periodic signal 'sin' or 'cos'
     """
     if type(xmax) is not np.ndarray:
-        xmax = np.asarray([xmax]).ravel()
+        xmax = np.asarray([xmax]*nx).ravel()
     if type(xmin) is not np.ndarray:
-        xmin = np.asarray([xmin]).ravel()
+        xmin = np.asarray([xmin]*nx).ravel()
+
+    xmax = xmax.reshape(nx)
+    xmin = xmin.reshape(nx)
 
     samples_period = nsim// numPeriods
     leftover = nsim % numPeriods
@@ -1413,6 +1350,43 @@ def SignalSeries():
     pass
 
 
+systems = {# non-autonomous ODEs
+           'CSTR': CSTR,
+           'TwoTank': TwoTank,
+           # autonomous chaotic ODEs
+           'LorenzSystem': LorenzSystem,
+           'Lorenz96': Lorenz96,
+           'VanDerPol': VanDerPol,
+           'ThomasAttractor': ThomasAttractor,
+           'RosslerAttractor': RosslerAttractor,
+           'LotkaVolterra': LotkaVolterra,
+           'Brusselator1D': Brusselator1D,
+           'ChuaCircuit': ChuaCircuit,
+           'Duffing': Duffing,
+           'UniversalOscillator': UniversalOscillator,
+           # non-autonomous chaotic ODEs
+           'HindmarshRose': HindmarshRose,
+           # OpenAI gym environments
+           'Pendulum-v0': GymWrapper,
+           'CartPole-v1': GymWrapper,
+           'Acrobot-v1': GymWrapper,
+           'MountainCar-v0': GymWrapper,
+           'MountainCarContinuous-v0': GymWrapper,
+           # partially observable building state space models with external disturbances
+           'SimpleSingleZone': BuildingEnvelope,
+           'Reno_full': BuildingEnvelope,
+           'Reno_ROM40': BuildingEnvelope,
+           'RenoLight_full': BuildingEnvelope,
+           'RenoLight_ROM40': BuildingEnvelope,
+           'Old_full': BuildingEnvelope,
+           'Old_ROM40': BuildingEnvelope,
+           'HollandschHuys_full': BuildingEnvelope,
+           'HollandschHuys_ROM100': BuildingEnvelope,
+           'Infrax_full': BuildingEnvelope,
+           'Infrax_ROM100': BuildingEnvelope
+           }
+
+
 if __name__ == '__main__':
     """
     Tests
@@ -1420,17 +1394,10 @@ if __name__ == '__main__':
 
     # building model
     ninit = 0
-    nsim = 1200
     building = BuildingEnvelope()   # instantiate building class
-    building.parameters(system='HollandschHuys_full')      # load model parameters
-    # generate input data
-    M_flow = Periodic(nx=building.n_mf, nsim=nsim, numPeriods=6, xmax=building.mf_max, xmin=building.mf_min, form='sin')
-    DT = Periodic(nx=building.n_dT, nsim=nsim, numPeriods=9, xmax=building.dT_max, xmin=building.dT_min, form='cos')
-    D = building.D[ninit:nsim,:]
-    U = np.hstack([M_flow, DT])
+    building.parameters(system='HollandschHuys_full', linear=False)      # load model parameters
     # simulate open loop building
-    X, Y, U, D, Q = building.simulate(ninit=ninit, nsim=nsim, U=U, D=D)
-    # X, Y, U, D, Q  = building.simulate() # default simulation setup
+    X, Y, U, D= building.simulate(ninit=ninit)
     # plot trajectories
     plot.pltOL(Y=Y, U=U, D=D, X=X)
     plot.pltPhase(X=Y)
@@ -1438,15 +1405,14 @@ if __name__ == '__main__':
     #   CSTR
     cstr_model = CSTR()  # instantiate CSTR class
     cstr_model.parameters()  # load model parameters
-    X, U = cstr_model.simulate() # simulate open loop
+    X, Y, U, D = cstr_model.simulate() # simulate open loop
     plot.pltOL(Y=X[:,0], U=cstr_model.U, X=X[:,1]) # plot trajectories
     plot.pltPhase(X=X)
 
     #   TwoTank
-    twotank_model = TwoTank()  # instantiate CSTR class
+    twotank_model = TwoTank()  # instantiate model class
     twotank_model.parameters()  # load model parameters
-    X, U = twotank_model.simulate() # simulate open loop
-    # X = twotank_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U) #  example custom simulation setup
+    X, Y, U, D = twotank_model.simulate() # simulate open loop
     # plot trajectories
     plot.pltOL(Y=X, U=U)
     plot.pltPhase(X=X)
@@ -1463,26 +1429,13 @@ if __name__ == '__main__':
     pump[151:nsim - 1] = 0.2
     valve = np.zeros((nsim - 1))
     U = np.vstack([pump, valve]).T
-    tank_model = Tank()  # instantiate CSTR class
+    tank_model = Tank()  # instantiate model class
     tank_model.parameters()  # load model parameters
     # simulate open loop
-    # TODO: errors
-    # X = tank_model.simulate(ninit, nsim, ts, pump, valve)
-    # # plot trajectories
-    # plot.pltOL(Y=X, U=valve)
+    X = tank_model.simulate(ninit, nsim, ts, pump, valve)
+    # plot trajectories
+    plot.pltOL(Y=X, U=valve)
 
-    #  SEIR
-    ninit = 0
-    nsim = 201
-    ts = 1
-    # Inputs that can be adjusted
-    U = np.asarray([np.zeros((nsim - 1))]).T
-    seir_model = SEIR_population()  # instantiate CSTR class
-    seir_model.parameters()  # load model parameters
-    # simulate open loop
-    # X = seir_model.simulate(ninit, nsim, ts, U)
-    # # plot trajectories
-    # plot.pltOL(Y=X, U=U)
 
     # linear cart pole system
     ninit = 0
@@ -1490,15 +1443,14 @@ if __name__ == '__main__':
     ts = 0.1
     U = np.asarray([np.zeros((nsim - 1))]).T
     #  inverted pendulum
-    lcp_model = LinCartPole()  # instantiate CSTR class
+    lcp_model = LinCartPole()  # instantiate model class
     lcp_model.parameters()
     # simulate open loop
-    X, Y = lcp_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U)
+    X, Y, U, D = lcp_model.simulate(ninit=ninit, nsim=nsim, ts=ts, U=U)
     # plot trajectories
     plot.pltOL(Y=Y, X=X, U=U)
     plot.pltPhase(X=X)
 
-    # TODO: double check dimensions of x
     # OpenAi gym environment wrapper
     # tested envs:
     #   1, Classical: 'Pendulum-v0', 'CartPole-v1', 'Acrobot-v1', 'MountainCar-v0',
@@ -1511,31 +1463,30 @@ if __name__ == '__main__':
     U = np.zeros([(nsim - 1), gym_model.nu])
     if type(gym_model.action_sample) == int:
         U = U.astype(int)
-    X, Reward, U = gym_model.simulate(ninit=ninit, nsim=nsim, U=U)
-    # X, Reward, U = gym_model.simulate() # example with default setup
-    plot.pltOL(Y=Reward, X=X, U=U)
+    X, Y, U, D = gym_model.simulate(ninit=ninit, nsim=nsim, U=U)
+    plot.pltOL(Y=Y, X=X, U=U)
     plot.pltPhase(X=X)
-    # TODO: include visualization option for the trajectories or render of OpenAI gym
-
 
     # Lorenz 96
     lorenz96_model = Lorenz96()  # instantiate model class
     lorenz96_model.parameters()
-    X = lorenz96_model.simulate() # simulate open loop
+    X, Y, U, D = lorenz96_model.simulate() # simulate open loop
     plot.pltOL(Y=X) # plot trajectories
     plot.pltPhase(X=X) # phase plot
 
     # LorenzSystem
     lorenz_model = LorenzSystem()  # instantiate model class
     lorenz_model.parameters()
-    X = lorenz_model.simulate() # simulate open loop
+    X, Y, U, D = lorenz_model.simulate() # simulate open loop
     plot.pltOL(Y=X) # plot trajectories
     plot.pltPhase(X=X) # phase plot
+    plot.pltRecurrence(X=X) # recurrence plots
+    plot.pltCorrelate(X=X) # correlation plots
 
     # VanDerPol
     vdp_model = VanDerPol()  # instantiate model class
     vdp_model.parameters()   # instantiate parameters
-    X = vdp_model.simulate() # simulate open loop
+    X, Y, U, D = vdp_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
@@ -1543,7 +1494,7 @@ if __name__ == '__main__':
     # example of non-autonomous system with default simulation setup
     HR_model = HindmarshRose()  # instantiate model class
     HR_model.parameters()
-    X, U = HR_model.simulate()
+    X, Y, U, D = HR_model.simulate()
     plot.pltOL(Y=X, U=U)
     plot.pltPhase(X=X)
 
@@ -1551,48 +1502,49 @@ if __name__ == '__main__':
     nsim = 10000 #  example with default sim setup and custom nsim
     TCSA_model = ThomasAttractor()  # instantiate
     TCSA_model.parameters()
-    X = TCSA_model.simulate(nsim=nsim)
+    X, Y, U, D = TCSA_model.simulate(nsim=nsim)
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
     # RösslerAttractor
     Ross_model = RosslerAttractor()  # instantiate model
     Ross_model.parameters()
-    X = Ross_model.simulate() # simulate open loop
+    X, Y, U, D = Ross_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
     # LotkaVolterra
     lv_model = LotkaVolterra()  # instantiate model class
     lv_model.parameters()
-    X = lv_model.simulate() # simulate open loop
+    X, Y, U, D = lv_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
     # Brusselator1D
     bruss_model = Brusselator1D()  # instantiate model class
     bruss_model.parameters()
-    X = bruss_model.simulate() # simulate open loop
+    X, Y, U, D = bruss_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
     # ChuaCircuit
     chua_model = ChuaCircuit()  # instantiate model class
     chua_model.parameters()
-    X = chua_model.simulate() # simulate open loop
+    X, Y, U, D = chua_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
     # Duffing
     Duffing_model = Duffing()  # instantiate model class
     Duffing_model.parameters()
-    X = Duffing_model.simulate() # simulate open loop
+    X, Y, U, D = Duffing_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
 
     # UniversalOscillator
     oscillator_model = UniversalOscillator()  # instantiate model class
     oscillator_model.parameters()
-    X = oscillator_model.simulate() # simulate open loop
+    X, Y, U, D = oscillator_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
+

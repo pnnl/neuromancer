@@ -1,5 +1,4 @@
 """
-# TODO: rnn as nonlinear map is breaking
 
 Script for training block dynamics models for system identification.
 Current block structure supported are black_box, hammerstein, hammerstein-weiner,
@@ -86,7 +85,7 @@ def parse_args():
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='pf')
     model_group.add_argument('-nonlinear_map', type=str, default='rnn',
-                             choices=['mlp', 'rnn', 'linear', 'residual_mlp'])
+                             choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
 
     ##################
@@ -126,6 +125,7 @@ def logging(args):
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
     return Logger, device
 
+
 def dataset_load(args, device):
     if args.system_data == 'emulator':
         dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
@@ -159,6 +159,7 @@ if __name__ == '__main__':
     nonlinmap = {'linear': linmap,
                  'mlp': blocks.MLP,
                  'rnn': blocks.RNN,
+                 'pytorch_rnn': blocks.PytorchRNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
     # state space model setup
     dynamics_model = {'blackbox': dynamics.blackbox,

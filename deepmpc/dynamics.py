@@ -100,15 +100,6 @@ class BlockSSM(nn.Module):
         # submodules regularization penalties
         return sum([k.reg_error() for k in [self.fx, self.fu, self.fd, self.fy] if hasattr(k, 'reg_error')])
 
-    def reset(self):
-        """
-        For use with RNN as a subcomponent in open loop simulation.
-        :return:
-        """
-        for mod in self.modules():
-            if hasattr(mod, 'reset') and mod is not self:
-                mod.reset()
-
     def forward(self, data):
         """
 
@@ -136,7 +127,6 @@ class BlockSSM(nn.Module):
             y = self.fy(x)
             X.append(x)
             Y.append(y)
-        self.reset()
         return {self.output_keys[0]: torch.stack(X), self.output_keys[1]: torch.stack(Y),
                        self.output_keys[4]: self.reg_error(),
                        self.output_keys[2]: torch.stack(FU) if not not FU else None,
@@ -179,11 +169,6 @@ class BlackSSM(nn.Module):
         # submodules regularization penalties
         return sum([k.reg_error() for k in [self.fxud, self.fy] if hasattr(k, 'reg_error')])
 
-    def reset(self):
-        for mod in self.modules():
-            if hasattr(mod, 'reset') and mod is not self:
-                mod.reset()
-
     def forward(self, data):
         """
         """
@@ -203,7 +188,6 @@ class BlackSSM(nn.Module):
             y = self.fy(x)
             X.append(x)
             Y.append(y)
-        self.reset()
         return {self.output_keys[0]: torch.stack(X), self.output_keys[1]: torch.stack(Y), self.output_keys[2]: self.reg_error()}
 
 

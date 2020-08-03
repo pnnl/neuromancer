@@ -7,7 +7,7 @@ parser.add_argument('-hours', type=int, help='number of gpu hours to request for
 parser.add_argument('-partition', type=str, help='Partition of gpus to access', default='shared_dlt')
 parser.add_argument('-allocation', type=str, help='Allocation name for billing', default='deepmpc')
 parser.add_argument('-env', type=str, help='Name of conda environment for running code.', default='mpc2')
-parser.add_argument('-results', type=str, help='Where to log mlflow results', default='/qfs/projects/deepmpc/mlflow/buildings_exp_2020_6_11/mlruns')
+parser.add_argument('-results', type=str, help='Where to log mlflow results', default='/qfs/projects/deepmpc/mlflow/flexy_exp_2020_6_30/mlruns')
 parser.add_argument('-exp_folder', type=str, help='Where to save sbatch scripts and log files',
                     default='sbatch/')
 parser.add_argument('-nsamples', type=int, help='Number of samples for each experimental configuration',
@@ -32,21 +32,15 @@ template = '#!/bin/bash\n' +\
 
 os.system('mkdir %s' % args.exp_folder)
 
-# TODO: customize bulding training to be more gray box
-# TODO: customize ssm hammerstein model for each building
-# TODO: customize linear maps factorization for each block separately
-# TODO: or categorization of input variables to include more structure
-# TODO: use only subset of D as observables
-# TODO: realistic input profiles for building models
-# systems = ['Reno_full','RenoLight_full','Old_full','HollandschHuys_full','Infrax_full']
-systems = ['Reno_full']
+systems = ['flexy_air']
+# systems_path = ['./datasets/Flexy_air/flexy_air_data.csv']
 linear_map = ['linear', 'pf', 'softSVD']
 nonlinear_map = ['mlp', 'residual_mlp', 'rnn']
-models = ['hw', 'hammerstein', 'blocknlin']
+models = ['blocknlin']
 Q_values = [(0.0, 0.0, 0.0, 0.0), (0.2, 0.2, 0.2, 0.2)]
 constrainted = ['unconstr', 'constr']
 
-# choose nsim: 2880 for 30 days, 5760 for 60 days, 8640 for 90 days
+# TODO: problem with device
 nsteps_range = [1, 8, 16, 32, 64]
 os.system('mkdir temp')
 for system in systems:
@@ -59,20 +53,19 @@ for system in systems:
                             for i in range(args.nsamples): # 10 samples for each configuration
                                 cmd = 'python train.py ' +\
                                       '-gpu 0 ' + \
-                                      '-lr 0.003'  + \
+                                      '-lr 0.003 ' + \
                                       '-epochs 10000 ' + \
-                                      '-nsim 5760' + \
                                       '-location %s ' % args.results + \
-                                      '-system_data %s ' % 'emulator' + \
+                                      '-system_data %s ' % 'datafile' + \
                                       '-system %s ' % system + \
                                       '-linear_map %s ' % linear + \
                                       '-nonlinear_map %s ' % nonlinear + \
                                       '-nsteps %s ' % nsteps + \
-                                      '-mlflow ' + \
+                                      '-logger mlflow ' + \
                                       '-ssm_type %s ' % model +\
-                                      '-nx_hidden 10' + \
+                                      '-nx_hidden 10 ' + \
                                       '%s ' % bias + \
-                                      '-Q_con_u %s -Q_con_x %s -Q_dx_ud %s -Q_dx %s' % Q_val + \
+                                      '-Q_con_u %s -Q_con_x %s -Q_dx_ud %s -Q_dx %s ' % Q_val + \
                                       '-exp %s_%s_%s_%s_%s_%s_%s ' % (system, model, constr, bias, linear, nonlinear, nsteps) + \
                                       '-savedir temp/%s_%s_%s_%s_%s_%s_%s_%s ' % (system, model, constr, bias, linear, nonlinear, nsteps, i) # group experiments with same configuration together - TODO: add more params
                                 with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s_%s_%s_%s_%s.slurm' % (system, model, constr, bias, linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
@@ -89,21 +82,20 @@ for system in systems:
                         for i in range(args.nsamples): # 10 samples for each configuration
                             cmd = 'python train.py ' +\
                                   '-gpu 0 ' + \
-                                  '-lr 0.003' + \
+                                  '-lr 0.003 ' + \
                                   '-epochs 10000 ' + \
-                                  '-nsim 5760' + \
                                   '-location %s ' % args.results + \
-                                  '-system_data %s ' % 'emulator' + \
+                                  '-system_data %s ' % 'datafile' + \
                                   '-system %s ' % system + \
                                   '-linear_map %s ' % linear + \
                                   '-nonlinear_map %s ' % nonlinear + \
                                   '-nsteps %s ' % nsteps + \
-                                  '-mlflow ' + \
+                                  '-logger mlflow ' + \
                                   '-ssm_type blackbox ' + \
-                                  '-nx_hidden 10' +\
+                                  '-nx_hidden 10 ' +\
                                   '%s ' % bias + \
-                                  '-Q_con_u %s -Q_con_x %s -Q_dx_ud %s -Q_dx %s' % Q_val + \
-                                  '-exp blackbox_%s_%s_%s_%s_%s_%s ' % (system, constr, bias, linear, nonlinear, nsteps) + \
-                                  '-savedir temp/blackbox_%s_%s_%s_%s_%s_%s_%s ' % (system, constr, bias, linear, nonlinear, nsteps, i)
-                            with open(os.path.join(args.exp_folder, 'exp_blackbox_%s_%s_%s_%s_%s_%s_%s.slurm' % (system, constr, bias, linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
+                                  '-Q_con_u %s -Q_con_x %s -Q_dx_ud %s -Q_dx %s ' % Q_val + \
+                                  '-exp %s_blackbox_%s_%s_%s_%s_%s ' % (system, constr, bias, linear, nonlinear, nsteps) + \
+                                  '-savedir temp/%s_blackbox_%s_%s_%s_%s_%s_%s ' % (system, constr, bias, linear, nonlinear, nsteps, i)
+                            with open(os.path.join(args.exp_folder, 'exp_%s_blackbox_%s_%s_%s_%s_%s_%s.slurm' % (system, constr, bias, linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
                                     cmdfile.write(template + cmd)

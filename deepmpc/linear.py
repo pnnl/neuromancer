@@ -1,18 +1,19 @@
-from abc import ABC, abstractmethod
-import math
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
 """
 Pytorch weight initializations
 
+# TODO: Confirm sparse parametrizations
+# TODO: Use sparse parametrizations from: DoublyStochasticLinear Sparse structured linear maps in pytorch: https://github.com/HazyResearch/learning-circuits
 torch.nn.init.xavier_normal_(tensor, gain=1.0)
 torch.nn.init.kaiming_normal_(tensor, a=0, mode='fan_in', nonlinearity='leaky_relu')
 torch.nn.init.orthogonal_(tensor, gain=1)
 torch.nn.init.sparse_(tensor, sparsity, std=0.01)
 """
+
+from abc import ABC, abstractmethod
+import math
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 class LinearBase(nn.Module, ABC):
@@ -22,10 +23,8 @@ class LinearBase(nn.Module, ABC):
     def __init__(self, insize, outsize, bias=False):
         super().__init__()
         self.in_features, self.out_features = insize, outsize
-        self.error_matrix = nn.Parameter(torch.zeros(1), requires_grad=False)
         self.weight = nn.Parameter(torch.Tensor(insize, outsize))
         self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
-        # initialize default weights to be standard pytorch init
         torch.nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
         if bias:
             fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight)
@@ -33,7 +32,7 @@ class LinearBase(nn.Module, ABC):
             torch.nn.init.uniform_(self.bias, -bound, bound)
 
     def reg_error(self):
-        return self.error_matrix
+        return torch.tensor(0.0).to(self.weight.device)
 
     @abstractmethod
     def effective_W(self):
@@ -239,7 +238,7 @@ class SVDLinear(LinearBase):
     def __init__(self, insize, outsize, bias=False, sigma_min=0.1, sigma_max=1, **kwargs):
         """
 
-        SVD based regularization of matrix A
+        soft SVD based regularization of matrix A
         A = U*Sigma*V
         U,V = unitary matrices (orthogonal for real matrices A)
         Sigma = diagonal matrix of singular values (square roots of eigenvalues)
@@ -298,7 +297,7 @@ def Hprod(x, u, k):
 
 class OrthogonalLinear(SquareLinear):
 
-    def __init__(self, insize, outsize, bias=False):
+    def __init__(self, insize, outsize, bias=False, **kwargs):
         super().__init__(insize, outsize, bias=bias)
         self.U = nn.Parameter(torch.triu(torch.randn(insize, insize)))
 
@@ -361,7 +360,7 @@ class SpectralLinear(LinearBase):
         :param x: BS X
         :return: BS X dim
         """
-        assert x.shape[1] == self.in_features
+        assert x.shape[1] == self.in_features, f'x.shape: {x.shape}, in_features: {self.in_features}'
         for i in range(0, self.n_U_reflectors):
             x = Hprod(x, self.U[i], self.in_features - i)
         return x

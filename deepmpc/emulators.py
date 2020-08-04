@@ -687,6 +687,106 @@ class CSTR(ODE_NonAutonomous):
         return xdot
 
 
+##############################
+class UAV3D_kin(ODE_NonAutonomous):
+    """
+    Dubin's 3D model -- UAV kinematic model with no wind
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    # parameters of the dynamical system
+    def parameters(self):
+        self.nx = 6    # Number of states
+        self.nu = 3    # Number of control inputs
+        self.g = 9.81  # Acceleration due to gravity (m/s^2)
+
+        # Initial Conditions for the States
+        self.x0 = np.array([5, 10, 15, 0, np.pi / 18, 9])
+
+    # equations defining the dynamical system
+    def equations(self, x, t, U):
+        """
+        # States (4): [x, y, z, psi]
+        # Inputs (3): [V, phi, gamma]
+        """
+
+        # equations
+
+        # Inputs
+        V = U[0]
+        phi = U[1]
+        gamma = U[2]
+        dx_dt = np.zeros(6)
+
+        dx_dt[0] = V * np.cos(x[3]) * np.cos(gamma)
+        dx_dt[1] = V * np.sin(x[3]) * np.cos(gamma)
+        dx_dt[2] = V * np.sin(gamma)
+        dx_dt[3] = (self.g/V) * (np.tan(phi))
+
+        return dx_dt
+
+
+class UAV3D_dyn(ODE_NonAutonomous):
+    """
+    UAV dynamic guidance model with no wind
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    # parameters of the dynamical system
+    def parameters(self):
+        self.nx = 6    # Number of states
+        self.nu = 3    # Number of control inputs
+        self.g = 9.81  # Acceleration due to gravity (m/s^2)
+        self.W = 10.0  # Weight of the aircraft (kg)
+        self.rho = 1.2 # Air density at sea level (kg/m^3); varies with altitude
+        self.S = 10.0  # Wing area (m^2)
+        self.lenF = 2  # Fuselage length
+        self.b = 7.0  # Wingspan (m)
+        self.AR = self.b**2 / self.S  # Aspect Ratio of the wing
+        self.eps = 0.92  # Oswald efficiency factor (from Atlantik Solar UAV)
+        self.K = 1 / (self.eps * np.pi * self.AR)  # aerodynamic coefficient
+
+        # Initial Conditions for the States
+        self.x0 = np.array([5, 10, 15, 0, np.pi / 18, 9])
+
+    # equations defining the dynamical system
+    def equations(self, x, t, U):
+        """
+        States (6): [x, y, z, psi, gamma, V]
+        Inputs (3): [T, phi, load]
+        load = Lift force / Weight
+
+        """
+
+        # equations
+        V = x[5]
+        T = U[0]
+        phi = U[1]
+        load = U[2]
+        Re = 1.225 * V * self.lenF / 1.725e-5  # Reynolds number at V m / s
+        CD0 = 0.074 * Re ** (-0.2)  # parasitic drag
+        CL = 2 * load * self.W / self.rho * V ** 2 * self.S  # Lift coefficient
+        CD = CD0 + self.K * CL**2     # Drag coefficient
+        drag = self.rho * V ** 2 * self.S * CD   # Total drag
+        # T = D         # For level flight
+
+        dx_dt = np.zeros(6)
+
+        dx_dt[0] = V * np.cos(x[3]) * np.cos(x[4])
+        dx_dt[1] = V * np.sin(x[3]) * np.cos(x[4])
+        dx_dt[2] = V * np.sin(x[4])
+        dx_dt[3] = (self.g/V) * (load * np.sin(phi)) / np.cos(x[4])
+        dx_dt[4] = (self.g/V) * (load * np.cos(phi) - np.cos(x[4]))
+        dx_dt[5] = self.g * ((T - drag)/self.W - np.sin(x[4]))
+
+        return dx_dt
+###############################################
+
+
 class LogisticGrowth(EmulatorBase):
     """
     logistic growth linear ODE
@@ -1547,4 +1647,56 @@ if __name__ == '__main__':
     X, Y, U, D = oscillator_model.simulate() # simulate open loop
     plot.pltOL(Y=X)
     plot.pltPhase(X=X)
+
+    # UAV3D_kin_dyn
+    ninit = 0
+    nsim = 1000
+    ts = 0.5
+
+    # Initial Conditions for the States
+    x0 = np.array([5, 10, 15, np.pi / 6, np.pi / 18, 9])
+
+    # Inputs that can be adjusted for the kinematic model
+    V = np.empty((nsim - 1))
+    V[0:51] = 10
+    V[51:75] = 15
+    V[75:nsim - 1] = 12
+
+    phi = np.linspace(0, 4, nsim - 1) * np.pi / 180
+    gamma = np.linspace(0, 1, nsim - 1) * np.pi / 180
+
+    # Inputs that can be adjusted for the dynamic model
+    T = np.empty((nsim - 1))
+    T[0:51] = 5000
+    T[51:75] = 5000
+    T[75:nsim - 1] = 5000
+
+    load = np.ones((nsim - 1))
+
+    inputs_kin = np.column_stack((V, phi, gamma))
+    uav_model_kin = UAV3D_kin()  # instantiate model class
+
+    inputs_dyn = np.column_stack((T, phi, load))
+    uav_model_dyn = UAV3D_dyn()  # instantiate model class
+
+    uav_model_kin.parameters()  # load kin model parameters
+    uav_model_dyn.parameters()  # load model parameters
+
+    # simulate open loop
+    # def simulate(self, U=None, ninit=None, nsim=None, ts=None, x0=None, **kwargs):
+    X_kin = uav_model_kin.simulate(U=inputs_kin, ninit=ninit, nsim=nsim, ts=ts, x0=x0)
+    # X_dyn = uav_model_dyn.simulate(U=inputs_dyn, ninit=ninit, nsim=nsim, ts=ts, x0=x0)
+
+    # # plot trajectories
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111, projection='3d')
+
+    ax1.plot(X_kin[0][:, 0], X_kin[0][:, 1], X_kin[0][:, 2])
+    # ax1.plot(X_dyn[0][:, 0], X_dyn[0][:, 1], X_dyn[0][:, 2])
+    ax1.scatter(x0[0], x0[1], x0[2], marker='o', facecolor='red')
+    ax1.set_xlabel('North (m)')
+    ax1.set_ylabel('East (m)')
+    ax1.set_zlabel('Altitude(m)')
+
+    plt.show()
 

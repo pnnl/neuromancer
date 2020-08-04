@@ -292,7 +292,8 @@ class FileDataset(Dataset):
         systems_datapaths = {'tank': './datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
                              'vehicle3': './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
                              'aero': './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat',
-                             'flexy_air': './datasets/Flexy_air/flexy_air_data.csv'}
+                             'flexy_air': './datasets/Flexy_air/flexy_air_data.csv',
+                             'EED_building': './datasets/EED_building/EED_building.csv'}
         if self.system in systems_datapaths.keys():
             file_path = systems_datapaths[self.system]
         else:
@@ -409,7 +410,7 @@ class DatasetMPP:
 if __name__ == '__main__':
 
     systems = {'tank': 'datafile', 'vehicle3': 'datafile', 'aero': 'datafile', 'flexy_air': 'datafile',
-               'TwoTank': 'emulator', 'LorenzSystem': 'emulator',
+               'EED_building': 'datafile', 'TwoTank': 'emulator', 'LorenzSystem': 'emulator',
                'Lorenz96': 'emulator', 'VanDerPol': 'emulator', 'ThomasAttractor': 'emulator',
                'RosslerAttractor': 'emulator', 'LotkaVolterra': 'emulator', 'Brusselator1D': 'emulator',
                'ChuaCircuit': 'emulator', 'Duffing': 'emulator', 'UniversalOscillator': 'emulator',

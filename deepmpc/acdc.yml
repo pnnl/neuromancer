@@ -124,5 +124,6 @@ dependencies:
     - pyts==0.11.0
     - scikit-learn==0.23.1
     - threadpoolctl==2.1.0
+    - dill==0.3.1.1
 prefix: /home/tuor369/qfs/bin/anaconda3/envs/mpc2
 

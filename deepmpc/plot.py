@@ -197,7 +197,8 @@ def plot_traj(data, figname=None):
         plt.savefig(figname)
 
 
-def pltCL(Y, R=None, U=None, D=None, X=None, figname=None):
+def pltCL(Y, R=None, U=None, D=None, X=None,
+          Ymin=None, Ymax=None, Umin=None, Umax=None, figname=None):
     """
     plot input output closed loop dataset
     """
@@ -217,6 +218,12 @@ def pltCL(Y, R=None, U=None, D=None, X=None, figname=None):
                 ax[j, 0].plot(R[:, k], '--', linewidth=3, c=colors[k])
                 ax[j, 0].plot(array[:, k], '-', linewidth=3, c=colors[k])
                 ax[j, 0].legend(custom_lines, ['Reference', 'Output'])
+                ax[j, 0].plot(Ymin[:, k], '--', linewidth=3, c='k') if Ymin is not None else None
+                ax[j, 0].plot(Ymax[:, k], '--', linewidth=3, c='k') if Ymax is not None else None
+        if notation == 'U':
+            ax[j, 0].plot(array, linewidth=3)
+            ax[j, 0].plot(Umin[:, k], '--', linewidth=3, c='k') if Umin is not None else None
+            ax[j, 0].plot(Umax[:, k], '--', linewidth=3, c='k') if Umax is not None else None
         else:
             ax[j, 0].plot(array, linewidth=3)
         ax[j, 0].grid(True)
@@ -305,17 +312,18 @@ def trajectory_movie(true_traj, pred_traj, figname='traj.mp4', freq=1, fps=15, d
     true, pred = [], []
     labels = [f'$y_{k}$' for k in range(len(true_traj))]
     for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, labels)):
-        ax[row].set(xlim=(0, t1.shape[0]),
+        axe = ax if len(true_traj) == 1 else ax[row]
+        axe.set(xlim=(0, t1.shape[0]),
                     ylim=(min(t1.min(), t2.min()) - 0.1, max(t1.max(), t2.max()) + 0.1))
-        ax[row].set_ylabel(label, rotation=0, labelpad=20)
-        t, = ax[row].plot([], [], label='True', c='c')
-        p, = ax[row].plot([], [], label='Pred', c='m')
+        axe.set_ylabel(label, rotation=0, labelpad=20)
+        t, = axe.plot([], [], label='True', c='c')
+        p, = axe.plot([], [], label='Pred', c='m')
         true.append(t)
         pred.append(p)
-        ax[row].tick_params(labelbottom=False)
-    ax[row].tick_params(labelbottom=True)
-    ax[row].set_xlabel('Time')
-    ax[row].legend()
+        axe.tick_params(labelbottom=False)
+    axe.tick_params(labelbottom=True)
+    axe.set_xlabel('Time')
+    axe.legend()
     plt.tight_layout()
     with writer.saving(fig, figname, dpi=dpi):
         for k in range(len(true_traj[0])):
@@ -359,8 +367,8 @@ class Animator:
         self.ims = []
 
     def update_traj(self, Y_out, Y_target):
-        Yt = Y_target.squeeze().detach().cpu().numpy()
-        Yp = Y_out.squeeze().detach().cpu().numpy()
+        Yt = Y_target.reshape(-1, len(self.trjax)).detach().cpu().numpy()
+        Yp = Y_out.reshape(-1, len(self.trjax)).detach().cpu().numpy()
         plots = []
         for k, ax in enumerate(self.trjax):
             plots.append(ax.plot(Yt[:, k], c='c', label=f'True')[0])

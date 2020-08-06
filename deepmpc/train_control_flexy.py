@@ -267,11 +267,11 @@ if __name__ == '__main__':
     regularization = Objective(['policy_reg_error'], lambda reg: reg,
                                weight=args.Q_sub)
     reference_loss = Objective(['Y_pred', 'Rf'], F.mse_loss, weight=args.Q_r)
-    observation_lower_bound_penalty = Objective(['Y_pred', 'Y_minf'], lambda x, xmin: torch.mean(F.relu(-x + -xmin)),
+    observation_lower_bound_penalty = Objective(['Y_pred', 'Y_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
                                                 weight=args.Q_con_y)
     observation_upper_bound_penalty = Objective(['Y_pred', 'Y_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                                 weight=args.Q_con_y)
-    inputs_lower_bound_penalty = Objective(['U_pred', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + -xmin)),
+    inputs_lower_bound_penalty = Objective(['U_pred', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
                                                 weight=args.Q_con_u)
     inputs_upper_bound_penalty = Objective(['U_pred', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                            weight=args.Q_con_u)

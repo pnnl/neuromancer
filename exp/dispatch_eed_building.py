@@ -50,7 +50,7 @@ for model in models:
                         for i in range(args.nsamples):
                             cmd = 'python ../deepmpc/system_id_eed_build.py ' +\
                                   '-gpu 0 ' + \
-                                  '-lr 0.003' + \
+                                  '-lr 0.003 ' + \
                                   '-epochs 6000 ' + \
                                   '-location %s ' % args.results + \
                                   '-linear_map %s ' % linear + \
@@ -58,7 +58,7 @@ for model in models:
                                   '-nsteps %s ' % nsteps + \
                                   '-mlflow ' + \
                                   '-ssm_type %s ' % model +\
-                                  '-nx_hidden 4' + \
+                                  '-nx_hidden 4 ' + \
                                   '%s ' % bias + \
                                   '-Q_con_x %s -Q_dx %s -Q_con_fdu %s ' % Q_val + \
                                   '-exp %s_%s_%s ' % (model, constr, nsteps) + \

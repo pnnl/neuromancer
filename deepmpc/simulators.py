@@ -91,32 +91,52 @@ class ClosedLoopSimulator(Simulator):
         self.model.eval()
         self.nsim = data['Yp'].shape[1]
         self.nsteps = data['Yp'].shape[0]
-        Y, X, D, U = [], [], [], []  # emulator trajectories
+        Y, X, D, U, R = [], [], [], [], []  # emulator trajectories
+        Ymin, Ymax, Umin, Umax = [], [], [], []
         Y_pred, X_pred, U_pred, U_opt = [], [], [], []   # model  trajectories
         for i in range(self.nsim):
             step_data = self.select_step_data(data, i)
 
             x = self.x0 if i == 0 else x
             if i > 0:
-                # select current step disturbance
-                dist = step_data['Df'][0].detach().numpy() if step_data['Df'] is not None else None
+                # select current step disturbance, reference and constraints
+                d = step_data['Df'][0].detach().numpy() if step_data['Df'] is not None else None
+                r = step_data['Rf'][0].detach().numpy() if step_data['Rf'] is not None else None
+                ymin = step_data['Y_minf'][0].detach().numpy() if step_data['Y_minf'] is not None else None
+                ymax = step_data['Y_maxf'][0].detach().numpy() if step_data['Y_maxf'] is not None else None
+                umin = step_data['U_minf'][0].detach().numpy() if step_data['U_minf'] is not None else None
+                umax = step_data['U_maxf'][0].detach().numpy() if step_data['U_maxf'] is not None else None
+                if 'Y' in self.dataset.norm:
+                    r = min_max_denorm(r, self.dataset.min_max_norms['Ymin'],
+                                       self.dataset.min_max_norms['Ymax']) if r is not None else None
+                    ymin = min_max_denorm(ymin, self.dataset.min_max_norms['Ymin'],
+                                       self.dataset.min_max_norms['Ymax']) if ymin is not None else None
+                    ymax = min_max_denorm(ymax, self.dataset.min_max_norms['Ymin'],
+                                          self.dataset.min_max_norms['Ymax']) if ymax is not None else None
+                if 'U' in self.dataset.norm:
+                    umin = min_max_denorm(umin, self.dataset.min_max_norms['Umin'],
+                                       self.dataset.min_max_norms['Umax']) if umin is not None else None
+                    umax = min_max_denorm(umax, self.dataset.min_max_norms['Umin'],
+                                          self.dataset.min_max_norms['Umax']) if umax is not None else None
                 if 'D' in self.dataset.norm:
-                    d = min_max_denorm(dist, self.dataset.min_max_norms['Dmin'],
-                                       self.dataset.min_max_norms['Dmax']) if dist is not None else None
-                else:
-                    d = dist
+                    d = min_max_denorm(d, self.dataset.min_max_norms['Dmin'],
+                                       self.dataset.min_max_norms['Dmax']) if d is not None else None
                 # simulate 1 step of the emulator model
                 if isinstance(self.emulator, EmulatorBase):
                     x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d, x0=x.flatten())
                 elif isinstance(self.emulator, nn.Module):
                     step_data_0 = dict()
-                    step_data_0['U_pred'] = uopt
+                    step_data_0['U_pred'] = uopt.reshape(uopt.shape[0], uopt.shape[1], 1)
                     step_data_0['x0'] = x
                     for k, v in step_data.items():
-                        step_data_0[k] = v[0]
+                        dat = v[0]
+                        step_data_0[k] = dat.reshape(dat.shape[0], dat.shape[1], 1)
                     emulator_output = self.emulator(step_data_0)
                     x = emulator_output['X_pred'][0]
-                    y = emulator_output['Y_pred'][0]
+                    y = emulator_output['Y_pred'][0].detach().numpy()
+                    if 'Y' in self.dataset.norm:
+                        y = min_max_denorm(y, self.dataset.min_max_norms['Ymin'],
+                                           self.dataset.min_max_norms['Ymax']) if y is not None else None
                 # update u and y trajectory history
                 if len(Y) > self.nsteps:
                     if 'Y' in self.dataset.norm and isinstance(self.emulator, EmulatorBase):
@@ -140,25 +160,35 @@ class ClosedLoopSimulator(Simulator):
             Y_pred.append(step_output[y_key[0]])
             u_key = [k for k in step_output.keys() if 'U_pred' in k]
             U_pred.append(step_output[u_key[0]])
-            uopt = step_output[u_key[0]][0]
+            uopt = step_output[u_key[0]][0].detach()
             U_opt.append(uopt)
 
             # emulator trajectories
             if 'U' in self.dataset.norm:
-                u = min_max_denorm(uopt.detach().numpy(), self.dataset.min_max_norms['Umin'],
+                u = min_max_denorm(uopt.numpy(), self.dataset.min_max_norms['Umin'],
                                    self.dataset.min_max_norms['Umax'])
             else:
-                u = uopt.detach().numpy()
+                u = uopt.numpy()
             if i > 0:
                 U.append(u)
-                Y.append(y) if isinstance(self.emulator, EmulatorBase) else Y.append(y.detach().numpy())
+                Y.append(y)
                 X.append(x) if isinstance(self.emulator, EmulatorBase) else X.append(x.detach().numpy())
                 D.append(d) if d is not None else None
+                R.append(r) if r is not None else None
+                Ymin.append(ymin) if ymin is not None else None
+                Ymax.append(ymax) if ymax is not None else None
+                Umin.append(umin) if umin is not None else None
+                Umax.append(umax) if umax is not None else None
 
         return {'X_pred': torch.cat(X_pred, dim=1), 'Y_pred': torch.cat(Y_pred, dim=1),
                 'U_pred': torch.cat(U_pred, dim=1), 'U_opt': torch.cat(U_opt, dim=0),
-                'Y': np.concatenate(Y, 0), 'X': np.concatenate(X, 0),
-                'U': np.concatenate(U, 0), 'D': np.concatenate(D, 0) if D is not None else None}
+                'Y': np.concatenate(Y, 0), 'X': np.concatenate(X, 0), 'U': np.concatenate(U, 0),
+                'D': np.concatenate(D, 0) if D is not None else None,
+                'R': np.concatenate(R, 0) if R is not None else None,
+                'Ymin': np.concatenate(Ymin, 0) if Ymin is not None else None,
+                'Ymax': np.concatenate(Ymax, 0) if Ymax is not None else None,
+                'Umin': np.concatenate(Umin, 0) if Umin is not None else None,
+                'Umax': np.concatenate(Umax, 0) if Umax is not None else None}
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 """
 Script for training control policy
 
-
+# TODO: constraints and objectives only on subset of variables
 # TODO: online learning with subset of the parameter updates
 
 # TODO:
@@ -83,7 +83,7 @@ def parse_args():
 
     # to recreate model
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
-                             default='blocknlin')
+                             default='blackbox')
     model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
@@ -152,6 +152,13 @@ if __name__ == '__main__':
     ########## DATA ###############
     ###############################
     dataset = dataset_load(args, device)
+    # select only first output (position)
+    dataset.data['Y'] = dataset.data['Y'][:, 0].reshape(-1, 1)
+    dataset.min_max_norms['Ymin'] = dataset.min_max_norms['Ymin'][0]
+    dataset.min_max_norms['Ymax'] = dataset.min_max_norms['Ymax'][0]
+    dataset.make_nstep(overwrite=True)
+    dataset.make_loop()
+
     nsim, ny = dataset.data['Y'].shape
     nu = dataset.data['U'].shape[1]
     new_sequences = {'Y_max': np.ones([nsim, ny]), 'Y_min': np.zeros([nsim, ny]),

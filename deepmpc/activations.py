@@ -1,3 +1,4 @@
+# machine learning/data science imports
 import torch
 import torch.nn as nn
 # TODO: Test evolution of function curve over optimization starting at identity
@@ -20,7 +21,7 @@ class SoftExponential(nn.Module):
         if self.alpha == 0.0:
             return x
         elif self.alpha < 0.0:
-            return - torch.log(1 - self.alpha * (x + self.alpha)) / self.alpha
+            return -torch.log(1 - self.alpha * (x + self.alpha)) / self.alpha
         else:
             return (torch.exp(self.alpha * x) - 1) / self.alpha + self.alpha
 

@@ -7,13 +7,18 @@ TODO: consistent parameters() call for emulators
 
 """
 
+# machine learning/data science imports
 import torch
 import torch.nn as nn
-from emulators import EmulatorBase
-from datasets import EmulatorDataset, FileDataset, min_max_denorm
-from problem import Problem
-from datasets import Dataset, DataDict
 import numpy as np
+
+# ecosystem imports
+from slip import EmulatorBase
+
+# lcoal imports
+from deepmpc.datasets import EmulatorDataset, FileDataset, min_max_denorm
+from deepmpc.problem import Problem
+from deepmpc.datasets import Dataset, DataDict
 
 
 class Simulator:

@@ -2,14 +2,16 @@
 Function approximators of various degrees of generality.
 Sparsity inducing prior can be gotten from the LassoLinear in linear module
 """
+# machine learning/data science imports
 import numpy as np
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-#local imports
-import linear
-import rnn
+
+# eosystem imports
+import slim
+
+# local imports
+import deepmpc.rnn as rnn
 
 
 def get_modules(model):
@@ -18,7 +20,7 @@ def get_modules(model):
 
 class MLP(nn.Module):
     def __init__(self,  insize, outsize, bias=True,
-                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], linargs=dict()):
+                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64], linargs=dict()):
         """
 
         :param insize:
@@ -33,7 +35,7 @@ class MLP(nn.Module):
         self.in_features, self.out_features = insize, outsize
         self.nhidden = len(hsizes)
         sizes = [insize] + hsizes + [outsize]
-        self.nonlin = [nonlin]*self.nhidden + [nn.Identity()]
+        self.nonlin = [nonlin() for k in range(self.nhidden)] + [nn.Identity()]
         self.linear = nn.ModuleList([Linear(sizes[k],
                                             sizes[k+1],
                                             bias=bias,
@@ -61,7 +63,7 @@ class MLP(nn.Module):
 
 class ResMLP(MLP):
     def __init__(self, insize, outsize, bias=True,
-                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[64], skip=1, linargs=dict()):
+                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64], linargs=dict(), skip=1):
         """
 
         :param insize:
@@ -103,8 +105,8 @@ class PytorchRNN(nn.Module):
     This wraps the torch.nn.RNN class to give output which is a linear map from final hidden state.
     """
 
-    def __init__(self, insize, outsize, bias=False,
-                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[10], linargs=dict()):
+    def __init__(self, insize, outsize, bias=True,
+                 Linear=slim.Linear, nonlin=nn.ReLU, hsizes=[10], linargs=dict()):
         """
 
         :param insize:
@@ -142,8 +144,8 @@ class RNN(nn.Module):
     """
     This wraps the rnn.RNN class to give output which is a linear map from final hidden state.
     """
-    def __init__(self, insize, outsize, bias=False,
-                 Linear=linear.Linear, nonlin=F.gelu, hsizes=[1], linargs=dict()):
+    def __init__(self, insize, outsize, bias=True,
+                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[1], linargs=dict()):
         """
 
         :param insize:
@@ -183,7 +185,8 @@ class RNN(nn.Module):
 
 
 class BilinearTorch(nn.Module):
-    def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, linargs=dict()):
+    def __init__(self, insize, outsize, bias=True,
+                 Linear=slim.Linear, nonlin=nn.Identity(), hsizes=[64], linargs=dict()):
         """
         bilinear term from Torch
         """
@@ -193,7 +196,7 @@ class BilinearTorch(nn.Module):
         self.error_matrix = nn.Parameter(torch.zeros(1), requires_grad=False)
 
     def reg_error(self):
-        return self.error_matrix
+        return torch.tensor(0.0).to(self.f.weight)
 
     def forward(self, x):
         return self.f(x, x)
@@ -212,7 +215,8 @@ class Poly2(nn.Module):
 
 
 class BasisLinear(nn.Module):
-    def __init__(self, insize, outsize, bias=False, Linear=linear.Linear, linargs=dict(),
+    def __init__(self, insize, outsize, bias=True,
+                 Linear=slim.Linear, nonlin=nn.Identity(), hsizes=[64], linargs=dict(),
                  expand=Poly2()):
         """
         For mapping inputs to functional basis feature expansion.

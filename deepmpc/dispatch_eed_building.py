@@ -39,7 +39,7 @@ Q_values = [(0.0, 0.0, 0.0), (1.0, 0.2, 0.2)]  # Q_con_x, Q_dx, Q_con_fdu
 constrainted = ['unconstr', 'constr']
 bias_onoff = ['-bias', '']
 nsteps_range = [1, 8, 16, 32, 64]
-os.system('mkdir ../deepmpc/temp')
+os.system('mkdir temp')
 
 for model in models:
     for bias in bias_onoff:
@@ -48,7 +48,7 @@ for model in models:
                 for nonlinear in nonlinear_map:
                     for nsteps in nsteps_range:
                         for i in range(args.nsamples):
-                            cmd = 'python ../deepmpc/system_id_eed_build.py ' +\
+                            cmd = 'python system_id_eed_build.py ' +\
                                   '-gpu 0 ' + \
                                   '-lr 0.003 ' + \
                                   '-epochs 6000 ' + \
@@ -62,6 +62,6 @@ for model in models:
                                   '%s ' % bias + \
                                   '-Q_con_x %s -Q_dx %s -Q_con_fdu %s ' % Q_val + \
                                   '-exp %s_%s_%s ' % (model, constr, nsteps) + \
-                                  '-savedir ../deepmpc/temp/%s_%s_%s_%s_%s_%s_%s ' % (model, constr, bias, linear, nonlinear, nsteps, i) # group experiments with same configuration together - TODO: add more params
+                                  '-savedir temp/%s_%s_%s_%s_%s_%s_%s ' % (model, constr, bias, linear, nonlinear, nsteps, i) # group experiments with same configuration together - TODO: add more params
                             with open(os.path.join(args.exp_folder, 'exp_%s_%s_%s_%s_%s_%s_%s.slurm' % (model, constr, bias, linear, nonlinear, nsteps, i)), 'w') as cmdfile: # unique name for sbatch script
                                 cmdfile.write(template + cmd)

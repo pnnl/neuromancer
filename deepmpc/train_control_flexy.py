@@ -97,10 +97,10 @@ def parse_args():
     ##################
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
-    weight_group.add_argument('-Q_con_y', type=float, default=1.0, help='Output constraints penalty weight.')
-    weight_group.add_argument('-Q_con_u', type=float, default=1.0, help='Input constraints penalty weight.')
+    weight_group.add_argument('-Q_con_y', type=float, default=10.0, help='Output constraints penalty weight.')
+    weight_group.add_argument('-Q_con_u', type=float, default=10.0, help='Input constraints penalty weight.')
     weight_group.add_argument('-Q_sub', type=float, default=0.2, help='Linear maps regularization weight.')
-    weight_group.add_argument('-Q_r', type=float, default=10.0, help='Reference tracking penalty weight')
+    weight_group.add_argument('-Q_r', type=float, default=1.0, help='Reference tracking penalty weight')
 
 
     ####################
@@ -162,10 +162,14 @@ if __name__ == '__main__':
 
     nsim, ny = dataset.data['Y'].shape
     nu = dataset.data['U'].shape[1]
-    new_sequences = {'Y_max': 0.8*np.ones([nsim, ny]), 'Y_min': 0.2*np.ones([nsim, ny]),
+    # new_sequences = {'Y_max': 0.8*np.ones([nsim, ny]), 'Y_min': 0.2*np.ones([nsim, ny]),
+    #                  'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
+    #                  'R': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
+    #                  'Y_ctrl_': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=30, xmax=1.0, xmin=0.0)}
+    new_sequences = {'Y_max': 0.8 * np.ones([nsim, ny]), 'Y_min': 0.2 * np.ones([nsim, ny]),
                      'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
                      'R': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
-                     'Y_ctrl_': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=30, xmax=0.8, xmin=0.2)}
+                     'Y_ctrl_': emulators.WhiteNoise(nx=ny, nsim=nsim,  xmax=1.0, xmin=0.0)}
     # Y_ctrl_  - sampled state space
     dataset.add_data(new_sequences)
     dataset.make_nstep()

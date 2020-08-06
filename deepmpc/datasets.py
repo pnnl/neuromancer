@@ -1,21 +1,25 @@
 """
 # TODO Mini-batching
-# TODO: variant with midstep - defining the moving horizon skip step, default = 1
-# TODO: Refactor datasets to be closer to pytorch dataset
-# TODO: batcher object - solves conditional logic on different tasks and different batching
-# TODO: loader object
-# TODO: open loop, closed loop, and static datasets separate
+# TODO: Generalize batching with sliding window size. 1 = moving horizon, Nstep = contiguous chunks, generally 1< k < Nstep for midstep
 
 """
+# python base imports
 import os
+from typing import Dict
+
+# machine learning/data science imports
 from scipy.io import loadmat
 import numpy as np
 import pandas as pd
-import torch
-import plot
-import emulators
 import matplotlib.pyplot as plt
-from typing import Dict, List, Callable
+import torch
+
+# ecosystem imports
+import slip as emulators
+
+# local imports
+import deepmpc.plot as plot
+
 
 
 def min_max_denorm(M, Mmin, Mmax):
@@ -43,6 +47,20 @@ def batch_mh_data(data, nsteps):
     return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
 
 
+def batch_data(data, nsteps):
+    """
+
+    :param data: np.array shape=(nsim, dim)
+    :param nsteps: (int) n-step prediction horizon
+    :return: np.array shape=(nsteps, nsamples, dim)
+    """
+    nsplits = (data.shape[0]) // nsteps
+    leftover = (data.shape[0]) % nsteps
+    data = np.stack(np.split(data[:data.shape[0] - leftover], nsplits))  # nchunks X nsteps X nfeatures
+    print(data.shape)
+    return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
+
+
 def unbatch_mh_data(data):
     """
     Data put back together into original sequence from moving horizon dataset.
@@ -54,19 +72,6 @@ def unbatch_mh_data(data):
     if isinstance(data, torch.Tensor):
         data_unmove = torch.Tensor(data_unmove)
     return data_unmove.reshape(-1, 1, data_unmove.shape[-1])
-
-
-def batch_data(data, nsteps):
-    """
-
-    :param data: np.array shape=(nsim, dim)
-    :param nsteps: (int) n-step prediction horizon
-    :return: np.array shape=(nsteps, nsamples, dim)
-    """
-    nsplits = (data.shape[0]) // nsteps
-    leftover = (data.shape[0]) % nsteps
-    data = np.stack(np.split(data[:data.shape[0] - leftover], nsplits))  # nchunks X nsteps X nfeatures
-    return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
 
 
 def unbatch_data(data):
@@ -91,7 +96,7 @@ class DataDict(dict):
 
 class Dataset:
 
-    def __init__(self, system=None, nsim=None, norm=['Y'], batch_type='batch',
+    def __init__(self, system=None, nsim=1000, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
                  savedir='test'):
         """
@@ -116,12 +121,12 @@ class Dataset:
         self.add_data(sequences)
         self.min_max_norms, self.dims,  self.nstep_data, self.shift_data = dict(), dict(), dict(), dict()
         for k, v in self.data.items():
-            self.dims[k] = v.shape[1]
+            self.dims[k] = v.shape
         self.dims['nsim'] = v.shape[0]
         self.dims['nsteps'] = self.nsteps
 
         assert set(norm) & set(self.data.keys()) == set(norm), \
-            f'Specified keys to normalize are not in dataset keys: {list(self.data.keys())}'
+            f'Specified keys to normalize: {list(set(norm))} are not in dataset keys: {list(self.data.keys())}'
         self.data = self.norm_data(self.data, self.norm)
         self.make_nstep()
         self.make_loop()
@@ -137,8 +142,9 @@ class Dataset:
 
     def make_nstep(self, overwrite=False):
         for k, v in self.data.items():
+            print(k)
             if k + 'p' not in self.shift_data or overwrite:
-                self.dims[k], self.dims[k + 'p'], self.dims[k + 'f'] = v.shape[1], v.shape[1], v.shape[1]
+                self.dims[k + 'p'], self.dims[k + 'f'] = v.shape, v.shape
                 self.shift_data[k + 'p'] = v[:-self.nsteps]
                 self.shift_data[k + 'f'] = v[self.nsteps:]
 
@@ -269,10 +275,10 @@ class EmulatorDataset(Dataset):
         return: (dict, str: 2-d np.array)
         """
         systems = emulators.systems  # list of available emulators
-        model = systems[self.system]()  # instantiate model class
-        model.parameters()
-
+        model = systems[self.system](nsim=self.nsim)  # instantiate model class
         X, Y, U, D = model.simulate(nsim=self.nsim)  # simulate open loop
+        if U is not None:
+            print('U', U.shape)
         data = dict()
         for d, k in zip([Y, U, D], ['Y', 'U', 'D']):
             if d is not None:
@@ -289,14 +295,17 @@ class FileDataset(Dataset):
         """
         ninit = 0
         Y, U, D = None, None, None
-        systems_datapaths = {'tank': './datasets/NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat',
-                             'vehicle3': './datasets/NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat',
-                             'aero': './datasets/NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat',
-                             'flexy_air': './datasets/Flexy_air/flexy_air_data.csv'}
+        resource_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'datasets')
+        systems_datapaths = {'tank': os.path.join(resource_path, 'NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat'),
+                             'vehicle3': os.path.join(resource_path, 'NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat'),
+                             'aero': os.path.join(resource_path, 'NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'),
+                             'flexy_air': os.path.join(resource_path, 'Flexy_air/flexy_air_data.csv')}
         if self.system in systems_datapaths.keys():
             file_path = systems_datapaths[self.system]
         else:
             file_path = self.system
+        if not os.path.exists(file_path):
+            raise ValueError(f'No file at {file_path}')
         file_type = file_path.split(".")[-1]
         if file_type == 'mat':
             file = loadmat(file_path)
@@ -406,22 +415,42 @@ class DatasetMPP:
         return train_data, dev_data, test_data
 
 
-if __name__ == '__main__':
-
-    systems = {'tank': 'datafile', 'vehicle3': 'datafile', 'aero': 'datafile', 'flexy_air': 'datafile',
-               'TwoTank': 'emulator', 'LorenzSystem': 'emulator',
-               'Lorenz96': 'emulator', 'VanDerPol': 'emulator', 'ThomasAttractor': 'emulator',
-               'RosslerAttractor': 'emulator', 'LotkaVolterra': 'emulator', 'Brusselator1D': 'emulator',
-               'ChuaCircuit': 'emulator', 'Duffing': 'emulator', 'UniversalOscillator': 'emulator',
+systems = {'tank': 'datafile',
+               'vehicle3': 'datafile',
+               'aero': 'datafile',
+               'flexy_air': 'datafile',
+               'TwoTank': 'emulator',
+               'LorenzSystem': 'emulator',
+               'Lorenz96': 'emulator',
+               'VanDerPol': 'emulator',
+               'ThomasAttractor': 'emulator',
+               'RosslerAttractor': 'emulator',
+               'LotkaVolterra': 'emulator',
+               'Brusselator1D': 'emulator',
+               'ChuaCircuit': 'emulator',
+               'Duffing': 'emulator',
+               'UniversalOscillator': 'emulator',
                'HindmarshRose': 'emulator',
-               'SimpleSingleZone': 'emulator', 'Pendulum-v0': 'emulator',
-               'CartPole-v1': 'emulator', 'Acrobot-v1': 'emulator',
-               'MountainCar-v0': 'emulator', 'MountainCarContinuous-v0': 'emulator',
-               'Reno_full': 'emulator', 'Reno_ROM40': 'emulator', 'RenoLight_full': 'emulator',
-               'RenoLight_ROM40': 'emulator', 'Old_full': 'emulator',
-               'Old_ROM40': 'emulator', 'HollandschHuys_full': 'emulator',
-               'HollandschHuys_ROM100': 'emulator', 'Infrax_full': 'emulator',
-               'Infrax_ROM100': 'emulator'}
+               'SimpleSingleZone': 'emulator',
+               'Pendulum-v0': 'emulator',
+               'CartPole-v1': 'emulator',
+               'Acrobot-v1': 'emulator',
+               'MountainCar-v0': 'emulator',
+               'MountainCarContinuous-v0': 'emulator',
+               'Reno_full': 'emulator',
+               'Reno_ROM40': 'emulator',
+               'RenoLight_full': 'emulator',
+               'RenoLight_ROM40': 'emulator',
+               'Old_full': 'emulator',
+               'Old_ROM40': 'emulator',
+               'HollandschHuys_full': 'emulator',
+               'HollandschHuys_ROM100': 'emulator',
+               'Infrax_full': 'emulator',
+               'Infrax_ROM100': 'emulator',
+               'CSTR': 'emulator'}
+
+
+if __name__ == '__main__':
 
     for system, data_type in systems.items():
         if data_type == 'emulator':

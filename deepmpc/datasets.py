@@ -21,7 +21,6 @@ import slip as emulators
 import deepmpc.plot as plot
 
 
-
 def min_max_denorm(M, Mmin, Mmax):
     """
     denormalize min max norm
@@ -57,7 +56,6 @@ def batch_data(data, nsteps):
     nsplits = (data.shape[0]) // nsteps
     leftover = (data.shape[0]) % nsteps
     data = np.stack(np.split(data[:data.shape[0] - leftover], nsplits))  # nchunks X nsteps X nfeatures
-    print(data.shape)
     return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
 
 
@@ -110,7 +108,6 @@ class Dataset:
         :param sequences: (dict str: np.array) Dictionary of supplemental data
         :param name: (str) String identifier of dataset type, must be ['static', 'openloop', 'closedloop']
         """
-        print(system)
         assert not (system is None and len(sequences) == 0), 'Trying to instantiate an empty dataset.'
         self.name = name
         self.savedir = savedir
@@ -142,7 +139,6 @@ class Dataset:
 
     def make_nstep(self, overwrite=False):
         for k, v in self.data.items():
-            print(k)
             if k + 'p' not in self.shift_data or overwrite:
                 self.dims[k + 'p'], self.dims[k + 'f'] = v.shape, v.shape
                 self.shift_data[k + 'p'] = v[:-self.nsteps]
@@ -277,8 +273,6 @@ class EmulatorDataset(Dataset):
         systems = emulators.systems  # list of available emulators
         model = systems[self.system](nsim=self.nsim)  # instantiate model class
         X, Y, U, D = model.simulate(nsim=self.nsim)  # simulate open loop
-        if U is not None:
-            print('U', U.shape)
         data = dict()
         for d, k in zip([Y, U, D], ['Y', 'U', 'D']):
             if d is not None:
@@ -453,6 +447,7 @@ systems = {'tank': 'datafile',
 if __name__ == '__main__':
 
     for system, data_type in systems.items():
+        print(system)
         if data_type == 'emulator':
             dataset = EmulatorDataset(system)
         elif data_type == 'datafile':

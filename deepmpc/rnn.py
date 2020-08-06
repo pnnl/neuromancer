@@ -90,7 +90,8 @@ class RNN(nn.Module):
 if __name__ == '__main__':
     x = torch.rand(20, 5, 8)
     for bias in [True, False]:
-        for map in slim.maps.values():
+        for name, map in slim.maps.items():
+            print(name)
             rnn = RNN(8, hsizes=[8, 8], bias=bias, Linear=map)
             out = rnn(x)
             print(out[0].shape, out[1].shape)
@@ -100,7 +101,8 @@ if __name__ == '__main__':
             out = rnn(x)
             print(out[0].shape, out[1].shape)
 
-        for map in slim.maps.values():
+        for name, map in slim.maps.items():
+            print(name)
             rnn = RNN(8, hsizes=[8, 8], bias=bias, Linear=map)
             out = rnn(x)
             print(out[0].shape, out[1].shape)

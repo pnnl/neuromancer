@@ -56,7 +56,7 @@ for model in models:
                                   '-linear_map %s ' % linear + \
                                   '-nonlinear_map %s ' % nonlinear + \
                                   '-nsteps %s ' % nsteps + \
-                                  '-mlflow ' + \
+                                  '-logger mlflow ' + \
                                   '-ssm_type %s ' % model +\
                                   '-nx_hidden 4 ' + \
                                   '%s ' % bias + \

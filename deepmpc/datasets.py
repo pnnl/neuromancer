@@ -411,7 +411,6 @@ class DatasetMPP:
         return train_data, dev_data, test_data
 
 
-<<<<<<< HEAD
 systems = {'tank': 'datafile',
                'vehicle3': 'datafile',
                'aero': 'datafile',

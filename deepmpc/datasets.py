@@ -107,6 +107,15 @@ class Dataset:
         :param device: (str) String identifier of device to place data on, e.g. 'cpu', 'cuda:0'
         :param sequences: (dict str: np.array) Dictionary of supplemental data
         :param name: (str) String identifier of dataset type, must be ['static', 'openloop', 'closedloop']
+
+         returns: Object with public properties:
+                    train_data: dict(str: Tensor)
+                    dev_data: dict(str: Tensor)
+                    test_data: dict(str: Tensor)
+                    train_loop: dict(str: Tensor)
+                    dev_loop: dict(str: Tensor)
+                    test_loop: dict(str: Tensor)
+                    datadims: dict(str: tuple)
         """
         assert not (system is None and len(sequences) == 0), 'Trying to instantiate an empty dataset.'
         self.name = name
@@ -412,38 +421,38 @@ class DatasetMPP:
 
 
 systems = {'tank': 'datafile',
-               'vehicle3': 'datafile',
-               'aero': 'datafile',
-               'flexy_air': 'datafile',
-               'TwoTank': 'emulator',
-               'LorenzSystem': 'emulator',
-               'Lorenz96': 'emulator',
-               'VanDerPol': 'emulator',
-               'ThomasAttractor': 'emulator',
-               'RosslerAttractor': 'emulator',
-               'LotkaVolterra': 'emulator',
-               'Brusselator1D': 'emulator',
-               'ChuaCircuit': 'emulator',
-               'Duffing': 'emulator',
-               'UniversalOscillator': 'emulator',
-               'HindmarshRose': 'emulator',
-               'SimpleSingleZone': 'emulator',
-               'Pendulum-v0': 'emulator',
-               'CartPole-v1': 'emulator',
-               'Acrobot-v1': 'emulator',
-               'MountainCar-v0': 'emulator',
-               'MountainCarContinuous-v0': 'emulator',
-               'Reno_full': 'emulator',
-               'Reno_ROM40': 'emulator',
-               'RenoLight_full': 'emulator',
-               'RenoLight_ROM40': 'emulator',
-               'Old_full': 'emulator',
-               'Old_ROM40': 'emulator',
-               'HollandschHuys_full': 'emulator',
-               'HollandschHuys_ROM100': 'emulator',
-               'Infrax_full': 'emulator',
-               'Infrax_ROM100': 'emulator',
-               'CSTR': 'emulator'}
+           'vehicle3': 'datafile',
+           'aero': 'datafile',
+           'flexy_air': 'datafile',
+           'TwoTank': 'emulator',
+           'LorenzSystem': 'emulator',
+           'Lorenz96': 'emulator',
+           'VanDerPol': 'emulator',
+           'ThomasAttractor': 'emulator',
+           'RosslerAttractor': 'emulator',
+           'LotkaVolterra': 'emulator',
+           'Brusselator1D': 'emulator',
+           'ChuaCircuit': 'emulator',
+           'Duffing': 'emulator',
+           'UniversalOscillator': 'emulator',
+           'HindmarshRose': 'emulator',
+           'SimpleSingleZone': 'emulator',
+           'Pendulum-v0': 'emulator',
+           'CartPole-v1': 'emulator',
+           'Acrobot-v1': 'emulator',
+           'MountainCar-v0': 'emulator',
+           'MountainCarContinuous-v0': 'emulator',
+           'Reno_full': 'emulator',
+           'Reno_ROM40': 'emulator',
+           'RenoLight_full': 'emulator',
+           'RenoLight_ROM40': 'emulator',
+           'Old_full': 'emulator',
+           'Old_ROM40': 'emulator',
+           'HollandschHuys_full': 'emulator',
+           'HollandschHuys_ROM100': 'emulator',
+           'Infrax_full': 'emulator',
+           'Infrax_ROM100': 'emulator',
+           'CSTR': 'emulator'}
 
 
 if __name__ == '__main__':

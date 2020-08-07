@@ -20,8 +20,8 @@ More detailed description of options in the parse_args()
 # matplotlib.use("Agg")
 import argparse
 import torch
-from datasets import EmulatorDataset, FileDataset, Dataset
-import dynamics
+from deepmpc.datasets import EmulatorDataset, FileDataset, Dataset
+import deepmpc.dynamics
 import estimators
 import emulators
 import policies

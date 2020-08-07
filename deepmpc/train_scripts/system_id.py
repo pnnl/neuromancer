@@ -47,9 +47,9 @@ from deepmpc.activations import BLU, SoftExponential
 from deepmpc.simulators import OpenLoopSimulator
 
 
-def parse_args():
+def parse():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-gpu', type=str, default=None,
+    parser.add_argument('-gpu', type=int, default=None,
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
@@ -70,7 +70,9 @@ def parse_args():
                                  'non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,'
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
-    data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', 'UY', 'YU', 'UD', 'DU', 'D', 'YD', 'DY', None],
+    data_group.add_argument('-norm', choices=['UDY', 'UYD', 'YDU', 'UYD', 'YUD',
+                                              'DUY', 'U', 'Y', 'UY', 'YU', 'UD',
+                                              'DU', 'D', 'YD', 'DY', 'U', 'D', 'Y', None],
                             type=str, default='UDY')
 
     ##################
@@ -116,7 +118,7 @@ def parse_args():
                            help='Some name to tell what the experiment run was about.')
     log_group.add_argument('-logger', choices=['mlflow', 'stdout'], default='stdout',
                            help='Logging setup to use')
-    return parser.parse_args()
+    return parser
 
 
 def logging(args):
@@ -142,7 +144,7 @@ if __name__ == '__main__':
     ###############################
     ########## LOGGING ############
     ###############################
-    args = parse_args()
+    args = parse().parse_args()
     logger, device = logging(args)
 
     ###############################

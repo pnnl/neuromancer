@@ -1,8 +1,9 @@
 """
 Script for training control policy
 
-
+# TODO: constraints and objectives only on subset of variables
 # TODO: online learning with subset of the parameter updates
+# TODO: slack variables as policy featues
 
 # TODO:
     # # OPTIONAL: plot problem graph of component connections
@@ -43,7 +44,7 @@ def parse_args():
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
     opt_group.add_argument('-epochs', type=int, default=1000)
-    opt_group.add_argument('-lr', type=float, default=0.001,
+    opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
     #################
@@ -83,7 +84,7 @@ def parse_args():
 
     # to recreate model
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
-                             default='blocknlin')
+                             default='blackbox')
     model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
@@ -96,11 +97,11 @@ def parse_args():
     ##################
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
-    weight_group.add_argument('-Q_con_y', type=float, default=1.0, help='Output constraints penalty weight.')
-    weight_group.add_argument('-Q_con_u', type=float, default=1.0, help='Input constraints penalty weight.')
+    weight_group.add_argument('-Q_con_y', type=float, default=10.0, help='Output constraints penalty weight.')
+    weight_group.add_argument('-Q_con_u', type=float, default=10.0, help='Input constraints penalty weight.')
     weight_group.add_argument('-Q_sub', type=float, default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_r', type=float, default=1.0, help='Reference tracking penalty weight')
-
+    weight_group.add_argument('-Q_du', type=float, default=1.0, help='Reference tracking penalty weight')
 
     ####################
     # LOGGING PARAMETERS
@@ -152,12 +153,24 @@ if __name__ == '__main__':
     ########## DATA ###############
     ###############################
     dataset = dataset_load(args, device)
+    # select only first output (position)
+    dataset.data['Y'] = dataset.data['Y'][:, 0].reshape(-1, 1)
+    dataset.min_max_norms['Ymin'] = dataset.min_max_norms['Ymin'][0]
+    dataset.min_max_norms['Ymax'] = dataset.min_max_norms['Ymax'][0]
+    dataset.make_nstep(overwrite=True)
+    dataset.make_loop()
+
     nsim, ny = dataset.data['Y'].shape
     nu = dataset.data['U'].shape[1]
-    new_sequences = {'Y_max': np.ones([nsim, ny]), 'Y_min': np.zeros([nsim, ny]),
+    # new_sequences = {'Y_max': 0.8*np.ones([nsim, ny]), 'Y_min': 0.2*np.ones([nsim, ny]),
+    #                  'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
+    #                  'R': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
+    #                  'Y_ctrl_': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=30, xmax=1.0, xmin=0.0)}
+    new_sequences = {'Y_max': 0.8 * np.ones([nsim, ny]), 'Y_min': 0.2 * np.ones([nsim, ny]),
                      'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
                      'R': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
-                     'Y_ctrl_': emulators.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0)}
+                     'Y_ctrl_': emulators.WhiteNoise(nx=ny, nsim=nsim,  xmax=1.0, xmin=0.0)}
+    # Y_ctrl_  - sampled state space
     dataset.add_data(new_sequences)
     dataset.make_nstep()
     dataset.make_loop()
@@ -235,7 +248,7 @@ if __name__ == '__main__':
                Linear=linmap,
                nonlin=F.gelu,
                hsizes=[nh_policy] * args.n_layers,
-               input_keys=args.policy_features,
+               input_keys=['x0', 'Rf', 'Df'],
                output_keys=['U_pred'],
                linargs=dict(),
                name='policy')
@@ -254,11 +267,12 @@ if __name__ == '__main__':
     regularization = Objective(['policy_reg_error'], lambda reg: reg,
                                weight=args.Q_sub)
     reference_loss = Objective(['Y_pred', 'Rf'], F.mse_loss, weight=args.Q_r)
-    observation_lower_bound_penalty = Objective(['Y_pred', 'Y_minf'], lambda x, xmin: torch.mean(F.relu(-x + -xmin)),
+    control_smoothing = Objective(['U_pred'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_du)
+    observation_lower_bound_penalty = Objective(['Y_pred', 'Y_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
                                                 weight=args.Q_con_y)
     observation_upper_bound_penalty = Objective(['Y_pred', 'Y_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                                 weight=args.Q_con_y)
-    inputs_lower_bound_penalty = Objective(['U_pred', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + -xmin)),
+    inputs_lower_bound_penalty = Objective(['U_pred', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
                                                 weight=args.Q_con_u)
     inputs_upper_bound_penalty = Objective(['U_pred', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                            weight=args.Q_con_u)

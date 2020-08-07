@@ -294,7 +294,8 @@ class FileDataset(Dataset):
         systems_datapaths = {'tank': os.path.join(resource_path, 'NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat'),
                              'vehicle3': os.path.join(resource_path, 'NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat'),
                              'aero': os.path.join(resource_path, 'NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'),
-                             'flexy_air': os.path.join(resource_path, 'Flexy_air/flexy_air_data.csv')}
+                             'flexy_air': os.path.join(resource_path, 'Flexy_air/flexy_air_data.csv'),
+                             'EED_building': os.path.join(resource_path, 'EED_building/EED_building.csv')}
         if self.system in systems_datapaths.keys():
             file_path = systems_datapaths[self.system]
         else:
@@ -410,6 +411,7 @@ class DatasetMPP:
         return train_data, dev_data, test_data
 
 
+<<<<<<< HEAD
 systems = {'tank': 'datafile',
                'vehicle3': 'datafile',
                'aero': 'datafile',

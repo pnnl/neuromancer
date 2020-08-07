@@ -1,5 +1,5 @@
 """
-# TODO: rnn as nonlinear map is breaking
+# TODO: update dataset functionality for seemlsess adjustment of the data after loading
 
 Script for training block dynamics models for system identification.
 Current block structure supported are black_box, hammerstein, hammerstein-weiner,
@@ -41,7 +41,6 @@ from trainer import Trainer
 from problem import Problem, Objective
 import torch.nn.functional as F
 from simulators import OpenLoopSimulator
-import dill
 
 
 def parse_args():
@@ -50,8 +49,8 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=1000)
-    opt_group.add_argument('-lr', type=float, default=0.001,
+    opt_group.add_argument('-epochs', type=int, default=5000)
+    opt_group.add_argument('-lr', type=float, default=0.003,
                            help='Step size for gradient descent.')
 
     #################
@@ -62,9 +61,9 @@ def parse_args():
     data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'],
                             default='datafile',
                             help='source type of the dataset')
-    data_group.add_argument('-system', default='flexy_air',
+    data_group.add_argument('-system', default='EED_building',
                             help='select particular dataset with keyword')
-    data_group.add_argument('-nsim', type=int, default=None,
+    data_group.add_argument('-nsim', type=int, default=3000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
                                  'train, dev, and test will be split evenly from contiguous, sequential, '
                                  'non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,'
@@ -79,15 +78,15 @@ def parse_args():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
-                             default='blackbox')
-    model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
+                             default='blocknlin')
+    model_group.add_argument('-nx_hidden', type=int, default=4, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
     model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
                              default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
-                             choices=['mlp', 'rnn', 'linear', 'residual_mlp'])
+                             choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
 
     ##################
@@ -127,6 +126,7 @@ def logging(args):
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
     return Logger, device
 
+
 def dataset_load(args, device):
     if args.system_data == 'emulator':
         dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
@@ -148,12 +148,6 @@ if __name__ == '__main__':
     ########## DATA ###############
     ###############################
     dataset = dataset_load(args, device)
-    # select only first output (position)
-    dataset.data['Y'] = dataset.data['Y'][:, 0].reshape(-1, 1)
-    dataset.min_max_norms['Ymin'] = dataset.min_max_norms['Ymin'][0]
-    dataset.min_max_norms['Ymax'] = dataset.min_max_norms['Ymax'][0]
-    dataset.make_nstep(overwrite=True)
-    dataset.make_loop()
 
     ##########################################
     ########## PROBLEM COMPONENTS ############
@@ -166,6 +160,7 @@ if __name__ == '__main__':
     nonlinmap = {'linear': linmap,
                  'mlp': blocks.MLP,
                  'rnn': blocks.RNN,
+                 'pytorch_rnn': blocks.PytorchRNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
     # state space model setup
     dynamics_model = {'blackbox': dynamics.blackbox,
@@ -242,7 +237,3 @@ if __name__ == '__main__':
     best_model = trainer.train()
     trainer.evaluate(best_model)
     logger.clean_up()
-
-    if False:
-        model.load_state_dict(best_model)
-        torch.save(model, './flexy_test/best_model.pth', pickle_module=dill)

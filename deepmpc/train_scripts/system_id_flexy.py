@@ -50,7 +50,7 @@ def parse_args():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=500)
+    opt_group.add_argument('-epochs', type=int, default=1000)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
@@ -148,6 +148,12 @@ if __name__ == '__main__':
     ########## DATA ###############
     ###############################
     dataset = dataset_load(args, device)
+    # select only first output (position)
+    dataset.data['Y'] = dataset.data['Y'][:, 0].reshape(-1, 1)
+    dataset.min_max_norms['Ymin'] = dataset.min_max_norms['Ymin'][0]
+    dataset.min_max_norms['Ymax'] = dataset.min_max_norms['Ymax'][0]
+    dataset.make_nstep(overwrite=True)
+    dataset.make_loop()
 
     ##########################################
     ########## PROBLEM COMPONENTS ############
@@ -203,7 +209,7 @@ if __name__ == '__main__':
     regularization = Objective(['estim_reg_error', 'dynamics_reg_error'], lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub)
     reference_loss = Objective(['Y_pred', 'Yf'], F.mse_loss, weight=args.Q_y)
     state_smoothing = Objective(['X_pred'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx)
-    observation_lower_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x)
+    observation_lower_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(-x + 0.2)), weight=args.Q_con_x)
     observation_upper_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x)
 
     objectives = [regularization, reference_loss]
@@ -233,7 +239,7 @@ if __name__ == '__main__':
     simulator = OpenLoopSimulator(model=model, dataset=dataset)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
                       simulator=simulator, epochs=args.epochs)
-    best_model, best_model_full = trainer.train()
+    best_model = trainer.train()
     trainer.evaluate(best_model)
     logger.clean_up()
 

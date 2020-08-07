@@ -62,7 +62,7 @@ def parse():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
-    data_group.add_argument('-system', default='Reno_ROM40', choices=list(systems.keys()),
+    data_group.add_argument('-system', type=str, default='Reno_ROM40', choices=list(systems.keys()),
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=8640,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
@@ -78,7 +78,7 @@ def parse():
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
-    model_group.add_argument('-ssm_type', choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
+    model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
                              default='blocknlin')
     model_group.add_argument('-nx_hidden', type=int, default=10, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
@@ -110,13 +110,13 @@ def parse():
                            help="Where should your trained model and plots be saved (temp)")
     log_group.add_argument('-verbosity', type=int, default=1,
                            help="How many epochs in between status updates")
-    log_group.add_argument('-exp', default='test',
+    log_group.add_argument('-exp', type=str, default='test',
                            help='Will group all run under this experiment name.')
-    log_group.add_argument('-location', default='mlruns',
+    log_group.add_argument('-location', type=str, default='mlruns',
                            help='Where to write mlflow experiment tracking stuff')
-    log_group.add_argument('-run', default='deepmpc',
+    log_group.add_argument('-run', type=str, default='deepmpc',
                            help='Some name to tell what the experiment run was about.')
-    log_group.add_argument('-logger', choices=['mlflow', 'stdout'], default='stdout',
+    log_group.add_argument('-logger', type=str, choices=['mlflow', 'stdout'], default='stdout',
                            help='Logging setup to use')
     return parser
 

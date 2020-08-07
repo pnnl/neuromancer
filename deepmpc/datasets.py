@@ -111,6 +111,7 @@ class Dataset:
         assert not (system is None and len(sequences) == 0), 'Trying to instantiate an empty dataset.'
         self.name = name
         self.savedir = savedir
+        os.makedirs(self.savedir, exist_ok=True)
         self.system, self.nsim, self.norm, self.nsteps, self.device = system, nsim, norm, nsteps, device
         self.batch_type = batch_type
         self.sequences = sequences

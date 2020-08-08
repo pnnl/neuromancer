@@ -11,7 +11,7 @@ import torch.nn as nn
 import slim
 
 # local imports
-import deepmpc.rnn as rnn
+import neuromancer.rnn as rnn
 
 
 def get_modules(model):

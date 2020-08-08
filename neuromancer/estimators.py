@@ -28,8 +28,8 @@ import torch.nn as nn
 import slim
 
 # local imports
-import deepmpc.blocks as blocks
-from deepmpc.dynamics import BlockSSM
+import neuromancer.blocks as blocks
+from neuromancer.dynamics import BlockSSM
 
 
 class FullyObservable(nn.Module):

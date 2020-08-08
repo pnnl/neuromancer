@@ -11,10 +11,10 @@ import torch
 import numpy as np
 
 # local imports
-from deepmpc.logger import BasicLogger
-from deepmpc.visuals import Visualizer
-from deepmpc.problem import Problem
-from deepmpc.datasets import Dataset
+from neuromancer.loggers import BasicLogger
+from neuromancer.visuals import Visualizer
+from neuromancer.problem import Problem
+from neuromancer.datasets import Dataset
 
 
 def reset(module):

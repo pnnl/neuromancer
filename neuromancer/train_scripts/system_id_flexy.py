@@ -1,9 +1,6 @@
 """
-# TODO: update dataset functionality for seemlsess adjustment of the data after loading
-
 Script for training block dynamics models for system identification.
-Current block structure supported are black_box, hammerstein, hammerstein-weiner,
-and block models with non-linear main transition dynamics.
+Current block structure supported are black_box, hammerstein, hammerstein-weiner, and general block non-linear
 
 Basic model options are:
     + prior on the linear maps of the neural network
@@ -26,26 +23,33 @@ Basic logging options are:
 
 More detailed description of options in the parse_args()
 """
-# import matplotlib
-# matplotlib.use("Agg")
+# python base imports
 import argparse
+
+# machine learning data science imports
 import torch
-from datasets import EmulatorDataset, FileDataset
-import dynamics
-import estimators
-import linear
-import blocks
-import logger
-from visuals import VisualizerOpen, VisualizerTrajectories
-from trainer import Trainer
-from problem import Problem, Objective
 import torch.nn.functional as F
-from simulators import OpenLoopSimulator
+import torch.nn as nn
+
+# code ecosystem imports
+import slim
+
+# local imports
+from neuromancer.datasets import EmulatorDataset, FileDataset, systems
+import neuromancer.dynamics as dynamics
+import neuromancer.estimators as estimators
+import neuromancer.blocks as blocks
+import neuromancer.loggers as loggers
+from neuromancer.visuals import VisualizerOpen, VisualizerTrajectories
+from neuromancer.trainer import Trainer
+from neuromancer.problem import Problem, Objective
+from neuromancer.activations import BLU, SoftExponential
+from neuromancer.simulators import OpenLoopSimulator
 
 
-def parse_args():
+def parse():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-gpu', type=str, default=None,
+    parser.add_argument('-gpu', type=int, default=None,
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
@@ -58,10 +62,7 @@ def parse_args():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
-    data_group.add_argument('-system_data', type=str, choices=['emulator', 'datafile'],
-                            default='datafile',
-                            help='source type of the dataset')
-    data_group.add_argument('-system', default='EED_building',
+    data_group.add_argument('-system', type=str, default='flexy_air', choices=['flexy_air'],
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=3000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
@@ -69,25 +70,25 @@ def parse_args():
                                  'non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,'
                                  'next nsim/3 are dev and next nsim/3 simulation steps are test points.'
                                  'None will use a default nsim from the selected dataset or emulator')
-    data_group.add_argument('-norm', choices=['UDY', 'U', 'Y', None], type=str, default='UDY')
-    data_group.add_argument('-dataset_name', type=str, choices=['openloop', 'closedloop'],
-                            default='openloop',
-                            help='name of the dataset')
+    data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y'],
+                            help='List of sequences to max-min normalize')
 
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
                              default='blocknlin')
-    model_group.add_argument('-nx_hidden', type=int, default=4, help='Number of hidden states per output')
+    model_group.add_argument('-nx_hidden', type=int, default=10, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
-                             choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
-    model_group.add_argument('-linear_map', type=str, choices=list(linear.maps.keys()),
+                             choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='linear')
+    model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                              default='linear')
-    model_group.add_argument('-nonlinear_map', type=str, default='mlp',
+    model_group.add_argument('-nonlinear_map', type=str, default='linear',
                              choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
+    model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
+                             help='Activation function for neural networks')
 
     ##################
     # Weight PARAMETERS
@@ -98,37 +99,43 @@ def parse_args():
     weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_y', type=float,  default=1.0, help='Output tracking penalty weight')
     weight_group.add_argument('-Q_e', type=float,  default=1.0, help='State estimator hidden prediction penalty weight')
-    weight_group.add_argument('-Q_con_fdu', type=float,  default=0.2, help='Penalty weight on control actions and disturbances.')
+    weight_group.add_argument('-Q_con_fdu', type=float,  default=0.0, help='Penalty weight on control actions and disturbances.')
 
     ####################
     # LOGGING PARAMETERS
     log_group = parser.add_argument_group('LOGGING PARAMETERS')
     log_group.add_argument('-savedir', type=str, default='test',
                            help="Where should your trained model and plots be saved (temp)")
-    log_group.add_argument('-verbosity', type=int, default=100,
+    log_group.add_argument('-verbosity', type=int, default=1,
                            help="How many epochs in between status updates")
-    log_group.add_argument('-exp', default='test',
+    log_group.add_argument('-exp', type=str, default='test',
                            help='Will group all run under this experiment name.')
-    log_group.add_argument('-location', default='mlruns',
+    log_group.add_argument('-location', type=str, default='mlruns',
                            help='Where to write mlflow experiment tracking stuff')
-    log_group.add_argument('-run', default='deepmpc',
+    log_group.add_argument('-run', type=str, default='neuromancer',
                            help='Some name to tell what the experiment run was about.')
-    log_group.add_argument('-logger', choices=['mlflow', 'stdout'], default='stdout',
+    log_group.add_argument('-logger', type=str, choices=['mlflow', 'stdout'], default='stdout',
                            help='Logging setup to use')
-    return parser.parse_args()
+    return parser
 
 
 def logging(args):
     if args.logger == 'mlflow':
-        Logger = logger.MLFlowLogger(args, args.savedir, args.verbosity)
+        Logger = loggers.MLFlowLogger(savedir=args.savedir, verbosity=args.verbosity,
+                                      stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
+                                              'nstep_dev_ref_loss', 'loop_dev_ref_loss'))
+        
     else:
-        Logger = logger.BasicLogger(savedir=args.savedir, verbosity=args.verbosity)
+        Logger = loggers.BasicLogger(savedir=args.savedir, verbosity=args.verbosity,
+                                     stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
+                                     'nstep_dev_ref_loss', 'loop_dev_ref_loss'))
+    Logger.log_parameters(args)
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
     return Logger, device
 
 
 def dataset_load(args, device):
-    if args.system_data == 'emulator':
+    if systems[args.system] == 'emulator':
         dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     else:
@@ -141,89 +148,93 @@ if __name__ == '__main__':
     ###############################
     ########## LOGGING ############
     ###############################
-    args = parse_args()
+    args = parse().parse_args()
     logger, device = logging(args)
 
     ###############################
     ########## DATA ###############
     ###############################
     dataset = dataset_load(args, device)
-
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################
-    nx = dataset.dims['Y']*args.nx_hidden
-    nu = dataset.dims['U'] if 'U' in dataset.dims else 0
-    nd = dataset.dims['D'] if 'D' in dataset.dims else 0
-    ny = dataset.dims['Y']
-    linmap = linear.maps[args.linear_map]
+    print(dataset.dims)
+    nx = dataset.dims['Y'][-1]*args.nx_hidden
+
+    activation = {'gelu': nn.GELU,
+                  'relu': nn.ReLU,
+                  'blu': BLU,
+                  'softexp': SoftExponential}[args.activation]
+
+    linmap = slim.maps[args.linear_map]
+
     nonlinmap = {'linear': linmap,
                  'mlp': blocks.MLP,
                  'rnn': blocks.RNN,
                  'pytorch_rnn': blocks.PytorchRNN,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
-    # state space model setup
-    dynamics_model = {'blackbox': dynamics.blackbox,
-                      'blocknlin': dynamics.blocknlin,
-                      'hammerstein': dynamics.hammerstein,
-                      'hw': dynamics.hw}[args.ssm_type](args.bias, linmap, nonlinmap, nx, nu, nd, ny,
-                                                        n_layers=args.n_layers,
-                                                        input_keys=['Yf', 'x0', 'Uf', 'Df'],
-                                                        name='dynamics')
 
-    # state estimator setup
     estimator = {'linear': estimators.LinearEstimator,
                  'mlp': estimators.MLPEstimator,
                  'rnn': estimators.RNNEstimator,
                  'residual_mlp': estimators.ResMLPEstimator
-                 }[args.state_estimator]({**dataset.dims, 'x0': nx},
-                   nsteps=args.nsteps,
-                   bias=args.bias,
-                   Linear=linmap,
-                   nonlin=F.gelu,
-                   hsizes=[nx]*args.n_layers,
-                   input_keys=['Yp'],
-                   output_keys=['x0'],
-                   linargs=dict(),
-                   name='estim')
+                 }[args.state_estimator]({**dataset.dims, 'x0': (nx,)},
+                                         nsteps=args.nsteps,
+                                         bias=args.bias,
+                                         Linear=linmap,
+                                         nonlin=activation,
+                                         hsizes=[nx] * args.n_layers,
+                                         input_keys=['Yp'],
+                                         linargs=dict(),
+                                         name='estim')
+
+    dynamics_model = {'blackbox': dynamics.blackbox,
+                      'blocknlin': dynamics.blocknlin,
+                      'hammerstein': dynamics.hammerstein,
+                      'hw': dynamics.hw}[args.ssm_type](args.bias, linmap, nonlinmap, {**dataset.dims, 'x0_estim': (nx,)},
+                                                        n_layers=args.n_layers,
+                                                        activation=activation,
+                                                        name='dynamics',
+                                                        input_keys={'x0': f'x0_{estimator.name}'})
 
     components = [estimator, dynamics_model]
-
-    # component variables
-    input_keys = list(set.union(*[set(comp.input_keys) for comp in components]))
-    output_keys = list(set.union(*[set(comp.output_keys) for comp in components]))
-    dataset_keys = list(set(dataset.train_data.keys()))
-    plot_keys = ['Yf', 'Y_pred', 'X_pred', 'fU', 'fD']   # variables to be plotted
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
     estimator_loss = Objective(['X_pred', 'x0'],
-                                lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),  # arrival cost
-                                weight=args.Q_e)
-    regularization = Objective(['estim_reg_error', 'dynamics_reg_error'], lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub)
-    reference_loss = Objective(['Y_pred', 'Yf'], F.mse_loss, weight=args.Q_y)
-    state_smoothing = Objective(['X_pred'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx)
-    observation_lower_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(-x + 0.2)), weight=args.Q_con_x)
-    observation_upper_bound_penalty = Objective(['Y_pred'], lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x)
+                                lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
+                                weight=args.Q_e, name='arrival_cost')
+    regularization = Objective([f'reg_error_estim', f'reg_error_dynamics'],
+                               lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub, name='reg_error')
+    reference_loss = Objective(['Y_pred_dynamics', 'Yf'], F.mse_loss, weight=args.Q_y,
+                                name='ref_loss')
+    state_smoothing = Objective(['X_pred_dynamics'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx,
+                                name='state_smoothing')
+    observation_lower_bound_penalty = Objective(['Y_pred_dynamics'],
+                                                lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x,
+                                                name='y_low_bound_error')
+    observation_upper_bound_penalty = Objective(['Y_pred_dynamics'],
+                                                lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x,
+                                                name='y_up_bound_error')
 
     objectives = [regularization, reference_loss]
     constraints = [state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
 
-    if 'fU' in output_keys:
-        inputs_max_influence_lb = Objective(['fU'], lambda x: torch.mean(F.relu(-x + 0.05)),
-                                              weight=args.Q_con_fdu)
-        inputs_max_influence_ub = Objective(['fU'], lambda x: torch.mean(F.relu(x - 0.05)),
-                                            weight=args.Q_con_fdu)
-        constraints.append(inputs_max_influence_lb)
-        constraints.append(inputs_max_influence_ub)
-    if 'fD' in output_keys:
-        disturbances_max_influence_lb = Objective(['fD'], lambda x: torch.mean(F.relu(-x + 0.05)),
-                                            weight=args.Q_con_fdu)
-        disturbances_max_influence_ub = Objective(['fD'], lambda x: torch.mean(F.relu(x - 0.05)),
-                                            weight=args.Q_con_fdu)
-        constraints.append(disturbances_max_influence_lb)
-        constraints.append(disturbances_max_influence_ub)
+    if args.ssm_type != 'blackbox':
+        if 'U' in dataset.data:
+            inputs_max_influence_lb = Objective(['fU_dynamics'], lambda x: torch.mean(F.relu(-x + 0.05)),
+                                                  weight=args.Q_con_fdu,
+                                                name='input_influence_lb')
+            inputs_max_influence_ub = Objective(['fU_dynamics'], lambda x: torch.mean(F.relu(x - 0.05)),
+                                                weight=args.Q_con_fdu, name='input_influence_ub')
+            constraints += [inputs_max_influence_lb, inputs_max_influence_ub]
+        if 'D' in dataset.data:
+            disturbances_max_influence_lb = Objective([f'fD_dynamics'], lambda x: torch.mean(F.relu(-x + 0.05)),
+                                                      weight=args.Q_con_fdu, name='dist_influence_lb')
+            disturbances_max_influence_ub = Objective([f'fD_dynamics'], lambda x: torch.mean(F.relu(x - 0.05)),
+                                                      weight=args.Q_con_fdu, name='dist_influence_ub')
+            constraints += [disturbances_max_influence_lb, disturbances_max_influence_ub]
 
     ##########################################
     ########## OPTIMIZE SOLUTION ############

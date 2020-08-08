@@ -13,12 +13,12 @@ import torch.nn as nn
 import numpy as np
 
 # ecosystem imports
-from slip import EmulatorBase
+from psl import EmulatorBase
 
 # lcoal imports
-from deepmpc.datasets import EmulatorDataset, FileDataset, min_max_denorm
-from deepmpc.problem import Problem
-from deepmpc.datasets import Dataset, DataDict
+from neuromancer.datasets import EmulatorDataset, FileDataset, min_max_denorm
+from neuromancer.problem import Problem
+from neuromancer.datasets import Dataset, DataDict
 
 
 class Simulator:

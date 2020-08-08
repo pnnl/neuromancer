@@ -20,7 +20,7 @@ import torch.nn as nn
 import slim
 
 # local imports
-import deepmpc.blocks as blocks
+import neuromancer.blocks as blocks
 
 
 def check_keys(k1, k2):
@@ -85,7 +85,6 @@ class Policy(nn.Module):
         self.nu = data_dims['U'][-1]
         data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
         self.sequence_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 2)
-        print(self.sequence_dims_sum)
         self.static_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 1)
         self.input_size = self.static_dims_sum + nsteps * self.sequence_dims_sum
         self.output_size = nsteps * self.nu

@@ -1,10 +1,13 @@
 """
 # TODO: Finish wandb logger
 """
-import mlflow
-# import wandb
+# python base imports
 import time
 import os
+
+# machine learning/data science imports
+import mlflow
+# import wandb
 import torch
 import dill
 
@@ -33,7 +36,7 @@ class BasicLogger:
             for k, v in output.items():
                 try:
                     entries.append(f'{k}: {v.item():.5f}')
-                except ValueError:
+                except (ValueError, AttributeError) as e:
                     pass
             entries.append(f'eltime: {elapsed_time: .5f}')
             print('\t'.join([e for e in entries if 'reg_error' not in e]))

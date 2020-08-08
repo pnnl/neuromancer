@@ -3,14 +3,18 @@
 #   TODO: plot loss function via visualizer
 
 """
-
+# python base imports
 from copy import deepcopy
+
+# machine learning/data science imports
 import torch
 import numpy as np
-from logger import BasicLogger
-from visuals import Visualizer
-from problem import Problem
-from datasets import Dataset
+
+# local imports
+from deepmpc.logger import BasicLogger
+from deepmpc.visuals import Visualizer
+from deepmpc.problem import Problem
+from deepmpc.datasets import Dataset
 
 
 def reset(module):

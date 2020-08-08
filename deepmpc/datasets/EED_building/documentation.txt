@@ -1,0 +1,4 @@
+zone temperatures columns: 		y1-y20
+AHU supply temperatures columns:	u1-u20
+airflow supply temperatures columns:	u21-u40
+ambient temperature columns:		d1

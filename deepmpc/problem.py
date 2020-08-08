@@ -2,7 +2,10 @@
 # TODO: finish testing
 
 """
+# python base imports
 from typing import Dict, List, Callable
+
+# machine learning/data science imports
 import torch
 import torch.nn as nn
 
@@ -51,8 +54,6 @@ class Problem(nn.Module):
         self.objectives = nn.ModuleList(objectives)
         self.constraints = nn.ModuleList(constraints)
         self.components = nn.ModuleList(components)
-        self.input_keys = set.union(*[set(comp.input_keys) for comp in components])
-        self.output_keys = set.union(*[set(comp.output_keys) for comp in components])
 
     def _calculate_loss(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
         outputs = {}

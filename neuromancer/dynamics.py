@@ -29,7 +29,7 @@ import torch.nn as nn
 import slim
 
 # local imports
-import deepmpc.blocks as blocks
+import neuromancer.blocks as blocks
 
 
 class BlockSSM(nn.Module):
@@ -168,7 +168,6 @@ def blocknlin(bias, linmap, nonlinmap, datadims, n_layers=2,
     """
     block nonlinear state space model for training
     """
-    # TODO Ask Jan about the observation dynamics here
     xkey, ykey, ukey, dkey = BlockSSM.keys(input_keys)
     nx = datadims[xkey][-1]
     ny = datadims[ykey][-1]

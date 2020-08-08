@@ -7,8 +7,8 @@
 ##### Clone and install neuromancer, linear maps, and emulator packages
 ```console
 user@machine:~$ mkdir neuromancer; cd neuromancer
-user@machine:~$ git clone -b key_fix_cleanup https://stash.pnnl.gov/scm/deepmpc/deepmpc.git
-user@machine:~$ git clone https://stash.pnnl.gov/scm/deepmpc/slip.git
+user@machine:~$ git clone https://stash.pnnl.gov/scm/deepmpc/neuromancer.git
+user@machine:~$ git clone https://stash.pnnl.gov/scm/deepmpc/psl.git
 user@machine:~$ git clone https://stash.pnnl.gov/scm/deepmpc/slim.git
 ```
 
@@ -19,7 +19,7 @@ user@machine:~$ conda env create -f env.yml
 (neuromancer) user@machine:~$ source activate neuromancer
 ```
 
-##### Create the environment manually
+##### If .yml env creation fails create the environment manually
 
 ```console
 user@machine:~$ conda config --add channels conda-forge pytorch
@@ -30,14 +30,14 @@ user@machine:~$ source activate neuromancer
 (neuromancer) user@machine:~$ conda install -c powerai gym
 ```
 
-### install neuromancer ecosystem 
+##### install neuromancer ecosystem 
 
 ```console
-(neuromancer) user@machine:~$ cd slip
+(neuromancer) user@machine:~$ cd psl
 (neuromancer) user@machine:~$ python setup.py develop
 (neuromancer) user@machine:~$ cd ../slim
 (neuromancer) user@machine:~$ python setup.py develop
-(neuromancer) user@machine:~$ cd ../deepmpc
+(neuromancer) user@machine:~$ cd ../neuromancer
 (neuromancer) user@machine:~$ python setup.py develop
 ```
 

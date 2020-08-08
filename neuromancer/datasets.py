@@ -6,6 +6,7 @@
 # python base imports
 import os
 from typing import Dict
+import warnings
 
 # machine learning/data science imports
 from scipy.io import loadmat
@@ -15,10 +16,10 @@ import matplotlib.pyplot as plt
 import torch
 
 # ecosystem imports
-import slip as emulators
+import psl as emulators
 
 # local imports
-import deepmpc.plot as plot
+import neuromancer.plot as plot
 
 
 def min_max_denorm(M, Mmin, Mmax):
@@ -94,51 +95,59 @@ class DataDict(dict):
 
 class Dataset:
 
-    def __init__(self, system=None, nsim=1000, norm=['Y'], batch_type='batch',
+    def __init__(self, system=None, nsim=1000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
                  savedir='test'):
         """
 
         :param system: (str) Identifier for dataset.
         :param nsim: (int) Total number of time steps in data sequence
-        :param norm: (str) String of letters corresponding to data to be normalized, e.g. ['Y','U','D']
+        :param ninit: (int) Time step to begin dataset at.
+        :param norm: (list) List of strings corresponding to data to be normalized, e.g. ['Y','U','D']
         :param batch_type: (str) Type of the batch generator, expects: 'mh' or 'batch'
         :param nsteps: (int) N-step prediction horizon for batching data
         :param device: (str) String identifier of device to place data on, e.g. 'cpu', 'cuda:0'
         :param sequences: (dict str: np.array) Dictionary of supplemental data
         :param name: (str) String identifier of dataset type, must be ['static', 'openloop', 'closedloop']
+        :param savedir: (str) Where to save plots of dataset time sequences.
 
-         returns: Object with public properties:
+         returns: Dataset Object with public properties:
                     train_data: dict(str: Tensor)
                     dev_data: dict(str: Tensor)
                     test_data: dict(str: Tensor)
                     train_loop: dict(str: Tensor)
                     dev_loop: dict(str: Tensor)
                     test_loop: dict(str: Tensor)
-                    datadims: dict(str: tuple)
+                    dims: dict(str: tuple)
         """
         assert not (system is None and len(sequences) == 0), 'Trying to instantiate an empty dataset.'
         self.name = name
         self.savedir = savedir
         os.makedirs(self.savedir, exist_ok=True)
-        self.system, self.nsim, self.norm, self.nsteps, self.device = system, nsim, norm, nsteps, device
+        self.system, self.nsim, self.ninit, self.norm, self.nsteps, self.device = system, nsim, ninit, norm, nsteps, device
         self.batch_type = batch_type
         self.sequences = sequences
         self.data = self.load_data()
-        self.add_data(sequences)
-        self.min_max_norms, self.dims,  self.nstep_data, self.shift_data = dict(), dict(), dict(), dict()
+        self.data = {**self.data, **self.sequences}
+        self.min_max_norms, self.dims, self.nstep_data, self.shift_data = dict(), dict(), dict(), dict()
         for k, v in self.data.items():
             self.dims[k] = v.shape
+        assert len(set([k[0] for k in self.dims.values()])) == 1, f'Sequence lengths are not equal: {self.dims}'
         self.dims['nsim'] = v.shape[0]
         self.dims['nsteps'] = self.nsteps
-
-        assert set(norm) & set(self.data.keys()) == set(norm), \
-            f'Specified keys to normalize: {list(set(norm))} are not in dataset keys: {list(self.data.keys())}'
         self.data = self.norm_data(self.data, self.norm)
-        self.make_nstep()
-        self.make_loop()
+        self.train_data, self.dev_data, self.test_data = self.make_nstep()
+        self.train_loop, self.dev_loop, self.test_loop = self.make_loop()
 
     def norm_data(self, data, norm):
+        """
+        Min-max normalize some variables in the dataset.
+        :param data: (dict {str: np.array})
+        :param norm: List of variable names to normalize.
+        :return:
+        """
+        for k in norm:
+            assert k in data, f'Key to normalize: {k} is not in dataset keys: {list(self.data.keys())}'
         for k, v in data.items():
             v = v.reshape(v.shape[0], -1)
             if k in norm:
@@ -147,7 +156,28 @@ class Dataset:
                 data[k] = v
         return data
 
+    def normalize(self, M, Mmin=None, Mmax=None):
+            """
+            :param M: (2-d np.array) Data to be normalized
+            :param Mmin: (int) Optional minimum. If not provided is inferred from data.
+            :param Mmax: (int) Optional maximum. If not provided is inferred from data.
+            :return: (2-d np.array) Min-max normalized data
+            """
+            Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
+            Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                M_norm = (M - Mmin) / (Mmax - Mmin)
+            return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
+
     def make_nstep(self, overwrite=False):
+        """
+
+        :param overwrite: Whether to overwrite a dataset sequence if it already exists in the dataset.
+        :return: train_data (dict str: 3-way torch.Tensor} Dictionary with values of shape Nsteps X Nbatches X dim
+                 dev_data  see train_data
+                 test_data see train_data
+        """
         for k, v in self.data.items():
             if k + 'p' not in self.shift_data or overwrite:
                 self.dims[k + 'p'], self.dims[k + 'f'] = v.shape, v.shape
@@ -162,20 +192,32 @@ class Dataset:
                     self.nstep_data[k + 'f'] = batch_data(self.shift_data[k + 'f'], self.nsteps)
                 self.data[k] = v
         plot.plot_traj(self.data, figname=os.path.join(self.savedir, f'{self.system}.png'))
-        self.train_data, self.dev_data, self.test_data = self.split_train_test_dev(self.nstep_data)
+        train_data, dev_data, test_data = self.split_train_test_dev(self.nstep_data)
+        train_data.name, dev_data.name, test_data.name = 'nstep_train', 'nstep_dev', 'nstep_test'
+        return train_data, dev_data, test_data
 
     def make_loop(self):
+        """
+        Unbatches data to original format with extra 1-dimension at the batch dimension.
+        Length of sequences has been shortened to account for shift of data for sequence to sequence modeling.
+        Length of sequences has been potentially shortened to be evenly divided by nsteps:
+            nsim = (nsim - shift) - (nsim % nsteps)
+
+        :return: train_loop (dict str: 3-way np.array} Dictionary with values of shape nsim % X 1 X dim
+                 dev_loop  see train_data
+                 test_loop  see train_data
+        """
         if self.name == 'openloop':
             if self.batch_type == 'mh':
-                self.train_loop = self.unbatch_mh(self.train_data)
-                self.dev_loop = self.unbatch_mh(self.dev_data)
-                self.test_loop = self.unbatch_mh(self.test_data)
+                train_loop = self.unbatch_mh(self.train_data)
+                dev_loop = self.unbatch_mh(self.dev_data)
+                test_loop = self.unbatch_mh(self.test_data)
             else:
-                self.train_loop = self.unbatch(self.train_data)
-                self.dev_loop = self.unbatch(self.dev_data)
-                self.test_loop = self.unbatch(self.test_data)
+                train_loop = self.unbatch(self.train_data)
+                dev_loop = self.unbatch(self.dev_data)
+                test_loop = self.unbatch(self.test_data)
 
-            all_loop = {k: np.concatenate([self.train_loop[k], self.dev_loop[k], self.test_loop[k]]).squeeze(1)
+            all_loop = {k: np.concatenate([train_loop[k], dev_loop[k], test_loop[k]]).squeeze(1)
                         for k in self.train_data.keys()}
             for k in self.train_data.keys():
                 assert np.array_equal(all_loop[k], self.shift_data[k][:all_loop[k].shape[0]]), \
@@ -188,51 +230,69 @@ class Dataset:
             for k, v in self.data.items():
                 nstep_data[k + 'p'] = batch_mh_data(self.shift_data[k + 'p'], self.nsteps)
                 nstep_data[k + 'f'] = batch_mh_data(self.shift_data[k + 'f'], self.nsteps)
-            self.train_loop, self.dev_loop, self.test_loop = self.split_train_test_dev(nstep_data)
+            train_loop, dev_loop, test_loop = self.split_train_test_dev(nstep_data)
 
-        self.train_data.name, self.dev_data.name, self.test_data.name = 'nstep_train', 'nstep_dev', 'nstep_test'
-        self.train_loop.name, self.dev_loop.name, self.test_loop.name = 'loop_train', 'loop_dev', 'loop_test'
-        for dset in self.train_data, self.dev_data, self.test_data, self.train_loop, self.dev_loop, self.test_loop:
+        train_loop.name, dev_loop.name, test_loop.name = 'loop_train', 'loop_dev', 'loop_test'
+        for dset in train_loop, dev_loop, test_loop, self.train_data, self.dev_data, self.test_data:
             for k, v in dset.items():
                 dset[k] = torch.tensor(v, dtype=torch.float32).to(self.device)
+        return train_loop, dev_loop, test_loop
 
-    def add_data(self, sequences, norm=[]):
+    def add_data(self, sequences, norm=[], overwrite=False):
+        """
+        Add new sequences to dataset.
+
+        :param sequences: dict {'str': 2-way np.array} Dictionary of nsim X dim sequences.
+        :param norm: Sequences to normalize.
+        :param overwrite: Whether to allow overwriting a portion of the dataset.
+        :return:
+        """
         for k, v in sequences.items():
             assert v.shape[0] == self.dims['nsim']
+            self.dims[k] = v.shape
         for k in norm:
             self.norm.append(k)
         sequences = self.norm_data(sequences, norm)
         self.data = {**self.data, **sequences}
+        self.train_data, self.dev_data, self.test_data = self.make_nstep(overwrite=overwrite)
+        self.train_loop, self.dev_loop, self.test_loop = self.make_loop()
 
     def del_data(self, keys):
+        """
+        Delete a sequence from the dataset.
+
+        :param keys: Key for sequence to delete
+        :return:
+        """
         for k in keys:
             del self.data[k]
 
     def add_variable(self, var: Dict[str, int]):
+        """
+        Manually add dataset dimensions to the dataset
+        :param var: (dict {str: tuple})
+        """
         for k, v in var.items():
             self.dims[k] = v
 
     def del_variable(self, keys):
+        """
+        Manually delete dataset dimensions from the dataset
+
+        :param keys:
+        """
         for k in keys:
             del self.dims[k]
 
     def load_data(self):
+        """
+        Load a dataset of sequences. Arrays must be nsim X ndim
+        :return: dict (str: np.array)
+        """
         assert self.system is None and len(self.sequences) > 0, \
             'User must provide data via the sequences argument for basic Dataset. ' +\
             'Use FileDataset or EmulatorDataset for predefined datasets'
         return dict()
-
-    def normalize(self, M, Mmin=None, Mmax=None):
-            """
-            :param M: (2-d np.array) Data to be normalized
-            :param Mmin: (int) Optional minimum. If not provided is inferred from data.
-            :param Mmax: (int) Optional maximum. If not provided is inferred from data.
-            :return: (2-d np.array) Min-max normalized data
-            """
-            Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
-            Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
-            M_norm = (M - Mmin) / (Mmax - Mmin)
-            return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
 
     def split_train_test_dev(self, data):
         """
@@ -244,10 +304,9 @@ class Dataset:
         train_idx = (list(data.values())[0].shape[1] // 3)
         dev_idx = train_idx * 2
         for k, v in data.items():
-            if data is not None:
-                train_data[k] = v[:, :train_idx, :]
-                dev_data[k] = v[:, train_idx:dev_idx, :]
-                test_data[k] = v[:, dev_idx:, :]
+            train_data[k] = v[:, :train_idx, :]
+            dev_data[k] = v[:, train_idx:dev_idx, :]
+            test_data[k] = v[:, dev_idx:, :]
         return train_data, dev_data, test_data
 
     def unbatch(self, data):
@@ -281,30 +340,17 @@ class EmulatorDataset(Dataset):
         return: (dict, str: 2-d np.array)
         """
         systems = emulators.systems  # list of available emulators
-        model = systems[self.system](nsim=self.nsim)  # instantiate model class
-        X, Y, U, D = model.simulate(nsim=self.nsim)  # simulate open loop
-        data = dict()
-        for d, k in zip([Y, U, D], ['Y', 'U', 'D']):
-            if d is not None:
-                data[k] = d
-        return data
+        model = systems[self.system](nsim=self.nsim, ninit=self.ninit)  # instantiate model class
+        return model.simulate()  # simulate open loop
 
 
 class FileDataset(Dataset):
 
     def load_data(self):
         """
-        Load data from files. system argument to init should be a file path to the dataset file
+        Load data from files. system argument to init should be the name of a registered dataset in systems_datapaths
         :return: (dict, str: 2-d np.array)
         """
-        ninit = 0
-        Y, U, D = None, None, None
-        resource_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'datasets')
-        systems_datapaths = {'tank': os.path.join(resource_path, 'NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat'),
-                             'vehicle3': os.path.join(resource_path, 'NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat'),
-                             'aero': os.path.join(resource_path, 'NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'),
-                             'flexy_air': os.path.join(resource_path, 'Flexy_air/flexy_air_data.csv'),
-                             'EED_building': os.path.join(resource_path, 'EED_building/EED_building.csv')}
         if self.system in systems_datapaths.keys():
             file_path = systems_datapaths[self.system]
         else:
@@ -325,44 +371,29 @@ class FileDataset(Dataset):
         data = dict()
         for d, k in zip([Y, U, D], ['Y', 'U', 'D']):
             if d is not None:
-                data[k] = d[ninit:self.nsim, :]
+                data[k] = d[self.ninit:self.nsim+self.ninit, :]
         return data
 
 
-class DatasetMPP:
+class DatasetMPP(Dataset):
 
-    def __init__(self, norm=[], device='cpu', sequences=dict(), name='mpp',
-                 savedir='test'):
+    def __init__(self, norm=[], device='cpu', sequences=dict(), name='mpp'):
         """
 
-        :param system: (str) Identifier for dataset.
-        :param nsim: (int) Total number of time steps in data sequence
         :param norm: (str) String of letters corresponding to data to be normalized, e.g. ['Y','U','D']
-        :param batch_type: (str) Type of the batch generator, expects: 'mh' or 'chunk'
-        :param nsteps: (int) N-step prediction horizon for batching data
         :param device: (str) String identifier of device to place data on, e.g. 'cpu', 'cuda:0'
         :param sequences: (dict str: np.array) Dictionary of supplemental data
         :param name: (str) String identifier of dataset type, must be ['static', 'openloop', 'closedloop']
         """
         self.name = name
-        self.savedir = savedir
         self.norm, self.device = norm, device
-        self.min_max_norms, self.dims, self.data = dict(), dict(), dict()
+        self.min_max_norms, self.dims = dict(), dict()
         self.sequences = sequences
         self.add_data(sequences)
         for k, v in self.data.items():
             self.dims[k] = v.shape[1]
         self.data = self.norm_data(self.data, self.norm)
         self.make_train_data()
-
-    def norm_data(self, data, norm):
-        for k, v in data.items():
-            v = v.reshape(v.shape[0], -1)
-            if k in norm:
-                v, vmin, vmax = self.normalize(v)
-                self.min_max_norms.update({k + 'min': vmin, k + 'max': vmax})
-                data[k] = v
-        return data
 
     def make_train_data(self):
         for k, v in self.data.items():
@@ -373,51 +404,13 @@ class DatasetMPP:
             for k, v in dset.items():
                 dset[k] = torch.tensor(v, dtype=torch.float32).to(self.device)
 
-    def add_data(self, sequences, norm=[]):
-        for k in norm:
-            self.norm.append(k)
-        sequences = self.norm_data(sequences, norm)
-        self.data = {**self.data, **sequences}
 
-    def del_data(self, keys):
-        for k in keys:
-            self.data.pop(k)
-
-    def add_variable(self, var: Dict[str, int]):
-        for k, v in var.items():
-            self.dims[k] = v
-
-    def del_variable(self, keys):
-        for k in keys:
-            self.dims.pop(k)
-
-    def normalize(self, M, Mmin=None, Mmax=None):
-            """
-            :param M: (2-d np.array) Data to be normalized
-            :param Mmin: (int) Optional minimum. If not provided is inferred from data.
-            :param Mmax: (int) Optional maximum. If not provided is inferred from data.
-            :return: (2-d np.array) Min-max normalized data
-            """
-            Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
-            Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
-            M_norm = (M - Mmin) / (Mmax - Mmin)
-            return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
-
-    def split_train_test_dev(self, data):
-        """
-
-        :param data: (dict, str: 2-d np.array) Complete dataset. dims=(nsamples, dim)
-        :return: (3-tuple) Dictionarys for train, dev, and test sets
-        """
-        train_data, dev_data, test_data = DataDict(), DataDict(), DataDict()
-        train_idx = (list(data.values())[0].shape[0] // 3)
-        dev_idx = train_idx * 2
-        for k, v in data.items():
-            if data is not None:
-                train_data[k] = v[:train_idx, :]
-                dev_data[k] = v[train_idx:dev_idx, :]
-                test_data[k] = v[dev_idx:, :]
-        return train_data, dev_data, test_data
+resource_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'datasets')
+systems_datapaths = {'tank': os.path.join(resource_path, 'NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat'),
+                             'vehicle3': os.path.join(resource_path, 'NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat'),
+                             'aero': os.path.join(resource_path, 'NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'),
+                             'flexy_air': os.path.join(resource_path, 'Flexy_air/flexy_air_data.csv'),
+                             'EED_building': os.path.join(resource_path, 'EED_building/EED_building.csv')}
 
 
 systems = {'tank': 'datafile',

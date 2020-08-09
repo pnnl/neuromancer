@@ -1,15 +1,21 @@
 # NeuroMANCER
-
+## Neural Modules with Adaptive Nonlinear Constraints and 	Efficient Regularizations
 ![UML diagram](figs/class_diagram.png)
 
 ## Setup
 
 ##### Clone and install neuromancer, linear maps, and emulator packages
 ```console
-user@machine:~$ mkdir neuromancer; cd neuromancer
+user@machine:~$ mkdir ecosystem; cd ecosystem
 user@machine:~$ git clone https://stash.pnnl.gov/scm/deepmpc/neuromancer.git
 user@machine:~$ git clone https://stash.pnnl.gov/scm/deepmpc/psl.git
 user@machine:~$ git clone https://stash.pnnl.gov/scm/deepmpc/slim.git
+
+# Resulting file structure:
+    ecosystem/
+        neuromancer/
+        psl/
+        slim/
 ```
 
 ##### Create the environment via .yml (Linux)
@@ -41,3 +47,22 @@ user@machine:~$ source activate neuromancer
 (neuromancer) user@machine:~$ python setup.py develop
 ```
 
+### TODO
+    [ ] Mini-batching
+    [ ] Learn-rate scheduling
+    [ ] Early stopping
+    [ ] Multiple experiment time-series data
+    [ ] Visualize learnable loss function evolution
+    [ ] Generalize sliding window between 1 and nsteps
+    [ ] Create a minimal working environment for the package and save as a .yml file
+    [ ] Re-implement RNN state preservation for open loop simulation
+    [ ] full trajectory estimators
+    [ ] Update Kalman Filter
+    [ ] Extended Kalman Filter
+    [ ] WandB logger
+    [ ] stream plots for phase spaces of ODEs
+    [ ] generate correlation network - https://python-graph-gallery.com/327-network-from-correlation-matrix/
+    [ ] plot information-theoretic measures for time series data - https: // elife - asu.github.io / PyInform / timeseries.html
+    [ ] Doc strings
+    [ ] Sphinx docs
+    [ ] Package distribution via conda or pypi

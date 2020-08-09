@@ -1,7 +1,5 @@
 """
-
-#   TODO: plot loss function via visualizer
-
+# TODO: Learn rate scheduling
 """
 # python base imports
 from copy import deepcopy

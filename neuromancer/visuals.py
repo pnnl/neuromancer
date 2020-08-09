@@ -1,5 +1,4 @@
 """
-# TODO: add default Closed loop visualizer
 # TODO: VisualizerMPP
 
 """
@@ -69,7 +68,7 @@ class VisualizerTrajectories(Visualizer):
         self.model = model
         self.dataset = dataset
         self.verbosity = verbosity
-        self.plot_keys = set(plot_keys).intersection(set.union(*[set(model.input_keys), set(model.output_keys)]))
+        self.plot_keys = plot_keys
 
     def eval(self, outputs):
         data = {k:  unbatch_data(v).squeeze(1).detach().cpu().numpy()
@@ -85,7 +84,7 @@ class VisualizerClosedLoop(Visualizer):
         self.model = model
         self.dataset = dataset
         self.verbosity = verbosity
-        self.plot_keys = set(plot_keys).intersection(set.union(*[set(model.input_keys), set(model.output_keys)]))
+        self.plot_keys = plot_keys
 
     def eval(self, outputs):
         D = outputs['D'] if 'D' in outputs.keys() else None

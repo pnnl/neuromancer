@@ -61,11 +61,10 @@ def check_keys(k1, k2):
 
 
 class Estimator(nn.Module):
-    def __init__(self, data_dims, nsteps=1, input_keys=['Yp'], name='estimator'):
+    def __init__(self, data_dims, input_keys=['Yp'], name='estimator'):
         super().__init__()
         check_keys(set(input_keys), set(data_dims.keys()))
         self.name = name
-        self.nsteps = nsteps
         self.nx = data_dims['x0'][-1]
 
         input_dims = {k: v for k, v in data_dims.items() if k in input_keys}
@@ -90,7 +89,7 @@ class Estimator(nn.Module):
 
 
 class LinearEstimator(Estimator):
-    def __init__(self, data_dims, nsteps=1, bias=False,
+    def __init__(self, data_dims, bias=False,
                  Linear=slim.Linear, nonlin=nn.Identity, hsizes=[],
                  input_keys=['Yp'], linargs=dict(), name='linear_estim'):
         """
@@ -105,7 +104,7 @@ class LinearEstimator(Estimator):
         :param linargs:
         :param name:
         """
-        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        super().__init__(data_dims, input_keys=input_keys, name=name)
         self.net = Linear(self.input_size, self.output_size, bias=bias, **linargs)
 
 
@@ -113,13 +112,13 @@ class MLPEstimator(Estimator):
     """
 
     """
-    def __init__(self, data_dims, nsteps=1, bias=False,
+    def __init__(self, data_dims, bias=False,
                  Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64],
                  input_keys=['Yp'], linargs=dict(), name='MLP_estim'):
         """
         See base class for arguments
         """
-        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        super().__init__(data_dims, input_keys=input_keys, name=name)
         self.net = blocks.MLP(self.input_size, self.output_size, bias=bias,
                               Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
@@ -128,25 +127,25 @@ class ResMLPEstimator(Estimator):
     """
 
     """
-    def __init__(self, data_dims, nsteps=1, bias=False,
+    def __init__(self, data_dims, bias=False,
                  Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64],
                  input_keys=['Yp'], linargs=dict(), name='ResMLP_estim'):
         """
         see base class for arguments
         """
-        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        super().__init__(data_dims, input_keys=input_keys, name=name)
         self.net = blocks.ResMLP(self.input_size, self.output_size, bias=bias,
                                  Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
 class RNNEstimator(Estimator):
-    def __init__(self, data_dims, nsteps=1, bias=False,
+    def __init__(self, data_dims, bias=False,
                  Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64],
                  input_keys=['Yp'], linargs=dict(), name='RNN_estim'):
         """
         see base class for arguments
         """
-        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        super().__init__(data_dims, input_keys=input_keys, name=name)
         self.input_size = self.sequence_dims_sum
         self.net = blocks.RNN(self.input_size, self.output_size, hsizes=hsizes,
                               bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)

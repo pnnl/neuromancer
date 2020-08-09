@@ -221,9 +221,10 @@ def pltCL(Y, R=None, U=None, D=None, X=None,
                 ax[j, 0].plot(Ymin[:, k], '--', linewidth=3, c='k') if Ymin is not None else None
                 ax[j, 0].plot(Ymax[:, k], '--', linewidth=3, c='k') if Ymax is not None else None
         if notation == 'U':
-            ax[j, 0].plot(array, linewidth=3)
-            ax[j, 0].plot(Umin[:, k], '--', linewidth=3, c='k') if Umin is not None else None
-            ax[j, 0].plot(Umax[:, k], '--', linewidth=3, c='k') if Umax is not None else None
+            for k in range(array.shape[1]):
+                ax[j, 0].plot(array, linewidth=3)
+                ax[j, 0].plot(Umin[:, k], '--', linewidth=3, c='k') if Umin is not None else None
+                ax[j, 0].plot(Umax[:, k], '--', linewidth=3, c='k') if Umax is not None else None
         else:
             ax[j, 0].plot(array, linewidth=3)
         ax[j, 0].grid(True)

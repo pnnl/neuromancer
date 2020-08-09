@@ -46,7 +46,11 @@ from neuromancer.problem import Problem, Objective
 from neuromancer.activations import BLU, SoftExponential
 from neuromancer.simulators import OpenLoopSimulator
 
-
+""" python system_id.py -system flexy_air -epochs 10 -nx_hidden 2
+0 -ssm_type blackbox -state_estimator mlp -nonlinear_map residual_mlp -n_layers 2 -nsim 10000 -nsteps 32 -lr 0.001
+Namespace(Q_con_fdu=0.0, Q_con_x=1.0, Q_dx=0.2, Q_e=1.0, Q_sub=0.2, Q_y=1.0, activation='gelu', bias=False, epochs=10, exp='test', gpu=None, linear_map='linear', location='mlrun
+s', logger='stdout', lr=0.001, n_layers=2, nonlinear_map='residual_mlp', norm=['U', 'D', 'Y'], nsim=10000, nsteps=32
+"""
 def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('-gpu', type=int, default=None,
@@ -54,7 +58,7 @@ def parse():
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
     opt_group.add_argument('-epochs', type=int, default=5000)
-    opt_group.add_argument('-lr', type=float, default=0.003,
+    opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
     #################
@@ -64,7 +68,7 @@ def parse():
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system', type=str, default='Reno_ROM40', choices=list(systems.keys()),
                             help='select particular dataset with keyword')
-    data_group.add_argument('-nsim', type=int, default=3000,
+    data_group.add_argument('-nsim', type=int, default=10000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
                                  'train, dev, and test will be split evenly from contiguous, sequential, '
                                  'non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,'
@@ -78,13 +82,13 @@ def parse():
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
                              default='blocknlin')
-    model_group.add_argument('-nx_hidden', type=int, default=10, help='Number of hidden states per output')
+    model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
-                             choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='linear')
+                             choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                              default='linear')
-    model_group.add_argument('-nonlinear_map', type=str, default='linear',
+    model_group.add_argument('-nonlinear_map', type=str, default='residual_mlp',
                              choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
@@ -179,7 +183,6 @@ if __name__ == '__main__':
                  'rnn': estimators.RNNEstimator,
                  'residual_mlp': estimators.ResMLPEstimator
                  }[args.state_estimator]({**dataset.dims, 'x0': (nx,)},
-                                         nsteps=args.nsteps,
                                          bias=args.bias,
                                          Linear=linmap,
                                          nonlin=activation,

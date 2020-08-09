@@ -1,3 +1,3 @@
 #!/bin/bash
 
-for f in ../deepmpc/*.py; do echo $f; python $f; done
+for f in ../neuromancer/*.py; do echo $f; python $f; done

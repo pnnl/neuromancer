@@ -56,7 +56,7 @@ user@machine:~$ source activate neuromancer
     [ ] Generalize sliding window between 1 and nsteps
     [ ] Create a minimal working environment for the package and save as a .yml file
     [ ] Re-implement RNN state preservation for open loop simulation
-    [ ] full trajectory estimators
+    [ ] full trajectory estimators: This will entail only taking the first N-steps for all the non-static inputs
     [ ] Update Kalman Filter
     [ ] Extended Kalman Filter
     [ ] WandB logger
@@ -66,3 +66,4 @@ user@machine:~$ source activate neuromancer
     [ ] Doc strings
     [ ] Sphinx docs
     [ ] Package distribution via conda or pypi
+    [ ] Look at this testing software to for automatic wider test coverage: https://hypothesis.readthedocs.io/en/latest/

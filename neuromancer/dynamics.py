@@ -45,9 +45,9 @@ class BlockSSM(nn.Module):
         super().__init__()
         self.fx, self.fy, self.fu, self.fd = fx, fy, fu, fd
         self.nx, self.ny, self.nu, self.nd = (self.fx.in_features,
-                                              self.ny.out_features,
-                                              self.fu.in_features,
-                                              self.fd.in_features)
+                                              self.fy.out_features,
+                                              self.fu.in_features if fu is not None else None,
+                                              self.fd.in_features if fd is not None else None)
         self.check_features()
         self.name, self.residual = name, residual
         self.input_keys = self.keys(input_keys)

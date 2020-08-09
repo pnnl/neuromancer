@@ -104,10 +104,13 @@ class Policy(nn.Module):
         :return:
         """
         check_keys(self.input_keys, set(data.keys()))
-        features = data[self.input_keys[0]]
-        for k in self.input_keys[1:]:
-            new_feat = torch.cat([step for step in data[k]], dim=1)
-            features = torch.cat([features, new_feat], dim=1)
+        featlist = []
+        for k in self.input_keys:
+            if len(data[k].shape) == 2:
+                featlist.append(data[k])
+            elif len(data[k].shape) == 3:
+                featlist.append(torch.cat([step for step in data[k]], dim=1))
+        features = torch.cat(featlist, dim=1)
         Uf = self.net(features)
         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
         return {f'U_pred_{self.name}': Uf, f'reg_error_{self.name}': self.net.reg_error()}

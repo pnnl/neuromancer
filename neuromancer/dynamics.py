@@ -44,6 +44,10 @@ class BlockSSM(nn.Module):
         """
         super().__init__()
         self.fx, self.fy, self.fu, self.fd = fx, fy, fu, fd
+        self.nx, self.ny, self.nu, self.nd = (self.fx.in_features,
+                                              self.ny.out_features,
+                                              self.fu.in_features,
+                                              self.fd.in_features)
         self.check_features()
         self.name, self.residual = name, residual
         self.input_keys = self.keys(input_keys)
@@ -114,6 +118,7 @@ class BlackSSM(nn.Module):
         """
         super().__init__()
         self.fxud, self.fy = fxud, fy
+        self.nx, self.ny = self.fxud.out_features, self.fy.out_features
         self.name, self.residual = name, residual
         self.input_keys = BlockSSM.keys(input_keys)
 

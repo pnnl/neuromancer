@@ -2,7 +2,6 @@
 TODO: eval_metric - evaluate closed loop metric based on the simulation results
 use the same interface for objectives as for the problem via _calculate_loss
 TODO: overwrite past after n-steps, continuously in first n steps
-TODO: consistent parameters() call for emulators
 # TODO: finish testing
 
 """
@@ -58,7 +57,6 @@ class ClosedLoopSimulator(Simulator):
         self.emulator = emulator
         self.ninit = 0
         self.nsim = self.dataset.nstep_data['Yf'].shape[1]
-        self.emulator.parameters() if isinstance(emulator, EmulatorBase) else None
         if isinstance(emulator, EmulatorBase):
             self.x0 = self.emulator.x0
         elif isinstance(emulator, nn.Module):
@@ -131,14 +129,14 @@ class ClosedLoopSimulator(Simulator):
                     x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d, x0=x.flatten())
                 elif isinstance(self.emulator, nn.Module):
                     step_data_0 = dict()
-                    step_data_0['U_pred'] = uopt.reshape(uopt.shape[0], uopt.shape[1], 1)
-                    step_data_0['x0'] = x
+                    step_data_0['U_pred_policy'] = uopt.reshape(uopt.shape[0], uopt.shape[1], 1)
+                    step_data_0['x0_estim'] = x
                     for k, v in step_data.items():
                         dat = v[0]
                         step_data_0[k] = dat.reshape(dat.shape[0], dat.shape[1], 1)
                     emulator_output = self.emulator(step_data_0)
-                    x = emulator_output['X_pred'][0]
-                    y = emulator_output['Y_pred'][0].detach().numpy()
+                    x = emulator_output['X_pred_dynamics'][0]
+                    y = emulator_output['Y_pred_dynamics'][0].detach().numpy()
                     if 'Y' in self.dataset.norm:
                         y = min_max_denorm(y, self.dataset.min_max_norms['Ymin'],
                                            self.dataset.min_max_norms['Ymax']) if y is not None else None

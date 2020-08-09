@@ -38,7 +38,6 @@ import slim
 
 # local imports
 from neuromancer.datasets import EmulatorDataset, FileDataset, systems
-import neuromancer.blocks as blocks
 import neuromancer.loggers as loggers
 from neuromancer.visuals import VisualizerClosedLoop
 from neuromancer.activations import BLU, SoftExponential
@@ -64,7 +63,7 @@ def parse():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
-    data_group.add_argument('-system', type=str, default='Reno_ROM40', choices=list(systems.keys()),
+    data_group.add_argument('-system', type=str, default='flexy_air', choices=['flexy_air'],
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=8640,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
@@ -74,36 +73,26 @@ def parse():
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y', 'X'],
                             help='List of sequences to max-min normalize')
+    data_group.add_argument('-model_file', type=str, default='../datasets/Flexy_air/best_model.pth')
+
 
     ##################
-    # MODEL PARAMETERS
-    model_group = parser.add_argument_group('MODEL PARAMETERS')
-    model_group.add_argument('-n_hidden', type=int, default=10, help='Number of hidden states')
-    model_group.add_argument('-n_layers', type=int, default=4,
-                             help='Number of hidden layers of single time-step state transition')
-    model_group.add_argument('-policy', type=str,
-                             choices=['rnn', 'mlp', 'linear'], default='mlp')
-    model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
-                             default='linear')
-    model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
-    model_group.add_argument('-policy_features', nargs='+', default=['x0'], help='Policy features')
-
-    # to recreate model
-    model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
-                             default='blackbox')
-    model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
-    model_group.add_argument('-state_estimator', type=str,
-                             choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
-    model_group.add_argument('-linear_map_model', type=str, choices=list(slim.maps.keys()),
-                             default='linear')
-    model_group.add_argument('-nonlinear_map', type=str, default='residual_mlp',
-                             choices=['mlp', 'rnn', 'linear', 'residual_mlp', 'pytorch_rnn'])
-    model_group.add_argument('-model_file', type=str, default='./flexy_test/best_model.pth')
-    model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
-                             help='Activation function for neural networks')
+    # POLICY PARAMETERS
+    policy_group = parser.add_argument_group('POLICY PARAMETERS')
+    policy_group.add_argument('-policy', type=str,
+                              choices=['rnn', 'mlp', 'linear'], default='mlp')
+    policy_group.add_argument('-n_hidden', type=int, default=10, help='Number of hidden states')
+    policy_group.add_argument('-n_layers', type=int, default=4,
+                              help='Number of hidden layers of single time-step state transition')
+    policy_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
+                              default='linear')
+    policy_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
+    policy_group.add_argument('-policy_features', nargs='+', default=['x0'], help='Policy features')
+    policy_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
+                              help='Activation function for neural networks')
   
     ##################
-    # Weight PARAMETERS
+    # WEIGHT PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
     weight_group.add_argument('-Q_con_y', type=float, default=10.0, help='Output constraints penalty weight.')
     weight_group.add_argument('-Q_con_u', type=float, default=10.0, help='Input constraints penalty weight.')
@@ -146,10 +135,12 @@ def logging(args):
 def dataset_load(args, device):
     if systems[args.system] == 'emulator':
         dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
-                                  norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
+                                  norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir,
+                                  name='closedloop')
     else:
         dataset = FileDataset(system=args.system, nsim=args.nsim,
-                              norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
+                              norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir,
+                              name='closedloop')
     nsim, ny = dataset.data['Y'].shape
     nu = dataset.data['U'].shape[1]
     new_sequences = {'Y': dataset.data['Y'][:, 0].reshape(-1, 1).astype(np.float64),
@@ -172,72 +163,59 @@ if __name__ == '__main__':
     ########## DATA ###############
     ###############################
     dataset = dataset_load(args, device)
+    print(dataset.dims)
 
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################
-    print(dataset.dims)
-    nx = dataset.dims['Y'][-1]*args.nx_hidden
-
-    activation = {'gelu': nn.GELU,
-                  'relu': nn.ReLU,
-                  'blu': BLU,
-                  'softexp': SoftExponential}[args.activation]
-
-    linmap = slim.maps[args.linear_map]
-
-    nonlinmap = {'linear': linmap,
-                 'mlp': blocks.MLP,
-                 'rnn': blocks.RNN,
-                 'pytorch_rnn': blocks.PytorchRNN,
-                 'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
-
+    # Learned dynamics system ID model setup
     best_model = torch.load(args.model_file, pickle_module=dill)
     for k in range(len(best_model.components)):
         if best_model.components[k].name == 'dynamics':
             dynamics_model = best_model.components[k]
-            dynamics_model.input_keys[2] = 'U_pred'
+            dynamics_model.input_keys[2] = 'U_pred_policy'
         if best_model.components[k].name == 'estim':
             estimator = best_model.components[k]
-            estimator.input_keys[0] = 'Y_ctrl_p'
-
-    # don't update learned model parameters
+            estimator.input_keys[0] = 'Y_ctrl_pp'
     dynamics_model.requires_grad_(False)
     estimator.requires_grad_(False)
-
+    # control policy setup
+    activation = {'gelu': nn.GELU,
+                  'relu': nn.ReLU,
+                  'blu': BLU,
+                  'softexp': SoftExponential}[args.activation]
+    linmap = slim.maps[args.linear_map]
     nh_policy = args.n_hidden
     linmap = slim.maps[args.linear_map]
-
-    # control policy setup
     policy = {'linear': policies.LinearPolicy,
               'mlp': policies.MLPPolicy,
               'rnn': policies.RNNPolicy
-              }[args.policy](dataset.dims,
-                             nsteps=args.nsteps,
-                             bias=args.bias,
-                             Linear=linmap,
-                             nonlin=F.gelu,
-                             hsizes=[nh_policy] * args.n_layers,
-                             input_keys=['x0_estim', 'Rf', 'Df'],
-                             linargs=dict(),
-                             name='policy')
+              }[args.policy]({'x0_estim': (60,),  **dataset.dims},
+                              nsteps=args.nsteps,
+                              bias=args.bias,
+                              Linear=linmap,
+                              nonlin=activation,
+                              hsizes=[nh_policy] * args.n_layers,
+                              input_keys=['x0_estim', 'Rf', 'Df'],
+                              linargs=dict(),
+                              name='policy')
 
     components = [estimator, policy, dynamics_model]
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
-    regularization = Objective(['policy_reg_error'], lambda reg: reg,
+    regularization = Objective(['reg_error_policy'], lambda reg: reg,
                                weight=args.Q_sub)
-    reference_loss = Objective(['Y_pred', 'Rf'], F.mse_loss, weight=args.Q_r)
-    control_smoothing = Objective(['U_pred'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_du)
-    observation_lower_bound_penalty = Objective(['Y_pred', 'Y_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
+    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], F.mse_loss, weight=args.Q_r)
+    control_smoothing = Objective(['U_pred_policy'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_du)
+    observation_lower_bound_penalty = Objective(['Y_pred_dynamics', 'Y_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
                                                 weight=args.Q_con_y)
-    observation_upper_bound_penalty = Objective(['Y_pred', 'Y_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
+    observation_upper_bound_penalty = Objective(['Y_pred_dynamics', 'Y_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                                 weight=args.Q_con_y)
-    inputs_lower_bound_penalty = Objective(['U_pred', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
+    inputs_lower_bound_penalty = Objective(['U_pred_policy', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
                                            weight=args.Q_con_u)
-    inputs_upper_bound_penalty = Objective(['U_pred', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
+    inputs_upper_bound_penalty = Objective(['U_pred_policy', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                            weight=args.Q_con_u)
 
     objectives = [regularization, reference_loss]
@@ -251,8 +229,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     plot_keys = ['Y_pred', 'U_pred']  # variables to be plotted
     visualizer = VisualizerClosedLoop(dataset, dynamics_model, plot_keys, args.verbosity)
-    emulator = psl.systems[args.system]() if args.system_data == 'emulator' \
-        else dynamics_model if args.system_data == 'datafile' else None
+    emulator = dynamics_model
     simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
                       simulator=simulator, epochs=args.epochs)

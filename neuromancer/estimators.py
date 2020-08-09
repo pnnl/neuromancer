@@ -227,13 +227,13 @@ if __name__ == '__main__':
 
     for bias in [True, False]:
         for est in estimators:
-            e = est(data_dims, nsteps=N, input_keys=input_keys)
+            e = est(data_dims, input_keys=input_keys)
             e_out = e(data)
             for k, v in e_out.items():
                 print(f'{k}: {v.shape}')
             for lin in set(slim.maps.values()) - slim.square_maps:
                 print(lin)
-                e = est(data_dims, nsteps=N, input_keys=input_keys, bias=bias, Linear=lin)
+                e = est(data_dims, input_keys=input_keys, bias=bias, Linear=lin)
                 e_out = e(data)
                 for k, v in e_out.items():
                     print(f'{k}: {v.shape}')

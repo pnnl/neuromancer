@@ -51,6 +51,7 @@ from neuromancer.simulators import OpenLoopSimulator
 Namespace(Q_con_fdu=0.0, Q_con_x=1.0, Q_dx=0.2, Q_e=1.0, Q_sub=0.2, Q_y=1.0, activation='gelu', bias=False, epochs=10, exp='test', gpu=None, linear_map='linear', location='mlrun
 s', logger='stdout', lr=0.001, n_layers=2, nonlinear_map='residual_mlp', norm=['U', 'D', 'Y'], nsim=10000, nsteps=32
 """
+
 def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('-gpu', type=int, default=None,

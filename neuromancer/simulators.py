@@ -204,5 +204,3 @@ if __name__ == '__main__':
             dataset = FileDataset(system)
     nsim, ny = dataset.data['Y'].shape
     nu = dataset.data['U'].shape[1]
-    dataset.make_nstep()
-    dataset.make_loop()

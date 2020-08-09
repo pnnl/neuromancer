@@ -461,6 +461,4 @@ if __name__ == '__main__':
     nsim, ny = dataset.data['Y'].shape
     new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
     dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
-    dataset.make_nstep()
-    dataset.make_loop()
 

@@ -1,3 +1,3 @@
 # NeuroMANCER
 
-![UML diagram](figs/class_diagram.png)
+![UML diagram](../figs/class_diagram.png)

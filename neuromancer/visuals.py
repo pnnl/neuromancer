@@ -39,26 +39,32 @@ class VisualizerOpen(Visualizer):
             self.anime(outputs['loop_dev_Y_pred_dynamics'], outputs['loop_dev_Yf'])
 
     def train_output(self):
-        self.anime.make_and_save(os.path.join(self.savedir, 'eigen_animation.mp4'))
+        try:
+            self.anime.make_and_save(os.path.join(self.savedir, 'eigen_animation.mp4'))
+        except ValueError:
+            pass
         return dict()
 
     def eval(self, outputs):
-        dsets = ['train', 'dev', 'test']
-        ny = self.dataset.dims['Yf'][-1]
-        Ypred = [unbatch_data(outputs[f'nstep_{dset}_Y_pred_dynamics']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
-        Ytrue = [unbatch_data(outputs[f'nstep_{dset}_Yf']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
-        plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
-                   figname=os.path.join(self.savedir, 'nstep_OL.png'))
+        try:
+            dsets = ['train', 'dev', 'test']
+            ny = self.dataset.dims['Yf'][-1]
+            Ypred = [unbatch_data(outputs[f'nstep_{dset}_Y_pred_dynamics']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
+            Ytrue = [unbatch_data(outputs[f'nstep_{dset}_Yf']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
+            plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
+                       figname=os.path.join(self.savedir, 'nstep_OL.png'))
 
-        Ypred = [outputs[f'loop_{dset}_Y_pred_dynamics'].reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
-        Ytrue = [outputs[f'loop_{dset}_Yf'].reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
-        plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
-                   figname=os.path.join(self.savedir, 'open_OL.png'))
+            Ypred = [outputs[f'loop_{dset}_Y_pred_dynamics'].reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
+            Ytrue = [outputs[f'loop_{dset}_Yf'].reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
+            plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
+                       figname=os.path.join(self.savedir, 'open_OL.png'))
 
-        plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0),
-                              np.concatenate(Ypred).transpose(1, 0),
-                              figname=os.path.join(self.savedir, f'open_movie.mp4'),
-                              freq=self.verbosity)
+            plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0),
+                                  np.concatenate(Ypred).transpose(1, 0),
+                                  figname=os.path.join(self.savedir, f'open_movie.mp4'),
+                                  freq=self.verbosity)
+        except ValueError:
+            pass
         return dict()
 
 

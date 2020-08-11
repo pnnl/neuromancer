@@ -1,8 +1,4 @@
 """
-Classes in the module implement the Component interface.
-# TODO: Describe Component interface
-# TODO: Re-implement RNN state preservation for open loop simulation
-
 
 state space models (SSM)
 x: states

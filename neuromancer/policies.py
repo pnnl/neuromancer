@@ -1,6 +1,4 @@
 """
-TODO: Better high level comments
-# TODO: implement LQR policy, similar structure to Linear Kalman Filter
 
 policies for SSM models
 x: states
@@ -69,51 +67,120 @@ class SolutionMap(nn.Module):
         return {f'z_{self.name}': Z, f'reg_error_{self.name}': self.net.reg_error()}
 
 
+# class Policy(nn.Module):
+#     def __init__(self, data_dims, nsteps=1, input_keys=['x0'], name='policy'):
+#         """
+#
+#         :param data_dims:
+#         :param nsteps:
+#         :param input_keys:
+#         :param name:
+#         """
+#         super().__init__()
+#         check_keys(set(input_keys), set(data_dims.keys()))
+#         self.name = name
+#         self.nsteps = nsteps
+#         self.nu = data_dims['U'][-1]
+#         data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
+#         self.sequence_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 2)
+#         self.static_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 1)
+#         self.input_size = self.static_dims_sum + nsteps * self.sequence_dims_sum
+#         self.output_size = nsteps * self.nu
+#         self.input_keys = input_keys
+#
+#     def reg_error(self):
+#         """
+#
+#         :return:
+#         """
+#         return self.net.reg_error()
+#
+#     def forward(self, data):
+#         """
+#
+#         :param data:
+#         :return:
+#         """
+#         check_keys(self.input_keys, set(data.keys()))
+#         featlist = []
+#         for k in self.input_keys:
+#             if len(data[k].shape) == 2:
+#                 featlist.append(data[k])
+#             elif len(data[k].shape) == 3:
+#                 featlist.append(torch.cat([step for step in data[k]], dim=1))
+#         features = torch.cat(featlist, dim=1)
+#         print('features', features.shape)
+#         print('input_size', self.input_size)
+#         Uf = self.net(features)
+#         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
+#         return {f'U_pred_{self.name}': Uf, f'reg_error_{self.name}': self.net.reg_error()}
+#
+
 class Policy(nn.Module):
-    def __init__(self, data_dims, nsteps=1, input_keys=['x0'], name='policy'):
+    def __init__(self, data_dims, nsteps=1, window_size=1, input_keys=['x0'], name='policy'):
         """
 
-        :param data_dims:
-        :param nsteps:
-        :param input_keys:
-        :param name:
+        :param data_dims: dict {str: tuple of ints) Data structure describing dimensions of input variables
+        :param nsteps: (int) Prediction horizon
+        :param input_keys: (List of str) List of input variable names
+        :param name: (str) Name for tracking output of module.
         """
         super().__init__()
         check_keys(set(input_keys), set(data_dims.keys()))
-        self.name = name
-        self.nsteps = nsteps
+        self.name, self.data_dims = name, data_dims
+        self.nsteps, self.window_size = nsteps, window_size
+        self.data_dims = data_dims
         self.nu = data_dims['U'][-1]
         data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
         self.sequence_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 2)
         self.static_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 1)
-        self.input_size = self.static_dims_sum + nsteps * self.sequence_dims_sum
+        self.input_size = self.static_dims_sum + window_size * self.sequence_dims_sum
         self.output_size = nsteps * self.nu
         self.input_keys = input_keys
 
     def reg_error(self):
         """
 
-        :return:
+        :return: A scalar value of regularization error associated with submodules
         """
-        return self.net.reg_error()
+        error = sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
+        if not isinstance(error, torch.Tensor):
+            error = torch.Tensor(error)
+        return error
 
-    def forward(self, data):
+    def features(self, data):
         """
+        Compile a feature vector using data features corresponding to self.input_keys
 
-        :param data:
-        :return:
+        :param data: (dict {str: torch.Tensor})
+        :return: (torch.Tensor)
         """
         check_keys(self.input_keys, set(data.keys()))
         featlist = []
         for k in self.input_keys:
+            assert self.data_dims[k][-1] == data[k].shape[-1], \
+                f'Input feature {k} expected {self.data_dims[k][-1]} but got {data[k].shape[-1]}'
             if len(data[k].shape) == 2:
                 featlist.append(data[k])
             elif len(data[k].shape) == 3:
-                featlist.append(torch.cat([step for step in data[k]], dim=1))
-        features = torch.cat(featlist, dim=1)
+                assert len(data[k]) >= self.nsteps, \
+                    f'Sequence too short for policy calculation. Should be at least {self.nsteps}'
+                featlist.append(
+                    torch.cat([step for step in data[k][self.nsteps - self.window_size:self.nsteps]], dim=1))
+            else:
+                raise ValueError(f'Input {k} has {len(data[k].shape)} dimensions. Should have 2 or 3 dimensions')
+        return torch.cat(featlist, dim=1)
+
+    def forward(self, data):
+        """
+
+        :param data: (dict {str: torch.tensor)}
+        :return: (dict {str: torch.tensor)}
+        """
+        features = self.features(data)
         Uf = self.net(features)
         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
-        return {f'U_pred_{self.name}': Uf, f'reg_error_{self.name}': self.net.reg_error()}
+        return {f'U_pred_{self.name}': Uf, f'reg_error_{self.name}': self.reg_error()}
 
 
 class LinearPolicy(Policy):

@@ -1,8 +1,4 @@
 """
-# TODO: stream plots for phase spaces of ODEs
-# TODO: generate correlation network - https://python-graph-gallery.com/327-network-from-correlation-matrix/
-# TODO: plot information-theoretic measures for time series data - https: // elife - asu.github.io / PyInform / timeseries.html
-
 
 """
 

@@ -1,7 +1,6 @@
 # machine learning/data science imports
 import torch
 import torch.nn as nn
-# TODO: Test evolution of function curve over optimization starting at identity
 
 
 class SoftExponential(nn.Module):

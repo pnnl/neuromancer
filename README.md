@@ -54,16 +54,19 @@ user@machine:~$ source activate neuromancer
     [ ] Multiple experiment time-series data
     [ ] Visualize learnable loss function evolution
     [ ] Generalize sliding window between 1 and nsteps
-    [ ] Create a minimal working environment for the package and save as a .yml file
     [ ] Re-implement RNN state preservation for open loop simulation
     [ ] full trajectory estimators: This will entail only taking the first N-steps for all the non-static inputs
-    [ ] Update Kalman Filter
-    [ ] Extended Kalman Filter
+    [ ] Pytorch Extended Kalman Filter: 
+            https://filterpy.readthedocs.io/en/latest/_modules/filterpy/kalman/EKF.html
+    [ ] Implement LQR policy, similar structure to Linear Kalman Filter: 
+            Scipy reference https://nbviewer.jupyter.org/url/argmin.net/code/little_LQR_demo.ipynb
     [ ] WandB logger
     [ ] stream plots for phase spaces of ODEs
     [ ] generate correlation network - https://python-graph-gallery.com/327-network-from-correlation-matrix/
-    [ ] plot information-theoretic measures for time series data - https: // elife - asu.github.io / PyInform / timeseries.html
+    [ ] plot information-theoretic measures for time series data - 
+            https: // elife - asu.github.io / PyInform / timeseries.html
     [ ] Doc strings
     [ ] Sphinx docs
     [ ] Package distribution via conda or pypi
-    [ ] Look at this testing software to for automatic wider test coverage: https://hypothesis.readthedocs.io/en/latest/
+    [ ] Look at this testing software to for automatic wider test coverage: 
+            https://hypothesis.readthedocs.io/en/latest/

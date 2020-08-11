@@ -87,7 +87,7 @@ def parse():
     policy_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                               default='linear')
     policy_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
-    policy_group.add_argument('-policy_features', nargs='+', default=['x0'], help='Policy features')
+    policy_group.add_argument('-policy_features', nargs='+', default=['x0_estim', 'Rf', 'Df'], help='Policy features')
     policy_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
                               help='Activation function for neural networks')
   
@@ -103,7 +103,7 @@ def parse():
     ####################
     # LOGGING PARAMETERS
     log_group = parser.add_argument_group('LOGGING PARAMETERS')
-    log_group.add_argument('-savedir', type=str, default='test',
+    log_group.add_argument('-savedir', type=str, default='test_control',
                            help="Where should your trained model and plots be saved (temp)")
     log_group.add_argument('-verbosity', type=int, default=1,
                            help="How many epochs in between status updates")
@@ -177,6 +177,7 @@ if __name__ == '__main__':
         if best_model.components[k].name == 'estim':
             estimator = best_model.components[k]
             estimator.input_keys[0] = 'Y_ctrl_pp'
+            estimator.data_dims = dataset.dims
     dynamics_model.requires_grad_(False)
     estimator.requires_grad_(False)
     # control policy setup
@@ -190,13 +191,13 @@ if __name__ == '__main__':
     policy = {'linear': policies.LinearPolicy,
               'mlp': policies.MLPPolicy,
               'rnn': policies.RNNPolicy
-              }[args.policy]({'x0_estim': (60,),  **dataset.dims},
+              }[args.policy]({'x0_estim': (30,),  **dataset.dims},
                               nsteps=args.nsteps,
                               bias=args.bias,
                               Linear=linmap,
                               nonlin=activation,
                               hsizes=[nh_policy] * args.n_layers,
-                              input_keys=['x0_estim', 'Rf', 'Df'],
+                              input_keys=args.policy_features,
                               linargs=dict(),
                               name='policy')
 
@@ -207,16 +208,17 @@ if __name__ == '__main__':
     ##########################################
     regularization = Objective(['reg_error_policy'], lambda reg: reg,
                                weight=args.Q_sub)
-    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], F.mse_loss, weight=args.Q_r)
-    control_smoothing = Objective(['U_pred_policy'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_du)
+    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], F.mse_loss, weight=args.Q_r, name='ref_loss')
+    control_smoothing = Objective(['U_pred_policy'], lambda x: F.mse_loss(x[1:], x[:-1]),
+                                  weight=args.Q_du, name='control_smoothing')
     observation_lower_bound_penalty = Objective(['Y_pred_dynamics', 'Y_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
-                                                weight=args.Q_con_y)
+                                                weight=args.Q_con_y, name='observation_lower_bound')
     observation_upper_bound_penalty = Objective(['Y_pred_dynamics', 'Y_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
-                                                weight=args.Q_con_y)
+                                                weight=args.Q_con_y, name='observation_upper_bound')
     inputs_lower_bound_penalty = Objective(['U_pred_policy', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
-                                           weight=args.Q_con_u)
+                                           weight=args.Q_con_u, name='input_lower_bound')
     inputs_upper_bound_penalty = Objective(['U_pred_policy', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
-                                           weight=args.Q_con_u)
+                                           weight=args.Q_con_u, name='input_upper_bound')
 
     objectives = [regularization, reference_loss]
     constraints = [observation_lower_bound_penalty, observation_upper_bound_penalty,

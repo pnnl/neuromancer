@@ -126,15 +126,14 @@ def parse():
 
 def logging(args):
     if args.logger == 'mlflow':
-        Logger = loggers.MLFlowLogger(savedir=args.savedir, verbosity=args.verbosity,
+        Logger = loggers.MLFlowLogger(args=args, savedir=args.savedir, verbosity=args.verbosity,
                                       stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
                                               'nstep_dev_ref_loss', 'loop_dev_ref_loss'))
         
     else:
-        Logger = loggers.BasicLogger(savedir=args.savedir, verbosity=args.verbosity,
+        Logger = loggers.BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity,
                                      stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
                                      'nstep_dev_ref_loss', 'loop_dev_ref_loss'))
-    Logger.log_parameters(args)
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
     return Logger, device
 
@@ -154,6 +153,7 @@ if __name__ == '__main__':
     ########## LOGGING ############
     ###############################
     args = parse().parse_args()
+    print({k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)})
     logger, device = logging(args)
 
     ###############################

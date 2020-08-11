@@ -1,6 +1,4 @@
 """
-# TODO Mini-batching
-# TODO: Generalize batching with sliding window size. 1 = moving horizon, Nstep = contiguous chunks, generally 1< k < Nstep for midstep
 
 """
 # python base imports

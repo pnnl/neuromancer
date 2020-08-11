@@ -1,5 +1,5 @@
 """
-# TODO: Finish wandb logger
+
 """
 # python base imports
 import time

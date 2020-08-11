@@ -1,5 +1,5 @@
 """
-# TODO: Learn rate scheduling
+
 """
 # python base imports
 from copy import deepcopy
@@ -25,7 +25,7 @@ class Trainer:
 
     def __init__(self, problem: Problem, dataset: Dataset, optimizer: torch.optim.Optimizer,
                  logger: BasicLogger = BasicLogger(), visualizer=Visualizer(), simulator=None, epochs=1000,
-                 eval_metric='loop_dev_loss'):
+                 eval_metric='loop_dev_loss', patience=5):
         self.model = problem
         self.optimizer = optimizer
         self.dataset = dataset
@@ -35,6 +35,8 @@ class Trainer:
         self.epochs = epochs
         self.logger.log_weights(self.model)
         self.eval_metric = eval_metric
+        self.patience = patience
+        self.badcount = 0
 
     ########################################
     ############# TRAIN LOOP ###############
@@ -53,11 +55,16 @@ class Trainer:
                 self.model.eval()
                 dev_data_output = self.model(self.dataset.dev_data)
                 dev_sim_output = self.simulator.dev_eval()
-                self.logger.log_metrics({**dev_data_output, **dev_sim_output, **output}, step=i)
                 if dev_sim_output[self.eval_metric] < best_devloss:
                     best_model = deepcopy(self.model.state_dict())
                     best_devloss = dev_sim_output[self.eval_metric]
+                    self.badcount = 0
+                else:
+                    self.badcount += 1
+                self.logger.log_metrics({**dev_data_output, **dev_sim_output, **output}, step=i)
                 self.visualizer.train_plot({**dev_data_output, **dev_sim_output}, i)
+            if self.badcount > self.patience:
+                break
 
         plots = self.visualizer.train_output()
         self.logger.log_artifacts({'best_model_stat_dict.pth': best_model, 'best_model.pth': self.model, **plots})

@@ -14,7 +14,7 @@ options = {k: v.choices for k, v in p._option_string_actions.items() if v.choice
 
 for k, v in options.items():
     for opt in v:
-        # print(k, opt)
+        print(k, opt)
         code = os.system(f'python ../neuromancer/train_scripts/system_id.py -norm Y '
                          f'{k} {opt} -epochs 1 -nsteps 2 -verbosity 1 -nsim 24')
         assert code == 0, f'Failure on flag {k} with value {opt}.'

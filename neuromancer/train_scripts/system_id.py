@@ -184,13 +184,13 @@ if __name__ == '__main__':
                  'rnn': estimators.RNNEstimator,
                  'residual_mlp': estimators.ResMLPEstimator
                  }[args.state_estimator]({**dataset.dims, 'x0': (nx,)},
-                                         bias=args.bias,
-                                         Linear=linmap,
-                                         nonlin=activation,
-                                         hsizes=[nx] * args.n_layers,
-                                         input_keys=['Yp'],
-                                         linargs=dict(),
-                                         name='estim')
+                                          bias=args.bias,
+                                          Linear=linmap,
+                                          nonlin=activation,
+                                          hsizes=[nx] * args.n_layers,
+                                          input_keys=['Yp'],
+                                          linargs=dict(),
+                                          name='estim')
 
     dynamics_model = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,

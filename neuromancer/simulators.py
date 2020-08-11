@@ -2,7 +2,6 @@
 TODO: eval_metric - evaluate closed loop metric based on the simulation results
 use the same interface for objectives as for the problem via _calculate_loss
 TODO: overwrite past after n-steps, continuously in first n steps
-# TODO: finish testing
 
 """
 

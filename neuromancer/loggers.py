@@ -17,7 +17,7 @@ class BasicLogger:
                  stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
                          'nstep_dev_ref_loss', 'loop_dev_ref_loss')):
         """
-
+        :param args: Namespace returned by argparse.ArgumentParser.parse_args()
         :param savedir: Folder to write results to.
         :param verbosity: Print to stdout every verbosity epochs
         :param stdout: Metrics to print to stdout. These should correspond to keys in the output dictionary of the Problem
@@ -35,7 +35,7 @@ class BasicLogger:
         """
         Pring experiment parameters to stdout
 
-        :param args: dict
+        :param args: Namespace returned by argparse.ArgumentParser.parse_args()
         """
         print(self.args)
 
@@ -53,8 +53,8 @@ class BasicLogger:
         """
         Print metrics to stdout.
 
-        :param output: dict {str: tensor} Will only record 0d tensors (scalars)
-        :param step: Epoch of training
+        :param output: (dict {str: tensor}) Will only record 0d tensors (scalars)
+        :param step: (int) Epoch of training
         """
         if step is None:
             step = self.step
@@ -86,32 +86,13 @@ class BasicLogger:
         pass
 
 
-# class WandBLogger(BasicLogger):
-#     def __init__(self, savedir, verbosity):
-#         super().__init__(savedir, verbosity)
-#
-#     def log_metrics(self, output, step):
-#         super().log_metrics(output, step)
-#         for k, v in output:
-#             if isinstance(v.item(), numbers.Number):
-#                 wandb.log({k: v.item()}, step=step)
-#
-#     def log_weights(self, model):
-#         nweights = super().log_weights(model)
-#         wandb.config({'nparams': nweights})
-#
-#     def log_artifacts(self, artifacts):
-#         super().log_artifacts(artifacts)
-#         wandb.save(os.path.join(self.savedir, '*'))
-
-
 class MLFlowLogger(BasicLogger):
     def __init__(self, args=None, savedir='test', verbosity=1,
                  stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
                          'nstep_dev_ref_loss', 'loop_dev_ref_loss')):
         """
 
-        :param args: Experiment parameters in a dictionary
+        :param args: Namespace returned by argparse.ArgumentParser.parse_args()
         :param savedir: Unique folder name to temporarily save artifacts
         :param verbosity: How often to print to stdout
         :param stdout: What variables to print to stdout
@@ -150,7 +131,7 @@ class MLFlowLogger(BasicLogger):
         for k, v in output.items():
             try:
                 mlflow.log_metric(k, v.item(), step=step)
-            except: # TODO catch only the exceptions we intend to here
+            except:
                 pass
 
     def log_artifacts(self, artifacts):
@@ -167,4 +148,5 @@ class MLFlowLogger(BasicLogger):
         Remove temporary files from file system
         """
         os.system(f'rm -rf {self.savedir}')
+        mlflow.end_run()
 

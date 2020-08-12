@@ -1,5 +1,4 @@
 """
-# TODO: VisualizerMPP
 
 """
 # python base imports
@@ -27,25 +26,52 @@ class Visualizer:
 
 class VisualizerOpen(Visualizer):
 
-    def __init__(self, dataset, model, verbosity, savedir):
+    def __init__(self, dataset, model, verbosity, savedir, training_visuals=False):
+        """
+
+        :param dataset:
+        :param model:
+        :param verbosity:
+        :param savedir:
+        :param training_visuals:
+        """
         self.model = model
         self.dataset = dataset
         self.verbosity = verbosity
-        self.anime = plot.Animator(dataset.dev_loop['Yp'].detach().cpu().numpy(), model)
+        if training_visuals:
+            self.anime = plot.Animator(dataset.dev_loop['Yp'].detach().cpu().numpy(), model)
+        self.training_visuals = training_visuals
         self.savedir = savedir
 
     def train_plot(self, outputs, epoch):
-        if epoch % self.verbosity == 0:
-            self.anime(outputs['loop_dev_Y_pred_dynamics'], outputs['loop_dev_Yf'])
+        """
+
+        :param outputs:
+        :param epoch:
+        :return:
+        """
+        if self.training_visuals:
+            if epoch % self.verbosity == 0:
+                self.anime(outputs['loop_dev_Y_pred_dynamics'], outputs['loop_dev_Yf'])
 
     def train_output(self):
-        try:
-            self.anime.make_and_save(os.path.join(self.savedir, 'eigen_animation.mp4'))
-        except ValueError:
-            pass
+        """
+
+        :return:
+        """
+        if self.training_visuals:
+            try:
+                self.anime.make_and_save(os.path.join(self.savedir, 'eigen_animation.mp4'))
+            except ValueError:
+                pass
         return dict()
 
     def eval(self, outputs):
+        """
+
+        :param outputs:
+        :return:
+        """
         try:
             dsets = ['train', 'dev', 'test']
             ny = self.dataset.dims['Yf'][-1]

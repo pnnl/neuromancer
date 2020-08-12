@@ -39,10 +39,12 @@ class TimeDelayEstimator(nn.Module):
 
         :param data_dims: dict {str: tuple of ints) Data structure describing dimensions of input variables
         :param nsteps: (int) Prediction horizon
+        :param window_size: (int) Size of sequence history to use as input to the state estimator.
         :param input_keys: (List of str) List of input variable names
         :param name: (str) Name for tracking output of module.
         """
         super().__init__()
+        assert window_size <= nsteps, f'Window size {window_size} longer than sequence length {nsteps}.'
         check_keys(set(input_keys), set(data_dims.keys()))
         self.name, self.data_dims = name, data_dims
         self.nsteps, self.window_size = nsteps, window_size

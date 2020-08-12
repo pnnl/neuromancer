@@ -31,10 +31,15 @@ class SolutionMap(nn.Module):
                  Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64], linargs=dict(), name='sol_map'):
         """
         Solution map for multiparametric programming problems
-        :param data_dims:
-        :param input_keys:
-        :param output_keys:
-        :param name:
+
+        :param data_dims: dict {str: tuple of ints) Data structure describing dimensions of input variables
+        :param input_keys: (List of str) List of input variable names
+        :param bias: (bool) Whether to use bias in MLP
+        :param Linear: (class) slim.Linear class for subcomponents
+        :param nonlin: (class) Pytorch elementwise activation function class for subcomponents
+        :param hsizes: (List [int]) Sizes of hidden layers in MLP
+        :param linargs: (dict) Arguments for instantiating linear layers.
+        :param name: (str) Name for tracking output of module.
         """
         super().__init__()
         check_keys(set(input_keys), set(data_dims.keys()))
@@ -49,15 +54,15 @@ class SolutionMap(nn.Module):
     def reg_error(self):
         """
 
-        :return:
+        :return: 0-dimensional torch.Tensor
         """
         return self.net.reg_error()
 
     def forward(self, data):
         """
 
-        :param data:
-        :return:
+        :param data: (dict {str: torch.Tensor})
+        :return: (torch.Tensor)
         """
         check_keys(self.input_keys, set(data.keys()))
         features = data[self.input_keys[0]]
@@ -67,57 +72,8 @@ class SolutionMap(nn.Module):
         return {f'z_{self.name}': Z, f'reg_error_{self.name}': self.net.reg_error()}
 
 
-# class Policy(nn.Module):
-#     def __init__(self, data_dims, nsteps=1, input_keys=['x0'], name='policy'):
-#         """
-#
-#         :param data_dims:
-#         :param nsteps:
-#         :param input_keys:
-#         :param name:
-#         """
-#         super().__init__()
-#         check_keys(set(input_keys), set(data_dims.keys()))
-#         self.name = name
-#         self.nsteps = nsteps
-#         self.nu = data_dims['U'][-1]
-#         data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
-#         self.sequence_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 2)
-#         self.static_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 1)
-#         self.input_size = self.static_dims_sum + nsteps * self.sequence_dims_sum
-#         self.output_size = nsteps * self.nu
-#         self.input_keys = input_keys
-#
-#     def reg_error(self):
-#         """
-#
-#         :return:
-#         """
-#         return self.net.reg_error()
-#
-#     def forward(self, data):
-#         """
-#
-#         :param data:
-#         :return:
-#         """
-#         check_keys(self.input_keys, set(data.keys()))
-#         featlist = []
-#         for k in self.input_keys:
-#             if len(data[k].shape) == 2:
-#                 featlist.append(data[k])
-#             elif len(data[k].shape) == 3:
-#                 featlist.append(torch.cat([step for step in data[k]], dim=1))
-#         features = torch.cat(featlist, dim=1)
-#         print('features', features.shape)
-#         print('input_size', self.input_size)
-#         Uf = self.net(features)
-#         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
-#         return {f'U_pred_{self.name}': Uf, f'reg_error_{self.name}': self.net.reg_error()}
-#
-
 class Policy(nn.Module):
-    def __init__(self, data_dims, nsteps=1, window_size=1, input_keys=['x0'], name='policy'):
+    def __init__(self, data_dims, nsteps=1, input_keys=['x0'], name='policy'):
         """
 
         :param data_dims: dict {str: tuple of ints) Data structure describing dimensions of input variables
@@ -128,13 +84,13 @@ class Policy(nn.Module):
         super().__init__()
         check_keys(set(input_keys), set(data_dims.keys()))
         self.name, self.data_dims = name, data_dims
-        self.nsteps, self.window_size = nsteps, window_size
+        self.nsteps = nsteps
         self.data_dims = data_dims
         self.nu = data_dims['U'][-1]
         data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
         self.sequence_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 2)
         self.static_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 1)
-        self.input_size = self.static_dims_sum + window_size * self.sequence_dims_sum
+        self.input_size = self.static_dims_sum + nsteps * self.sequence_dims_sum
         self.output_size = nsteps * self.nu
         self.input_keys = input_keys
 
@@ -166,7 +122,7 @@ class Policy(nn.Module):
                 assert len(data[k]) >= self.nsteps, \
                     f'Sequence too short for policy calculation. Should be at least {self.nsteps}'
                 featlist.append(
-                    torch.cat([step for step in data[k][self.nsteps - self.window_size:self.nsteps]], dim=1))
+                    torch.cat([step for step in data[k][:self.nsteps]], dim=1))
             else:
                 raise ValueError(f'Input {k} has {len(data[k].shape)} dimensions. Should have 2 or 3 dimensions')
         return torch.cat(featlist, dim=1)
@@ -188,7 +144,15 @@ class LinearPolicy(Policy):
                  Linear=slim.Linear, nonlin=None, hsizes=None,
                  input_keys=['x0'], linargs=dict(), name='linear_policy'):
         """
-        See base class for arguments
+        :param data_dims: dict {str: tuple of ints) Data structure describing dimensions of input variables
+        :param nsteps: (int) Prediction horizon
+        :param bias: (bool) Whether to use bias in MLP
+        :param Linear: (class) slim.Linear class for subcomponents
+        :param nonlin: (class) Pytorch elementwise activation function class for subcomponents
+        :param hsizes: (List [int]) Sizes of hidden layers in MLP
+        :param input_keys: (List of str) List of input variable names
+        :param linargs: (dict) Arguments for instantiating linear layers.
+        :param name: (str) Name for tracking output of module.
         """
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
         self.net = Linear(self.input_size, self.output_size, bias=bias, **linargs)
@@ -200,7 +164,7 @@ class MLPPolicy(Policy):
                  input_keys=['x0'], linargs=dict(), name='MLP_policy'):
         """
 
-        See base class for arguments
+        See LinearPolicy for arguments
         """
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
         self.net = blocks.MLP(insize=self.input_size, outsize=self.output_size, bias=bias,
@@ -212,7 +176,7 @@ class RNNPolicy(Policy):
                  Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64],
                  input_keys=['x0'], linargs=dict(), name='RNN_policy'):
         """
-        See arguments for policy
+        See LinearPolicy for arguments
         """
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
         self.input_size = self.sequence_dims_sum + self.static_dims_sum
@@ -222,13 +186,14 @@ class RNNPolicy(Policy):
     def forward(self, data):
         """
 
-        :param data:
-        :return:
+        :param data: (dict {str: torch.tensor)}
+        :return: (dict {str: torch.tensor)}
         """
         check_keys(self.input_keys, set(data.keys()))
-        features = torch.cat([data[k] for k in self.input_keys[1:]], dim=2)
-        x_feats = torch.stack([data[self.input_keys[0]] for d in range(features.shape[0])], dim=0)
-        features = torch.cat([features, x_feats], dim=2)
+        features = torch.cat([data[k][:self.nsteps] for k in self.input_keys if len(data[k].shape) == 3], dim=2)
+        static_feats = torch.cat([torch.stack([data[k] for d in range(self.nsteps)], dim=0)
+                                  for k in self.input_keys if len(data[k].shape) == 2], dim=2)
+        features = torch.cat([features, static_feats], dim=2)
         Uf = self.net(features)
         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
         return {f'U_pred_{self.name}': Uf, f'reg_error_{self.name}': self.net.reg_error()}

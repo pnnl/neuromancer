@@ -52,6 +52,7 @@ Namespace(Q_con_fdu=0.0, Q_con_x=1.0, Q_dx=0.2, Q_e=1.0, Q_sub=0.2, Q_y=1.0, act
 s', logger='stdout', lr=0.001, n_layers=2, nonlinear_map='residual_mlp', norm=['U', 'D', 'Y'], nsim=10000, nsteps=32
 """
 
+
 def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('-gpu', type=int, default=None,
@@ -87,6 +88,8 @@ def parse():
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
+    model_group.add_argument('-estimator_input_window', type=int, default=1,
+                             help="Number of previous time steps measurements to include in state estimator input")
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                              default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='residual_mlp',
@@ -121,6 +124,8 @@ def parse():
                            help='Some name to tell what the experiment run was about.')
     log_group.add_argument('-logger', type=str, choices=['mlflow', 'stdout'], default='stdout',
                            help='Logging setup to use')
+    log_group.add_argument('-train_visuals', action='store_true',
+                           help='Whether to create visuals, e.g. animations during training loop')
     return parser
 
 
@@ -184,13 +189,15 @@ if __name__ == '__main__':
                  'rnn': estimators.RNNEstimator,
                  'residual_mlp': estimators.ResMLPEstimator
                  }[args.state_estimator]({**dataset.dims, 'x0': (nx,)},
-                                          bias=args.bias,
-                                          Linear=linmap,
-                                          nonlin=activation,
-                                          hsizes=[nx] * args.n_layers,
-                                          input_keys=['Yp'],
-                                          linargs=dict(),
-                                          name='estim')
+                                         nsteps=args.nsteps,
+                                         window_size=args.estimator_input_window,
+                                         bias=args.bias,
+                                         Linear=linmap,
+                                         nonlin=activation,
+                                         hsizes=[nx] * args.n_layers,
+                                         input_keys=['Yp'],
+                                         linargs=dict(),
+                                         name='estim')
 
     dynamics_model = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,

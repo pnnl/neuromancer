@@ -13,6 +13,7 @@ from neuromancer.loggers import BasicLogger
 from neuromancer.visuals import Visualizer
 from neuromancer.problem import Problem
 from neuromancer.datasets import Dataset
+from neuromancer.simulators import Simulator
 
 
 def reset(module):
@@ -23,9 +24,27 @@ def reset(module):
 
 class Trainer:
 
-    def __init__(self, problem: Problem, dataset: Dataset, optimizer: torch.optim.Optimizer,
-                 logger: BasicLogger = BasicLogger(), visualizer=Visualizer(), simulator=None, epochs=1000,
-                 eval_metric='loop_dev_loss', patience=5):
+    def __init__(self, problem: Problem,
+                 dataset: Dataset,
+                 optimizer: torch.optim.Optimizer,
+                 logger: BasicLogger = None,
+                 visualizer: Visualizer = None,
+                 simulator: Simulator = None,
+                 epochs=1000, eval_metric='loop_dev_loss', patience=5,
+                 warmup=0):
+        """
+
+        :param problem: Object which defines multi-objective loss function and computational graph
+        :param dataset: Batched (over chunks of time if sequence data) dataset for non-stochastic gradient descent
+        :param optimizer: Pytorch optimizer
+        :param logger: Object for logging results
+        :param visualizer: Object for creating visualizations of the model during and after training
+        :param simulator: Object for simulating learned model for assessing performance
+        :param epochs: (int) Number of epochs to train
+        :param eval_metric: (str) Performance metric for model selection and early stopping
+        :param patience: (int) Number of epochs to allow no improvement before early stopping
+        :param warmstart: (int) How many epochs to wait before enacting early stopping policy
+        """
         self.model = problem
         self.optimizer = optimizer
         self.dataset = dataset
@@ -36,6 +55,7 @@ class Trainer:
         self.logger.log_weights(self.model)
         self.eval_metric = eval_metric
         self.patience = patience
+        self.warmup = warmup
         self.badcount = 0
 
     ########################################
@@ -60,7 +80,8 @@ class Trainer:
                     best_devloss = dev_sim_output[self.eval_metric]
                     self.badcount = 0
                 else:
-                    self.badcount += 1
+                    if i > self.warmup:
+                        self.badcount += 1
                 self.logger.log_metrics({**dev_data_output, **dev_sim_output, **output}, step=i)
                 self.visualizer.train_plot({**dev_data_output, **dev_sim_output}, i)
             if self.badcount > self.patience:
@@ -100,7 +121,7 @@ class Trainer:
 
 class TrainerMPP:
     def __init__(self, problem: Problem, dataset: Dataset, optimizer: torch.optim.Optimizer,
-                 logger: BasicLogger = BasicLogger(), visualizer=Visualizer(), epochs=1000,
+                 logger: BasicLogger = None, visualizer=Visualizer(), epochs=1000,
                  eval_metric='dev_loss'):
         self.model = problem
         self.optimizer = optimizer

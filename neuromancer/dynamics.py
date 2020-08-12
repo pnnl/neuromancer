@@ -33,10 +33,19 @@ class BlockSSM(nn.Module):
                  xou=torch.add, xod=torch.add, residual=False, name='block_ssm',
                  input_keys=dict()):
         """
-
         generic structured system dynamics:
-        # x+ = fx(x) o fu(u) o fd(d)
-        # y =  fy(x)
+        x_next = fx(x) o fu(u) o fd(d)
+        y =  fy(x)
+
+        :param fx: (nn.Module) State transition function
+        :param fy: (nn.Module) Observation function
+        :param fu: (nn.Module) Input function
+        :param fd: (nn.Module) Disturbance function
+        :param xou: (callable) Elementwise tensor op
+        :param xod: (callable) Elementwise tensor op
+        :param residual: (bool) Whether to make recurrence in state space model residual
+        :param name: (str) Name for tracking output
+        :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
         """
         super().__init__()
         self.fx, self.fy, self.fu, self.fd = fx, fy, fu, fd
@@ -53,6 +62,12 @@ class BlockSSM(nn.Module):
 
     @staticmethod
     def keys(input_keys):
+        """
+        Overwrite canonical expected input keys with alternate names
+
+        :param input_keys: (dict {str:str}) Mapping canonical expected input keys to alternate names
+        :return: (list [str]) List of input keys
+        """
         default_keys = {'x0': 'x0', 'Yf': 'Yf', 'Uf': 'Uf', 'Df': 'Df'}
         new_keys = {**default_keys, **input_keys}
         return [new_keys['x0'], new_keys['Yf'], new_keys['Uf'], new_keys['Df']]
@@ -109,8 +124,15 @@ class BlackSSM(nn.Module):
     def __init__(self, fxud, fy, name='black_ssm', input_keys=dict(), residual=False):
         """
         atomic black box state space model generic unstructured system dynamics:
-        # x+ = fxud(x,u,d)
-        # y =  fy(x)
+        x_next = fxud(x,u,d)
+        y =  fy(x)
+
+        :param fxud: (nn.Module) State transition function depending on previous state, inputs and disturbances
+        :param fy: (nn.Module) Observation function
+        :param name: (str) Name for tracking output
+        :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
+        :param residual: (bool) Whether to make recurrence in state space model residual
+
         """
         super().__init__()
         self.fxud, self.fy = fxud, fy
@@ -141,6 +163,10 @@ class BlackSSM(nn.Module):
                 f'reg_error_{self.name}': self.reg_error()}
 
     def reg_error(self):
+        """
+
+        :return: 0-dimensional torch.Tensor
+        """
         return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
 
     def check_features(self):

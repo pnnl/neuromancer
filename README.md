@@ -31,7 +31,7 @@ user@machine:~$ conda env create -f env.yml
 user@machine:~$ conda config --add channels conda-forge pytorch
 user@machine:~$ conda create -n neuromancer python=3.7
 user@machine:~$ source activate neuromancer
-(neuromancer) user@machine:~$ conda install pytorch torchvision cudatoolkit=9.0 -c pytorch
+(neuromancer) user@machine:~$ conda install pytorch torchvision cudatoolkit=10.2 -c pytorch
 (neuromancer) user@machine:~$ conda install scipy pandas matplotlib control pyts numba scikit-learn mlflow dill
 (neuromancer) user@machine:~$ conda install -c powerai gym
 ```
@@ -49,6 +49,7 @@ user@machine:~$ source activate neuromancer
 
 ### TODO
     [ ] Mini-batching
+    [ ] Visualizer for Multi-parametric programs
     [ ] Learn-rate scheduling
     [ ] Early stopping
     [ ] Multiple experiment time-series data

@@ -17,6 +17,7 @@ class Objective(nn.Module):
         :param loss: (callable) Number of arguments of the callable should equal the number of strings in variable names.
                                 Arguments to callable should be torch.Tensor and return type a 0-dimensional torch.Tensor
         :param weight: (float) Weight of objective for calculating multi-objective loss function
+        :param name: (str) Name for tracking output
         """
         super().__init__()
         self.variable_names = variable_names
@@ -42,12 +43,12 @@ class Problem(nn.Module):
         by concatenating input and output dictionaries for each component
         module we can represent arbitrary directed acyclic computation graphs.
         In addition the Problem module takes care of calculating weighted multi-objective
-        loss functions via the list of Objective objects which calculate loss terms
+        loss functions via the lists of Objective objects (constraints and objectives) which calculate loss terms
         from aggregated input and set of outputs from the component modules.
 
         :param objectives: list of Objective objects
         :param constraints: list of Objective objects
-        :param components: list of Component objects
+        :param components: list of objects which implement the component interface
         """
         super().__init__()
         self.objectives = nn.ModuleList(objectives)
@@ -55,6 +56,9 @@ class Problem(nn.Module):
         self.components = nn.ModuleList(components)
 
     def _calculate_loss(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
+        """
+
+        """
         outputs = {}
         loss = 0.0
         for objective in self.objectives:

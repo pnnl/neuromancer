@@ -333,44 +333,21 @@ def trajectory_movie(true_traj, pred_traj, figname='traj.mp4', freq=1, fps=15, d
 
 class Animator:
 
-    def __init__(self, Y, dynamics_model):
+    def __init__(self, dynamics_model):
         self.model = dynamics_model
-        _, nsteps, ny = Y.shape
         plt.style.use('dark_background')
-        self.fig = plt.figure(constrained_layout=True)
-        gs = GridSpec(nrows=1+ny, ncols=2, figure=self.fig, width_ratios=[1, 1],
-                      height_ratios=[5] + [1]*ny)
-        self.eigax = self.fig.add_subplot(gs[0, 1])
+        self.fig, (self.eigax, self.matax) = plt.subplots(1, 2)
+
         self.eigax.set_title('State Transition Matrix Eigenvalues')
         self.eigax.set_ylim(-1.1, 1.1)
         self.eigax.set_xlim(-1.1, 1.1)
         self.eigax.set_aspect(1)
 
-        self.matax = self.fig.add_subplot(gs[0, 0])
         self.matax.axis('off')
         self.matax.set_title('State Transition Matrix')
-
-        self.trjax = [self.fig.add_subplot(gs[k, :]) for k in range(1, ny+1)]
-        for row, ax in enumerate(self.trjax):
-            ax.set(xlim=(0, nsteps), ylim=(Y.min()+.1, Y.max()+.1))
-            ax.set_ylabel(f'$y_{row}$', rotation=0, labelpad=20)
-            t, = ax.plot([], [], label='True', c='c')
-            p, = ax.plot([], [], label='Pred', c='m')
-            ax.tick_params(labelbottom=False)
-        self.trjax[-1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
-                              fancybox=True, shadow=True, ncol=2)
         Writer = animation.writers['ffmpeg']
         self.writer = Writer(fps=15, metadata=dict(artist='Aaron Tuor'), bitrate=1800)
         self.ims = []
-
-    def update_traj(self, Y_out, Y_target):
-        Yt = Y_target.reshape(-1, len(self.trjax)).detach().cpu().numpy()
-        Yp = Y_out.reshape(-1, len(self.trjax)).detach().cpu().numpy()
-        plots = []
-        for k, ax in enumerate(self.trjax):
-            plots.append(ax.plot(Yt[:, k], c='c', label=f'True')[0])
-            plots.append(ax.plot(Yp[:, k], c='m', label=f'Pred')[0])
-        return plots
 
     def _find_mat(self, module):
         try:
@@ -392,12 +369,11 @@ class Animator:
         except AttributeError:
             return self._find_mat(model)
 
-    def __call__(self, Y_out, Y_target):
+    def __call__(self):
         mat = self.find_mat(self.model)
         w, v = LA.eig(mat)
         self.ims.append([self.matax.imshow(mat),
-                         self.eigax.scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))] +
-                         self.update_traj(Y_out, Y_target))
+                         self.eigax.scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))])
 
     def make_and_save(self, filename):
         eig_ani = animation.ArtistAnimation(self.fig, self.ims, interval=50, repeat_delay=3000)

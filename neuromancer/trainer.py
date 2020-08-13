@@ -75,15 +75,16 @@ class Trainer:
                 self.model.eval()
                 dev_data_output = self.model(self.dataset.dev_data)
                 dev_sim_output = self.simulator.dev_eval()
-                if dev_sim_output[self.eval_metric] < best_devloss:
+                output = {**output, **dev_data_output, **dev_sim_output}
+                if output[self.eval_metric] < best_devloss:
                     best_model = deepcopy(self.model.state_dict())
-                    best_devloss = dev_sim_output[self.eval_metric]
+                    best_devloss = output[self.eval_metric]
                     self.badcount = 0
                 else:
                     if i > self.warmup:
                         self.badcount += 1
-                self.logger.log_metrics({**dev_data_output, **dev_sim_output, **output}, step=i)
-                self.visualizer.train_plot({**dev_data_output, **dev_sim_output}, i)
+                self.logger.log_metrics(output, step=i)
+                self.visualizer.train_plot(output, i)
             if self.badcount > self.patience:
                 break
 

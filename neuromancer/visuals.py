@@ -6,6 +6,7 @@ import os
 
 # machine learning/data science imports
 import numpy as np
+import matplotlib.pyplot as plt
 
 # local imports
 from neuromancer.datasets import unbatch_data
@@ -26,7 +27,7 @@ class Visualizer:
 
 class VisualizerOpen(Visualizer):
 
-    def __init__(self, dataset, model, verbosity, savedir, training_visuals=False):
+    def __init__(self, dataset, model, verbosity, savedir, training_visuals=False, trace_movie=False):
         """
 
         :param dataset:
@@ -39,9 +40,10 @@ class VisualizerOpen(Visualizer):
         self.dataset = dataset
         self.verbosity = verbosity
         if training_visuals:
-            self.anime = plot.Animator(dataset.dev_loop['Yp'].detach().cpu().numpy(), model)
+            self.anime = plot.Animator(model)
         self.training_visuals = training_visuals
         self.savedir = savedir
+        self.trace_movie = trace_movie
 
     def train_plot(self, outputs, epoch):
         """
@@ -52,7 +54,22 @@ class VisualizerOpen(Visualizer):
         """
         if self.training_visuals:
             if epoch % self.verbosity == 0:
-                self.anime(outputs['loop_dev_Y_pred_dynamics'], outputs['loop_dev_Yf'])
+                self.anime()
+
+    def plot_traj(self, true_traj, pred_traj, figname='open_loop.png'):
+        plt.style.use('dark_background')
+        fig, ax = plt.subplots(len(true_traj), 1)
+        labels = [f'$y_{k}$' for k in range(len(true_traj))]
+        for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, labels)):
+            axe = ax if len(true_traj) == 1 else ax[row]
+            axe.set_ylabel(label, rotation=0, labelpad=20)
+            axe.plot(t1, label='True', c='c')
+            axe.plot(t2, label='Pred', c='m')
+            axe.tick_params(labelbottom=False)
+        axe.tick_params(labelbottom=True)
+        axe.set_xlabel('Time')
+        axe.legend()
+        plt.savefig(figname)
 
     def train_output(self):
         """
@@ -72,25 +89,24 @@ class VisualizerOpen(Visualizer):
         :param outputs:
         :return:
         """
-        try:
-            dsets = ['train', 'dev', 'test']
-            ny = self.dataset.dims['Yf'][-1]
-            Ypred = [unbatch_data(outputs[f'nstep_{dset}_Y_pred_dynamics']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
-            Ytrue = [unbatch_data(outputs[f'nstep_{dset}_Yf']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
-            plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
-                       figname=os.path.join(self.savedir, 'nstep_OL.png'))
+        dsets = ['train', 'dev', 'test']
+        ny = self.dataset.dims['Yf'][-1]
+        Ypred = [unbatch_data(outputs[f'nstep_{dset}_Y_pred_dynamics']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
+        Ytrue = [unbatch_data(outputs[f'nstep_{dset}_Yf']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
+        plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
+                   figname=os.path.join(self.savedir, 'nstep_OL.png'))
 
-            Ypred = [outputs[f'loop_{dset}_Y_pred_dynamics'].reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
-            Ytrue = [outputs[f'loop_{dset}_Yf'].reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
-            plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
-                       figname=os.path.join(self.savedir, 'open_OL.png'))
+        Ypred = [outputs[f'loop_{dset}_Y_pred_dynamics'].reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
+        Ytrue = [outputs[f'loop_{dset}_Yf'].reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
+        self.plot_traj(np.concatenate(Ytrue).transpose(1, 0),
+                       np.concatenate(Ypred).transpose(1, 0),
+                       figname=os.path.join(self.savedir, 'open_loop.png'))
 
+        if self.trace_movie:
             plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0),
                                   np.concatenate(Ypred).transpose(1, 0),
                                   figname=os.path.join(self.savedir, f'open_movie.mp4'),
                                   freq=self.verbosity)
-        except ValueError:
-            pass
         return dict()
 
 

@@ -20,13 +20,17 @@ from neuromancer.datasets import Dataset, DataDict
 
 
 class Simulator:
-    def __init__(self, model: Problem, dataset: Dataset, emulator: EmulatorBase = None):
+    def __init__(self, model: Problem, dataset: Dataset, emulator: EmulatorBase = None, eval_sim=True):
         self.model = model
         self.dataset = dataset
         self.emulator = emulator
+        self.eval_sim = eval_sim
 
     def dev_eval(self):
-        dev_loop_output = self.model(self.dataset.dev_loop)
+        if self.eval_sim:
+            dev_loop_output = self.model(self.dataset.dev_loop)
+        else:
+            dev_loop_output = dict()
         return dev_loop_output
 
     def test_eval(self):
@@ -41,8 +45,9 @@ class Simulator:
 
 
 class OpenLoopSimulator(Simulator):
-    def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None):
-        super().__init__(model=model, dataset=dataset, emulator=emulator)
+    def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None,
+                 eval_sim=True):
+        super().__init__(model=model, dataset=dataset, emulator=emulator, eval_sim=eval_sim)
 
     def simulate(self, data):
         return self.model(data)

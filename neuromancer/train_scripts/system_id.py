@@ -62,6 +62,14 @@ def parse():
     opt_group.add_argument('-epochs', type=int, default=5000)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
+    opt_group.add_argument('-eval_metric', type=str, default='loop_dev_loss',
+                           help='Metric for model selection and early stopping.')
+    opt_group.add_argument('-patience', type=int, default=5,
+                           help='How many epochs to allow for no improvement in eval metric before early stopping.')
+    opt_group.add_argument('-warmup', type=int, default=0,
+                           help='Number of epochs to wait before enacting early stopping policy.')
+    opt_group.add_argument('-skip_eval_sim', action='store_true',
+                           help='Whether to run simulator during evaluation phase of training.')
 
     #################
     # DATA PARAMETERS
@@ -126,6 +134,8 @@ def parse():
                            help='Logging setup to use')
     log_group.add_argument('-train_visuals', action='store_true',
                            help='Whether to create visuals, e.g. animations during training loop')
+    log_group.add_argument('-trace_movie', action='store_true',
+                           help='Whether to plot an animation of the simulated and true dynamics')
     return parser
 
 
@@ -252,10 +262,12 @@ if __name__ == '__main__':
     ##########################################
     model = Problem(objectives, constraints, components).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity, args.savedir)
-    simulator = OpenLoopSimulator(model=model, dataset=dataset)
+    visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity, args.savedir,
+                                training_visuals=args.train_visuals, trace_movie=args.trace_movie)
+    simulator = OpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
-                      simulator=simulator, epochs=args.epochs)
+                      simulator=simulator, epochs=args.epochs, eval_metric=args.eval_metric,
+                      patience=args.patience, warmup=args.warmup)
     best_model = trainer.train()
     trainer.evaluate(best_model)
     logger.clean_up()

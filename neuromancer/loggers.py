@@ -87,7 +87,7 @@ class BasicLogger:
 
 
 class MLFlowLogger(BasicLogger):
-    def __init__(self, args=None, savedir='test', verbosity=1,
+    def __init__(self, args=None, savedir='test', verbosity=1, id=None,
                  stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
                          'nstep_dev_ref_loss', 'loop_dev_ref_loss')):
         """
@@ -99,7 +99,7 @@ class MLFlowLogger(BasicLogger):
         """
         mlflow.set_tracking_uri(args.location)
         mlflow.set_experiment(args.exp)
-        mlflow.start_run(run_name=args.run)
+        mlflow.start_run(run_name=args.run, run_id=id)
         super().__init__(args=args, savedir=savedir, verbosity=verbosity, stdout=stdout)
 
     def log_parameters(self):

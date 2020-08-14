@@ -90,7 +90,7 @@ def parse():
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
-    model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin'],
+    model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
                              default='blocknlin')
     model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
@@ -233,7 +233,7 @@ if __name__ == '__main__':
     state_smoothing = Objective(['X_pred_dynamics'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx,
                                 name='state_smoothing')
     observation_lower_bound_penalty = Objective(['Y_pred_dynamics'],
-                                                lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x,
+                                                lambda x: torch.mean(F.relu(-x + 0.2)), weight=args.Q_con_x,
                                                 name='y_low_bound_error')
     observation_upper_bound_penalty = Objective(['Y_pred_dynamics'],
                                                 lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x,

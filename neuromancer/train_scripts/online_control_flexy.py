@@ -1,4 +1,7 @@
 """
+
+TODO: implement real-time adaptive control with online learning
+
 Script for training block dynamics models for system identification.
 Current block structure supported are black_box, hammerstein, hammerstein-weiner, and general block non-linear
 
@@ -75,7 +78,6 @@ def parse():
                             help='List of sequences to max-min normalize')
     data_group.add_argument('-model_file', type=str, default='../datasets/Flexy_air/best_model.pth')
 
-
     ##################
     # POLICY PARAMETERS
     policy_group = parser.add_argument_group('POLICY PARAMETERS')
@@ -90,7 +92,14 @@ def parse():
     policy_group.add_argument('-policy_features', nargs='+', default=['x0_estim', 'Rf', 'Df'], help='Policy features')
     policy_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
                               help='Activation function for neural networks')
-  
+
+    ##################
+    # LAYERS
+    layers_group = parser.add_argument_group('LATERS PARAMETERS')
+    layers_group.add_argument('-freeze', nargs='+', default=[''], help='sets requires grad to False')
+    layers_group.add_argument('-unfreeze', default=['components.1'],
+                              help='sets requires grat to True')
+
     ##################
     # WEIGHT PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
@@ -142,13 +151,47 @@ def dataset_load(args, device):
                               name='closedloop')
     nsim, ny = dataset.data['Y'].shape
     nu = dataset.data['U'].shape[1]
-    new_sequences = {'Y': dataset.data['Y'][:, 0].reshape(-1, 1).astype(np.float64),
-                     'Y_max': 0.8 * np.ones([nsim, ny]), 'Y_min': 0.2 * np.ones([nsim, ny]),
+    new_sequences = {'Y_max': 0.8 * np.ones([nsim, ny]), 'Y_min': 0.2 * np.ones([nsim, ny]),
                      'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
-                     'R': psl.Periodic(nx=ny, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
-                     'Y_ctrl_p': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0]*ny, xmin=[0.0]*ny)}
+                     'R': psl.Steps(nx=1, nsim=nsim, randsteps=30, xmax=1, xmin=0),
+                     # 'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
+                     'Y_ctrl_p': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
     dataset.add_data(new_sequences)
     return dataset
+
+
+def freeze_weight(model, module_names=['']):
+    """
+    ['parent->child->child']
+    :param component:
+    :param module_names:
+    :return:
+    """
+    modules = dict(model.named_modules())
+    for name in module_names:
+        freeze_path = name.split('->')
+        if len(freeze_path) == 1:
+            modules[name].requires_grad_(False)
+        else:
+            parent = modules[freeze_path[0]]
+            freeze_weight(parent, ['->'.join(freeze_path[1:])])
+
+def unfreeze_weight(model, module_names=['']):
+    """
+    ['parent->child->child']
+    :param component:
+    :param module_names:
+    :return:
+    """
+    modules = dict(model.named_modules())
+    for name in module_names:
+        freeze_path = name.split('->')
+        if len(freeze_path) == 1:
+            modules[name].requires_grad_(True)
+        else:
+            parent = modules[freeze_path[0]]
+            freeze_weight(parent, ['->'.join(freeze_path[1:])])
+
 
 
 if __name__ == '__main__':
@@ -173,12 +216,12 @@ if __name__ == '__main__':
         if best_model.components[k].name == 'dynamics':
             dynamics_model = best_model.components[k]
             dynamics_model.input_keys[2] = 'U_pred_policy'
+            dynamics_model.fe = None
         if best_model.components[k].name == 'estim':
             estimator = best_model.components[k]
             estimator.input_keys[0] = 'Y_ctrl_pp'
             estimator.data_dims = dataset.dims
-    dynamics_model.requires_grad_(False)
-    estimator.requires_grad_(False)
+
     # control policy setup
     activation = {'gelu': nn.GELU,
                   'relu': nn.ReLU,
@@ -190,15 +233,15 @@ if __name__ == '__main__':
     policy = {'linear': policies.LinearPolicy,
               'mlp': policies.MLPPolicy,
               'rnn': policies.RNNPolicy
-              }[args.policy]({'x0_estim': (30,),  **dataset.dims},
-                              nsteps=args.nsteps,
-                              bias=args.bias,
-                              Linear=linmap,
-                              nonlin=activation,
-                              hsizes=[nh_policy] * args.n_layers,
-                              input_keys=args.policy_features,
-                              linargs=dict(),
-                              name='policy')
+              }[args.policy]({'x0_estim': (30,), **dataset.dims},
+                             nsteps=args.nsteps,
+                             bias=args.bias,
+                             Linear=linmap,
+                             nonlin=activation,
+                             hsizes=[nh_policy] * args.n_layers,
+                             input_keys=args.policy_features,
+                             linargs=dict(),
+                             name='policy')
 
     components = [estimator, policy, dynamics_model]
 
@@ -207,12 +250,15 @@ if __name__ == '__main__':
     ##########################################
     regularization = Objective(['reg_error_policy'], lambda reg: reg,
                                weight=args.Q_sub)
-    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], F.mse_loss, weight=args.Q_r, name='ref_loss')
+    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
+                               weight=args.Q_r, name='ref_loss')
     control_smoothing = Objective(['U_pred_policy'], lambda x: F.mse_loss(x[1:], x[:-1]),
                                   weight=args.Q_du, name='control_smoothing')
-    observation_lower_bound_penalty = Objective(['Y_pred_dynamics', 'Y_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
+    observation_lower_bound_penalty = Objective(['Y_pred_dynamics', 'Y_minf'],
+                                                lambda x, xmin: torch.mean(F.relu(-x + xmin)),
                                                 weight=args.Q_con_y, name='observation_lower_bound')
-    observation_upper_bound_penalty = Objective(['Y_pred_dynamics', 'Y_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
+    observation_upper_bound_penalty = Objective(['Y_pred_dynamics', 'Y_maxf'],
+                                                lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                                 weight=args.Q_con_y, name='observation_upper_bound')
     inputs_lower_bound_penalty = Objective(['U_pred_policy', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
                                            weight=args.Q_con_u, name='input_lower_bound')
@@ -227,9 +273,11 @@ if __name__ == '__main__':
     ########## OPTIMIZE SOLUTION ############
     ##########################################
     model = Problem(objectives, constraints, components).to(device)
+    freeze_weight(model, module_names=args.freeze)
+    unfreeze_weight(model, module_names=args.unfreeze)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     plot_keys = ['Y_pred', 'U_pred']  # variables to be plotted
-    visualizer = VisualizerClosedLoop(dataset, dynamics_model, plot_keys, args.verbosity)
+    visualizer = VisualizerClosedLoop(dataset, dynamics_model, plot_keys, args.verbosity, savedir=args.savedir)
     emulator = dynamics_model
     simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,

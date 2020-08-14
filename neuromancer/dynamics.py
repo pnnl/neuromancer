@@ -7,14 +7,16 @@ u: control inputs
 d: uncontrolled inputs (measured disturbances)
 
 unstructured dynamical models:
-x+ = f(x,u,d)
+x+ = f(x,u,d) o fe(x)
 y =  fy(x)
 
 Block dynamical models:
-x+ = fx(x) o fu(u) o fd(d)
+x+ = fx(x) o fu(u) o fd(d) o fe(x)
 y =  fy(x)
 
 o = operator, e.g., +, or *
+fe = error model
+fxudy = nominal model
 any operation perserving dimensions
 """
 # pytorch imports
@@ -29,18 +31,19 @@ import neuromancer.blocks as blocks
 
 
 class BlockSSM(nn.Module):
-    def __init__(self, fx, fy, fu=None, fd=None,
-                 xou=torch.add, xod=torch.add, residual=False, name='block_ssm',
+    def __init__(self, fx, fy, fu=None, fd=None, fe=None,
+                 xou=torch.add, xod=torch.add, xoe=torch.add, residual=False, name='block_ssm',
                  input_keys=dict()):
         """
         generic structured system dynamics:
-        x_next = fx(x) o fu(u) o fd(d)
+        x_next = fx(x) o fu(u) o fd(d) o fe(x)
         y =  fy(x)
 
         :param fx: (nn.Module) State transition function
         :param fy: (nn.Module) Observation function
         :param fu: (nn.Module) Input function
         :param fd: (nn.Module) Disturbance function
+        :param fe: (nn.Module) Error term via state augmentation
         :param xou: (callable) Elementwise tensor op
         :param xod: (callable) Elementwise tensor op
         :param residual: (bool) Whether to make recurrence in state space model residual
@@ -48,7 +51,7 @@ class BlockSSM(nn.Module):
         :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
         """
         super().__init__()
-        self.fx, self.fy, self.fu, self.fd = fx, fy, fu, fd
+        self.fx, self.fy, self.fu, self.fd, self.fe = fx, fy, fu, fd, fe
         self.nx, self.ny, self.nu, self.nd = (self.fx.in_features,
                                               self.fy.out_features,
                                               self.fu.in_features if fu is not None else None,
@@ -59,6 +62,7 @@ class BlockSSM(nn.Module):
         # block operators
         self.xou = xou
         self.xod = xod
+        self.xoe = xoe
 
     @staticmethod
     def keys(input_keys):
@@ -80,7 +84,7 @@ class BlockSSM(nn.Module):
         """
         x_in, y_out, u_in, d_in = self.input_keys
         nsteps = data[y_out].shape[0]
-        X, Y, FD, FU = [], [], [], []
+        X, Y, FD, FU, FE = [], [], [], [], []
 
         x = data[x_in]
         for i in range(nsteps):
@@ -92,8 +96,12 @@ class BlockSSM(nn.Module):
                 FU.append(fu)
             if self.fd is not None:
                 fd = self.fd(data[d_in][i])
-                x = x + self.xod(x, fd)
+                x = self.xod(x, fd)
                 FD.append(fd)
+            if self.fe is not None:
+                fe = self.fe(x)
+                x = self.xoe(x, fe)
+                FE.append(fe)
             if self.residual:
                 x += x_prev
             y = self.fy(x)
@@ -103,7 +111,8 @@ class BlockSSM(nn.Module):
         return {f'X_pred_{self.name}': torch.stack(X), f'Y_pred_{self.name}': torch.stack(Y),
                 f'reg_error_{self.name}': self.reg_error(),
                 f'fU_{self.name}': torch.stack(FU) if FU else None,
-                f'fD_{self.name}': torch.stack(FD) if FD else None}
+                f'fD_{self.name}': torch.stack(FD) if FD else None,
+                f'fE_{self.name}': torch.stack(FE) if FE else None}
 
     def check_features(self):
         self.nx, self.ny = self.fx.in_features, self.fy.out_features
@@ -121,31 +130,33 @@ class BlockSSM(nn.Module):
 
 
 class BlackSSM(nn.Module):
-    def __init__(self, fxud, fy, name='black_ssm', input_keys=dict(), residual=False):
+    def __init__(self, fxud, fy, fe=None, xoe=torch.add, name='black_ssm', input_keys=dict(), residual=False):
         """
         atomic black box state space model generic unstructured system dynamics:
-        x_next = fxud(x,u,d)
+        x_next = fxud(x,u,d) + fe(x)
         y =  fy(x)
 
         :param fxud: (nn.Module) State transition function depending on previous state, inputs and disturbances
         :param fy: (nn.Module) Observation function
+        :param fe: (nn.Module) Error term via state augmentation
         :param name: (str) Name for tracking output
         :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
         :param residual: (bool) Whether to make recurrence in state space model residual
 
         """
         super().__init__()
-        self.fxud, self.fy = fxud, fy
+        self.fxud, self.fy, self.fe = fxud, fy, fe
         self.nx, self.ny = self.fxud.out_features, self.fy.out_features
         self.name, self.residual = name, residual
         self.input_keys = BlockSSM.keys(input_keys)
+        self.xoe = xoe
 
     def forward(self, data):
         """
         """
         x_in, y_out, u_in, d_in = self.input_keys
         nsteps = data[y_out].shape[0]
-        X, Y = [], []
+        X, Y, FE = [], [], []
 
         x = data[x_in]
         for i in range(nsteps):
@@ -153,6 +164,10 @@ class BlackSSM(nn.Module):
             # Concatenate x with u and d if they are available in the dataset.
             x = torch.cat([x] + [data[k][i] for k in [u_in, d_in] if k in data], dim=1)
             x = self.fxud(x)
+            if self.fe is not None:
+                fe = self.fe(x)
+                x = self.xoe(x, fe)
+                FE.append(fe)
             if self.residual:
                 x += x_prev
             y = self.fy(x)
@@ -160,7 +175,8 @@ class BlackSSM(nn.Module):
             Y.append(y)
         return {f'X_pred_{self.name}': torch.stack(X),
                 f'Y_pred_{self.name}': torch.stack(Y),
-                f'reg_error_{self.name}': self.reg_error()}
+                f'reg_error_{self.name}': self.reg_error(),
+                f'fE_{self.name}': torch.stack(FE) if FE else None}
 
     def reg_error(self):
         """
@@ -174,8 +190,8 @@ class BlackSSM(nn.Module):
         assert self.fxud.out_features == self.fy.in_features, 'Output map must have same input size as output size of state transition'
 
 
-def blackbox(bias, linmap, nonlinmap, datadims, n_layers=2,
-             activation=nn.GELU, name='blackbox', input_keys=dict(), residual=False, linargs=dict()):
+def blackbox(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
+             activation=nn.GELU, name='blackbox', input_keys=dict(), residual=False,  linargs=dict()):
     """
     black box state space model for training
     """
@@ -186,11 +202,13 @@ def blackbox(bias, linmap, nonlinmap, datadims, n_layers=2,
     nd = datadims[dkey][-1] if dkey in datadims else 0
     fxud = nonlinmap(nx + nu + nd, nx, hsizes=[nx]*n_layers,
                      bias=bias, Linear=linmap, nonlin=activation, linargs=linargs)
+    fe = nonlinmap(nx, nx, hsizes=[nx] * n_layers,
+                   bias=bias, Linear=linmap, nonlin=activation, linargs=dict()) if fe is not None else None
     fy = linmap(nx, ny, bias=bias, linargs=linargs)
-    return BlackSSM(fxud, fy, name=name, input_keys=input_keys, residual=residual)
+    return BlackSSM(fxud, fy, fe=fe, name=name, input_keys=input_keys, residual=residual)
 
 
-def blocknlin(bias, linmap, nonlinmap, datadims, n_layers=2,
+def blocknlin(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
               activation=nn.GELU, name='blocknonlin', input_keys=dict(), residual=False, linargs=dict()):
     """
     block nonlinear state space model for training
@@ -200,14 +218,16 @@ def blocknlin(bias, linmap, nonlinmap, datadims, n_layers=2,
     ny = datadims[ykey][-1]
     nu = datadims[ukey][-1] if ukey in datadims else 0
     nd = datadims[dkey][-1] if dkey in datadims else 0
+    fe = nonlinmap(nx, nx, hsizes=[nx] * n_layers,
+                   bias=bias, Linear=linmap, nonlin=activation, linargs=dict()) if fe is not None else None
     fx = nonlinmap(nx, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linmap, nonlin=activation, linargs=linargs)
     fy = linmap(nx, ny, bias=bias, linargs=linargs)
     fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nu != 0 else None
     fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nd != 0 else None
-    return BlockSSM(fx, fy, fu=fu, fd=fd, name=name, input_keys=input_keys, residual=residual)
+    return BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, name=name, input_keys=input_keys, residual=residual)
 
 
-def linear(bias, linmap, nonlinmap, datadims, n_layers=2,
+def linear(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
            activation=nn.GELU, name='hammerstein', input_keys=dict(), residual=False, linargs=dict()):
     """
     hammerstein state space model for training
@@ -217,14 +237,16 @@ def linear(bias, linmap, nonlinmap, datadims, n_layers=2,
     ny = datadims[ykey][-1]
     nu = datadims[ukey][-1] if ukey in datadims else 0
     nd = datadims[dkey][-1] if dkey in datadims else 0
+    fe = nonlinmap(nx, nx, hsizes=[nx] * n_layers,
+                   bias=bias, Linear=linmap, nonlin=activation, linargs=dict()) if fe is not None else None
     fx = linmap(nx, nx, bias=bias, linargs=linargs)
     fy = linmap(nx, ny, bias=bias, linargs=linargs)
     fu = linmap(nu, nx, bias=bias, linargs=linargs) if nu != 0 else None
     fd = linmap(nd, nx, bias=bias, linargs=linargs) if nd != 0 else None
-    return BlockSSM(fx, fy, fu=fu, fd=fd, name=name, input_keys=input_keys, residual=residual)
+    return BlockSSM(fx, fy, fe=fe, fu=fu, fd=fd, name=name, input_keys=input_keys, residual=residual)
 
 
-def hammerstein(bias, linmap, nonlinmap, datadims, n_layers=2,
+def hammerstein(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
                 activation=nn.GELU, name='hammerstein', input_keys=dict(), residual=False, linargs=dict()):
     """
     hammerstein state space model for training
@@ -238,10 +260,12 @@ def hammerstein(bias, linmap, nonlinmap, datadims, n_layers=2,
     fy = linmap(nx, ny, bias=bias, linargs=linargs)
     fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nu != 0 else None
     fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nd != 0 else None
-    return BlockSSM(fx, fy, fu=fu, fd=fd, name=name, input_keys=input_keys, residual=residual)
+    fe = nonlinmap(nx, nx, hsizes=[nx] * n_layers,
+                   bias=bias, Linear=linmap, nonlin=activation, linargs=dict()) if fe is not None else None
+    return BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, name=name, input_keys=input_keys, residual=residual)
 
 
-def hw(bias, linmap, nonlinmap, datadims, n_layers=2,
+def hw(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
                 activation=nn.GELU, name='hw', input_keys=dict(), residual=False, linargs=dict()):
     """
     hammerstein-weiner state space model for training
@@ -255,7 +279,9 @@ def hw(bias, linmap, nonlinmap, datadims, n_layers=2,
     fy = nonlinmap(nx, ny, bias=bias, hsizes=[nx]*n_layers, Linear=linmap, nonlin=activation, linargs=linargs)
     fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nu != 0 else None
     fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nd != 0 else None
-    return BlockSSM(fx, fy, fu=fu, fd=fd, name=name, input_keys=input_keys, residual=residual)
+    fe = nonlinmap(nx, nx, hsizes=[nx] * n_layers,
+                   bias=bias, Linear=linmap, nonlin=activation, linargs=linargs) if fe is not None else None
+    return BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, name=name, input_keys=input_keys, residual=residual)
 
 
 ssm_models_atoms = [BlockSSM, BlackSSM]

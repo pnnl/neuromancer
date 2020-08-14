@@ -233,7 +233,7 @@ if __name__ == '__main__':
     state_smoothing = Objective(['X_pred_dynamics'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx,
                                 name='state_smoothing')
     observation_lower_bound_penalty = Objective(['Y_pred_dynamics'],
-                                                lambda x: torch.mean(F.relu(-x + -0.2)), weight=args.Q_con_x,
+                                                lambda x: torch.mean(F.relu(-x + 0.2)), weight=args.Q_con_x,
                                                 name='y_low_bound_error')
     observation_upper_bound_penalty = Objective(['Y_pred_dynamics'],
                                                 lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x,

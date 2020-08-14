@@ -175,7 +175,7 @@ class BlackSSM(nn.Module):
 
 
 def blackbox(bias, linmap, nonlinmap, datadims, n_layers=2,
-             activation=nn.GELU, name='blackbox', input_keys=dict(), residual=False):
+             activation=nn.GELU, name='blackbox', input_keys=dict(), residual=False, linargs=dict()):
     """
     black box state space model for training
     """
@@ -185,13 +185,13 @@ def blackbox(bias, linmap, nonlinmap, datadims, n_layers=2,
     nu = datadims[ukey][-1] if ukey in datadims else 0
     nd = datadims[dkey][-1] if dkey in datadims else 0
     fxud = nonlinmap(nx + nu + nd, nx, hsizes=[nx]*n_layers,
-                     bias=bias, Linear=linmap, nonlin=activation)
-    fy = linmap(nx, ny, bias=bias)
+                     bias=bias, Linear=linmap, nonlin=activation, linargs=linargs)
+    fy = linmap(nx, ny, bias=bias, linargs=linargs)
     return BlackSSM(fxud, fy, name=name, input_keys=input_keys, residual=residual)
 
 
 def blocknlin(bias, linmap, nonlinmap, datadims, n_layers=2,
-              activation=nn.GELU, name='blocknonlin', input_keys=dict(), residual=False):
+              activation=nn.GELU, name='blocknonlin', input_keys=dict(), residual=False, linargs=dict()):
     """
     block nonlinear state space model for training
     """
@@ -200,15 +200,15 @@ def blocknlin(bias, linmap, nonlinmap, datadims, n_layers=2,
     ny = datadims[ykey][-1]
     nu = datadims[ukey][-1] if ukey in datadims else 0
     nd = datadims[dkey][-1] if dkey in datadims else 0
-    fx = nonlinmap(nx, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linmap, nonlin=activation)
-    fy = linmap(nx, ny, bias=bias)
-    fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation) if nu != 0 else None
-    fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation) if nd != 0 else None
+    fx = nonlinmap(nx, nx, bias=bias, hsizes=[nx]*n_layers, Linear=linmap, nonlin=activation, linargs=linargs)
+    fy = linmap(nx, ny, bias=bias, linargs=linargs)
+    fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nu != 0 else None
+    fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nd != 0 else None
     return BlockSSM(fx, fy, fu=fu, fd=fd, name=name, input_keys=input_keys, residual=residual)
 
 
-def hammerstein(bias, linmap, nonlinmap, datadims, n_layers=2,
-                activation=nn.GELU, name='hammerstein', input_keys=dict(), residual=False):
+def linear(bias, linmap, nonlinmap, datadims, n_layers=2,
+           activation=nn.GELU, name='hammerstein', input_keys=dict(), residual=False, linargs=dict()):
     """
     hammerstein state space model for training
     """
@@ -217,15 +217,32 @@ def hammerstein(bias, linmap, nonlinmap, datadims, n_layers=2,
     ny = datadims[ykey][-1]
     nu = datadims[ukey][-1] if ukey in datadims else 0
     nd = datadims[dkey][-1] if dkey in datadims else 0
-    fx = linmap(nx, nx, bias=bias)
-    fy = linmap(nx, ny, bias=bias)
-    fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation) if nu != 0 else None
-    fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation) if nd != 0 else None
+    fx = linmap(nx, nx, bias=bias, linargs=linargs)
+    fy = linmap(nx, ny, bias=bias, linargs=linargs)
+    fu = linmap(nu, nx, bias=bias, linargs=linargs) if nu != 0 else None
+    fd = linmap(nd, nx, bias=bias, linargs=linargs) if nd != 0 else None
+    return BlockSSM(fx, fy, fu=fu, fd=fd, name=name, input_keys=input_keys, residual=residual)
+
+
+def hammerstein(bias, linmap, nonlinmap, datadims, n_layers=2,
+                activation=nn.GELU, name='hammerstein', input_keys=dict(), residual=False, linargs=dict()):
+    """
+    hammerstein state space model for training
+    """
+    xkey, ykey, ukey, dkey = BlockSSM.keys(input_keys)
+    nx = datadims[xkey][-1]
+    ny = datadims[ykey][-1]
+    nu = datadims[ukey][-1] if ukey in datadims else 0
+    nd = datadims[dkey][-1] if dkey in datadims else 0
+    fx = linmap(nx, nx, bias=bias, linargs=linargs)
+    fy = linmap(nx, ny, bias=bias, linargs=linargs)
+    fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nu != 0 else None
+    fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nd != 0 else None
     return BlockSSM(fx, fy, fu=fu, fd=fd, name=name, input_keys=input_keys, residual=residual)
 
 
 def hw(bias, linmap, nonlinmap, datadims, n_layers=2,
-                activation=nn.GELU, name='hw', input_keys=dict(), residual=False):
+                activation=nn.GELU, name='hw', input_keys=dict(), residual=False, linargs=dict()):
     """
     hammerstein-weiner state space model for training
     """
@@ -234,10 +251,10 @@ def hw(bias, linmap, nonlinmap, datadims, n_layers=2,
     ny = datadims[ykey][-1]
     nu = datadims[ukey][-1] if ukey in datadims else 0
     nd = datadims[dkey][-1] if dkey in datadims else 0
-    fx = linmap(nx, nx, bias=bias)
-    fy = nonlinmap(nx, ny, bias=bias, hsizes=[nx]*n_layers, Linear=linmap, nonlin=activation)
-    fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation) if nu != 0 else None
-    fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation) if nd != 0 else None
+    fx = linmap(nx, nx, bias=bias, linargs=linargs)
+    fy = nonlinmap(nx, ny, bias=bias, hsizes=[nx]*n_layers, Linear=linmap, nonlin=activation, linargs=linargs)
+    fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nu != 0 else None
+    fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nd != 0 else None
     return BlockSSM(fx, fy, fu=fu, fd=fd, name=name, input_keys=input_keys, residual=residual)
 
 

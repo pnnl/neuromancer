@@ -7,6 +7,7 @@ import os
 # machine learning/data science imports
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.linalg as LA
 
 # local imports
 from neuromancer.datasets import unbatch_data
@@ -56,6 +57,22 @@ class VisualizerOpen(Visualizer):
             if epoch % self.verbosity == 0:
                 self.anime()
 
+    def plot_matrix(self):
+
+        plt.style.use('dark_background')
+        fig, (eigax, matax) = plt.subplots(1, 2)
+        eigax.set_title('State Transition Matrix Eigenvalues')
+        eigax.set_ylim(-1.1, 1.1)
+        eigax.set_xlim(-1.1, 1.1)
+        eigax.set_aspect(1)
+        matax.axis('off')
+        matax.set_title('State Transition Matrix')
+        mat = self.model.fx.effective_W().detach().cpu().numpy()
+        w, v = LA.eig(mat)
+        matax.imshow(mat)
+        eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
+        plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
+
     def plot_traj(self, true_traj, pred_traj, figname='open_loop.png'):
         plt.style.use('dark_background')
         fig, ax = plt.subplots(len(true_traj), 1)
@@ -69,6 +86,7 @@ class VisualizerOpen(Visualizer):
         axe.tick_params(labelbottom=True)
         axe.set_xlabel('Time')
         axe.legend()
+
         plt.savefig(figname)
 
     def train_output(self):
@@ -93,14 +111,16 @@ class VisualizerOpen(Visualizer):
         ny = self.dataset.dims['Yf'][-1]
         Ypred = [unbatch_data(outputs[f'nstep_{dset}_Y_pred_dynamics']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
         Ytrue = [unbatch_data(outputs[f'nstep_{dset}_Yf']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
-        plot.pltOL(Y=np.concatenate(Ytrue), Ytrain=np.concatenate(Ypred),
-                   figname=os.path.join(self.savedir, 'nstep_OL.png'))
+        self.plot_traj(np.concatenate(Ytrue).transpose(1, 0),
+                       np.concatenate(Ypred).transpose(1, 0),
+                       figname=os.path.join(self.savedir, 'nstep_loop.png'))
 
         Ypred = [outputs[f'loop_{dset}_Y_pred_dynamics'].reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
         Ytrue = [outputs[f'loop_{dset}_Yf'].reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
         self.plot_traj(np.concatenate(Ytrue).transpose(1, 0),
                        np.concatenate(Ypred).transpose(1, 0),
                        figname=os.path.join(self.savedir, 'open_loop.png'))
+        self.plot_matrix()
 
         if self.trace_movie:
             plot.trajectory_movie(np.concatenate(Ytrue).transpose(1, 0),

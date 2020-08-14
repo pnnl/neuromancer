@@ -145,7 +145,8 @@ class Dataset:
         :return:
         """
         for k in norm:
-            assert k in data, f'Key to normalize: {k} is not in dataset keys: {list(self.data.keys())}'
+            if k not in data:
+                print(f'Warning: Key to normalize: {k} is not in dataset keys: {list(self.data.keys())}')
         for k, v in data.items():
             v = v.reshape(v.shape[0], -1)
             if k in norm:

@@ -148,11 +148,12 @@ class VisualizerTrajectories(Visualizer):
 
 class VisualizerClosedLoop(Visualizer):
 
-    def __init__(self, dataset, model, plot_keys, verbosity):
+    def __init__(self, dataset, model, plot_keys, verbosity, savedir='test_control'):
         self.model = model
         self.dataset = dataset
         self.verbosity = verbosity
         self.plot_keys = plot_keys
+        self.savedir = savedir
 
     def eval(self, outputs):
         D = outputs['D'] if 'D' in outputs.keys() else None
@@ -162,6 +163,6 @@ class VisualizerClosedLoop(Visualizer):
         Umin = outputs['Umin'] if 'Umin' in outputs.keys() else None
         Umax = outputs['Umax'] if 'Umax' in outputs.keys() else None
         plot.pltCL(Y=outputs['Y'], U=outputs['U'], D=D, R=R,
-                   Ymin=Ymin, Ymax=Ymax, Umin=Umin, Umax=Umax)
+                   Ymin=Ymin, Ymax=Ymax, Umin=Umin, Umax=Umax, figname=os.path.join(self.savedir, 'CL_control.png'))
         return dict()
 

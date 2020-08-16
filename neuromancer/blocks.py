@@ -77,7 +77,7 @@ class ResMLP(MLP):
         """
 
         super().__init__(insize, outsize, bias=bias,
-                         Linear=Linear, nonlin=nonlin, hsizes=hsizes, **linargs)
+                         Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
         assert len(set(hsizes)) == 1, 'All hidden sizes should be equal for residual network'
         self.skip = skip
         self.inmap = Linear(insize, hsizes[0], bias=bias, **linargs)

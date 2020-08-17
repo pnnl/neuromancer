@@ -152,7 +152,7 @@ def dataset_load(args, device):
                      'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
                      'R': psl.Steps(nx=1, nsim=nsim, randsteps=30, xmax=1, xmin=0),
                      # 'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
-                     'Y_ctrl_p': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
+                     'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
     dataset.add_data(new_sequences)
     return dataset
 
@@ -213,10 +213,10 @@ if __name__ == '__main__':
         if best_model.components[k].name == 'dynamics':
             dynamics_model = best_model.components[k]
             dynamics_model.input_keys[2] = 'U_pred_policy'
-            dynamics_model.fe = None
+            dynamics_model.fe = None  # TODO: ALARM! lazy fix - retrain the model with new dynamics module and get rid of this line
         if best_model.components[k].name == 'estim':
             estimator = best_model.components[k]
-            estimator.input_keys[0] = 'Y_ctrl_pp'
+            estimator.input_keys[0] = 'Y_ctrl_p'
             estimator.data_dims = dataset.dims
 
     # control policy setup
@@ -226,11 +226,10 @@ if __name__ == '__main__':
                   'softexp': SoftExponential}[args.activation]
     linmap = slim.maps[args.linear_map]
     nh_policy = args.n_hidden
-    linmap = slim.maps[args.linear_map]
     policy = {'linear': policies.LinearPolicy,
               'mlp': policies.MLPPolicy,
               'rnn': policies.RNNPolicy
-              }[args.policy]({'x0_estim': (30,), **dataset.dims},
+              }[args.policy]({'x0_estim': (dynamics_model.nx,), **dataset.dims},
                              nsteps=args.nsteps,
                              bias=args.bias,
                              Linear=linmap,

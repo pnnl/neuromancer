@@ -56,6 +56,13 @@ class BlockSSM(nn.Module):
                                               self.fy.out_features,
                                               self.fu.in_features if fu is not None else None,
                                               self.fd.in_features if fd is not None else None)
+
+        in_features = self.nx
+        in_features = in_features + self.fu.in_features if fu is not None else in_features
+        in_features = in_features + self.fd.in_features if fd is not None else in_features
+        self.in_features = in_features
+        self.out_features = self.fy.out_features
+
         self.check_features()
         self.name, self.residual = name, residual
         self.input_keys = self.keys(input_keys)
@@ -150,6 +157,8 @@ class BlackSSM(nn.Module):
         self.name, self.residual = name, residual
         self.input_keys = BlockSSM.keys(input_keys)
         self.xoe = xoe
+        self.in_features = self.fxud.out_features
+        self.out_features = self.fy.out_features
 
     def forward(self, data):
         """

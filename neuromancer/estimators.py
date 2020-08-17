@@ -52,8 +52,8 @@ class TimeDelayEstimator(nn.Module):
         data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
         self.sequence_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 2)
         self.static_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 1)
-        self.input_size = self.static_dims_sum + window_size * self.sequence_dims_sum
-        self.output_size = self.nx
+        self.in_features = self.static_dims_sum + window_size * self.sequence_dims_sum
+        self.out_features = self.nx
         self.input_keys = input_keys
 
     def reg_error(self):
@@ -122,7 +122,7 @@ class LinearEstimator(TimeDelayEstimator):
         See base class for arguments
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
-        self.net = Linear(self.input_size, self.output_size, bias=bias, **linargs)
+        self.net = Linear(self.in_features, self.out_features, bias=bias, **linargs)
 
 
 class MLPEstimator(TimeDelayEstimator):
@@ -136,7 +136,7 @@ class MLPEstimator(TimeDelayEstimator):
         See base class for arguments
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
-        self.net = blocks.MLP(self.input_size, self.output_size, bias=bias,
+        self.net = blocks.MLP(self.in_features, self.out_features, bias=bias,
                               Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
@@ -151,7 +151,7 @@ class ResMLPEstimator(TimeDelayEstimator):
         see base class for arguments
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
-        self.net = blocks.ResMLP(self.input_size, self.output_size, bias=bias,
+        self.net = blocks.ResMLP(self.in_features, self.out_features, bias=bias,
                                  Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
@@ -163,8 +163,8 @@ class RNNEstimator(TimeDelayEstimator):
         see base class for arguments
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
-        self.input_size = self.sequence_dims_sum
-        self.net = blocks.RNN(self.input_size, self.output_size, hsizes=hsizes,
+        self.in_features = self.sequence_dims_sum
+        self.net = blocks.RNN(self.in_features, self.out_features, hsizes=hsizes,
                               bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)
 
     def forward(self, data):

@@ -47,6 +47,9 @@ from neuromancer.simulators import ClosedLoopSimulator
 import neuromancer.policies as policies
 from neuromancer.problem import Objective, Problem
 from neuromancer.trainer import Trainer
+import neuromancer.blocks as blocks
+import neuromancer.dynamics as dynamics
+import neuromancer.estimators as estimators
 import psl
 
 
@@ -56,7 +59,7 @@ def parse():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=500)
+    opt_group.add_argument('-epochs', type=int, default=100)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
 
@@ -88,15 +91,28 @@ def parse():
     policy_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                               default='linear')
     policy_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
-    policy_group.add_argument('-policy_features', nargs='+', default=['x0_estim', 'Rf', 'Df'], help='Policy features')
+    policy_group.add_argument('-policy_features', nargs='+', default=['x0_estim_ctrl', 'Rf', 'Df'], help='Policy features')
     policy_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
                               help='Activation function for neural networks')
+
+    ##################
+    # MODEL PARAMETERS
+    model_group = parser.add_argument_group('MODEL PARAMETERS')
+    model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
+                             default='blocknlin')
+    model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
+    model_group.add_argument('-state_estimator', type=str,
+                             choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
+    model_group.add_argument('-estimator_input_window', type=int, default=1,
+                             help="Number of previous time steps measurements to include in state estimator input")
+    model_group.add_argument('-nonlinear_map', type=str, default='residual_mlp',
+                             choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
 
     ##################
     # LAYERS
     layers_group = parser.add_argument_group('LATERS PARAMETERS')
     layers_group.add_argument('-freeze', nargs='+', default=[''], help='sets requires grad to False')
-    layers_group.add_argument('-unfreeze', default=['components.1'],
+    layers_group.add_argument('-unfreeze', default=[''],
                               help='sets requires grat to True')
 
     ##################
@@ -154,16 +170,16 @@ def dataset_load(args, device):
                      'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
                      'R': psl.Steps(nx=1, nsim=nsim, randsteps=30, xmax=1, xmin=0),
                      # 'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
-                     'Y_ctrl_p': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
+                     'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
     dataset.add_data(new_sequences)
     return dataset
 
 
 def freeze_weight(model, module_names=['']):
     """
-    ['parent->child->child']
-    :param component:
-    :param module_names:
+
+    :param model:
+    :param module_names: ['parent->child->child']
     :return:
     """
     modules = dict(model.named_modules())
@@ -175,11 +191,12 @@ def freeze_weight(model, module_names=['']):
             parent = modules[freeze_path[0]]
             freeze_weight(parent, ['->'.join(freeze_path[1:])])
 
+
 def unfreeze_weight(model, module_names=['']):
     """
-    ['parent->child->child']
-    :param component:
-    :param module_names:
+
+    :param model:
+    :param module_names: ['parent->child->child']
     :return:
     """
     modules = dict(model.named_modules())
@@ -191,6 +208,61 @@ def unfreeze_weight(model, module_names=['']):
             parent = modules[freeze_path[0]]
             freeze_weight(parent, ['->'.join(freeze_path[1:])])
 
+
+# TODO: share_weight does not work with recursive assignment
+#  modules are not copied to original model via modules1[name] = modules2[name]
+def share_weight(model1, model2, module_names=['']):
+    """
+    model 1 copies the weight from model 2
+    :param model1:
+    :param model2:
+    :param module_names: ['parent->child->child']
+    :return:
+    """
+    modules1 = dict(model1.named_modules())
+    modules2 = dict(model2.named_modules())
+    for name in module_names:
+        share_path = name.split('->')
+        if len(share_path) == 1:
+            assert modules1[name].in_features == modules2[name].in_features, \
+                f'modules input dimensions does not match, module_1: {name} in_features: {modules1[name].in_features}' \
+                f', module_2: {name} in_features: {modules2[name].in_features}'
+            assert modules1[name].out_features == modules2[name].out_features, \
+                f'modules output dimensions does not match, module_1: {name} in_features: {modules1[name].out_features}' \
+                f', module_2: {name} in_features: {modules2[name].out_features}'
+            # modules1[name] = modules2[name]
+            if hasattr(modules1[name], 'weight'):
+                modules1[name].weight = modules2[name].weight
+            if hasattr(modules1[name], 'bias'):
+                modules1[name].bias = modules2[name].bias
+        else:
+            parent1 = modules1[share_path[0]]
+            parent2 = modules2[share_path[0]]
+            share_weight(parent1, parent2, ['->'.join(share_path[1:])])
+
+# TODO: shall we freeze weights of model1?
+def share_weights(model1, model2):
+    """
+    model 1 copies all weights from model 2
+    :param model1:
+    :param model2:
+    :return:
+    """
+    modules1 = dict(model1.named_modules())
+    modules2 = dict(model2.named_modules())
+    for mod1, mod2 in zip(modules1, modules2):
+        # assert mod1 == mod2,  f'modules does not match, module_1: {mod1}, module_2: {mod2}'
+        if not type(modules1[mod1]) == torch.nn.modules.container.ModuleList:
+            assert modules1[mod1].in_features == modules2[mod2].in_features,  \
+                f'modules input dimensions does not match, module_1: {mod1} in_features: {modules1[mod1].in_features}' \
+                f', module_2: {mod2} in_features: {modules2[mod2].in_features}'
+            assert modules1[mod1].out_features == modules2[mod2].out_features,  \
+                f'modules output dimensions does not match, module_1: {mod1} in_features: {modules1[mod1].out_features}' \
+                f', module_2: {mod2} in_features: {modules2[mod2].out_features}'
+            if hasattr(modules1[mod1], 'weight'):
+                modules1[mod1].weight = modules2[mod2].weight
+            if hasattr(modules1[mod1], 'bias'):
+                modules1[mod1].bias = modules2[mod2].bias
 
 
 if __name__ == '__main__':
@@ -209,30 +281,77 @@ if __name__ == '__main__':
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################
-    # Learned dynamics system ID model setup
-    best_model = torch.load(args.model_file, pickle_module=dill)
-    for k in range(len(best_model.components)):
-        if best_model.components[k].name == 'dynamics':
-            dynamics_model = best_model.components[k]
-            dynamics_model.input_keys[2] = 'U_pred_policy'
-            dynamics_model.fe = None
-        if best_model.components[k].name == 'estim':
-            estimator = best_model.components[k]
-            estimator.input_keys[0] = 'Y_ctrl_pp'
-            estimator.data_dims = dataset.dims
-
-    # control policy setup
     activation = {'gelu': nn.GELU,
                   'relu': nn.ReLU,
                   'blu': BLU,
                   'softexp': SoftExponential}[args.activation]
     linmap = slim.maps[args.linear_map]
+    nonlinmap = {'linear': linmap,
+                 'mlp': blocks.MLP,
+                 'rnn': blocks.RNN,
+                 'pytorch_rnn': blocks.PytorchRNN,
+                 'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
+
+    nx = dataset.dims['Y'][-1]*args.nx_hidden
     nh_policy = args.n_hidden
-    linmap = slim.maps[args.linear_map]
+
+    estimator = {'linear': estimators.LinearEstimator,
+                 'mlp': estimators.MLPEstimator,
+                 'rnn': estimators.RNNEstimator,
+                 'residual_mlp': estimators.ResMLPEstimator
+                 }[args.state_estimator]({**dataset.dims, 'x0': (nx,)},
+                                         nsteps=args.nsteps,
+                                         window_size=args.estimator_input_window,
+                                         bias=args.bias,
+                                         Linear=linmap,
+                                         nonlin=activation,
+                                         hsizes=[nx] * args.n_layers,
+                                         input_keys=['Yp'],
+                                         linargs=dict(),
+                                         name='estim')
+
+    dynamics_model = {'blackbox': dynamics.blackbox,
+                      'blocknlin': dynamics.blocknlin,
+                      'hammerstein': dynamics.hammerstein,
+                      'hw': dynamics.hw}[args.ssm_type](args.bias, linmap, nonlinmap,
+                                                        {**dataset.dims, 'x0_estim': (nx,)},
+                                                        n_layers=args.n_layers,
+                                                        activation=activation,
+                                                        name='dynamics',
+                                                        input_keys={'x0': f'x0_{estimator.name}',
+                                                                    'Uf': 'Uf'})
+
+    estimator_ctrl = {'linear': estimators.LinearEstimator,
+                 'mlp': estimators.MLPEstimator,
+                 'rnn': estimators.RNNEstimator,
+                 'residual_mlp': estimators.ResMLPEstimator
+                 }[args.state_estimator]({**dataset.dims, 'x0': (nx,)},
+                                         nsteps=args.nsteps,
+                                         window_size=args.estimator_input_window,
+                                         bias=args.bias,
+                                         Linear=linmap,
+                                         nonlin=activation,
+                                         hsizes=[nx] * args.n_layers,
+                                         input_keys=['Y_ctrl_p'],
+                                         linargs=dict(),
+                                         name='estim_ctrl')
+
+    dynamics_model_ctrl = {'blackbox': dynamics.blackbox,
+                      'blocknlin': dynamics.blocknlin,
+                      'hammerstein': dynamics.hammerstein,
+                      'hw': dynamics.hw}[args.ssm_type](args.bias, linmap, nonlinmap,
+                                                        {**dataset.dims, 'x0_estim_ctrl': (nx,),
+                                                         'U_pred_policy': (dataset.data['U'].shape[1],)},
+                                                        n_layers=args.n_layers,
+                                                        activation=activation,
+                                                        name='dynamics_ctrl',
+                                                        input_keys={'x0': f'x0_{estimator_ctrl.name}',
+                                                                    'Uf': 'U_pred_policy'})
+
     policy = {'linear': policies.LinearPolicy,
               'mlp': policies.MLPPolicy,
               'rnn': policies.RNNPolicy
-              }[args.policy]({'x0_estim': (30,), **dataset.dims},
+              }[args.policy]({'x0_estim_ctrl': (nx,), **dataset.dims},
                              nsteps=args.nsteps,
                              bias=args.bias,
                              Linear=linmap,
@@ -242,14 +361,20 @@ if __name__ == '__main__':
                              linargs=dict(),
                              name='policy')
 
-    components = [estimator, policy, dynamics_model]
+    share_weights(dynamics_model_ctrl, dynamics_model)
+
+    components = [estimator, dynamics_model, estimator_ctrl, policy, dynamics_model_ctrl]
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
-    regularization = Objective(['reg_error_policy'], lambda reg: reg,
+    regularization = Objective(['reg_error_policy', 'reg_error_dynamics_ctrl', 'reg_error_dynamics',
+                                'reg_error_estim_ctrl', 'reg_error_estim'],
+                               lambda reg1, reg2, reg3, reg4, reg5: reg1 + reg2 + reg3 + reg4 + reg5,
                                weight=args.Q_sub)
-    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
+    system_ID_loss = Objective(['Y_pred_dynamics', 'Yf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref[:, :, :1]),
+                               weight=args.Q_r, name='ref_loss')
+    reference_loss = Objective(['Y_pred_dynamics_ctrl', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
                                weight=args.Q_r, name='ref_loss')
     control_smoothing = Objective(['U_pred_policy'], lambda x: F.mse_loss(x[1:], x[:-1]),
                                   weight=args.Q_du, name='control_smoothing')
@@ -264,7 +389,7 @@ if __name__ == '__main__':
     inputs_upper_bound_penalty = Objective(['U_pred_policy', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                            weight=args.Q_con_u, name='input_upper_bound')
 
-    objectives = [regularization, reference_loss]
+    objectives = [regularization, reference_loss, system_ID_loss]
     constraints = [observation_lower_bound_penalty, observation_upper_bound_penalty,
                    inputs_lower_bound_penalty, inputs_upper_bound_penalty]
 

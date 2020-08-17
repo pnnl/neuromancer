@@ -90,8 +90,8 @@ class Policy(nn.Module):
         data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
         self.sequence_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 2)
         self.static_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 1)
-        self.input_size = self.static_dims_sum + nsteps * self.sequence_dims_sum
-        self.output_size = nsteps * self.nu
+        self.in_features = self.static_dims_sum + nsteps * self.sequence_dims_sum
+        self.out_features = nsteps * self.nu
         self.input_keys = input_keys
 
     def reg_error(self):
@@ -155,7 +155,7 @@ class LinearPolicy(Policy):
         :param name: (str) Name for tracking output of module.
         """
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
-        self.net = Linear(self.input_size, self.output_size, bias=bias, **linargs)
+        self.net = Linear(self.in_features, self.out_features, bias=bias, **linargs)
 
 
 class MLPPolicy(Policy):
@@ -167,7 +167,7 @@ class MLPPolicy(Policy):
         See LinearPolicy for arguments
         """
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
-        self.net = blocks.MLP(insize=self.input_size, outsize=self.output_size, bias=bias,
+        self.net = blocks.MLP(insize=self.in_features, outsize=self.out_features, bias=bias,
                               Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
@@ -179,8 +179,8 @@ class RNNPolicy(Policy):
         See LinearPolicy for arguments
         """
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
-        self.input_size = self.sequence_dims_sum + self.static_dims_sum
-        self.net = blocks.RNN(self.input_size, self.output_size, hsizes=hsizes,
+        self.in_features = self.sequence_dims_sum + self.static_dims_sum
+        self.net = blocks.RNN(self.in_features, self.out_features, hsizes=hsizes,
                               bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)
 
     def forward(self, data):

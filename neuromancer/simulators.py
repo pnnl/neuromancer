@@ -133,11 +133,11 @@ class ClosedLoopSimulator(Simulator):
                     x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d, x0=x.flatten())
                 elif isinstance(self.emulator, nn.Module):
                     step_data_0 = dict()
-                    step_data_0['U_pred_policy'] = uopt.reshape(uopt.shape[0], uopt.shape[1], 1)
-                    step_data_0['x0_estim'] = x
+                    step_data_0['U_pred_policy'] = uopt.reshape(uopt.shape[0], uopt.shape[1], 1).float()
+                    step_data_0['x0_estim'] = x.float()
                     for k, v in step_data.items():
                         dat = v[0]
-                        step_data_0[k] = dat.reshape(dat.shape[0], dat.shape[1], 1)
+                        step_data_0[k] = dat.reshape(dat.shape[0], dat.shape[1], 1).float()
                     emulator_output = self.emulator(step_data_0)
                     x = emulator_output['X_pred_dynamics'][0]
                     y = emulator_output['Y_pred_dynamics'][0].detach().numpy()
@@ -152,10 +152,10 @@ class ClosedLoopSimulator(Simulator):
                                                              Mmax=self.dataset.min_max_norms['Ymax'])
                     else:
                         Yp_np = np.concatenate(Y[-self.nsteps:])
-                    step_data['Yp'] = torch.tensor(np.concatenate(Yp_np, 0)).reshape(self.nsteps, 1, -1)
+                    step_data['Yp'] = torch.tensor(np.concatenate(Yp_np, 0)).reshape(self.nsteps, 1, -1).float()
 
                 if len(U_opt) > self.nsteps:
-                    step_data['Up'] = torch.cat(U_opt[-self.nsteps:], dim=0).reshape(self.nsteps, 1, -1)
+                    step_data['Up'] = torch.cat(U_opt[-self.nsteps:], dim=0).reshape(self.nsteps, 1, -1).float()
 
             # control policy model
             step_output = self.model(step_data)

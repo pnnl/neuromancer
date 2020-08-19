@@ -48,6 +48,8 @@ user@machine:~$ source activate neuromancer
 ```
 
 ### TODO
+    [ ] unify batching/unbatching via single function in datasets.py?
+    [ ] finish batch_data_exp_id for datasets generated via multiple experiment runs: batch based on exp_idx and nsteps
     [ ] update plot_matrix method in VisualizerOpen(Visualizer) - currently supports only linear maps with effective_W
     [ ] move freeze_weight, unfreeze_weight, and share_weights into problem.py?
     [ ] add output_keys attribute to components 

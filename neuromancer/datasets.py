@@ -58,6 +58,20 @@ def batch_data(data, nsteps):
     return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
 
 
+def batch_data_exp_idx(data, idx, nsteps):
+    """
+    batch data from multiple indexed experiments
+
+    :param data: np.array shape=(nsim, dim)
+    :param nsteps: (int) n-step prediction horizon
+    :return: np.array shape=(nsteps, nsamples, dim)
+    """
+    nsplits = (data.shape[0]) // nsteps
+    leftover = (data.shape[0]) % nsteps
+    data = np.stack(np.split(data[:data.shape[0] - leftover], nsplits))  # nchunks X nsteps X nfeatures
+    return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
+
+
 def unbatch_mh_data(data):
     """
     Data put back together into original sequence from moving horizon dataset.
@@ -362,13 +376,15 @@ class FileDataset(Dataset):
             Y = file.get("y", None)  # outputs
             U = file.get("u", None)  # inputs
             D = file.get("d", None)  # disturbances
+            exp_id = file.get("exp_id", None)  # experiment run id
         elif file_type == 'csv':
             data = pd.read_csv(file_path)
             Y = data.filter(regex='y').values if data.filter(regex='y').values.size != 0 else None
             U = data.filter(regex='u').values if data.filter(regex='u').values.size != 0 else None
             D = data.filter(regex='d').values if data.filter(regex='d').values.size != 0 else None
+            exp_id = data.filter(regex='exp_id').values if data.filter(regex='exp_id').values.size != 0 else None
         data = dict()
-        for d, k in zip([Y, U, D], ['Y', 'U', 'D']):
+        for d, k in zip([Y, U, D, exp_id], ['Y', 'U', 'D', 'exp_id']):
             if d is not None:
                 data[k] = d[self.ninit:self.nsim+self.ninit, :]
         return data

@@ -444,7 +444,8 @@ systems = {'tank': 'datafile',
            'HollandschHuys_ROM100': 'emulator',
            'Infrax_full': 'emulator',
            'Infrax_ROM100': 'emulator',
-           'CSTR': 'emulator'}
+           'CSTR': 'emulator',
+           'UAV3D_kin': 'emulator'}
 
 
 if __name__ == '__main__':

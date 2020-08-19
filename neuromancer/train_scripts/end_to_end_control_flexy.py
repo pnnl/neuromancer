@@ -362,6 +362,7 @@ if __name__ == '__main__':
                              name='policy')
 
     share_weights(dynamics_model_ctrl, dynamics_model)
+    share_weights(estimator_ctrl, estimator)
 
     components = [estimator, dynamics_model, estimator_ctrl, policy, dynamics_model_ctrl]
 

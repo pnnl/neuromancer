@@ -67,6 +67,8 @@ class VisualizerOpen(Visualizer):
         eigax.set_aspect(1)
         matax.axis('off')
         matax.set_title('State Transition Matrix')
+        # TODO: treat the case when fx is not a simple linear map
+        # visualize weights of modules: dict(model.fx.named_modules())
         mat = self.model.fx.effective_W().detach().cpu().numpy()
         w, v = LA.eig(mat)
         matax.imshow(mat)

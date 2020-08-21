@@ -1,4 +1,6 @@
 """
+TODO: include readme on experiment setup
+
 Script for training block dynamics models for system identification.
 Current block structure supported are black_box, hammerstein, hammerstein-weiner, and general block non-linear
 
@@ -150,8 +152,8 @@ def dataset_load(args, device):
     nu = dataset.data['U'].shape[1]
     new_sequences = {'Y_max': 0.8 * np.ones([nsim, ny]), 'Y_min': 0.2 * np.ones([nsim, ny]),
                      'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
-                     'R': psl.Steps(nx=1, nsim=nsim, randsteps=30, xmax=1, xmin=0),
-                     # 'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=12, xmax=1, xmin=0),
+                     # 'R': psl.Steps(nx=1, nsim=nsim, randsteps=30, xmax=1, xmin=0),
+                     'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=1, xmin=0),
                      'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
     dataset.add_data(new_sequences)
     return dataset
@@ -281,3 +283,6 @@ if __name__ == '__main__':
     best_model = trainer.train()
     trainer.evaluate(best_model)
     logger.clean_up()
+
+#     TODO: dummy HW to evaluate policy on randomly generated signals
+#  dummy closed loop with dummy HW

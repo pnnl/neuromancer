@@ -210,7 +210,6 @@ def unfreeze_weight(model, module_names=['']):
 
 
 # TODO: share_weight does not work with recursive assignment
-#  modules are not copied to original model via modules1[name] = modules2[name]
 def share_weight(model1, model2, module_names=['']):
     """
     model 1 copies the weight from model 2
@@ -240,8 +239,28 @@ def share_weight(model1, model2, module_names=['']):
             parent2 = modules2[share_path[0]]
             share_weight(parent1, parent2, ['->'.join(share_path[1:])])
 
-# TODO: shall we freeze weights of model1?
+
+#  update with     for direct access to modules
 def share_weights(model1, model2):
+    """
+    model 1 copies all weights from model 2
+    :param model1:
+    :param model2:
+    :return:
+    """
+    modules1 = model1._modules
+    modules2 = model2._modules
+    for name in modules1.keys():
+        assert modules1[name].in_features == modules2[name].in_features, \
+            f'modules input dimensions does not match, module_1: {name} in_features: { modules1[name].in_features}' \
+            f', module_2: {name} in_features: {modules2[name].in_features}'
+        assert modules1[name].out_features == modules2[name].out_features, \
+            f'modules output dimensions does not match, module_1: {name} in_features: { modules1[name].out_features}' \
+            f', module_2: {name} in_features: { modules2[name].out_features}'
+        modules1[name] = modules2[name]
+
+
+def share_weights_backup(model1, model2):
     """
     model 1 copies all weights from model 2
     :param model1:

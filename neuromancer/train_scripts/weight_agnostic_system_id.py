@@ -187,7 +187,7 @@ if __name__ == '__main__':
     args.epochs = 1
     print({k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)})
     metalogger, device = logging(args, logtype='mlflow')
-    meta_best_performance = np.finfo(float).max
+    meta_best_performance = np.finfo(np.float32).max
 
     ###############################
     ########## DATA ###############
@@ -199,7 +199,7 @@ if __name__ == '__main__':
     print(dataset.dims)
     nx = dataset.dims['Y'][-1]*args.nx_hidden
     eval_metrics = []
-    for i in range(100):
+    for i in range(10):
         logger, device = logging(args, logtype='basic')
         activation = {'gelu': nn.GELU,
                       'relu': nn.ReLU,

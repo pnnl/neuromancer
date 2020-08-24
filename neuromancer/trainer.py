@@ -118,6 +118,7 @@ class Trainer:
         self.logger.log_metrics({f'best_{k}': v for k, v in all_output.items()})
         plots = self.visualizer.eval(all_output)
         self.logger.log_artifacts(plots)
+        return all_output
 
 
 class TrainerMPP:

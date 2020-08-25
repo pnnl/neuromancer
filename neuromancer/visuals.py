@@ -12,6 +12,7 @@ import scipy.linalg as LA
 # local imports
 from neuromancer.datasets import unbatch_data
 import neuromancer.plot as plot
+import slim
 
 
 class Visualizer:
@@ -58,6 +59,7 @@ class VisualizerOpen(Visualizer):
                 self.anime()
 
     def plot_matrix(self):
+<<<<<<< HEAD
         if hasattr(self.model, 'fx'):
             if hasattr(self.model.fx, 'effective_W'):
                 rows = 1
@@ -113,20 +115,42 @@ class VisualizerOpen(Visualizer):
                     axes[k, 0].set_title('Weights Eigenvalues')
                 axes[k, 0].scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
         plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
+=======
+        if isinstance(self.model.fx, slim.LinearBase):
+            plt.style.use('dark_background')
+            fig, (eigax, matax) = plt.subplots(1, 2)
+            eigax.set_title('State Transition Matrix Eigenvalues')
+            eigax.set_ylim(-1.1, 1.1)
+            eigax.set_xlim(-1.1, 1.1)
+            eigax.set_aspect(1)
+            matax.axis('off')
+            matax.set_title('State Transition Matrix')
+            mat = self.model.fx.effective_W().detach().cpu().numpy()
+            w, v = LA.eig(mat)
+            matax.imshow(mat)
+            eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
+            plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
+        else:  # TODO: treat the case when fx is not a simple linear map
+               # visualize weights of modules: dict(model.fx.named_modules())
+            pass
+>>>>>>> origin/master
 
     def plot_traj(self, true_traj, pred_traj, figname='open_loop.png'):
-        plt.style.use('dark_background')
-        fig, ax = plt.subplots(len(true_traj), 1)
-        labels = [f'$y_{k}$' for k in range(len(true_traj))]
-        for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, labels)):
-            axe = ax if len(true_traj) == 1 else ax[row]
-            axe.set_ylabel(label, rotation=0, labelpad=20)
-            axe.plot(t1, label='True', c='c')
-            axe.plot(t2, label='Pred', c='m')
-            axe.tick_params(labelbottom=False)
-        axe.tick_params(labelbottom=True)
-        axe.set_xlabel('Time')
-        axe.legend()
+        try:
+            plt.style.use('dark_background')
+            fig, ax = plt.subplots(len(true_traj), 1)
+            labels = [f'$y_{k}$' for k in range(len(true_traj))]
+            for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, labels)):
+                axe = ax if len(true_traj) == 1 else ax[row]
+                axe.set_ylabel(label, rotation=0, labelpad=20)
+                axe.plot(t1, label='True', c='c')
+                axe.plot(t2, label='Pred', c='m')
+                axe.tick_params(labelbottom=False)
+            axe.tick_params(labelbottom=True)
+            axe.set_xlabel('Time')
+            axe.legend()
+        except:
+            pass
 
         plt.savefig(figname)
 

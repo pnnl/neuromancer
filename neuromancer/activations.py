@@ -123,8 +123,8 @@ class RectifiedSoftExp(nn.Module):
         self.epsilon = 1e-7
 
     def forward(self, x):
-        neg_alpha = F.relu(-self.alpha) + self.epsilon()
-        pos_alpha = F.relu(self.alpha) + self.epsilon()
+        neg_alpha = F.relu(-torch.clamp(self.alpha, -1, 1)) + self.epsilon()
+        pos_alpha = F.relu(torch.clamp(self.alpha, -1, 1)) + self.epsilon()
         pos_x = F.relu(x) + self.epsilon()
         log = torch.log(neg_alpha*pos_x + 1) / neg_alpha
         exp = (torch.exp(pos_alpha*pos_x) - 1) / pos_alpha

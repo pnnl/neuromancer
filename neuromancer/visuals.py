@@ -59,7 +59,6 @@ class VisualizerOpen(Visualizer):
                 self.anime()
 
     def plot_matrix(self):
-<<<<<<< HEAD
         if hasattr(self.model, 'fx'):
             if hasattr(self.model.fx, 'effective_W'):
                 rows = 1
@@ -115,25 +114,6 @@ class VisualizerOpen(Visualizer):
                     axes[k, 0].set_title('Weights Eigenvalues')
                 axes[k, 0].scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
         plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
-=======
-        if isinstance(self.model.fx, slim.LinearBase):
-            plt.style.use('dark_background')
-            fig, (eigax, matax) = plt.subplots(1, 2)
-            eigax.set_title('State Transition Matrix Eigenvalues')
-            eigax.set_ylim(-1.1, 1.1)
-            eigax.set_xlim(-1.1, 1.1)
-            eigax.set_aspect(1)
-            matax.axis('off')
-            matax.set_title('State Transition Matrix')
-            mat = self.model.fx.effective_W().detach().cpu().numpy()
-            w, v = LA.eig(mat)
-            matax.imshow(mat)
-            eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
-            plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
-        else:  # TODO: treat the case when fx is not a simple linear map
-               # visualize weights of modules: dict(model.fx.named_modules())
-            pass
->>>>>>> origin/master
 
     def plot_traj(self, true_traj, pred_traj, figname='open_loop.png'):
         try:

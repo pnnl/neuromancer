@@ -76,7 +76,7 @@ class APLU(nn.Module):
         return self.alpha_reg_weight*torch.norm(self.alpha) + self.beta_reg_weight*torch.norm(self.beta)
 
     def forward(self, x):
-        y = nn.relu(x)
+        y = F.relu(x)
         for i in range(self.nsegments):
             y += self.alpha[i] * F.relu(-x + self.beta[i])
         return y
@@ -131,7 +131,7 @@ class RectifiedSoftExp(nn.Module):
         return log + exp
 
 
-activations = {'softexp': SoftExponential, 'blu': BLU, 'prelu': PReLU, 'pelu': PELU}
+activations = {'softexp': SoftExponential, 'blu': BLU, 'aplu': APLU, 'prelu': PReLU, 'pelu': PELU}
 
 if __name__ == '__main__':
     x = torch.zeros(5, 10)

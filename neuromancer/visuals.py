@@ -99,6 +99,7 @@ class VisualizerOpen(Visualizer):
             fig, axes = plt.subplots(rows, 2)
             # axes[0, 0].set_title('Weights Eigenvalues')
             axes[0, 1].set_title('State Transition Weights')
+            count = 0
             for k in range(rows):
                 # axes[k, 0].set_ylim(-1.1, 1.1)
                 # axes[k, 0].set_xlim(-1.1, 1.1)
@@ -111,7 +112,8 @@ class VisualizerOpen(Visualizer):
                     axes[k, 0].set_title('Weights Singular values')
                 else:
                     w, v = LA.eig(Mat[k].T)
-                    axes[k, 0].set_title('Weights Eigenvalues')
+                    axes[k, 0].set_title('Weights Eigenvalues') if count == 0 else None
+                    count += 1
                 axes[k, 0].scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
         plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
 

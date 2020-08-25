@@ -89,7 +89,7 @@ class VisualizerOpen(Visualizer):
             matax.imshow(mat.T)
             if not mat.shape[0] == mat.shape[1]:
                 # singular values of rectangular matrix
-                s, w, d = np.linalg.svd(mat)
+                s, w, d = np.linalg.svd(mat.T)
                 eigax.set_title('Weights Singular values')
             else:
                 w, v = LA.eig(mat.T)
@@ -104,13 +104,13 @@ class VisualizerOpen(Visualizer):
                 # axes[k, 0].set_xlim(-1.1, 1.1)
                 axes[k, 0].set_aspect(1)
                 axes[k, 1].axis('off')
-                axes[k, 1].imshow(Mat[k])
+                axes[k, 1].imshow(Mat[k].T)
                 if not Mat[k].shape[0] == Mat[k].shape[1]:
                     # singular values of rectangular matrix
-                    s, w, d = np.linalg.svd(Mat[k])
+                    s, w, d = np.linalg.svd(Mat[k].T)
                     axes[k, 0].set_title('Weights Singular values')
                 else:
-                    w, v = LA.eig(Mat[k])
+                    w, v = LA.eig(Mat[k].T)
                     axes[k, 0].set_title('Weights Eigenvalues')
                 axes[k, 0].scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
         plt.savefig(os.path.join(self.savedir, 'eigmat.png'))

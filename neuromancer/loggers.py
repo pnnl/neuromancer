@@ -118,7 +118,7 @@ class MLFlowLogger(BasicLogger):
         :return: (int) Number of learnable parameters in the model.
         """
         nweights = super().log_weights(model)
-        mlflow.log_param('nparams',  nweights)
+        mlflow.log_metric('nparams',  float(nweights))
 
     def log_metrics(self, output, step=0):
         """

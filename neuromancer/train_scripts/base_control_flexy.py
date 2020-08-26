@@ -71,6 +71,8 @@ def parse():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
+    data_group.add_argument('-estimator_input_window', type=int, default=32,
+                             help="Number of previous time steps measurements to include in state estimator input")
     data_group.add_argument('-system', type=str, default='flexy_air', choices=['flexy_air'],
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=8640,
@@ -219,6 +221,7 @@ if __name__ == '__main__':
     dataset = dataset_load(args, device)
     print(dataset.dims)
 
+    # TODO: error when setting up different prediction horizon than system ID horizon
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################

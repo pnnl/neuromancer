@@ -44,11 +44,14 @@ def parse():
 class Simulator:
     def __init__(self, model=torch.load('../datasets/Flexy_air/best_model_flexy.pth', pickle_module=dill)):
         self.model = model
+        self.estim = model.components[0]
+        self.dynamics = model.components[1]
         self.y = torch.zeros(1, 1, 1)
 
     def send_control(self, u, d, Y):
-        inputs = {'Uf': u, 'Df': d, 'Yp': Y, 'Yf': Y}
-        outputs = self.model(inputs)
+        estim_out = self.estim({'Yp': Y})
+        inputs = {'x0_estim': estim_out['x0_estim'], 'Uf': u, 'Df': d,'Yf': Y[-1:]}
+        outputs = self.dynamics(inputs)
         self.y = outputs['Y_pred_dynamics']
 
     def get_state(self):
@@ -91,8 +94,9 @@ if __name__ == '__main__':
         y = HW_emulator.get_state()
         estim_out = estimator({'Y_ctrl_p': yN})
         features = {'x0_estim': estim_out['x0_estim'],
-                    'Rf': torch.tensor(new_sequences['R'][k:nsteps]).float().reshape(nsteps,1,-1),
-                    'Df': torch.tensor(new_sequences['D'][k:nsteps]).float().reshape(nsteps,1,-1)}
+                    'Rf': torch.tensor(new_sequences['R'][k:nsteps+k]).float().reshape(nsteps,1,-1),
+                    'Df': torch.tensor(new_sequences['D'][k:nsteps+k]).float().reshape(nsteps,1,-1)}
         policy_out = policy(features)
-        uopt = policy_out['U_pred_policy'][0]
-        HW_emulator.send_control(uopt, d=torch.tensor(new_sequences['D'][k:nsteps]).reshape(nsteps,1,-1).float(), Y=yN)
+        uopt = policy_out['U_pred_policy'][0].reshape(1,1,-1).float()
+        d = torch.tensor(new_sequences['D'][k]).reshape(1,1,-1).float()
+        HW_emulator.send_control(uopt, d=d, Y=yN)

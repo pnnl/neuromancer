@@ -30,6 +30,7 @@ import argparse
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
+import dill
 
 # code ecosystem imports
 import slim
@@ -92,11 +93,11 @@ def parse():
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
                              default='blackbox')
-    model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
-    model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
+    model_group.add_argument('-nx_hidden', type=int, default=30, help='Number of hidden states per output')
+    model_group.add_argument('-n_layers', type=int, default=3, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
-    model_group.add_argument('-estimator_input_window', type=int, default=32,
+    model_group.add_argument('-estimator_input_window', type=int, default=1,
                              help="Number of previous time steps measurements to include in state estimator input")
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                              default='linear')
@@ -160,6 +161,10 @@ def dataset_load(args, device):
     else:
         dataset = FileDataset(system=args.system, nsim=args.nsim,
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
+        new_sequences = {'Y': dataset.data['Y'][:, :1]}
+        dataset.min_max_norms['Ymin'] = dataset.min_max_norms['Ymin'][0]
+        dataset.min_max_norms['Ymax'] = dataset.min_max_norms['Ymax'][0]
+        dataset.add_data(new_sequences, overwrite=True)
     return dataset
 
 
@@ -175,10 +180,6 @@ if __name__ == '__main__':
     ########## DATA ###############
     ###############################
     dataset = dataset_load(args, device)
-    new_sequences = {'Y': dataset.data['Y'][:, :1]}
-    dataset.min_max_norms['Ymin'] = dataset.min_max_norms['Ymin'][0]
-    dataset.min_max_norms['Ymax'] = dataset.min_max_norms['Ymax'][0]
-    dataset.add_data(new_sequences, overwrite=True)
 
     ##########################################
     ########## PROBLEM COMPONENTS ############
@@ -280,3 +281,7 @@ if __name__ == '__main__':
     best_model = trainer.train()
     trainer.evaluate(best_model)
     logger.clean_up()
+
+    if False:
+        model.load_state_dict(best_model)
+        torch.save(model, '../datasets/Flexy_air/best_model_flexy.pth', pickle_module=dill)

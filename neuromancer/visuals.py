@@ -115,6 +115,7 @@ class VisualizerOpen(Visualizer):
                     axes[k, 0].set_title('Weights Eigenvalues') if count == 0 else None
                     count += 1
                 axes[k, 0].scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
+        plt.tight_layout()
         plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
 
     def plot_traj(self, true_traj, pred_traj, figname='open_loop.png'):

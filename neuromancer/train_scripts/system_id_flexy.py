@@ -75,7 +75,7 @@ def parse():
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=32,
+    data_group.add_argument('-nsteps', type=int, default=10,
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system', type=str, default='flexy_air', choices=list(systems.keys()),
                             help='select particular dataset with keyword')

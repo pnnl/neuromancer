@@ -56,15 +56,23 @@ def parse():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=500)
+    opt_group.add_argument('-epochs', type=int, default=1000)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
+    opt_group.add_argument('-patience', type=int, default=50,
+                           help='How many epochs to allow for no improvement in eval metric before early stopping.')
+    opt_group.add_argument('-warmup', type=int, default=100,
+                           help='Number of epochs to wait before enacting early stopping policy.')
+    opt_group.add_argument('-skip_eval_sim', action='store_true',
+                           help='Whether to run simulator during evaluation phase of training.')
 
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
+    data_group.add_argument('-estimator_input_window', type=int, default=32,
+                             help="Number of previous time steps measurements to include in state estimator input")
     data_group.add_argument('-system', type=str, default='flexy_air', choices=['flexy_air'],
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=8640,
@@ -75,7 +83,7 @@ def parse():
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y', 'X'],
                             help='List of sequences to max-min normalize')
-    data_group.add_argument('-model_file', type=str, default='../datasets/Flexy_air/best_model.pth')
+    data_group.add_argument('-model_file', type=str, default='../datasets/Flexy_air/best_model_flexy.pth')
 
     ##################
     # POLICY PARAMETERS
@@ -106,7 +114,7 @@ def parse():
     weight_group.add_argument('-Q_con_u', type=float, default=10.0, help='Input constraints penalty weight.')
     weight_group.add_argument('-Q_sub', type=float, default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_r', type=float, default=1.0, help='Reference tracking penalty weight')
-    weight_group.add_argument('-Q_du', type=float, default=1.0, help='Reference tracking penalty weight')
+    weight_group.add_argument('-Q_du', type=float, default=50.0, help='control action difference penalty weight')
 
     ####################
     # LOGGING PARAMETERS
@@ -148,15 +156,21 @@ def dataset_load(args, device):
         dataset = FileDataset(system=args.system, nsim=args.nsim,
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir,
                               name='closedloop')
-    nsim, ny = dataset.data['Y'].shape
-    nu = dataset.data['U'].shape[1]
-    new_sequences = {'Y_max': 0.8 * np.ones([nsim, ny]), 'Y_min': 0.2 * np.ones([nsim, ny]),
-                     'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
-                     'R': psl.Steps(nx=1, nsim=nsim, randsteps=30, xmax=0.7, xmin=0.3),
-                     # 'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.7, xmin=0.3),
-                     # 'Y_ctrl_': psl.RandomWalk(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny, sigma=0.05)}
-                     'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
-    dataset.add_data(new_sequences)
+
+        new_sequences = {'Y': dataset.data['Y'][:, :1]}
+        dataset.min_max_norms['Ymin'] = dataset.min_max_norms['Ymin'][0]
+        dataset.min_max_norms['Ymax'] = dataset.min_max_norms['Ymax'][0]
+        dataset.add_data(new_sequences, overwrite=True)
+
+        nsim, ny = dataset.data['Y'].shape
+        nu = dataset.data['U'].shape[1]
+        new_sequences = {'Y_max': 0.8 * np.ones([nsim, ny]), 'Y_min': 0.2 * np.ones([nsim, ny]),
+                         'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
+                         'R': psl.Steps(nx=1, nsim=nsim, randsteps=30, xmax=0.7, xmin=0.3),
+                         # 'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.7, xmin=0.3),
+                         # 'Y_ctrl_': psl.RandomWalk(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny, sigma=0.05)}
+                         'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
+        dataset.add_data(new_sequences)
     return dataset
 
 
@@ -207,6 +221,7 @@ if __name__ == '__main__':
     dataset = dataset_load(args, device)
     print(dataset.dims)
 
+    # TODO: error when setting up different prediction horizon than system ID horizon
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################
@@ -216,7 +231,7 @@ if __name__ == '__main__':
         if best_model.components[k].name == 'dynamics':
             dynamics_model = best_model.components[k]
             dynamics_model.input_keys[2] = 'U_pred_policy'
-            dynamics_model.fe = None  # TODO: ALARM! lazy fix - retrain the model with new dynamics module and get rid of this line
+            dynamics_model.fe = None
         if best_model.components[k].name == 'estim':
             estimator = best_model.components[k]
             estimator.input_keys[0] = 'Y_ctrl_p'
@@ -249,7 +264,9 @@ if __name__ == '__main__':
     ##########################################
     regularization = Objective(['reg_error_policy'], lambda reg: reg,
                                weight=args.Q_sub)
-    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
+    # reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
+    #                            weight=args.Q_r, name='ref_loss')
+    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred, ref),
                                weight=args.Q_r, name='ref_loss')
     control_smoothing = Objective(['U_pred_policy'], lambda x: F.mse_loss(x[1:], x[:-1]),
                                   weight=args.Q_du, name='control_smoothing')
@@ -280,10 +297,12 @@ if __name__ == '__main__':
     emulator = dynamics_model
     simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
-                      simulator=simulator, epochs=args.epochs)
+                      simulator=simulator, epochs=args.epochs,
+                      patience=args.patience, warmup=args.warmup)
     best_model = trainer.train()
     trainer.evaluate(best_model)
     logger.clean_up()
 
-#     TODO: dummy HW to evaluate policy on randomly generated signals
-#  dummy closed loop with dummy HW
+    if False:
+        model.load_state_dict(best_model)
+        torch.save(model, '../datasets/Flexy_air/best_policy_flexy.pth', pickle_module=dill)

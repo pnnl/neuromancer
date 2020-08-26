@@ -59,7 +59,7 @@ def parse():
     opt_group.add_argument('-epochs', type=int, default=1000)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
-    opt_group.add_argument('-patience', type=int, default=50,
+    opt_group.add_argument('-patience', type=int, default=20,
                            help='How many epochs to allow for no improvement in eval metric before early stopping.')
     opt_group.add_argument('-warmup', type=int, default=100,
                            help='Number of epochs to wait before enacting early stopping policy.')
@@ -69,10 +69,8 @@ def parse():
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=32,
-                            help='Number of steps for open loop during training.')
-    data_group.add_argument('-estimator_input_window', type=int, default=32,
-                             help="Number of previous time steps measurements to include in state estimator input")
+    data_group.add_argument('-nsteps', type=int, default=6,
+                            help='MPC prediction horizon, must be bigger or equal than estimator window.')
     data_group.add_argument('-system', type=str, default='flexy_air', choices=['flexy_air'],
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=8640,
@@ -90,8 +88,8 @@ def parse():
     policy_group = parser.add_argument_group('POLICY PARAMETERS')
     policy_group.add_argument('-policy', type=str,
                               choices=['rnn', 'mlp', 'linear'], default='mlp')
-    policy_group.add_argument('-n_hidden', type=int, default=10, help='Number of hidden states')
-    policy_group.add_argument('-n_layers', type=int, default=4,
+    policy_group.add_argument('-n_hidden', type=int, default=20, help='Number of hidden states')
+    policy_group.add_argument('-n_layers', type=int, default=3,
                               help='Number of hidden layers of single time-step state transition')
     policy_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                               default='linear')
@@ -113,8 +111,8 @@ def parse():
     weight_group.add_argument('-Q_con_y', type=float, default=10.0, help='Output constraints penalty weight.')
     weight_group.add_argument('-Q_con_u', type=float, default=10.0, help='Input constraints penalty weight.')
     weight_group.add_argument('-Q_sub', type=float, default=0.2, help='Linear maps regularization weight.')
-    weight_group.add_argument('-Q_r', type=float, default=1.0, help='Reference tracking penalty weight')
-    weight_group.add_argument('-Q_du', type=float, default=50.0, help='control action difference penalty weight')
+    weight_group.add_argument('-Q_r', type=float, default=10.0, help='Reference tracking penalty weight')
+    weight_group.add_argument('-Q_du', type=float, default=0.0, help='control action difference penalty weight')
 
     ####################
     # LOGGING PARAMETERS
@@ -168,8 +166,8 @@ def dataset_load(args, device):
                          'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
                          'R': psl.Steps(nx=1, nsim=nsim, randsteps=30, xmax=0.7, xmin=0.3),
                          # 'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.7, xmin=0.3),
-                         # 'Y_ctrl_': psl.RandomWalk(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny, sigma=0.05)}
-                         'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
+                         'Y_ctrl_': psl.RandomWalk(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny, sigma=0.05)}
+                         # 'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
         dataset.add_data(new_sequences)
     return dataset
 
@@ -221,7 +219,6 @@ if __name__ == '__main__':
     dataset = dataset_load(args, device)
     print(dataset.dims)
 
-    # TODO: error when setting up different prediction horizon than system ID horizon
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################
@@ -236,6 +233,7 @@ if __name__ == '__main__':
             estimator = best_model.components[k]
             estimator.input_keys[0] = 'Y_ctrl_p'
             estimator.data_dims = dataset.dims
+            estimator.nsteps = args.nsteps
 
     # control policy setup
     activation = {'gelu': nn.GELU,
@@ -262,6 +260,7 @@ if __name__ == '__main__':
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
+    # TODO: reformulate Qdu constraint based on the feedback during real time control
     regularization = Objective(['reg_error_policy'], lambda reg: reg,
                                weight=args.Q_sub)
     # reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),

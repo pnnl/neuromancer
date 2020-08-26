@@ -68,6 +68,8 @@ class VisualizerOpen(Visualizer):
                 Mat = []
                 for linear in self.model.fx.linear:
                     Mat.append(linear.weight.detach().cpu().numpy())
+            else:
+                rows = 0
         elif hasattr(self.model, 'fxud'):
             if hasattr(self.model.fxud, 'effective_W'):
                 rows = 1
@@ -77,7 +79,8 @@ class VisualizerOpen(Visualizer):
                 Mat = []
                 for linear in self.model.fxud.linear:
                     Mat.append(linear.weight.detach().cpu().numpy())
-
+            else:
+                rows = 0
         plt.style.use('dark_background')
         if rows == 1:
             fig, (eigax, matax) = plt.subplots(rows, 2)
@@ -95,7 +98,9 @@ class VisualizerOpen(Visualizer):
                 w, v = LA.eig(mat.T)
                 eigax.set_title('Weights Eigenvalues')
             eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
-        else:
+            plt.tight_layout()
+            plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
+        elif rows > 1:
             fig, axes = plt.subplots(rows, 2)
             # axes[0, 0].set_title('Weights Eigenvalues')
             axes[0, 1].set_title('State Transition Weights')
@@ -115,8 +120,8 @@ class VisualizerOpen(Visualizer):
                     axes[k, 0].set_title('Weights Eigenvalues') if count == 0 else None
                     count += 1
                 axes[k, 0].scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
+            plt.tight_layout()
+            plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
 
     def plot_traj(self, true_traj, pred_traj, figname='open_loop.png'):
         try:

@@ -92,6 +92,7 @@ if __name__ == '__main__':
     yN = torch.zeros(nsteps, 1, 1)
     for k in range(nsim-nsteps):
         y = HW_emulator.get_state()
+        yN = torch.cat([yN, y])[1:]
         estim_out = estimator({'Y_ctrl_p': yN})
         features = {'x0_estim': estim_out['x0_estim'],
                     'Rf': torch.tensor(new_sequences['R'][k:nsteps+k]).float().reshape(nsteps,1,-1),

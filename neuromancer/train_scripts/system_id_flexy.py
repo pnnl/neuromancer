@@ -65,7 +65,7 @@ def parse():
                            help='Step size for gradient descent.')
     opt_group.add_argument('-eval_metric', type=str, default='loop_dev_loss',
                            help='Metric for model selection and early stopping.')
-    opt_group.add_argument('-patience', type=int, default=50,
+    opt_group.add_argument('-patience', type=int, default=30,
                            help='How many epochs to allow for no improvement in eval metric before early stopping.')
     opt_group.add_argument('-warmup', type=int, default=100,
                            help='Number of epochs to wait before enacting early stopping policy.')
@@ -75,7 +75,7 @@ def parse():
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=10,
+    data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system', type=str, default='flexy_air', choices=list(systems.keys()),
                             help='select particular dataset with keyword')
@@ -92,16 +92,16 @@ def parse():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
-                             default='blackbox')
+                             default='blocknlin')
     model_group.add_argument('-nx_hidden', type=int, default=30, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=3, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
-    model_group.add_argument('-estimator_input_window', type=int, default=1,
+    model_group.add_argument('-estimator_input_window', type=int, default=10,
                              help="Number of previous time steps measurements to include in state estimator input")
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                              default='linear')
-    model_group.add_argument('-nonlinear_map', type=str, default='residual_mlp',
+    model_group.add_argument('-nonlinear_map', type=str, default='mlp',
                              choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
@@ -116,7 +116,7 @@ def parse():
     weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_y', type=float,  default=1.0, help='Output tracking penalty weight')
     weight_group.add_argument('-Q_e', type=float,  default=1.0, help='State estimator hidden prediction penalty weight')
-    weight_group.add_argument('-Q_con_fdu', type=float,  default=0.0, help='Penalty weight on control actions and disturbances.')
+    weight_group.add_argument('-Q_con_fdu', type=float,  default=1.0, help='Penalty weight on control actions and disturbances.')
 
     ####################
     # LOGGING PARAMETERS
@@ -231,8 +231,8 @@ if __name__ == '__main__':
     ##########################################
     xmin = -0.2
     xmax = 1.2
-    dxudmin = -0.05
-    dxudmax = 0.05
+    dxudmin = -0.5
+    dxudmax = 0.5
     estimator_loss = Objective(['X_pred', 'x0'],
                                 lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
                                 weight=args.Q_e, name='arrival_cost')

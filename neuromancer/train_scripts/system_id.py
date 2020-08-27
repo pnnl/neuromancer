@@ -91,7 +91,7 @@ def parse():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
-                             default='blocknlin')
+                             default='blackbox')
     model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
@@ -223,6 +223,10 @@ if __name__ == '__main__':
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
+    xmin = -0.2
+    xmax = 1.2
+    dxudmin = -0.05
+    dxudmax = 0.05
     estimator_loss = Objective(['X_pred', 'x0'],
                                 lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
                                 weight=args.Q_e, name='arrival_cost')
@@ -233,10 +237,10 @@ if __name__ == '__main__':
     state_smoothing = Objective(['X_pred_dynamics'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx,
                                 name='state_smoothing')
     observation_lower_bound_penalty = Objective(['Y_pred_dynamics'],
-                                                lambda x: torch.mean(F.relu(-x + 0.2)), weight=args.Q_con_x,
+                                                lambda x: torch.mean(F.relu(-x + xmin)), weight=args.Q_con_x,
                                                 name='y_low_bound_error')
     observation_upper_bound_penalty = Objective(['Y_pred_dynamics'],
-                                                lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x,
+                                                lambda x: torch.mean(F.relu(x - xmax)), weight=args.Q_con_x,
                                                 name='y_up_bound_error')
 
     objectives = [regularization, reference_loss]
@@ -244,16 +248,16 @@ if __name__ == '__main__':
 
     if args.ssm_type != 'blackbox':
         if 'U' in dataset.data:
-            inputs_max_influence_lb = Objective(['fU_dynamics'], lambda x: torch.mean(F.relu(-x + 0.05)),
+            inputs_max_influence_lb = Objective(['fU_dynamics'], lambda x: torch.mean(F.relu(-x + dxudmin)),
                                                   weight=args.Q_con_fdu,
                                                 name='input_influence_lb')
-            inputs_max_influence_ub = Objective(['fU_dynamics'], lambda x: torch.mean(F.relu(x - 0.05)),
+            inputs_max_influence_ub = Objective(['fU_dynamics'], lambda x: torch.mean(F.relu(x - dxudmax)),
                                                 weight=args.Q_con_fdu, name='input_influence_ub')
             constraints += [inputs_max_influence_lb, inputs_max_influence_ub]
         if 'D' in dataset.data:
-            disturbances_max_influence_lb = Objective([f'fD_dynamics'], lambda x: torch.mean(F.relu(-x + 0.05)),
+            disturbances_max_influence_lb = Objective([f'fD_dynamics'], lambda x: torch.mean(F.relu(-x + dxudmin)),
                                                       weight=args.Q_con_fdu, name='dist_influence_lb')
-            disturbances_max_influence_ub = Objective([f'fD_dynamics'], lambda x: torch.mean(F.relu(x - 0.05)),
+            disturbances_max_influence_ub = Objective([f'fD_dynamics'], lambda x: torch.mean(F.relu(x - dxudmax)),
                                                       weight=args.Q_con_fdu, name='dist_influence_ub')
             constraints += [disturbances_max_influence_lb, disturbances_max_influence_ub]
 

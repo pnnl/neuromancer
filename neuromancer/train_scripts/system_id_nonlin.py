@@ -64,7 +64,7 @@ def parse():
                            help='Step size for gradient descent.')
     opt_group.add_argument('-eval_metric', type=str, default='loop_dev_loss',
                            help='Metric for model selection and early stopping.')
-    opt_group.add_argument('-patience', type=int, default=5,
+    opt_group.add_argument('-patience', type=int, default=10,
                            help='How many epochs to allow for no improvement in eval metric before early stopping.')
     opt_group.add_argument('-warmup', type=int, default=0,
                            help='Number of epochs to wait before enacting early stopping policy.')
@@ -98,14 +98,14 @@ def parse():
                              help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
-    model_group.add_argument('-estimator_input_window', type=int, default=1,
+    model_group.add_argument('-estimator_input_window', type=int, default=32,
                              help="Number of previous time steps measurements to include in state estimator input")
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                              default='linear')
-    model_group.add_argument('-nonlinear_map', type=str, default='residual_mlp',
+    model_group.add_argument('-nonlinear_map', type=str, default='rnn',
                              choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
-    model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
+    model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='relu',
                              help='Activation function for neural networks')
 
     ##################

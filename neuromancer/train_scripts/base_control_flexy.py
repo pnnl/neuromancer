@@ -69,7 +69,7 @@ def parse():
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=6,
+    data_group.add_argument('-nsteps', type=int, default=10,
                             help='MPC prediction horizon, must be bigger or equal than estimator window.')
     data_group.add_argument('-system', type=str, default='flexy_air', choices=['flexy_air'],
                             help='select particular dataset with keyword')
@@ -81,7 +81,7 @@ def parse():
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y', 'X'],
                             help='List of sequences to max-min normalize')
-    data_group.add_argument('-model_file', type=str, default='../datasets/Flexy_air/best_model_flexy.pth')
+    data_group.add_argument('-model_file', type=str, default='../datasets/Flexy_air/best_model_flexy1.pth')
 
     ##################
     # POLICY PARAMETERS
@@ -94,7 +94,7 @@ def parse():
     policy_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                               default='linear')
     policy_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
-    policy_group.add_argument('-policy_features', nargs='+', default=['x0_estim', 'Rf', 'Df'], help='Policy features')
+    policy_group.add_argument('-policy_features', nargs='+', default=['x0_estim', 'Rf'], help='Policy features')
     policy_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
                               help='Activation function for neural networks')
 
@@ -111,7 +111,7 @@ def parse():
     weight_group.add_argument('-Q_con_y', type=float, default=10.0, help='Output constraints penalty weight.')
     weight_group.add_argument('-Q_con_u', type=float, default=10.0, help='Input constraints penalty weight.')
     weight_group.add_argument('-Q_sub', type=float, default=0.2, help='Linear maps regularization weight.')
-    weight_group.add_argument('-Q_r', type=float, default=10.0, help='Reference tracking penalty weight')
+    weight_group.add_argument('-Q_r', type=float, default=1.0, help='Reference tracking penalty weight')
     weight_group.add_argument('-Q_du', type=float, default=0.0, help='control action difference penalty weight')
 
     ####################
@@ -164,10 +164,10 @@ def dataset_load(args, device):
         nu = dataset.data['U'].shape[1]
         new_sequences = {'Y_max': 0.8 * np.ones([nsim, ny]), 'Y_min': 0.2 * np.ones([nsim, ny]),
                          'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
-                         'R': psl.Steps(nx=1, nsim=nsim, randsteps=30, xmax=0.7, xmin=0.3),
-                         # 'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.7, xmin=0.3),
-                         'Y_ctrl_': psl.RandomWalk(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny, sigma=0.05)}
-                         # 'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
+                         # 'R': psl.Steps(nx=1, nsim=nsim, randsteps=60, xmax=0.7, xmin=0.3),
+                         'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.7, xmin=0.3),
+                         # 'Y_ctrl_': psl.RandomWalk(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny, sigma=0.05)}
+                         'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
         dataset.add_data(new_sequences)
     return dataset
 
@@ -291,7 +291,7 @@ if __name__ == '__main__':
     freeze_weight(model, module_names=args.freeze)
     unfreeze_weight(model, module_names=args.unfreeze)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    plot_keys = ['Y_pred', 'U_pred']  # variables to be plotted
+    plot_keys = ['Y_pred', 'U_pred', 'x0_estim']  # variables to be plotted
     visualizer = VisualizerClosedLoop(dataset, dynamics_model, plot_keys, args.verbosity, savedir=args.savedir)
     emulator = dynamics_model
     simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator)

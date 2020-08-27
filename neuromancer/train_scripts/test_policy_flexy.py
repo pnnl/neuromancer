@@ -61,9 +61,9 @@ class Simulator:
 if __name__ == '__main__':
     # trained model with estimator
     args = parse().parse_args()
-    device_simulator = torch.load('../datasets/Flexy_air/best_model_flexy.pth', pickle_module=dill)
+    device_simulator = torch.load('../datasets/Flexy_air/best_model_flexy1.pth', pickle_module=dill)
     # trained MPC policy with model and estimator
-    policy_problem = torch.load('../datasets/Flexy_air/best_policy_flexy.pth', pickle_module=dill)
+    policy_problem = torch.load('../datasets/Flexy_air/best_policy_flexy2.pth', pickle_module=dill)
     estimator = policy_problem.components[0]
     policy = policy_problem.components[1]
     HW_emulator = Simulator()

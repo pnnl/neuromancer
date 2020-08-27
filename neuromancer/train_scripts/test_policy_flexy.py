@@ -12,25 +12,11 @@ for k in range(nsim):
 # python base imports
 import argparse
 import dill
-
 # machine learning data science imports
 import numpy as np
 import torch
-import torch.nn.functional as F
-import torch.nn as nn
-
-# code ecosystem imports
-import slim
-
 # local imports
-from neuromancer.datasets import EmulatorDataset, FileDataset, systems
-import neuromancer.loggers as loggers
-from neuromancer.visuals import VisualizerClosedLoop
-from neuromancer.activations import BLU, SoftExponential
-from neuromancer.simulators import ClosedLoopSimulator
-import neuromancer.policies as policies
-from neuromancer.problem import Objective, Problem
-from neuromancer.trainer import Trainer
+from neuromancer.plot import pltCL
 import psl
 
 
@@ -42,7 +28,7 @@ def parse():
 
 
 class Simulator:
-    def __init__(self, model=torch.load('../datasets/Flexy_air/best_model_flexy.pth', pickle_module=dill)):
+    def __init__(self, model=torch.load('../datasets/Flexy_air/best_model_flexy1.pth', pickle_module=dill)):
         self.model = model
         self.estim = model.components[0]
         self.dynamics = model.components[1]
@@ -66,7 +52,7 @@ if __name__ == '__main__':
     policy_problem = torch.load('../datasets/Flexy_air/best_policy_flexy2.pth', pickle_module=dill)
     estimator = policy_problem.components[0]
     policy = policy_problem.components[1]
-    HW_emulator = Simulator()
+    HW_emulator = Simulator(model=device_simulator)
 
     # dataset
     nsim = 1000
@@ -79,17 +65,9 @@ if __name__ == '__main__':
     new_sequences = {'Y_max': 0.8 * np.ones([nsim, ny]), 'Y_min': 0.2 * np.ones([nsim, ny]),
                      'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
                      'D': np.ones([nsim, 1]), 'R': R}
-    """
-    HW in the loop setup
 
-    for k in range(nsim):
-        y, r, xmin, xmax = measurements()
-        x0 = estimator(y)
-        u = policy(x0,r,d,xmin,xmax)
-        device.send_control(u[0])
-        device.get_state()
-    """
     yN = torch.zeros(nsteps, 1, 1)
+    Y, U, R = [], [], []
     for k in range(nsim-nsteps):
         y = HW_emulator.get_state()
         yN = torch.cat([yN, y])[1:]
@@ -101,3 +79,8 @@ if __name__ == '__main__':
         uopt = policy_out['U_pred_policy'][0].reshape(1,1,-1).float()
         d = torch.tensor(new_sequences['D'][k]).reshape(1,1,-1).float()
         HW_emulator.send_control(uopt, d=d, Y=yN)
+        U.append(uopt.detach().numpy().reshape(-1))
+        Y.append(y.detach().numpy().reshape(-1))
+        R.append(new_sequences['R'][k])
+
+    pltCL(Y=np.asarray(Y), R=np.asarray(R), U=np.asarray(U))

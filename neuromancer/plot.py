@@ -184,10 +184,10 @@ def plot_traj(data, figname=None):
     for j, (notation, array) in enumerate(plot_setup):
         ax[j, 0].plot(array, linewidth=3)
         ax[j, 0].grid(True)
-        ax[j, 0].set_xlabel('Time', fontsize=24)
-        ax[j, 0].set_ylabel(notation, fontsize=24)
-        ax[j, 0].tick_params(axis='x', labelsize=22)
-        ax[j, 0].tick_params(axis='y', labelsize=22)
+        ax[j, 0].set_xlabel('Time', fontsize=20)
+        ax[j, 0].set_ylabel(notation, fontsize=20)
+        ax[j, 0].tick_params(axis='x', labelsize=18)
+        ax[j, 0].tick_params(axis='y', labelsize=18)
     plt.tight_layout()
     if figname is not None:
         plt.savefig(figname)
@@ -224,11 +224,11 @@ def pltCL(Y, R=None, U=None, D=None, X=None,
         else:
             ax[j, 0].plot(array, linewidth=3)
         ax[j, 0].grid(True)
-        ax[j, 0].set_title(name, fontsize=24)
-        ax[j, 0].set_xlabel('Time', fontsize=24)
-        ax[j, 0].set_ylabel(notation, fontsize=24)
-        ax[j, 0].tick_params(axis='x', labelsize=22)
-        ax[j, 0].tick_params(axis='y', labelsize=22)
+        ax[j, 0].set_title(name, fontsize=20)
+        ax[j, 0].set_xlabel('Time', fontsize=20)
+        ax[j, 0].set_ylabel(notation, fontsize=20)
+        ax[j, 0].tick_params(axis='x', labelsize=18)
+        ax[j, 0].tick_params(axis='y', labelsize=18)
     plt.tight_layout()
     if figname is not None:
         plt.savefig(figname)
@@ -260,11 +260,11 @@ def pltOL(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
         else:
             ax[j, 0].plot(array, linewidth=3)
         ax[j, 0].grid(True)
-        ax[j, 0].set_title(name, fontsize=24)
-        ax[j, 0].set_xlabel('Time', fontsize=24)
-        ax[j, 0].set_ylabel(notation, fontsize=24)
-        ax[j, 0].tick_params(axis='x', labelsize=22)
-        ax[j, 0].tick_params(axis='y', labelsize=22)
+        ax[j, 0].set_title(name, fontsize=20)
+        ax[j, 0].set_xlabel('Time', fontsize=20)
+        ax[j, 0].set_ylabel(notation, fontsize=20)
+        ax[j, 0].tick_params(axis='x', labelsize=18)
+        ax[j, 0].tick_params(axis='y', labelsize=18)
     plt.tight_layout()
     if figname is not None:
         plt.savefig(figname)

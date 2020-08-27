@@ -1,0 +1,10 @@
+*.pyc
+*__pycache__
+*slim.egg-info
+*psl.egg-info
+*neuromancer.egg-info
+*.circleci
+*test_control
+*test
+*mlruns
+*.idea

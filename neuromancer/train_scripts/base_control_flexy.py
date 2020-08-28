@@ -263,17 +263,15 @@ if __name__ == '__main__':
     # TODO: reformulate Qdu constraint based on the feedback during real time control
     regularization = Objective(['reg_error_policy'], lambda reg: reg,
                                weight=args.Q_sub)
-    # reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
-    #                            weight=args.Q_r, name='ref_loss')
-    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred, ref),
+    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
                                weight=args.Q_r, name='ref_loss')
     control_smoothing = Objective(['U_pred_policy'], lambda x: F.mse_loss(x[1:], x[:-1]),
                                   weight=args.Q_du, name='control_smoothing')
     observation_lower_bound_penalty = Objective(['Y_pred_dynamics', 'Y_minf'],
-                                                lambda x, xmin: torch.mean(F.relu(-x + xmin)),
+                                                lambda x, xmin: torch.mean(F.relu(-x[:, :, :1] + xmin)),
                                                 weight=args.Q_con_y, name='observation_lower_bound')
     observation_upper_bound_penalty = Objective(['Y_pred_dynamics', 'Y_maxf'],
-                                                lambda x, xmax: torch.mean(F.relu(x - xmax)),
+                                                lambda x, xmax: torch.mean(F.relu(x[:, :, :1] - xmax)),
                                                 weight=args.Q_con_y, name='observation_upper_bound')
     inputs_lower_bound_penalty = Objective(['U_pred_policy', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
                                            weight=args.Q_con_u, name='input_lower_bound')

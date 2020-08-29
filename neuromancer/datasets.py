@@ -105,9 +105,24 @@ class DataDict(dict):
     pass
 
 
+def normalize(M, Mmin=None, Mmax=None):
+        """
+        :param M: (2-d np.array) Data to be normalized
+        :param Mmin: (int) Optional minimum. If not provided is inferred from data.
+        :param Mmax: (int) Optional maximum. If not provided is inferred from data.
+        :return: (2-d np.array) Min-max normalized data
+        """
+        Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
+        Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            M_norm = (M - Mmin) / (Mmax - Mmin)
+        return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
+
+
 class Dataset:
 
-    def __init__(self, system=None, nsim=1000, ninit=0, norm=['Y'], batch_type='batch',
+    def __init__(self, system=None, nsim=10000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
                  savedir='test'):
         """
@@ -148,8 +163,8 @@ class Dataset:
         self.dims['nsim'] = v.shape[0]
         self.dims['nsteps'] = self.nsteps
         self.data = self.norm_data(self.data, self.norm)
-        self.train_data, self.dev_data, self.test_data = self.make_nstep()
-        self.train_loop, self.dev_loop, self.test_loop = self.make_loop()
+        # self.train_data, self.dev_data, self.test_data = self.make_nstep()
+        # self.train_loop, self.dev_loop, self.test_loop = self.make_loop()
 
     def norm_data(self, data, norm):
         """
@@ -164,24 +179,10 @@ class Dataset:
         for k, v in data.items():
             v = v.reshape(v.shape[0], -1)
             if k in norm:
-                v, vmin, vmax = self.normalize(v)
+                v, vmin, vmax = normalize(v)
                 self.min_max_norms.update({k + 'min': vmin, k + 'max': vmax})
                 data[k] = v
         return data
-
-    def normalize(self, M, Mmin=None, Mmax=None):
-            """
-            :param M: (2-d np.array) Data to be normalized
-            :param Mmin: (int) Optional minimum. If not provided is inferred from data.
-            :param Mmax: (int) Optional maximum. If not provided is inferred from data.
-            :return: (2-d np.array) Min-max normalized data
-            """
-            Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
-            Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                M_norm = (M - Mmin) / (Mmax - Mmin)
-            return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
 
     def make_nstep(self, overwrite=False):
         """
@@ -203,7 +204,6 @@ class Dataset:
                 else:
                     self.nstep_data[k + 'p'] = batch_data(self.shift_data[k + 'p'], self.nsteps)
                     self.nstep_data[k + 'f'] = batch_data(self.shift_data[k + 'f'], self.nsteps)
-                self.data[k] = v
         plot.plot_traj(self.data, figname=os.path.join(self.savedir, f'{self.system}.png'))
         train_data, dev_data, test_data = self.split_train_test_dev(self.nstep_data)
         train_data.name, dev_data.name, test_data.name = 'nstep_train', 'nstep_dev', 'nstep_test'
@@ -390,6 +390,112 @@ class FileDataset(Dataset):
         return data
 
 
+def ld_to_dl(ld):
+    return DataDict([(k, torch.cat([dic[k] for dic in ld], dim=1)) for k in ld[0]])
+
+
+class MultiExperimentDataset(FileDataset):
+    def __init__(self, system='fsw_phase_4', nsim=10000000, ninit=0, norm=['Y'], batch_type='batch',
+                 nsteps=1, device='cpu', sequences=dict(), name='openloop',
+                 savedir='test', split=[.5, .25]):
+        """
+        :param split: (2-tuple of float) First index is proportion of experiments from train, second is proportion from dev,
+                       leftover are for test set.
+        """
+
+        super().__init__(system=system, nsim=nsim, ninit=ninit, norm=norm, batch_type=batch_type,
+                         nsteps=nsteps, device=device, sequences=sequences, name=name,
+                         savedir=savedir)
+        plot.plot_traj(self.data, figname=os.path.join(self.savedir, f'{self.system}.png'))
+        self.experiments = self.split_data_by_experiment()
+        nstep_data = []
+        loop_data = []
+        for d in self.experiments:
+            shift_data, nsteps = self._make_nstep(d)
+            nstep_data.append(nsteps)
+            loop_data.append(self._make_loop(nsteps, shift_data))
+            for k, v in nstep_data[-1].items():
+                nstep_data[-1][k] = torch.tensor(v, dtype=torch.float32).to(self.device)
+                self.dims[k] = v.shape
+            for k, v in loop_data[-1].items():
+                loop_data[-1][k] = torch.tensor(v, dtype=torch.float32).to(self.device)
+
+        num_exp = len(nstep_data)
+        num_train = int(split[0]*num_exp)
+        num_dev = int(split[1]*num_exp)
+        num_test = num_exp - num_dev - num_train
+        assert num_train + num_dev + num_test == num_exp
+        assert num_test > 0
+
+        self.train_data, self.train_loop = nstep_data[:num_train], loop_data[:num_train]
+        self.dev_data, self.dev_loop = nstep_data[num_train:num_train+num_dev], loop_data[num_train:num_train+num_dev]
+        self.test_data, self.test_loop = nstep_data[num_train+num_dev:], loop_data[num_train+num_dev:]
+
+        for dset, name in zip([self.train_data, self.dev_data, self.test_data], ['nstep_train', 'nstep_dev', 'nstep_test']):
+            dset = ld_to_dl(dset)
+            dset.name = name
+
+        for dset, name in zip([self.train_loop, self.dev_loop, self.test_loop], ['loop_train', 'loop_dev', 'loop_test']):
+            for d in dset:
+                d.name = name
+
+    def split_data_by_experiment(self):
+        exp_ids = self.data['exp_id']
+        experiments = []
+        for id in np.unique(exp_ids):
+            experiments.append(dict())
+            for k in self.data:
+                experiments[-1][k] = self.data[k][self.data['exp_id'].squeeze() == id]
+        return experiments
+
+    def _make_nstep(self, data, overwrite=False):
+        """
+
+        :param overwrite: Whether to overwrite a dataset sequence if it already exists in the dataset.
+        :return: train_data (dict str: 3-way torch.Tensor} Dictionary with values of shape Nsteps X Nbatches X dim
+                 dev_data  see train_data
+                 test_data see train_data
+        """
+        shift_data = dict()
+        nstep_data = dict()
+        for k, v in data.items():
+
+            shift_data[k + 'p'] = v[:-self.nsteps]
+            shift_data[k + 'f'] = v[self.nsteps:]
+            if self.batch_type == 'mh':
+                nstep_data[k + 'p'] = batch_mh_data(shift_data[k + 'p'], self.nsteps)
+                nstep_data[k + 'f'] = batch_mh_data(shift_data[k + 'f'], self.nsteps)
+            else:
+                nstep_data[k + 'p'] = batch_data(shift_data[k + 'p'], self.nsteps)
+                nstep_data[k + 'f'] = batch_data(shift_data[k + 'f'], self.nsteps)
+        return shift_data, nstep_data
+
+    def _make_loop(self, nstep_data, shift_data):
+        """
+        Unbatches data to original format with extra 1-dimension at the batch dimension.
+        Length of sequences has been shortened to account for shift of data for sequence to sequence modeling.
+        Length of sequences has been potentially shortened to be evenly divided by nsteps:
+            nsim = (nsim - shift) - (nsim % nsteps)
+
+        :return: train_loop (dict str: 3-way np.array} Dictionary with values of shape nsim % X 1 X dim
+                 dev_loop  see train_data
+                 test_loop  see train_data
+        """
+        if self.name == 'openloop':
+            if self.batch_type == 'mh':
+                loop = self.unbatch_mh(nstep_data)
+            else:
+                loop = self.unbatch(nstep_data)
+
+            for k in loop.keys():
+                assert np.array_equal(loop[k].squeeze(1), shift_data[k][:loop[k].shape[0]]), \
+                    f'Reshaped data {k} is not equal to truncated original data'
+            plot.plot_traj({k: v.squeeze(1) for k, v in loop.items()}, figname=os.path.join(self.savedir, f'{self.system}_open.png'))
+            plt.close('all')
+
+        return loop
+
+
 class DatasetMPP(Dataset):
 
     def __init__(self, norm=[], device='cpu', sequences=dict(), name='mpp'):
@@ -422,13 +528,22 @@ class DatasetMPP(Dataset):
 
 resource_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'datasets')
 systems_datapaths = {'tank': os.path.join(resource_path, 'NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat'),
-                             'vehicle3': os.path.join(resource_path, 'NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat'),
-                             'aero': os.path.join(resource_path, 'NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'),
-                             'flexy_air': os.path.join(resource_path, 'Flexy_air/flexy_air_data.csv'),
-                             'EED_building': os.path.join(resource_path, 'EED_building/EED_building.csv')}
+                     'vehicle3': os.path.join(resource_path, 'NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat'),
+                     'aero': os.path.join(resource_path, 'NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'),
+                     'flexy_air': os.path.join(resource_path, 'Flexy_air/flexy_air_data.csv'),
+                     'EED_building': os.path.join(resource_path, 'EED_building/EED_building.csv'),
+                     'fsw_phase_1': os.path.join(resource_path, 'FSW/by_step/fsw_data_step1.csv'),
+                     'fsw_phase_2': os.path.join(resource_path, 'FSW/by_step/fsw_data_step2.csv'),
+                     'fsw_phase_3': os.path.join(resource_path, 'FSW/by_step/fsw_data_step3.csv'),
+                     'fsw_phase_4': os.path.join(resource_path, 'FSW/by_step/fsw_data_step4.csv'),
+                     }
 
 
-systems = {'tank': 'datafile',
+systems = {'fsw_phase_1': 'datafile',
+           'fsw_phase_2': 'datafile',
+           'fsw_phase_3': 'datafile',
+           'fsw_phase_4': 'datafile',
+           'tank': 'datafile',
            'vehicle3': 'datafile',
            'aero': 'datafile',
            'flexy_air': 'datafile',
@@ -466,6 +581,8 @@ systems = {'tank': 'datafile',
 
 if __name__ == '__main__':
 
+    print('FSW')
+    dataset = MultiExperimentDataset()
     for system, data_type in systems.items():
         print(system)
         if data_type == 'emulator':

@@ -105,6 +105,21 @@ class DataDict(dict):
     pass
 
 
+def normalize(M, Mmin=None, Mmax=None):
+        """
+        :param M: (2-d np.array) Data to be normalized
+        :param Mmin: (int) Optional minimum. If not provided is inferred from data.
+        :param Mmax: (int) Optional maximum. If not provided is inferred from data.
+        :return: (2-d np.array) Min-max normalized data
+        """
+        Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
+        Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            M_norm = (M - Mmin) / (Mmax - Mmin)
+        return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
+
+
 class Dataset:
 
     def __init__(self, system=None, nsim=10000, ninit=0, norm=['Y'], batch_type='batch',
@@ -164,24 +179,10 @@ class Dataset:
         for k, v in data.items():
             v = v.reshape(v.shape[0], -1)
             if k in norm:
-                v, vmin, vmax = self.normalize(v)
+                v, vmin, vmax = normalize(v)
                 self.min_max_norms.update({k + 'min': vmin, k + 'max': vmax})
                 data[k] = v
         return data
-
-    def normalize(self, M, Mmin=None, Mmax=None):
-            """
-            :param M: (2-d np.array) Data to be normalized
-            :param Mmin: (int) Optional minimum. If not provided is inferred from data.
-            :param Mmax: (int) Optional maximum. If not provided is inferred from data.
-            :return: (2-d np.array) Min-max normalized data
-            """
-            Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
-            Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                M_norm = (M - Mmin) / (Mmax - Mmin)
-            return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
 
     def make_nstep(self, overwrite=False):
         """

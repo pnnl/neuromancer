@@ -82,6 +82,7 @@ def parse():
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y', 'X'],
                             help='List of sequences to max-min normalize')
     data_group.add_argument('-model_file', type=str, default='../datasets/Flexy_air/best_model_flexy1.pth')
+    # data_group.add_argument('-model_file', type=str, default='./test/flexy_ape/best_model.pth')
 
     ##################
     # POLICY PARAMETERS
@@ -154,15 +155,16 @@ def dataset_load(args, device):
         dataset = FileDataset(system=args.system, nsim=args.nsim,
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir,
                               name='closedloop')
-
-        new_sequences = {'Y': dataset.data['Y'][:, :1]}
+        ny = args.ny
+        if not ny == dataset.data['Y'].shape[1]:
+            new_sequences = {'Y': dataset.data['Y'][:, :1]}
+            dataset.add_data(new_sequences, overwrite=True)
         dataset.min_max_norms['Ymin'] = dataset.min_max_norms['Ymin'][0]
         dataset.min_max_norms['Ymax'] = dataset.min_max_norms['Ymax'][0]
-        dataset.add_data(new_sequences, overwrite=True)
 
-        nsim, ny = dataset.data['Y'].shape
+        nsim = dataset.data['Y'].shape[0]
         nu = dataset.data['U'].shape[1]
-        new_sequences = {'Y_max': 0.8 * np.ones([nsim, ny]), 'Y_min': 0.2 * np.ones([nsim, ny]),
+        new_sequences = {'Y_max': 0.8 * np.ones([nsim, 1]), 'Y_min': 0.2 * np.ones([nsim, 1]),
                          'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
                          # 'R': psl.Steps(nx=1, nsim=nsim, randsteps=60, xmax=0.7, xmin=0.3),
                          'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.7, xmin=0.3),
@@ -205,13 +207,18 @@ def unfreeze_weight(model, module_names=['']):
             freeze_weight(parent, ['->'.join(freeze_path[1:])])
 
 
-
 if __name__ == '__main__':
     ###############################
     ########## LOGGING ############
     ###############################
     args = parse().parse_args()
     logger, device = logging(args)
+
+    ##########################################
+    ########## LOAD MODEL ############
+    ##########################################
+    load_model = torch.load(args.model_file, pickle_module=dill, map_location=torch.device(device))
+    args.ny = load_model.components[1].fy.out_features
 
     ###############################
     ########## DATA ###############
@@ -223,14 +230,13 @@ if __name__ == '__main__':
     ########## PROBLEM COMPONENTS ############
     ##########################################
     # Learned dynamics system ID model setup
-    best_model = torch.load(args.model_file, pickle_module=dill)
-    for k in range(len(best_model.components)):
-        if best_model.components[k].name == 'dynamics':
-            dynamics_model = best_model.components[k]
+    for k in range(len(load_model.components)):
+        if load_model.components[k].name == 'dynamics':
+            dynamics_model = load_model.components[k]
             dynamics_model.input_keys[2] = 'U_pred_policy'
             dynamics_model.fe = None
-        if best_model.components[k].name == 'estim':
-            estimator = best_model.components[k]
+        if load_model.components[k].name == 'estim':
+            estimator = load_model.components[k]
             estimator.input_keys[0] = 'Y_ctrl_p'
             estimator.data_dims = dataset.dims
             estimator.nsteps = args.nsteps
@@ -263,17 +269,15 @@ if __name__ == '__main__':
     # TODO: reformulate Qdu constraint based on the feedback during real time control
     regularization = Objective(['reg_error_policy'], lambda reg: reg,
                                weight=args.Q_sub)
-    # reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
-    #                            weight=args.Q_r, name='ref_loss')
-    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred, ref),
+    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
                                weight=args.Q_r, name='ref_loss')
     control_smoothing = Objective(['U_pred_policy'], lambda x: F.mse_loss(x[1:], x[:-1]),
                                   weight=args.Q_du, name='control_smoothing')
     observation_lower_bound_penalty = Objective(['Y_pred_dynamics', 'Y_minf'],
-                                                lambda x, xmin: torch.mean(F.relu(-x + xmin)),
+                                                lambda x, xmin: torch.mean(F.relu(-x[:, :, :1] + xmin)),
                                                 weight=args.Q_con_y, name='observation_lower_bound')
     observation_upper_bound_penalty = Objective(['Y_pred_dynamics', 'Y_maxf'],
-                                                lambda x, xmax: torch.mean(F.relu(x - xmax)),
+                                                lambda x, xmax: torch.mean(F.relu(x[:, :, :1] - xmax)),
                                                 weight=args.Q_con_y, name='observation_upper_bound')
     inputs_lower_bound_penalty = Objective(['U_pred_policy', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
                                            weight=args.Q_con_u, name='input_lower_bound')

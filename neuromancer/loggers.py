@@ -130,7 +130,7 @@ class MLFlowLogger(BasicLogger):
         super().log_metrics(output, step)
         for k, v in output.items():
             try:
-                mlflow.log_metric(k, v.item(), step=step)
+                mlflow.log_metric(k, v.item() if isinstance(v, torch.Tensor) else v, step=step)
             except:
                 pass
 

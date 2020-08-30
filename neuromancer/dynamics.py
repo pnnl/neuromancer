@@ -115,11 +115,13 @@ class BlockSSM(nn.Module):
             X.append(x)
             Y.append(y)
 
-        return {f'X_pred_{self.name}': torch.stack(X), f'Y_pred_{self.name}': torch.stack(Y),
-                f'reg_error_{self.name}': self.reg_error(),
-                f'fU_{self.name}': torch.stack(FU) if FU else None,
-                f'fD_{self.name}': torch.stack(FD) if FD else None,
-                f'fE_{self.name}': torch.stack(FE) if FE else None}
+        output = dict()
+        for tensor_list, name in zip([X, Y, FU, FD, FE],
+                                     ['X_pred', 'Y_pred', 'fU', 'fD', 'fE']):
+            if tensor_list:
+                output[f'{name}_{self.name}'] = torch.stack(tensor_list)
+        output[f'reg_error_{self.name}'] = self.reg_error()
+        return output
 
     def check_features(self):
         self.nx, self.ny = self.fx.in_features, self.fy.out_features
@@ -182,10 +184,13 @@ class BlackSSM(nn.Module):
             y = self.fy(x)
             X.append(x)
             Y.append(y)
-        return {f'X_pred_{self.name}': torch.stack(X),
-                f'Y_pred_{self.name}': torch.stack(Y),
-                f'reg_error_{self.name}': self.reg_error(),
-                f'fE_{self.name}': torch.stack(FE) if FE else None}
+        output = dict()
+        for tensor_list, name in zip([X, Y, FE],
+                                     ['X_pred', 'Y_pred', 'fE']):
+            if tensor_list:
+                output[f'{name}_{self.name}'] = torch.stack(tensor_list)
+        output[f'reg_error_{self.name}'] = self.reg_error()
+        return output
 
     def reg_error(self):
         """

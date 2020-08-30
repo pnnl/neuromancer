@@ -451,11 +451,11 @@ class MultiExperimentDataset(FileDataset):
         self.dims = dict()
         for k, v in self.data.items():
             self.dims[k] = v.shape
+            self.dims[k + 'p'] = v.shape
+            self.dims[k + 'f'] = v.shape
         assert len(set([k[0] for k in self.dims.values()])) == 1, f'Sequence lengths are not equal: {self.dims}'
         self.dims['nsim'] = v.shape[0]
         self.dims['nsteps'] = self.nsteps
-        for k, v in self.train_data.items():
-            self.dims[k] = v.shape
         return self.dims
 
     def split_data_by_experiment(self):

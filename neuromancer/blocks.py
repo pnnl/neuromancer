@@ -250,7 +250,7 @@ class BasisLinear(nn.Module):
 
 blocks = {'mlp': MLP, 'rnn': RNN, 'pytorch_rnn': PytorchRNN,
           'linear': Linear, 'residual_mlp': ResMLP,
-          'basislinear': BasisLinear}
+          'basislinear': BasisLinear, 'bilinear': BilinearTorch}
 
 
 if __name__ == '__main__':

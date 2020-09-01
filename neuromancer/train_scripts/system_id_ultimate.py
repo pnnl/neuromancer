@@ -87,6 +87,7 @@ def parse():
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y'],
                             help='List of sequences to max-min normalize')
+    data_group.add_argument('-batch_type', default='batch', choices=['mh', 'batch'], help='option for creating batches of time series data')
     
     ##################
     # MODEL PARAMETERS
@@ -289,10 +290,10 @@ def logging(args):
 
 def dataset_load(args, device):
     if systems[args.system] == 'emulator':
-        dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
+        dataset = EmulatorDataset(system=args.system, nsim=args.nsim, batch_type=args.batch_type,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     else:
-        dataset = FileDataset(system=args.system, nsim=args.nsim,
+        dataset = FileDataset(system=args.system, nsim=args.nsim, batch_type=args.batch_type,
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     return dataset
 

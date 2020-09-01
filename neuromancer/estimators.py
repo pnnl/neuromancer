@@ -1,4 +1,5 @@
 """
+# TODO: we can have sequence to sequence RNN block for seq2seq estimator
 
 state estimators for SSM models
 x: states (x0 - initial conditions)
@@ -99,6 +100,33 @@ class TimeDelayEstimator(nn.Module):
         return {f'x0_{self.name}': self.net(features), f'reg_error_{self.name}': self.reg_error()}
 
 
+class seq2seqTimeDelayEstimator(TimeDelayEstimator):
+    def __init__(self, data_dims, nsteps=1, window_size=1, input_keys=['Yp'], timedelay=0, name='estimator'):
+        """
+
+        :param data_dims: dict {str: tuple of ints) Data structure describing dimensions of input variables
+        :param nsteps: (int) Prediction horizon
+        :param window_size: (int) Size of sequence history to use as input to the state estimator.
+        :param input_keys: (List of str) List of input variable names
+        :param name: (str) Name for tracking output of module.
+        """
+        super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
+        self.nx = data_dims['x0'][-1]
+        self.timedelay = timedelay
+        self.nx_td = self.nx * (1+self.timedelay)
+        self.out_features = self.nx_td
+
+    def forward(self, data):
+        """
+
+        :param data: (dict {str: torch.tensor)}
+        :return: (dict {str: torch.tensor)}
+        """
+        features = self.features(data)
+        Xtd = self.net(features).view(self.timedelay+1, -1, self.nx)
+        return {f'Xtd_{self.name}': Xtd, f'reg_error_{self.name}': self.reg_error()}
+
+
 class FullyObservable(TimeDelayEstimator):
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
                  Linear=slim.Linear, nonlin=nn.Identity, hsizes=[],
@@ -125,6 +153,19 @@ class LinearEstimator(TimeDelayEstimator):
         self.net = Linear(self.in_features, self.out_features, bias=bias, **linargs)
 
 
+class seq2seqLinearEstimator(seq2seqTimeDelayEstimator):
+    def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
+                 Linear=slim.Linear, nonlin=nn.Identity, hsizes=[], timedelay=0,
+                 input_keys=['Yp'], linargs=dict(), name='linear_estim'):
+        """
+
+        See base class for arguments
+        """
+        super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys,
+                         timedelay=timedelay, name=name)
+        self.net = Linear(self.in_features, self.out_features, bias=bias, **linargs)
+
+
 class MLPEstimator(TimeDelayEstimator):
     """
 
@@ -136,6 +177,22 @@ class MLPEstimator(TimeDelayEstimator):
         See base class for arguments
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
+        self.net = blocks.MLP(self.in_features, self.out_features, bias=bias,
+                              Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
+
+
+class seq2seqMLPEstimator(seq2seqTimeDelayEstimator):
+    """
+
+    """
+    def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
+                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64], timedelay=0,
+                 input_keys=['Yp'], linargs=dict(), name='MLP_estim'):
+        """
+        See base class for arguments
+        """
+        super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys,
+                         timedelay=timedelay, name=name)
         self.net = blocks.MLP(self.in_features, self.out_features, bias=bias,
                               Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
@@ -155,6 +212,23 @@ class ResMLPEstimator(TimeDelayEstimator):
                                  Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
+class seq2seqResMLPEstimator(seq2seqTimeDelayEstimator):
+    """
+
+    """
+    def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
+                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64], timedelay=0,
+                 input_keys=['Yp'], linargs=dict(), name='ResMLP_estim'):
+        """
+        see base class for arguments
+        """
+        super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys,
+                         timedelay=timedelay, name=name)
+        self.net = blocks.ResMLP(self.in_features, self.out_features, bias=bias,
+                                 Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
+
+
+
 class RNNEstimator(TimeDelayEstimator):
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
                  Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64],
@@ -170,6 +244,25 @@ class RNNEstimator(TimeDelayEstimator):
     def forward(self, data):
         features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
         return {f'x0_{self.name}': self.net(features), f'reg_error_{self.name}': self.net.reg_error()}
+
+
+class seq2seqRNNEstimator(seq2seqTimeDelayEstimator):
+    def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
+                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64], timedelay=0,
+                 input_keys=['Yp'], linargs=dict(), name='RNN_estim'):
+        """
+        see base class for arguments
+        """
+        super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys,
+                         timedelay=timedelay, name=name)
+        self.in_features = self.sequence_dims_sum
+        self.net = blocks.RNN(self.in_features, self.out_features, hsizes=hsizes,
+                              bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)
+
+    def forward(self, data):
+        features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
+        Xtd = self.net(features).view(self.timedelay+1, -1, self.nx)
+        return {f'x0_{self.name}': Xtd, f'reg_error_{self.name}': self.net.reg_error()}
 
 
 class LinearKalmanFilter(nn.Module):
@@ -229,6 +322,11 @@ estimators = {'fullyObservable': FullyObservable,
               'rnn': RNNEstimator,
               'residual_mlp': ResMLPEstimator}
 
+seq2seq_estimators = {'seq2seq_linear': seq2seqLinearEstimator,
+                      'seq2seq_mlp': seq2seqMLPEstimator,
+                      'seq2seq_rnn': seq2seqRNNEstimator,
+                      'seq2seq_residual_mlp': seq2seqResMLPEstimator}
+
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 2
     N = 40
@@ -283,6 +381,36 @@ if __name__ == '__main__':
                 e_out = e(data)
                 for k, v in e_out.items():
                     print(f'{k}: {v.shape}')
+
+
+    for bias in [True, False]:
+        for name, est in seq2seq_estimators.items():
+            print(name)
+            e = est(data_dims, nsteps=N, window_size=N, timedelay=N-1, input_keys=input_keys)
+            e_out = e(data)
+            for k, v in e_out.items():
+                print(f'{k}: {v.shape}')
+            for lin in set(slim.maps.values()) - slim.square_maps:
+                print(lin)
+                e = est(data_dims, nsteps=N, window_size=N, timedelay=N-1, input_keys=input_keys, bias=bias, Linear=lin)
+                e_out = e(data)
+                for k, v in e_out.items():
+                    print(f'{k}: {v.shape}')
+
+    for bias in [True, False]:
+        for name, est in seq2seq_estimators.items():
+            print(name)
+            e = est(data_dims, nsteps=N, window_size=N-1, timedelay=0, input_keys=input_keys)
+            e_out = e(data)
+            for k, v in e_out.items():
+                print(f'{k}: {v.shape}')
+            for lin in set(slim.maps.values()) - slim.square_maps:
+                print(lin)
+                e = est(data_dims, nsteps=N, window_size=N-1, timedelay=0, input_keys=input_keys, bias=bias, Linear=lin)
+                e_out = e(data)
+                for k, v in e_out.items():
+                    print(f'{k}: {v.shape}')
+
 
     print('Kalman filter')
     fx, fu, fd = [slim.Linear(insize, nx) for insize in [nx, nu, nd]]

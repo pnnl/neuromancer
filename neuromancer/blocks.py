@@ -12,15 +12,29 @@ import slim
 
 # local imports
 import neuromancer.rnn as rnn
+from neuromancer.activations import SoftExponential
 
 
 def get_modules(model):
     return {name: module for name, module in model.named_modules() if len(list(module.named_children())) == 0}
 
 
+class Linear(nn.Module):
+    def __init__(self,  insize, outsize, bias=True,
+                 Linear=slim.Linear, nonlin=SoftExponential, hsizes=[64], linargs=dict()):
+        super().__init__()
+        self.linear = Linear(insize, outsize, bias=bias, **linargs)
+
+    def reg_error(self):
+        return self.linear.reg_error()
+
+    def forward(self, x):
+        return self.linear(x)
+
+
 class MLP(nn.Module):
     def __init__(self,  insize, outsize, bias=True,
-                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64], linargs=dict()):
+                 Linear=slim.Linear, nonlin=SoftExponential, hsizes=[64], linargs=dict()):
         """
 
         :param insize:
@@ -63,7 +77,7 @@ class MLP(nn.Module):
 
 class ResMLP(MLP):
     def __init__(self, insize, outsize, bias=True,
-                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64], linargs=dict(), skip=1):
+                 Linear=slim.Linear, nonlin=SoftExponential, hsizes=[64], linargs=dict(), skip=1):
         """
 
         :param insize:
@@ -106,7 +120,7 @@ class PytorchRNN(nn.Module):
     """
 
     def __init__(self, insize, outsize, bias=True,
-                 Linear=slim.Linear, nonlin=nn.ReLU, hsizes=[10], linargs=dict()):
+                 Linear=slim.Linear, nonlin=SoftExponential, hsizes=[10], linargs=dict()):
         """
 
         :param insize:
@@ -145,7 +159,7 @@ class RNN(nn.Module):
     This wraps the rnn.RNN class to give output which is a linear map from final hidden state.
     """
     def __init__(self, insize, outsize, bias=True,
-                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[1], linargs=dict()):
+                 Linear=slim.Linear, nonlin=SoftExponential, hsizes=[1], linargs=dict()):
         """
 
         :param insize:
@@ -186,14 +200,13 @@ class RNN(nn.Module):
 
 class BilinearTorch(nn.Module):
     def __init__(self, insize, outsize, bias=True,
-                 Linear=slim.Linear, nonlin=nn.Identity(), hsizes=[64], linargs=dict()):
+                 Linear=slim.Linear, nonlin=SoftExponential, hsizes=[64], linargs=dict()):
         """
         bilinear term from Torch
         """
         super().__init__()
         self.in_features, self.out_features = insize, outsize
         self.f = nn.Bilinear(self.in_features, self.in_features, self.out_features, bias=bias)
-        self.error_matrix = nn.Parameter(torch.zeros(1), requires_grad=False)
 
     def reg_error(self):
         return torch.tensor(0.0).to(self.f.weight)
@@ -216,7 +229,7 @@ class Poly2(nn.Module):
 
 class BasisLinear(nn.Module):
     def __init__(self, insize, outsize, bias=True,
-                 Linear=slim.Linear, nonlin=nn.Identity(), hsizes=[64], linargs=dict(),
+                 Linear=slim.Linear, nonlin=SoftExponential, hsizes=[64], linargs=dict(),
                  expand=Poly2()):
         """
         For mapping inputs to functional basis feature expansion.
@@ -235,7 +248,17 @@ class BasisLinear(nn.Module):
         return self.linear(self.expand(x))
 
 
+blocks = {'mlp': MLP, 'rnn': RNN, 'pytorch_rnn': PytorchRNN,
+          'linear': Linear, 'residual_mlp': ResMLP,
+          'basislinear': BasisLinear}
+
+
 if __name__ == '__main__':
+    y = torch.randn([25, 5])
+    for name, block in blocks.items():
+        block = block(5, 7, bias=True, hsizes=[64, 64, 64, 64, 64, 64])
+        print(name)
+        print(block(y).shape)
 
     expand = Poly2()
     print(expand(torch.tensor([[2, 3]])))

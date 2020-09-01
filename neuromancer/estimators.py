@@ -223,7 +223,11 @@ class LinearKalmanFilter(nn.Module):
         return {f'x0_{self.name}': x, f'reg_error_{self.name}': self.reg_error()}
 
 
-estimators = [FullyObservable, LinearEstimator, MLPEstimator, RNNEstimator, ResMLPEstimator]
+estimators = {'fullyObservable': FullyObservable,
+              'linear': LinearEstimator,
+              'mlp': MLPEstimator,
+              'rnn': RNNEstimator,
+              'residual_mlp': ResMLPEstimator}
 
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 2
@@ -239,7 +243,8 @@ if __name__ == '__main__':
     input_keys = ['Yp']
 
     for bias in [True, False]:
-        for est in estimators:
+        for name, est in estimators.items():
+            print(name)
             e = est(data_dims, input_keys=input_keys)
             e_out = e(data)
             for k, v in e_out.items():
@@ -252,7 +257,8 @@ if __name__ == '__main__':
                     print(f'{k}: {v.shape}')
 
     for bias in [True, False]:
-        for est in estimators:
+        for name, est in estimators.items():
+            print(name)
             e = est(data_dims, nsteps=N, window_size=N, input_keys=input_keys)
             e_out = e(data)
             for k, v in e_out.items():
@@ -265,7 +271,8 @@ if __name__ == '__main__':
                     print(f'{k}: {v.shape}')
 
     for bias in [True, False]:
-        for est in estimators:
+        for name, est in estimators.items():
+            print(name)
             e = est(data_dims, nsteps=N, window_size=N-1, input_keys=input_keys)
             e_out = e(data)
             for k, v in e_out.items():

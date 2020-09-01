@@ -67,7 +67,6 @@ class MultiSequenceOpenLoopSimulator(Simulator):
             for k in data:
                 agg_outputs[k].append(data[k])
         for k in agg_outputs:
-            print(k)
             if len(agg_outputs[k][0].shape) < 2:
                 agg_outputs[k] = torch.mean(torch.stack(agg_outputs[k]))
             else:
@@ -89,8 +88,6 @@ class MultiSequenceOpenLoopSimulator(Simulator):
         else:
             dev_loop_output = dict()
         return dev_loop_output
-
-
 
 
 class ClosedLoopSimulator(Simulator):

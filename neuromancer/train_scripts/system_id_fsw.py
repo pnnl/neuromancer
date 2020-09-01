@@ -172,11 +172,9 @@ if __name__ == '__main__':
     ########## DATA ###############
     ###############################
     dataset = dataset_load(args, device)
-    print(dataset.dims)
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################
-    print(dataset.dims)
     nx = dataset.dims['Y'][-1]*args.nx_hidden
 
     activation = {'gelu': nn.GELU,

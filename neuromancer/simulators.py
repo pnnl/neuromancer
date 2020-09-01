@@ -40,7 +40,7 @@ class Simulator:
             all_output = {**all_output, **self.simulate(data)}
         return all_output
 
-    def simulate(self):
+    def simulate(self, data):
         pass
 
 
@@ -51,6 +51,43 @@ class OpenLoopSimulator(Simulator):
 
     def simulate(self, data):
         return self.model(data)
+
+
+class MultiSequenceOpenLoopSimulator(Simulator):
+    def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None,
+                 eval_sim=True, stack=False):
+        super().__init__(model=model, dataset=dataset, emulator=emulator, eval_sim=eval_sim)
+        self.stack = stack
+
+    def agg(self, outputs):
+        agg_outputs = dict()
+        for k, v in outputs[0].items():
+            agg_outputs[k] = []
+        for data in outputs:
+            for k in data:
+                agg_outputs[k].append(data[k])
+        for k in agg_outputs:
+            if len(agg_outputs[k][0].shape) < 2:
+                agg_outputs[k] = torch.mean(torch.stack(agg_outputs[k]))
+            else:
+                if self.stack:
+                    agg_outputs[k] = torch.stack(agg_outputs[k])
+                else:
+                    agg_outputs[k] = torch.cat(agg_outputs[k])
+        return agg_outputs
+
+    def simulate(self, data):
+        outputs = []
+        for d in data:
+            outputs.append(self.model(d))
+        return self.agg(outputs)
+
+    def dev_eval(self):
+        if self.eval_sim:
+            dev_loop_output = self.simulate(self.dataset.dev_loop)
+        else:
+            dev_loop_output = dict()
+        return dev_loop_output
 
 
 class ClosedLoopSimulator(Simulator):

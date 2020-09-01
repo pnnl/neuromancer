@@ -163,8 +163,8 @@ class Dataset:
         self.dims['nsim'] = v.shape[0]
         self.dims['nsteps'] = self.nsteps
         self.data = self.norm_data(self.data, self.norm)
-        # self.train_data, self.dev_data, self.test_data = self.make_nstep()
-        # self.train_loop, self.dev_loop, self.test_loop = self.make_loop()
+        self.train_data, self.dev_data, self.test_data = self.make_nstep()
+        self.train_loop, self.dev_loop, self.test_loop = self.make_loop()
 
     def norm_data(self, data, norm):
         """
@@ -390,10 +390,6 @@ class FileDataset(Dataset):
         return data
 
 
-def ld_to_dl(ld):
-    return DataDict([(k, torch.cat([dic[k] for dic in ld], dim=1)) for k in ld[0]])
-
-
 class MultiExperimentDataset(FileDataset):
     def __init__(self, system='fsw_phase_4', nsim=10000000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
@@ -401,43 +397,66 @@ class MultiExperimentDataset(FileDataset):
         """
         :param split: (2-tuple of float) First index is proportion of experiments from train, second is proportion from dev,
                        leftover are for test set.
+
+         returns: Dataset Object with public properties:
+                    train_data: dict(str: Tensor)
+                    dev_data: dict(str: Tensor)
+                    test_data: dict(str: Tensor)
+                    train_loop: dict(str: Tensor)
+                    dev_loop: dict(str: Tensor)
+                    test_loop: dict(str: Tensor)
+                    dims: dict(str: tuple)
         """
-
-        super().__init__(system=system, nsim=nsim, ninit=ninit, norm=norm, batch_type=batch_type,
-                         nsteps=nsteps, device=device, sequences=sequences, name=name,
-                         savedir=savedir)
+        assert not (system is None and len(sequences) == 0), 'Trying to instantiate an empty dataset.'
+        self.name = name
+        self.savedir = savedir
+        os.makedirs(self.savedir, exist_ok=True)
+        self.system, self.nsim, self.ninit, self.norm, self.nsteps, self.device = system, nsim, ninit, norm, nsteps, device
+        self.batch_type = batch_type
+        self.data = self.load_data()
+        self.data = {**self.data, **sequences}
+        self.min_max_norms = dict()
+        self.data = self.norm_data(self.data, self.norm)
         plot.plot_traj(self.data, figname=os.path.join(self.savedir, f'{self.system}.png'))
+        plt.close('all')
         self.experiments = self.split_data_by_experiment()
-        nstep_data = []
-        loop_data = []
-        for d in self.experiments:
-            shift_data, nsteps = self._make_nstep(d)
-            nstep_data.append(nsteps)
-            loop_data.append(self._make_loop(nsteps, shift_data))
-            for k, v in nstep_data[-1].items():
-                nstep_data[-1][k] = torch.tensor(v, dtype=torch.float32).to(self.device)
-                self.dims[k] = v.shape
-            for k, v in loop_data[-1].items():
-                loop_data[-1][k] = torch.tensor(v, dtype=torch.float32).to(self.device)
+        self.nstep_data, self.loop_data = self.make_nstep_loop()
+        self.nstep_data, self.loop_data = self.to_tensor(self.nstep_data), self.to_tensor(self.loop_data)
+        self.split_train_test_dev(split)
+        self.train_data = self.listDict_to_dictTensor(self.train_data)
+        self.dev_data = self.listDict_to_dictTensor(self.dev_data)
+        self.test_data = self.listDict_to_dictTensor(self.test_data)
+        self.dims = self.get_dims()
+        self.name_data()
 
-        num_exp = len(nstep_data)
-        num_train = int(split[0]*num_exp)
-        num_dev = int(split[1]*num_exp)
+    def listDict_to_dictTensor(self, ld):
+        return DataDict([(k, torch.cat([dic[k] for dic in ld], dim=1)) for k in ld[0]])
+
+    def split_train_test_dev(self, split):
+        num_exp = len(self.nstep_data)
+        num_train = int(split[0] * num_exp)
+        num_dev = int(split[1] * num_exp)
         num_test = num_exp - num_dev - num_train
         assert num_train + num_dev + num_test == num_exp
         assert num_test > 0
 
-        self.train_data, self.train_loop = nstep_data[:num_train], loop_data[:num_train]
-        self.dev_data, self.dev_loop = nstep_data[num_train:num_train+num_dev], loop_data[num_train:num_train+num_dev]
-        self.test_data, self.test_loop = nstep_data[num_train+num_dev:], loop_data[num_train+num_dev:]
+        self.train_data = self.nstep_data[:num_train]
+        self.train_loop = self.loop_data[:num_train]
+        self.dev_data = self.nstep_data[num_train:num_train + num_dev]
+        self.dev_loop = self.loop_data[num_train:num_train + num_dev]
+        self.test_data = self.nstep_data[num_train + num_dev:]
+        self.test_loop = self.loop_data[num_train + num_dev:]
 
-        for dset, name in zip([self.train_data, self.dev_data, self.test_data], ['nstep_train', 'nstep_dev', 'nstep_test']):
-            dset = ld_to_dl(dset)
-            dset.name = name
-
-        for dset, name in zip([self.train_loop, self.dev_loop, self.test_loop], ['loop_train', 'loop_dev', 'loop_test']):
-            for d in dset:
-                d.name = name
+    def get_dims(self):
+        self.dims = dict()
+        for k, v in self.data.items():
+            self.dims[k] = v.shape
+            self.dims[k + 'p'] = v.shape
+            self.dims[k + 'f'] = v.shape
+        assert len(set([k[0] for k in self.dims.values()])) == 1, f'Sequence lengths are not equal: {self.dims}'
+        self.dims['nsim'] = v.shape[0]
+        self.dims['nsteps'] = self.nsteps
+        return self.dims
 
     def split_data_by_experiment(self):
         exp_ids = self.data['exp_id']
@@ -447,6 +466,20 @@ class MultiExperimentDataset(FileDataset):
             for k in self.data:
                 experiments[-1][k] = self.data[k][self.data['exp_id'].squeeze() == id]
         return experiments
+
+    def to_tensor(self, data):
+        for i in range(len(data)):
+            for k, v in data[i].items():
+                data[i][k] = torch.tensor(v, dtype=torch.float32).to(self.device)
+        return data
+
+    def make_nstep_loop(self):
+        nstep_data, loop_data = [], []
+        for d in self.experiments:
+            shift_data, nsteps = self._make_nstep(d)
+            nstep_data.append(nsteps)
+            loop_data.append(self._make_loop(nsteps, shift_data))
+        return nstep_data, loop_data
 
     def _make_nstep(self, data, overwrite=False):
         """
@@ -494,6 +527,14 @@ class MultiExperimentDataset(FileDataset):
             plt.close('all')
 
         return loop
+
+    def name_data(self):
+        for dset, name in zip([self.train_data, self.dev_data, self.test_data], ['nstep_train', 'nstep_dev', 'nstep_test']):
+            dset.name = name
+
+        for dset, name in zip([self.train_loop, self.dev_loop, self.test_loop], ['loop_train', 'loop_dev', 'loop_test']):
+            for d in dset:
+                d.name = name
 
 
 class DatasetMPP(Dataset):
@@ -581,8 +622,9 @@ systems = {'fsw_phase_1': 'datafile',
 
 if __name__ == '__main__':
 
-    print('FSW')
-    dataset = MultiExperimentDataset()
+    for system in ['fsw_phase_1', 'fsw_phase_2', 'fsw_phase_3', 'fsw_phase_4']:
+        print(system)
+        dataset = MultiExperimentDataset(system)
     for system, data_type in systems.items():
         print(system)
         if data_type == 'emulator':

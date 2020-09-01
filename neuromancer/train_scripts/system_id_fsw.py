@@ -35,7 +35,7 @@ import torch.nn as nn
 import slim
 
 # local imports
-from neuromancer.datasets import EmulatorDataset, FileDataset, systems
+from neuromancer.datasets import MultiExperimentDataset, systems
 import neuromancer.dynamics as dynamics
 import neuromancer.estimators as estimators
 import neuromancer.blocks as blocks
@@ -44,7 +44,7 @@ from neuromancer.visuals import VisualizerOpen, VisualizerTrajectories
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem, Objective
 from neuromancer.activations import BLU, SoftExponential
-from neuromancer.simulators import OpenLoopSimulator
+from neuromancer.simulators import MultiSequenceOpenLoopSimulator
 
 """ python system_id.py -system flexy_air -epochs 10 -nx_hidden 2
 0 -ssm_type blackbox -state_estimator mlp -nonlinear_map residual_mlp -n_layers 2 -nsim 10000 -nsteps 32 -lr 0.001
@@ -76,7 +76,8 @@ def parse():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
-    data_group.add_argument('-system', type=str, default='Reno_ROM40', choices=list(systems.keys()),
+    data_group.add_argument('-system', type=str, default='fsw_phase_2',
+                            choices=['fsw_phase_1', 'fsw_phase_2', 'fsw_phase_3', 'fsw_phase_4'],
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=10000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
@@ -91,7 +92,7 @@ def parse():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
-                             default='blocknlin')
+                             default='blackbox')
     model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
@@ -105,8 +106,6 @@ def parse():
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
                              help='Activation function for neural networks')
-    model_group.add_argument('-koopman', action='store_true',
-                             help='Whether to use autoencoder loss to enforce Koopman operator property')
 
     ##################
     # Weight PARAMETERS
@@ -156,25 +155,9 @@ def logging(args):
 
 
 def dataset_load(args, device):
-    if systems[args.system] == 'emulator':
-        dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
-                                  norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
-    else:
-        dataset = FileDataset(system=args.system, nsim=args.nsim,
-                              norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
+    dataset = MultiExperimentDataset(system=args.system, nsim=args.nsim,
+                                     norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     return dataset
-
-
-class Decoder(nn.Module):
-    """
-    Implements the component interface
-    """
-    def __init__(self, fy):
-        super().__init__()
-        self.fy = fy
-
-    def forward(self, data):
-        return {'yhat': self.fy(data['x0_estim'])}
 
 
 if __name__ == '__main__':
@@ -192,7 +175,6 @@ if __name__ == '__main__':
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################
-    print(dataset.dims)
     nx = dataset.dims['Y'][-1]*args.nx_hidden
 
     activation = {'gelu': nn.GELU,
@@ -237,6 +219,10 @@ if __name__ == '__main__':
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
+    xmin = -0.2
+    xmax = 1.2
+    dxudmin = -0.05
+    dxudmax = 0.05
     estimator_loss = Objective(['X_pred', 'x0'],
                                 lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
                                 weight=args.Q_e, name='arrival_cost')
@@ -247,10 +233,10 @@ if __name__ == '__main__':
     state_smoothing = Objective(['X_pred_dynamics'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx,
                                 name='state_smoothing')
     observation_lower_bound_penalty = Objective(['Y_pred_dynamics'],
-                                                lambda x: torch.mean(F.relu(-x + 0.2)), weight=args.Q_con_x,
+                                                lambda x: torch.mean(F.relu(-x + xmin)), weight=args.Q_con_x,
                                                 name='y_low_bound_error')
     observation_upper_bound_penalty = Objective(['Y_pred_dynamics'],
-                                                lambda x: torch.mean(F.relu(x - 1.2)), weight=args.Q_con_x,
+                                                lambda x: torch.mean(F.relu(x - xmax)), weight=args.Q_con_x,
                                                 name='y_up_bound_error')
 
     objectives = [regularization, reference_loss]
@@ -258,23 +244,18 @@ if __name__ == '__main__':
 
     if args.ssm_type != 'blackbox':
         if 'U' in dataset.data:
-            inputs_max_influence_lb = Objective(['fU_dynamics'], lambda x: torch.mean(F.relu(-x + 0.05)),
+            inputs_max_influence_lb = Objective(['fU_dynamics'], lambda x: torch.mean(F.relu(-x + dxudmin)),
                                                   weight=args.Q_con_fdu,
                                                 name='input_influence_lb')
-            inputs_max_influence_ub = Objective(['fU_dynamics'], lambda x: torch.mean(F.relu(x - 0.05)),
+            inputs_max_influence_ub = Objective(['fU_dynamics'], lambda x: torch.mean(F.relu(x - dxudmax)),
                                                 weight=args.Q_con_fdu, name='input_influence_ub')
             constraints += [inputs_max_influence_lb, inputs_max_influence_ub]
         if 'D' in dataset.data:
-            disturbances_max_influence_lb = Objective([f'fD_dynamics'], lambda x: torch.mean(F.relu(-x + 0.05)),
+            disturbances_max_influence_lb = Objective([f'fD_dynamics'], lambda x: torch.mean(F.relu(-x + dxudmin)),
                                                       weight=args.Q_con_fdu, name='dist_influence_lb')
-            disturbances_max_influence_ub = Objective([f'fD_dynamics'], lambda x: torch.mean(F.relu(x - 0.05)),
+            disturbances_max_influence_ub = Objective([f'fD_dynamics'], lambda x: torch.mean(F.relu(x - dxudmax)),
                                                       weight=args.Q_con_fdu, name='dist_influence_ub')
             constraints += [disturbances_max_influence_lb, disturbances_max_influence_ub]
-
-    if args.koopman:
-        components.append(Decoder(dynamics_model.fy))
-        autoencoder_loss = Objective(['Yp', 'yhat'], lambda Y, yhat: F.mse_loss(Y[-1], yhat))
-        objectives.append(autoencoder_loss)
 
     ##########################################
     ########## OPTIMIZE SOLUTION ############
@@ -283,7 +264,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity, args.savedir,
                                 training_visuals=args.train_visuals, trace_movie=args.trace_movie)
-    simulator = OpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
+    simulator = MultiSequenceOpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
                       simulator=simulator, epochs=args.epochs, eval_metric=args.eval_metric,
                       patience=args.patience, warmup=args.warmup)

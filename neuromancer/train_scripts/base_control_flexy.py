@@ -49,7 +49,6 @@ from neuromancer.problem import Objective, Problem
 from neuromancer.trainer import Trainer
 import psl
 
-
 def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('-gpu', type=int, default=None,

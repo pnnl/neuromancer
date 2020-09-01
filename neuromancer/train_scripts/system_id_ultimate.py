@@ -223,6 +223,8 @@ def parse():
     est_group = parser.add_argument_group('STATE ESTIMATOR PARAMETERS')
     est_group.add_argument('-est', type=str,
                             choices=[k for k in estimators], default='mlp')
+    est_group.add_argument('-est_keys', nargs='+', default=['Yp'],
+                           help='Keys defining input to the state estimator.')
     est_group.add_argument('-est_input_window', type=int, default=1,
                             help="Number of previous time steps measurements to include in state estimator input")
     est_group.add_argument('-est_hidden', type=int, default=20,
@@ -306,7 +308,7 @@ def get_components(args, dataset):
                                      Linear=maps[args.est_map],
                                      nonlin=activations[args.est_act],
                                      hsizes=[args.est_hidden] * args.est_layers,
-                                     input_keys=['Yp'],
+                                     input_keys=args.est_keys,
                                      linargs={'sigma_min': args.est_sigma_min, 'sigma_max': args.est_sigma_max},
                                      name='estim')
     fy = blocks[args.fy](nx, ny,
@@ -359,9 +361,47 @@ def get_components(args, dataset):
                                   xou=operators[args.xou],
                                   xod=operators[args.xod],
                                   xoe=operators[args.xoe],
-                                  residual=False, name='dynamics',
+                                  residual=args.residual, name='dynamics',
                                   input_keys=dynamics_key_updates)
     return estimator, dynamics_model
+
+
+def get_loss(args, dataset, components):
+    estimator, dynamics = components
+    estimator_loss = Objective([f'X_pred_{dynamics.name}', f'x0_{estimator.name}'],
+                               lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
+                               weight=args.Q_e, name='arrival_cost')
+    regularization = Objective([f'reg_error_{estimator.name}', f'reg_error_{dynamics.name}'],
+                               lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub, name='reg_error')
+    reference_loss = Objective([f'Y_pred_{dynamics.name}', 'Yf'], F.mse_loss, weight=args.Q_y,
+                               name='ref_loss')
+    state_smoothing = Objective([f'X_pred_{dynamics.name}'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx,
+                                name='state_smoothing')
+    observation_lower_bound_penalty = Objective([f'Y_pred_{dynamics.name}'],
+                                                lambda x: torch.mean(F.relu(-x + args.xmin)), weight=args.Q_con_x,
+                                                name='y_low_bound_error')
+    observation_upper_bound_penalty = Objective([f'Y_pred_{dynamics.name}'],
+                                                lambda x: torch.mean(F.relu(x - args.xmax)), weight=args.Q_con_x,
+                                                name='y_up_bound_error')
+
+    objectives = [regularization, reference_loss, estimator_loss]
+    constraints = [state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
+
+    if args.ssm_type != 'blackbox':
+        if 'U' in dataset.data:
+            inputs_max_influence_lb = Objective([f'fU_{dynamics.name}'], lambda x: torch.mean(F.relu(-x + args.dxudmin)),
+                                                weight=args.Q_con_fdu,
+                                                name='input_influence_lb')
+            inputs_max_influence_ub = Objective([f'fU_{dynamics.name}'], lambda x: torch.mean(F.relu(x - args.dxudmax)),
+                                                weight=args.Q_con_fdu, name='input_influence_ub')
+            constraints += [inputs_max_influence_lb, inputs_max_influence_ub]
+        if 'D' in dataset.data:
+            disturbances_max_influence_lb = Objective([f'fD_{dynamics.name}'], lambda x: torch.mean(F.relu(-x + args.dxudmin)),
+                                                      weight=args.Q_con_fdu, name='dist_influence_lb')
+            disturbances_max_influence_ub = Objective([f'fD_{dynamics.name}'], lambda x: torch.mean(F.relu(x - args.dxudmax)),
+                                                      weight=args.Q_con_fdu, name='dist_influence_ub')
+            constraints += [disturbances_max_influence_lb, disturbances_max_influence_ub]
+    return objectives, constraints
 
 
 class Decoder(nn.Module):
@@ -388,6 +428,7 @@ if __name__ == '__main__':
     ########## DATA ###############
     ###############################
     dataset = dataset_load(args, device)
+
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################
@@ -398,40 +439,7 @@ if __name__ == '__main__':
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
-    estimator_loss = Objective(['X_pred', 'x0'],
-                                lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
-                                weight=args.Q_e, name='arrival_cost')
-    regularization = Objective([f'reg_error_estim', f'reg_error_dynamics'],
-                               lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub, name='reg_error')
-    reference_loss = Objective(['Y_pred_dynamics', 'Yf'], F.mse_loss, weight=args.Q_y,
-                                name='ref_loss')
-    state_smoothing = Objective(['X_pred_dynamics'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx,
-                                name='state_smoothing')
-    observation_lower_bound_penalty = Objective(['Y_pred_dynamics'],
-                                                lambda x: torch.mean(F.relu(-x + args.xmin)), weight=args.Q_con_x,
-                                                name='y_low_bound_error')
-    observation_upper_bound_penalty = Objective(['Y_pred_dynamics'],
-                                                lambda x: torch.mean(F.relu(x - args.xmax)), weight=args.Q_con_x,
-                                                name='y_up_bound_error')
-
-    objectives = [regularization, reference_loss]
-    constraints = [state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
-
-    if args.ssm_type != 'blackbox':
-        if 'U' in dataset.data:
-            inputs_max_influence_lb = Objective(['fU_dynamics'], lambda x: torch.mean(F.relu(-x + args.dxudmin)),
-                                                  weight=args.Q_con_fdu,
-                                                name='input_influence_lb')
-            inputs_max_influence_ub = Objective(['fU_dynamics'], lambda x: torch.mean(F.relu(x - args.dxudmax)),
-                                                weight=args.Q_con_fdu, name='input_influence_ub')
-            constraints += [inputs_max_influence_lb, inputs_max_influence_ub]
-        if 'D' in dataset.data:
-            disturbances_max_influence_lb = Objective([f'fD_dynamics'], lambda x: torch.mean(F.relu(-x + args.dxudmin)),
-                                                      weight=args.Q_con_fdu, name='dist_influence_lb')
-            disturbances_max_influence_ub = Objective([f'fD_dynamics'], lambda x: torch.mean(F.relu(x - args.dxudmax)),
-                                                      weight=args.Q_con_fdu, name='dist_influence_ub')
-            constraints += [disturbances_max_influence_lb, disturbances_max_influence_ub]
-
+    objectives, constraints = get_loss(args, dataset, components)
     if args.koopman:
         components.append(Decoder(dynamics_model.fy))
         autoencoder_loss = Objective(['Yp', 'yhat'], lambda Y, yhat: F.mse_loss(Y[-1], yhat), name='inverse')

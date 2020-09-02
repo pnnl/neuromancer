@@ -45,6 +45,7 @@ from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem, Objective
 from neuromancer.activations import BLU, SoftExponential
 from neuromancer.simulators import OpenLoopSimulator
+from neuromancer.operators import InterpolateAddMultiply
 
 """ python system_id.py -system flexy_air -epochs 10 -nx_hidden 2
 0 -ssm_type blackbox -state_estimator mlp -nonlinear_map residual_mlp -n_layers 2 -nsim 10000 -nsteps 32 -lr 0.001
@@ -59,14 +60,14 @@ def parse():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=500)
+    opt_group.add_argument('-epochs', type=int, default=1000)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
     opt_group.add_argument('-eval_metric', type=str, default='loop_dev_loss',
                            help='Metric for model selection and early stopping.')
-    opt_group.add_argument('-patience', type=int, default=10,
+    opt_group.add_argument('-patience', type=int, default=25,
                            help='How many epochs to allow for no improvement in eval metric before early stopping.')
-    opt_group.add_argument('-warmup', type=int, default=0,
+    opt_group.add_argument('-warmup', type=int, default=100,
                            help='Number of epochs to wait before enacting early stopping policy.')
     opt_group.add_argument('-skip_eval_sim', action='store_true',
                            help='Whether to run simulator during evaluation phase of training.')
@@ -76,7 +77,7 @@ def parse():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
-    data_group.add_argument('-system', type=str, default='Pendulum-v0', choices=['TwoTank', 'LorenzSystem', 'LotkaVolterra',
+    data_group.add_argument('-system', type=str, default='UAV3D_kin', choices=['TwoTank', 'LorenzSystem', 'LotkaVolterra',
                             'UAV3D_kin', 'CSTR', 'Pendulum-v0'],
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=10000,
@@ -107,6 +108,9 @@ def parse():
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='relu',
                              help='Activation function for neural networks')
+    model_group.add_argument('-sigma_min', type=float, default=0.8, help='Lower bound on eigenvalues/singular values of factorized linear maps.')
+    model_group.add_argument('-sigma_max', type=float, default=1.0, help='Upper bound on eigenvalues/singular values of factorized linear maps.')
+    model_group.add_argument('-xo', default=torch.mul, choices=[torch.add, torch.mul, InterpolateAddMultiply], help='System dynamics oprations on tensors.')
 
     ##################
     # Weight PARAMETERS
@@ -220,7 +224,9 @@ if __name__ == '__main__':
                                                         n_layers=args.n_layers,
                                                         activation=activation,
                                                         name='dynamics',
-                                                        input_keys={'x0': f'x0_{estimator.name}'})
+                                                        input_keys={'x0': f'x0_{estimator.name}'},
+                                                        linargs={'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max},
+                                                        xou=args.xo, xod=args.xo, xoe=args.xo)
 
     components = [estimator, dynamics_model]
 

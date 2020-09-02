@@ -255,14 +255,15 @@ class TimeDelayBlockSSM(BlockSSM):
         nsteps = data[y_out].shape[0]
         X, Y, FD, FU, FE = [], [], [], [], []
 
-        Utd = torch.cat([data[u_in_p][-self.timedelay:], data[u_in_f]])  # shape=(T+nsteps, bs, nu)
-        Dtd = torch.cat([data[d_in_p][-self.timedelay:], data[d_in_f]])  # shape=(T+nsteps, bs, nd)
-        Xtd = data[x_in]                                                 # shape=(T+1, bs, nd)
+        if u_in_f in data and u_in_p in data:
+            Utd = torch.cat([data[u_in_p][-self.timedelay:], data[u_in_f]])  # shape=(T+nsteps, bs, nu)
+        if d_in_f in data and d_in_p in data:
+            Dtd = torch.cat([data[d_in_p][-self.timedelay:], data[d_in_f]])  # shape=(T+nsteps, bs, nd)
+        Xtd = data[x_in]                                                     # shape=(T+1, bs, nx)
         for i in range(nsteps):
             x_prev = Xtd[-1]
             x_delayed = torch.cat([Xtd[k, :, :] for k in range(Xtd.shape[0])], dim=-1)  # shape=(bs, T*nx)
             x = self.fx(x_delayed)
-            Xtd = torch.cat([Xtd, x.unsqueeze(0)])[1:]
             if self.fu is not None:
                 Utd_i = Utd[i:i + self.timedelay + 1]
                 u_delayed = torch.cat([Utd_i[k, :, :] for k in range(Utd_i.shape[0])], dim=-1)  # shape=(bs, T*nu)
@@ -281,6 +282,7 @@ class TimeDelayBlockSSM(BlockSSM):
                 FE.append(fe)
             if self.residual:
                 x += x_prev
+            Xtd = torch.cat([Xtd, x.unsqueeze(0)])[1:]
             y = self.fy(x_delayed)
             X.append(x)
             Y.append(y)
@@ -346,7 +348,7 @@ class TimeDelayBlackSSM(BlackSSM):
             Utd = torch.cat([data[u_in_p][-self.timedelay:], data[u_in_f]])  # shape=(T+nsteps, bs, nu)
         if d_in_f in data and d_in_p in data:
             Dtd = torch.cat([data[d_in_p][-self.timedelay:], data[d_in_f]])  # shape=(T+nsteps, bs, nd)
-        Xtd = data[x_in]                                                 # shape=(T+1, bs, nd)
+        Xtd = data[x_in]                                                     # shape=(T+1, bs, nx)
         for i in range(nsteps):
             x_prev = Xtd[-1]
             x_delayed = torch.cat([Xtd[k, :, :] for k in range(Xtd.shape[0])], dim=-1)  # shape=(bs, T*nx)
@@ -392,7 +394,8 @@ class TimeDelayBlackSSM(BlackSSM):
 
 
 def blackbox(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
-             activation=nn.GELU, name='blackbox', input_keys=dict(), residual=False,  linargs=dict()):
+             activation=nn.GELU, name='blackbox', input_keys=dict(), residual=False,  linargs=dict(),
+             xou=torch.add, xod=torch.add, xoe=torch.add):
     """
     black box state space model for training
     """
@@ -406,11 +409,12 @@ def blackbox(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
     fe = nonlinmap(nx, nx, hsizes=[nx] * n_layers,
                    bias=bias, Linear=linmap, nonlin=activation, linargs=dict()) if fe is not None else None
     fy = linmap(nx, ny, bias=bias, linargs=linargs)
-    return BlackSSM(fxud, fy, fe=fe, name=name, input_keys=input_keys, residual=residual)
+    return BlackSSM(fxud, fy, fe=fe, xoe=xoe, name=name, input_keys=input_keys, residual=residual)
 
 
 def blocknlin(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
-              activation=nn.GELU, name='blocknonlin', input_keys=dict(), residual=False, linargs=dict()):
+              activation=nn.GELU, name='blocknonlin', input_keys=dict(), residual=False, linargs=dict(),
+              xou=torch.add, xod=torch.add, xoe=torch.add):
     """
     block nonlinear state space model for training
     """
@@ -425,11 +429,12 @@ def blocknlin(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
     fy = linmap(nx, ny, bias=bias, linargs=linargs)
     fu = nonlinmap(nu, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nu != 0 else None
     fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nd != 0 else None
-    return BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, name=name, input_keys=input_keys, residual=residual)
+    return BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, xou=xou, xod=xod, xoe=xoe, name=name, input_keys=input_keys, residual=residual)
 
 
 def linear(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
-           activation=nn.GELU, name='hammerstein', input_keys=dict(), residual=False, linargs=dict()):
+           activation=nn.GELU, name='hammerstein', input_keys=dict(), residual=False, linargs=dict(),
+           xou=torch.add, xod=torch.add, xoe=torch.add):
     """
     hammerstein state space model for training
     """
@@ -444,11 +449,12 @@ def linear(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
     fy = linmap(nx, ny, bias=bias, linargs=linargs)
     fu = linmap(nu, nx, bias=bias, linargs=linargs) if nu != 0 else None
     fd = linmap(nd, nx, bias=bias, linargs=linargs) if nd != 0 else None
-    return BlockSSM(fx, fy, fe=fe, fu=fu, fd=fd, name=name, input_keys=input_keys, residual=residual)
+    return BlockSSM(fx, fy, fe=fe, fu=fu, fd=fd, xou=xou, xod=xod, xoe=xoe, name=name, input_keys=input_keys, residual=residual)
 
 
 def hammerstein(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
-                activation=nn.GELU, name='hammerstein', input_keys=dict(), residual=False, linargs=dict()):
+                activation=nn.GELU, name='hammerstein', input_keys=dict(), residual=False, linargs=dict(),
+                xou=torch.add, xod=torch.add, xoe=torch.add):
     """
     hammerstein state space model for training
     """
@@ -463,11 +469,12 @@ def hammerstein(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
     fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nd != 0 else None
     fe = nonlinmap(nx, nx, hsizes=[nx] * n_layers,
                    bias=bias, Linear=linmap, nonlin=activation, linargs=dict()) if fe is not None else None
-    return BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, name=name, input_keys=input_keys, residual=residual)
+    return BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, xou=xou, xod=xod, xoe=xoe, name=name, input_keys=input_keys, residual=residual)
 
 
 def hw(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
-                activation=nn.GELU, name='hw', input_keys=dict(), residual=False, linargs=dict()):
+                activation=nn.GELU, name='hw', input_keys=dict(), residual=False, linargs=dict(),
+                xou=torch.add, xod=torch.add, xoe=torch.add):
     """
     hammerstein-weiner state space model for training
     """
@@ -482,7 +489,7 @@ def hw(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
     fd = nonlinmap(nd, nx, bias=bias, hsizes=[nx]*n_layers, Linear=slim.Linear, nonlin=activation, linargs=linargs) if nd != 0 else None
     fe = nonlinmap(nx, nx, hsizes=[nx] * n_layers,
                    bias=bias, Linear=linmap, nonlin=activation, linargs=linargs) if fe is not None else None
-    return BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, name=name, input_keys=input_keys, residual=residual)
+    return BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, xou=xou, xod=xod, xoe=xoe, name=name, input_keys=input_keys, residual=residual)
 
 
 def blackboxTD(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None, timedelay=0,

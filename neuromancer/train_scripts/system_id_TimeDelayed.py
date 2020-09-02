@@ -59,7 +59,7 @@ def parse():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=5000)
+    opt_group.add_argument('-epochs', type=int, default=100)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
     opt_group.add_argument('-eval_metric', type=str, default='loop_dev_loss',
@@ -91,7 +91,7 @@ def parse():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
-                             default='blackbox')
+                             default='blocknlin')
     model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,

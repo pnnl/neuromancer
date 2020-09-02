@@ -76,7 +76,7 @@ def parse():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=60,
                             help='Number of steps for open loop during training.')
-    data_group.add_argument('-system', type=str, default='TwoTank', choices=['TwoTank', 'LorenzSystem', 'LotkaVolterra',
+    data_group.add_argument('-system', type=str, default='CSTR', choices=['TwoTank', 'LorenzSystem', 'LotkaVolterra',
                             'UAV3D_kin', 'CSTR', 'Pendulum-v0'],
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=10000,
@@ -92,8 +92,8 @@ def parse():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
-                             default='hammerstein')
-    model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
+                             default='blocknlin')
+    model_group.add_argument('-nx_hidden', type=int, default=40, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=3,
                              help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-n_layers_estim', type=int, default=5,
@@ -103,12 +103,15 @@ def parse():
     model_group.add_argument('-estimator_input_window', type=int, default=60,
                              help="Number of previous time steps measurements to include in state estimator input")
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
-                             default='linear')
+                             default='pf')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
                              choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='relu',
                              help='Activation function for neural networks')
+    model_group.add_argument('-sigma_min', type=float, default=0.8, help='Lower bound on eigenvalues/singular values of factorized linear maps.')
+    model_group.add_argument('-sigma_max', type=float, default=1.0, help='Upper bound on eigenvalues/singular values of factorized linear maps.')
+
 
     ##################
     # Weight PARAMETERS
@@ -222,7 +225,8 @@ if __name__ == '__main__':
                                                         n_layers=args.n_layers,
                                                         activation=activation,
                                                         name='dynamics',
-                                                        input_keys={'x0': f'x0_{estimator.name}'})
+                                                        input_keys={'x0': f'x0_{estimator.name}'},
+                                                        linargs={'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max})
 
     components = [estimator, dynamics_model]
 

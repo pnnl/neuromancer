@@ -16,7 +16,8 @@ import dill
 import numpy as np
 import torch
 # local imports
-from neuromancer.plot import pltCL
+from neuromancer.plot import pltCL, pltOL
+from neuromancer.datasets import FileDataset
 import psl
 
 
@@ -49,13 +50,14 @@ if __name__ == '__main__':
     args = parse().parse_args()
     device_simulator = torch.load('../datasets/Flexy_air/best_model_flexy1.pth', pickle_module=dill)
     # trained MPC policy with model and estimator
-    policy_problem = torch.load('../datasets/Flexy_air/best_policy_flexy2.pth', pickle_module=dill)
+    policy_problem = torch.load('../datasets/Flexy_air/best_model_flexy1_policy1.pth', pickle_module=dill)
     estimator = policy_problem.components[0]
     policy = policy_problem.components[1]
     HW_emulator = Simulator(model=device_simulator)
 
     # dataset
-    nsim = 1000
+    nsim = 3000
+    dataset = FileDataset(system='flexy_air', nsim=nsim, norm=['U', 'D', 'Y'], nsteps=estimator.nsteps)
     ny = 1
     nu = 1
     nsteps = policy.nsteps
@@ -66,6 +68,21 @@ if __name__ == '__main__':
                      'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
                      'D': np.ones([nsim, 1]), 'R': R}
 
+    # Open loop
+    yN = torch.zeros(nsteps, 1, 1)
+    Y, U, R = [], [], []
+    for k in range(nsim-nsteps):
+        y = HW_emulator.get_state()
+        yN = torch.cat([yN, y])[1:]
+        d = torch.tensor(new_sequences['D'][k]).reshape(1,1,-1).float()
+        u = torch.tensor(dataset.data['U'][k]).reshape(1,1,-1).float()
+        HW_emulator.send_control(u, d=d, Y=yN)
+        U.append(u.detach().numpy().reshape(-1))
+        Y.append(y.detach().numpy().reshape(-1))
+        R.append(new_sequences['R'][k])
+    pltCL(Y=np.asarray(Y), R=dataset.data['Y'][:,:1], U=np.asarray(U))
+
+    # Closed loop
     yN = torch.zeros(nsteps, 1, 1)
     Y, U, R = [], [], []
     for k in range(nsim-nsteps):
@@ -82,5 +99,4 @@ if __name__ == '__main__':
         U.append(uopt.detach().numpy().reshape(-1))
         Y.append(y.detach().numpy().reshape(-1))
         R.append(new_sequences['R'][k])
-
     pltCL(Y=np.asarray(Y), R=np.asarray(R), U=np.asarray(U))

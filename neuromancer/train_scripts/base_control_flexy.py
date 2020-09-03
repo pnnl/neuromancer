@@ -80,7 +80,7 @@ def parse():
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y', 'X'],
                             help='List of sequences to max-min normalize')
-    data_group.add_argument('-model_file', type=str, default='../datasets/Flexy_air/best_model_flexy1.pth')
+    data_group.add_argument('-model_file', type=str, default='../datasets/Flexy_air/best_model_flexy2.pth')
     # data_group.add_argument('-model_file', type=str, default='./test/flexy_ape/best_model.pth')
 
     ##################
@@ -94,7 +94,7 @@ def parse():
     policy_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                               default='linear')
     policy_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
-    policy_group.add_argument('-policy_features', nargs='+', default=['x0_estim', 'Rf'], help='Policy features')
+    policy_group.add_argument('-policy_features', nargs='+', default=['Y_ctrl_p', 'Rf'], help='Policy features')
     policy_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
                               help='Activation function for neural networks')
 

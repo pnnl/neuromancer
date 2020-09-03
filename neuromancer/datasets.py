@@ -205,6 +205,7 @@ class Dataset:
                     self.nstep_data[k + 'p'] = batch_data(self.shift_data[k + 'p'], self.nsteps)
                     self.nstep_data[k + 'f'] = batch_data(self.shift_data[k + 'f'], self.nsteps)
         plot.plot_traj(self.data, figname=os.path.join(self.savedir, f'{self.system}.png'))
+        plt.close('all')
         train_data, dev_data, test_data = self.split_train_test_dev(self.nstep_data)
         train_data.name, dev_data.name, test_data.name = 'nstep_train', 'nstep_dev', 'nstep_test'
         return train_data, dev_data, test_data

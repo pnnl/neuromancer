@@ -61,7 +61,7 @@ def parse():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=5000)
+    opt_group.add_argument('-epochs', type=int, default=0)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
     opt_group.add_argument('-eval_metric', type=str, default='loop_dev_loss',
@@ -78,7 +78,7 @@ def parse():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
-    data_group.add_argument('-system', type=str, default='Reno_ROM40', choices=list(systems.keys()),
+    data_group.add_argument('-system', type=str, default='flexy_air', choices=list(systems.keys()),
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=10000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
@@ -93,7 +93,7 @@ def parse():
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
-    model_group.add_argument('-model_file', type=str, default='best_model.pth')
+    model_group.add_argument('-model_file', type=str, default='../datasets/Flexy_air/best_model_flexy1.pth')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'block'],
                              default='blackbox')
     model_group.add_argument('-xmin', type=float, default=-0.2, help='Constraint on minimum state value')
@@ -152,13 +152,26 @@ def logging(args):
     return Logger, device
 
 
+# def dataset_load(args, device):
+#     if systems[args.system] == 'emulator':
+#         dataset = EmulatorDataset(system=args.system, nsim=args.nsim, batch_type=args.batch_type,
+#                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
+#     else:
+#         dataset = FileDataset(system=args.system, nsim=args.nsim, batch_type=args.batch_type,
+#                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
+#     return dataset
+
 def dataset_load(args, device):
     if systems[args.system] == 'emulator':
-        dataset = EmulatorDataset(system=args.system, nsim=args.nsim, batch_type=args.batch_type,
+        dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     else:
-        dataset = FileDataset(system=args.system, nsim=args.nsim, batch_type=args.batch_type,
+        dataset = FileDataset(system=args.system, nsim=args.nsim,
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
+        new_sequences = {'Y': dataset.data['Y'][:, :1]}
+        dataset.min_max_norms['Ymin'] = dataset.min_max_norms['Ymin'][0]
+        dataset.min_max_norms['Ymax'] = dataset.min_max_norms['Ymax'][0]
+        dataset.add_data(new_sequences, overwrite=True)
     return dataset
 
 

@@ -78,7 +78,7 @@ if __name__ == '__main__':
         u = torch.tensor(dataset.data['U'][k]).reshape(1,1,-1).float()
         HW_emulator.send_control(u, d=d, Y=yN)
         U.append(u.detach().numpy().reshape(-1))
-        Y.append(y.detach().numpy().reshape(-1))
+        Y.append(y.detach().numpy().reshape(-1)+0.28)
         R.append(new_sequences['R'][k])
     pltCL(Y=np.asarray(Y), R=dataset.data['Y'][:,:1], U=np.asarray(U))
 
@@ -97,6 +97,6 @@ if __name__ == '__main__':
         d = torch.tensor(new_sequences['D'][k]).reshape(1,1,-1).float()
         HW_emulator.send_control(uopt, d=d, Y=yN)
         U.append(uopt.detach().numpy().reshape(-1))
-        Y.append(y.detach().numpy().reshape(-1))
+        Y.append(y.detach().numpy().reshape(-1)+0.28)
         R.append(new_sequences['R'][k])
     pltCL(Y=np.asarray(Y), R=np.asarray(R), U=np.asarray(U))

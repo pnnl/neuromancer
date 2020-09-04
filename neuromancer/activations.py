@@ -148,6 +148,3 @@ if __name__ == '__main__':
         print(name)
         f = act()
         assert x.shape == f(x).shape
-
-    add = InterpolateAddMultiply()
-    assert torch.equal(add(x, x), x + x)

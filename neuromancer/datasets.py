@@ -5,6 +5,7 @@
 import os
 from typing import Dict
 import warnings
+import random
 
 # machine learning/data science imports
 from scipy.io import loadmat
@@ -346,18 +347,6 @@ class Dataset:
         return unbatched_data
 
 
-class EmulatorDataset(Dataset):
-
-    def load_data(self):
-        """
-        dataset creation from the emulator. system argument to init should be the name of a registered emulator
-        return: (dict, str: 2-d np.array)
-        """
-        systems = emulators.systems  # list of available emulators
-        model = systems[self.system](nsim=self.nsim, ninit=self.ninit)  # instantiate model class
-        return model.simulate()  # simulate open loop
-
-
 class FileDataset(Dataset):
 
     def load_data(self):
@@ -414,9 +403,9 @@ class MultiExperimentDataset(FileDataset):
         os.makedirs(self.savedir, exist_ok=True)
         self.system, self.nsim, self.ninit, self.norm, self.nsteps, self.device = system, nsim, ninit, norm, nsteps, device
         self.batch_type = batch_type
+        self.min_max_norms = dict()
         self.data = self.load_data()
         self.data = {**self.data, **sequences}
-        self.min_max_norms = dict()
         self.data = self.norm_data(self.data, self.norm)
         plot.plot_traj(self.data, figname=os.path.join(self.savedir, f'{self.system}.png'))
         plt.close('all')
@@ -538,6 +527,73 @@ class MultiExperimentDataset(FileDataset):
                 d.name = name
 
 
+class EmulatorDataset(Dataset):
+
+    def load_data(self):
+        """
+        dataset creation from the emulator. system argument to init should be the name of a registered emulator
+        return: (dict, str: 2-d np.array)
+        """
+        systems = emulators.systems  # list of available emulators
+        model = systems[self.system](nsim=self.nsim, ninit=self.ninit)  # instantiate model class
+        return model.simulate()  # simulate open loop
+
+
+class MultiExperimentEmulatorDataset(MultiExperimentDataset):
+    def __init__(self, system='LorenzSystem', nsim=20, ninit=0, norm=['Y', 'X'], batch_type='batch',
+                 nsteps=1, device='cpu', sequences=dict(), name='openloop',
+                 savedir='test', split=[.5, .25], nexp=5):
+        """
+        :param split: (2-tuple of float) First index is proportion of experiments from train, second is proportion from dev,
+                       leftover are for test set.
+        :param sequences: List of (dict str: np.array) List of dictionaries of supplemental data. Should be nexp long.
+
+         returns: Dataset Object with public properties:
+                    train_data: dict(str: Tensor)
+                    dev_data: dict(str: Tensor)
+                    test_data: dict(str: Tensor)
+                    train_loop: dict(str: Tensor)
+                    dev_loop: dict(str: Tensor)
+                    test_loop: dict(str: Tensor)
+                    dims: dict(str: tuple)
+        """
+        self.nexp = nexp
+        assert nsim % nexp == 0, 'nsim must evenly divide nexp'
+
+        super().__init__(system=system, nsim=nsim, ninit=ninit, norm=norm, batch_type=batch_type,
+                         nsteps=nsteps, device=device, sequences=sequences, name=name,
+                         savedir=savedir, split=split)
+
+    def _load_data(self, x0=None, nsim=None):
+
+        if nsim is None:
+            nsim = self.nsim
+        model = emulators.systems[self.system](nsim=nsim, ninit=self.ninit)  # instantiate model class
+        return model.simulate(x0=x0, nsim=nsim)  # simulate open loop
+
+    def merge_data(self, experiments):
+        data = dict()
+        for k in experiments[0]:
+            data[k] = np.concatenate([d[k] for d in experiments])
+        return data
+
+    def load_data(self):
+        """
+        dataset creation from the emulator. system argument to init should be the name of a registered emulator
+        return: (dict, str: 2-d np.array)
+        """
+
+        experiments = []
+        initial_data = self._load_data()
+        _ = self.norm_data(initial_data, self.norm)
+        for i in range(self.nexp):
+            x0 = np.array([random.uniform(self.min_max_norms['Xmin'][j], self.min_max_norms['Xmax'][j])
+                           for j in range(self.min_max_norms['Xmin'].shape[0])])
+            experiments.append({**self._load_data(x0=x0, nsim=self.nsim//self.nexp),
+                                'exp_id': i*np.ones([self.nsim//self.nexp, 1])})
+        return self.merge_data(experiments)
+
+
 class DatasetMPP(Dataset):
 
     def __init__(self, norm=[], device='cpu', sequences=dict(), name='mpp'):
@@ -623,6 +679,10 @@ systems = {'fsw_phase_1': 'datafile',
 
 if __name__ == '__main__':
 
+    for system in [k for k, v in systems.items() if v == 'emulator' and k != 'Pendulum-v0'
+                                                    and not isinstance(v, emulators.GymWrapper)]:
+        print(system)
+        dataset = MultiExperimentEmulatorDataset(system=system)
     for system in ['fsw_phase_1', 'fsw_phase_2', 'fsw_phase_3', 'fsw_phase_4']:
         print(system)
         dataset = MultiExperimentDataset(system)

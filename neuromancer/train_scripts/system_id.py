@@ -98,13 +98,20 @@ def parse():
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
     model_group.add_argument('-estimator_input_window', type=int, default=1,
                              help="Number of previous time steps measurements to include in state estimator input")
-    model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
-                             default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='residual_mlp',
                              choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
                              help='Activation function for neural networks')
+
+    ##################
+    # LINEAR PARAMETERS
+    linear_group = parser.add_argument_group('LINEAR PARAMETERS')
+    linear_group.add_argument('-linear_map', type=str,
+                              choices=list(slim.maps.keys()),
+                              default='linear')
+    linear_group.add_argument('-sigma_min', type=float, default=0.1)
+    linear_group.add_argument('-sigma_max', type=float, default=1.1)
 
     ##################
     # Weight PARAMETERS
@@ -188,6 +195,8 @@ if __name__ == '__main__':
 
     linmap = slim.maps[args.linear_map]
 
+    linargs = {'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max}
+
     nonlinmap = {'linear': linmap,
                  'mlp': blocks.MLP,
                  'rnn': blocks.RNN,
@@ -206,17 +215,20 @@ if __name__ == '__main__':
                                          nonlin=activation,
                                          hsizes=[nx] * args.n_layers,
                                          input_keys=['Yp'],
-                                         linargs=dict(),
+                                         linargs=linargs,
                                          name='estim')
 
     dynamics_model = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
-                      'hw': dynamics.hw}[args.ssm_type](args.bias, linmap, nonlinmap, {**dataset.dims, 'x0_estim': (nx,)},
-                                                        n_layers=args.n_layers,
-                                                        activation=activation,
-                                                        name='dynamics',
-                                                        input_keys={'x0': f'x0_{estimator.name}'})
+                      'hw': dynamics.hw,
+                      'linear': dynamics.linear}[args.ssm_type](args.bias, linmap, nonlinmap,
+                                                                {**dataset.dims, 'x0_estim': (nx,)},
+                                                                n_layers=args.n_layers,
+                                                                activation=activation,
+                                                                name='dynamics',
+                                                                input_keys={'x0': f'x0_{estimator.name}'},
+                                                                linargs=linargs)
 
     components = [estimator, dynamics_model]
 

@@ -6,6 +6,7 @@ from copy import deepcopy
 
 # machine learning/data science imports
 import torch
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 
 # local imports
@@ -30,8 +31,10 @@ class Trainer:
                  logger: BasicLogger = None,
                  visualizer: Visualizer = None,
                  simulator: Simulator = None,
+                 lr_scheduler=False,
                  epochs=1000, eval_metric='loop_dev_loss', patience=5,
-                 warmup=0):
+                 warmup=0,
+                 clip=2.0):
         """
 
         :param problem: Object which defines multi-objective loss function and computational graph
@@ -54,9 +57,11 @@ class Trainer:
         self.epochs = epochs
         self.logger.log_weights(self.model)
         self.eval_metric = eval_metric
+        self.lr_scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=0.5) if lr_scheduler else None
         self.patience = patience
         self.warmup = warmup
         self.badcount = 0
+        self.clip = clip
 
     ########################################
     ############# TRAIN LOOP ###############
@@ -69,8 +74,10 @@ class Trainer:
             output = self.model(self.dataset.train_data)
             self.optimizer.zero_grad()
             output['nstep_train_loss'].backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
             self.optimizer.step()
-
+            if self.scheduler is not None:
+                self.lr_scheduler.step(output['nstep_train_loss'])
             with torch.no_grad():
                 self.model.eval()
                 dev_data_output = self.model(self.dataset.dev_data)

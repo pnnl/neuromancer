@@ -34,7 +34,7 @@ class Trainer:
                  lr_scheduler=False,
                  epochs=1000, eval_metric='loop_dev_loss', patience=5,
                  warmup=0,
-                 clip=2.0):
+                 clip=100.0):
         """
 
         :param problem: Object which defines multi-objective loss function and computational graph
@@ -76,7 +76,7 @@ class Trainer:
             output['nstep_train_loss'].backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
             self.optimizer.step()
-            if self.scheduler is not None:
+            if self.lr_scheduler is not None:
                 self.lr_scheduler.step(output['nstep_train_loss'])
             with torch.no_grad():
                 self.model.eval()

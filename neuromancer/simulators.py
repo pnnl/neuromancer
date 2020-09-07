@@ -204,15 +204,15 @@ class ClosedLoopSimulator(Simulator):
             Y_pred.append(step_output[y_key[0]])
             u_key = [k for k in step_output.keys() if 'U_pred' in k]
             U_pred.append(step_output[u_key[0]])
-            uopt = step_output[u_key[0]][0].cpu().detach()
+            uopt = step_output[u_key[0]][0].detach()
             U_opt.append(uopt)
 
             # emulator trajectories
             if 'U' in self.dataset.norm:
-                u = min_max_denorm(uopt.numpy(), self.dataset.min_max_norms['Umin'],
+                u = min_max_denorm(uopt.cpu().numpy(), self.dataset.min_max_norms['Umin'],
                                    self.dataset.min_max_norms['Umax'])
             else:
-                u = uopt.numpy()
+                u = uopt.cpu().numpy()
             if i > 0:
                 U.append(u)
                 Y.append(y)

@@ -144,12 +144,12 @@ class ClosedLoopSimulator(Simulator):
             x = self.x0 if i == 0 else x
             if i > 0:
                 # select current step disturbance, reference and constraints
-                d = step_data['Df'][0].detach().numpy() if step_data['Df'] is not None else None
-                r = step_data['Rf'][0].detach().numpy() if step_data['Rf'] is not None else None
-                ymin = step_data['Y_minf'][0].detach().numpy() if step_data['Y_minf'] is not None else None
-                ymax = step_data['Y_maxf'][0].detach().numpy() if step_data['Y_maxf'] is not None else None
-                umin = step_data['U_minf'][0].detach().numpy() if step_data['U_minf'] is not None else None
-                umax = step_data['U_maxf'][0].detach().numpy() if step_data['U_maxf'] is not None else None
+                d = step_data['Df'][0].cpu().detach().numpy() if step_data['Df'] is not None else None
+                r = step_data['Rf'][0].cpu().detach().numpy() if step_data['Rf'] is not None else None
+                ymin = step_data['Y_minf'][0].cpu().detach().numpy() if step_data['Y_minf'] is not None else None
+                ymax = step_data['Y_maxf'][0].cpu().detach().numpy() if step_data['Y_maxf'] is not None else None
+                umin = step_data['U_minf'][0].cpu().detach().numpy() if step_data['U_minf'] is not None else None
+                umax = step_data['U_maxf'][0].cpu().detach().numpy() if step_data['U_maxf'] is not None else None
                 if 'Y' in self.dataset.norm:
                     r = min_max_denorm(r, self.dataset.min_max_norms['Ymin'],
                                        self.dataset.min_max_norms['Ymax']) if r is not None else None
@@ -177,7 +177,7 @@ class ClosedLoopSimulator(Simulator):
                         step_data_0[k] = dat.reshape(dat.shape[0], dat.shape[1], 1).float()
                     emulator_output = self.emulator(step_data_0)
                     x = emulator_output['X_pred_dynamics'][0]
-                    y = emulator_output['Y_pred_dynamics'][0].detach().numpy()
+                    y = emulator_output['Y_pred_dynamics'][0].cpu().detach().numpy()
                     if 'Y' in self.dataset.norm:
                         y = min_max_denorm(y, self.dataset.min_max_norms['Ymin'],
                                            self.dataset.min_max_norms['Ymax']) if y is not None else None
@@ -204,7 +204,7 @@ class ClosedLoopSimulator(Simulator):
             Y_pred.append(step_output[y_key[0]])
             u_key = [k for k in step_output.keys() if 'U_pred' in k]
             U_pred.append(step_output[u_key[0]])
-            uopt = step_output[u_key[0]][0].detach()
+            uopt = step_output[u_key[0]][0].cpu().detach()
             U_opt.append(uopt)
 
             # emulator trajectories

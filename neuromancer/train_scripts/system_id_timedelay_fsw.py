@@ -52,6 +52,50 @@ Namespace(Q_con_fdu=0.0, Q_con_x=1.0, Q_dx=0.2, Q_e=1.0, Q_sub=0.2, Q_y=1.0, act
 s', logger='stdout', lr=0.001, n_layers=2, nonlinear_map='residual_mlp', norm=['U', 'D', 'Y'], nsim=10000, nsteps=32
 """
 
+"""
+   Train:
+   All data
+   Set 1: 4 PID, 4 relay, 2 constant power
+
+   Individual
+   Set 2: 4 PID
+   Set 3: 4 relay
+   Set 4: 2 constant power
+
+   Ablation
+   Set 5: 4 PID, Relay
+   Set 6: 4 relay, constant power
+   Set 7: 2 constant power, PID
+   """
+train_pid_idxs = [3, 4, 5, 8]
+constant_idxs = [6, 7]
+train_relay_idxs = [10, 11, 12, 14]
+all_train = set(train_pid_idxs + constant_idxs + train_relay_idxs)
+
+all_dev_exp, all_test_exp = [1, 9], [2, 13]
+dev_exp, test_exp = [1], [2]
+
+datasplits = {'all': {'train': list(all_train),
+                      'dev': dev_exp,
+                      'test': test_exp},
+                  'pid': {'train': train_pid_idxs,
+                          'dev': dev_exp,
+                          'test': test_exp},
+                  'constant': {'train': constant_idxs,
+                               'dev': dev_exp,
+                               'test': test_exp},
+                  'relay': {'train': train_relay_idxs,
+                            'dev': dev_exp,
+                            'test': test_exp},
+                  'no_pid': {'train': list(all_train - set(train_pid_idxs)),
+                             'dev': dev_exp,
+                             'test': test_exp},
+                  'no_constant': {'train': list(all_train - set(constant_idxs)),
+                                  'dev': dev_exp,
+                                  'test': test_exp},
+                  'no_relay': {'train': list(all_train - set(train_relay_idxs)),
+                               'dev': dev_exp,
+                               'test': test_exp}}
 
 def parse():
     parser = argparse.ArgumentParser()
@@ -86,6 +130,8 @@ def parse():
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y'],
                             help='List of sequences to max-min normalize')
+    data_group.add_argument('-trainset', type=str, choices=list(datasplits.keys()), default='pid',
+                            help='Weld type data to use for training.')
     
     ##################
     # MODEL PARAMETERS
@@ -154,9 +200,10 @@ def logging(args):
     return Logger, device
 
 
-def dataset_load(args, device):
+def dataset_load(args, device, split):
     dataset = MultiExperimentDataset(system=args.system, nsim=args.nsim,
-                                     norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
+                                     norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir,
+                                     split=split)
     return dataset
 
 
@@ -172,7 +219,11 @@ if __name__ == '__main__':
     ###############################
     ########## DATA ###############
     ###############################
-    dataset = dataset_load(args, device)
+    split = datasplits[args.trainset]
+    dataset = dataset_load(args, device, split)
+
+
+
     ##########################################
     ########## PROBLEM COMPONENTS ############
     ##########################################

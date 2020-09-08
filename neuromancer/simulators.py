@@ -102,6 +102,7 @@ class ClosedLoopSimulator(Simulator):
             self.x0 = self.emulator.x0
         elif isinstance(emulator, nn.Module):
             self.x0 = torch.zeros([1, self.emulator.nx])
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     def select_step_data(self, data, i):
         """
@@ -170,11 +171,11 @@ class ClosedLoopSimulator(Simulator):
                     x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d, x0=x.flatten())
                 elif isinstance(self.emulator, nn.Module):
                     step_data_0 = dict()
-                    step_data_0['U_pred_policy'] = uopt.reshape(uopt.shape[0], uopt.shape[1], 1).float()
-                    step_data_0['x0_estim'] = x.float()
+                    step_data_0['U_pred_policy'] = uopt.reshape(uopt.shape[0], uopt.shape[1], 1).float().to(self.device)
+                    step_data_0['x0_estim'] = x.float().to(self.device)
                     for k, v in step_data.items():
-                        dat = v[0]
-                        step_data_0[k] = dat.reshape(dat.shape[0], dat.shape[1], 1).float()
+                        dat = v[0].to(self.device)
+                        step_data_0[k] = dat.reshape(dat.shape[0], dat.shape[1], 1).float().to(self.device)
                     emulator_output = self.emulator(step_data_0)
                     x = emulator_output['X_pred_dynamics'][0]
                     y = emulator_output['Y_pred_dynamics'][0].cpu().detach().numpy()

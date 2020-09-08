@@ -381,7 +381,7 @@ class FileDataset(Dataset):
 
 
 class MultiExperimentDataset(FileDataset):
-    def __init__(self, system='fsw_phase_4', nsim=10000000, ninit=0, norm=['Y'], batch_type='batch',
+    def __init__(self, system='fsw_phase_2', nsim=10000000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
                  savedir='test', split=[.5, .25]):
         """
@@ -423,19 +423,35 @@ class MultiExperimentDataset(FileDataset):
         return DataDict([(k, torch.cat([dic[k] for dic in ld], dim=1)) for k in ld[0]])
 
     def split_train_test_dev(self, split):
-        num_exp = len(self.nstep_data)
-        num_train = int(split[0] * num_exp)
-        num_dev = int(split[1] * num_exp)
-        num_test = num_exp - num_dev - num_train
-        assert num_train + num_dev + num_test == num_exp
-        assert num_test > 0
+        if type(split) is dict:
+            # TODO fix this indexing hack for more general indexing outside of FSW context
+            self.train_data = np.array(self.nstep_data)[np.array(split['train']) - 1]
+            self.train_loop = np.array(self.loop_data)[np.array(split['train']) - 1]
 
-        self.train_data = self.nstep_data[:num_train]
-        self.train_loop = self.loop_data[:num_train]
-        self.dev_data = self.nstep_data[num_train:num_train + num_dev]
-        self.dev_loop = self.loop_data[num_train:num_train + num_dev]
-        self.test_data = self.nstep_data[num_train + num_dev:]
-        self.test_loop = self.loop_data[num_train + num_dev:]
+            self.dev_data = np.array(self.nstep_data)[np.array(split['dev']) - 1]
+            self.dev_loop = np.array(self.loop_data)[np.array(split['dev']) - 1]
+
+            self.test_data = np.array(self.nstep_data)[np.array(split['test']) - 1]
+            self.test_loop = np.array(self.loop_data)[np.array(split['test']) - 1]
+
+        elif type(split) is list:
+            num_exp = len(self.nstep_data)
+            num_train = int(split[0] * num_exp)
+            num_dev = int(split[1] * num_exp)
+            num_test = num_exp - num_dev - num_train
+            assert num_train + num_dev + num_test == num_exp
+            assert num_test > 0
+
+            self.train_data = self.nstep_data[:num_train]
+            self.train_loop = self.loop_data[:num_train]
+            self.dev_data = self.nstep_data[num_train:num_train + num_dev]
+            self.dev_loop = self.loop_data[num_train:num_train + num_dev]
+            self.test_data = self.nstep_data[num_train + num_dev:]
+            self.test_loop = self.loop_data[num_train + num_dev:]
+
+        else:
+            raise ValueError('Split must be a list of two floating point values summing to 1, or a dictionary with keys'
+                             'train, val, test and values integer experiment ids.')
 
     def get_dims(self):
         self.dims = dict()

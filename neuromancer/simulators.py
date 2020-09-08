@@ -217,7 +217,7 @@ class ClosedLoopSimulator(Simulator):
             if i > 0:
                 U.append(u)
                 Y.append(y)
-                X.append(x) if isinstance(self.emulator, EmulatorBase) else X.append(x.detach().numpy())
+                X.append(x) if isinstance(self.emulator, EmulatorBase) else X.append(x.detach().cpu().numpy())
                 D.append(d) if d is not None else None
                 R.append(r) if r is not None else None
                 Ymin.append(ymin) if ymin is not None else None

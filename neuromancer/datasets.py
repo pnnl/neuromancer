@@ -674,7 +674,8 @@ systems = {'fsw_phase_1': 'datafile',
            'Infrax_full': 'emulator',
            'Infrax_ROM100': 'emulator',
            'CSTR': 'emulator',
-           'UAV3D_kin': 'emulator'}
+           'UAV3D_kin': 'emulator',
+           'UAV2D_kin': 'emulator'}
 
 
 if __name__ == '__main__':

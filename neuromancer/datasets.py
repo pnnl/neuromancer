@@ -428,6 +428,7 @@ class MultiExperimentDataset(FileDataset):
             self.train_data = np.array(self.nstep_data)[np.array(split['train']) - 1]
             self.train_loop = np.array(self.loop_data)[np.array(split['train']) - 1]
 
+            print(len(self.train_data))
             self.dev_data = np.array(self.nstep_data)[np.array(split['dev']) - 1]
             self.dev_loop = np.array(self.loop_data)[np.array(split['dev']) - 1]
 
@@ -692,25 +693,55 @@ systems = {'fsw_phase_1': 'datafile',
            'CSTR': 'emulator',
            'UAV3D_kin': 'emulator'}
 
+train_pid_idxs = [3, 4, 5, 8]
+constant_idxs = [6, 7]
+train_relay_idxs = [10, 11, 12, 14]
+all_train = set(train_pid_idxs + constant_idxs + train_relay_idxs)
+
+all_dev_exp, all_test_exp = [1, 9], [2, 13]
+dev_exp, test_exp = [1], [2]
+
+datasplits = {'all': {'train': list(all_train),
+                      'dev': dev_exp,
+                      'test': test_exp},
+                  'pid': {'train': train_pid_idxs,
+                          'dev': dev_exp,
+                          'test': test_exp},
+                  'constant': {'train': constant_idxs,
+                               'dev': dev_exp,
+                               'test': test_exp},
+                  'relay': {'train': train_relay_idxs,
+                            'dev': dev_exp,
+                            'test': test_exp},
+                  'no_pid': {'train': list(all_train - set(train_pid_idxs)),
+                             'dev': dev_exp,
+                             'test': test_exp},
+                  'no_constant': {'train': list(all_train - set(constant_idxs)),
+                                  'dev': dev_exp,
+                                  'test': test_exp},
+                  'no_relay': {'train': list(all_train - set(train_relay_idxs)),
+                               'dev': dev_exp,
+                               'test': test_exp}}
+
 
 if __name__ == '__main__':
 
-    for system in [k for k, v in systems.items() if v == 'emulator' and k != 'Pendulum-v0'
-                                                    and not isinstance(v, emulators.GymWrapper)]:
-        print(system)
-        dataset = MultiExperimentEmulatorDataset(system=system)
+    # for system in [k for k, v in systems.items() if v == 'emulator' and k != 'Pendulum-v0'
+    #                                                 and not isinstance(v, emulators.GymWrapper)]:
+    #     print(system)
+    #     dataset = MultiExperimentEmulatorDataset(system=system)
     for system in ['fsw_phase_1', 'fsw_phase_2', 'fsw_phase_3', 'fsw_phase_4']:
         print(system)
-        dataset = MultiExperimentDataset(system)
-    for system, data_type in systems.items():
-        print(system)
-        if data_type == 'emulator':
-            dataset = EmulatorDataset(system)
-        elif data_type == 'datafile':
-            dataset = FileDataset(system)
-
-    # testing adding sequences
-    nsim, ny = dataset.data['Y'].shape
-    new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
-    dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
-
+        dataset = MultiExperimentDataset(system, split=datasplits['pid'])
+    # for system, data_type in systems.items():
+    #     print(system)
+    #     if data_type == 'emulator':
+    #         dataset = EmulatorDataset(system)
+    #     elif data_type == 'datafile':
+    #         dataset = FileDataset(system)
+    #
+    # # testing adding sequences
+    # nsim, ny = dataset.data['Y'].shape
+    # new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
+    # dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
+    #

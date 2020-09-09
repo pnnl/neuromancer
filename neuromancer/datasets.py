@@ -381,7 +381,7 @@ class FileDataset(Dataset):
 
 
 class MultiExperimentDataset(FileDataset):
-    def __init__(self, system='fsw_phase_4', nsim=10000000, ninit=0, norm=['Y'], batch_type='batch',
+    def __init__(self, system='fsw_phase_2', nsim=10000000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
                  savedir='test', split=[.5, .25]):
         """
@@ -423,19 +423,36 @@ class MultiExperimentDataset(FileDataset):
         return DataDict([(k, torch.cat([dic[k] for dic in ld], dim=1)) for k in ld[0]])
 
     def split_train_test_dev(self, split):
-        num_exp = len(self.nstep_data)
-        num_train = int(split[0] * num_exp)
-        num_dev = int(split[1] * num_exp)
-        num_test = num_exp - num_dev - num_train
-        assert num_train + num_dev + num_test == num_exp
-        assert num_test > 0
+        if type(split) is dict:
+            # TODO fix this indexing hack for more general indexing outside of FSW context
+            self.train_data = np.array(self.nstep_data)[np.array(split['train']) - 1]
+            self.train_loop = np.array(self.loop_data)[np.array(split['train']) - 1]
 
-        self.train_data = self.nstep_data[:num_train]
-        self.train_loop = self.loop_data[:num_train]
-        self.dev_data = self.nstep_data[num_train:num_train + num_dev]
-        self.dev_loop = self.loop_data[num_train:num_train + num_dev]
-        self.test_data = self.nstep_data[num_train + num_dev:]
-        self.test_loop = self.loop_data[num_train + num_dev:]
+            print(len(self.train_data))
+            self.dev_data = np.array(self.nstep_data)[np.array(split['dev']) - 1]
+            self.dev_loop = np.array(self.loop_data)[np.array(split['dev']) - 1]
+
+            self.test_data = np.array(self.nstep_data)[np.array(split['test']) - 1]
+            self.test_loop = np.array(self.loop_data)[np.array(split['test']) - 1]
+
+        elif type(split) is list:
+            num_exp = len(self.nstep_data)
+            num_train = int(split[0] * num_exp)
+            num_dev = int(split[1] * num_exp)
+            num_test = num_exp - num_dev - num_train
+            assert num_train + num_dev + num_test == num_exp
+            assert num_test > 0
+
+            self.train_data = self.nstep_data[:num_train]
+            self.train_loop = self.loop_data[:num_train]
+            self.dev_data = self.nstep_data[num_train:num_train + num_dev]
+            self.dev_loop = self.loop_data[num_train:num_train + num_dev]
+            self.test_data = self.nstep_data[num_train + num_dev:]
+            self.test_loop = self.loop_data[num_train + num_dev:]
+
+        else:
+            raise ValueError('Split must be a list of two floating point values summing to 1, or a dictionary with keys'
+                             'train, val, test and values integer experiment ids.')
 
     def get_dims(self):
         self.dims = dict()
@@ -677,25 +694,55 @@ systems = {'fsw_phase_1': 'datafile',
            'UAV3D_kin': 'emulator',
            'UAV2D_kin': 'emulator'}
 
+train_pid_idxs = [3, 4, 5, 8]
+constant_idxs = [6, 7]
+train_relay_idxs = [10, 11, 12, 14]
+all_train = set(train_pid_idxs + constant_idxs + train_relay_idxs)
+
+all_dev_exp, all_test_exp = [1, 9], [2, 13]
+dev_exp, test_exp = [1], [2]
+
+datasplits = {'all': {'train': list(all_train),
+                      'dev': dev_exp,
+                      'test': test_exp},
+                  'pid': {'train': train_pid_idxs,
+                          'dev': dev_exp,
+                          'test': test_exp},
+                  'constant': {'train': constant_idxs,
+                               'dev': dev_exp,
+                               'test': test_exp},
+                  'relay': {'train': train_relay_idxs,
+                            'dev': dev_exp,
+                            'test': test_exp},
+                  'no_pid': {'train': list(all_train - set(train_pid_idxs)),
+                             'dev': dev_exp,
+                             'test': test_exp},
+                  'no_constant': {'train': list(all_train - set(constant_idxs)),
+                                  'dev': dev_exp,
+                                  'test': test_exp},
+                  'no_relay': {'train': list(all_train - set(train_relay_idxs)),
+                               'dev': dev_exp,
+                               'test': test_exp}}
+
 
 if __name__ == '__main__':
 
-    for system in [k for k, v in systems.items() if v == 'emulator' and k != 'Pendulum-v0'
-                                                    and not isinstance(v, emulators.GymWrapper)]:
-        print(system)
-        dataset = MultiExperimentEmulatorDataset(system=system)
+    # for system in [k for k, v in systems.items() if v == 'emulator' and k != 'Pendulum-v0'
+    #                                                 and not isinstance(v, emulators.GymWrapper)]:
+    #     print(system)
+    #     dataset = MultiExperimentEmulatorDataset(system=system)
     for system in ['fsw_phase_1', 'fsw_phase_2', 'fsw_phase_3', 'fsw_phase_4']:
         print(system)
-        dataset = MultiExperimentDataset(system)
-    for system, data_type in systems.items():
-        print(system)
-        if data_type == 'emulator':
-            dataset = EmulatorDataset(system)
-        elif data_type == 'datafile':
-            dataset = FileDataset(system)
-
-    # testing adding sequences
-    nsim, ny = dataset.data['Y'].shape
-    new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
-    dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
-
+        dataset = MultiExperimentDataset(system, split=datasplits['pid'])
+    # for system, data_type in systems.items():
+    #     print(system)
+    #     if data_type == 'emulator':
+    #         dataset = EmulatorDataset(system)
+    #     elif data_type == 'datafile':
+    #         dataset = FileDataset(system)
+    #
+    # # testing adding sequences
+    # nsim, ny = dataset.data['Y'].shape
+    # new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
+    # dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
+    #

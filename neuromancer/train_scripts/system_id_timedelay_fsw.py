@@ -81,6 +81,9 @@ datasplits = {'all': {'train': list(all_train),
                   'pid': {'train': train_pid_idxs,
                           'dev': dev_exp,
                           'test': test_exp},
+                  'smooth_pid': {'train': [3, 4],
+                          'dev': [2, 6],
+                          'test': [5, 7]},
                   'constant': {'train': constant_idxs,
                                'dev': dev_exp,
                                'test': test_exp},
@@ -97,6 +100,16 @@ datasplits = {'all': {'train': list(all_train),
                                'dev': dev_exp,
                                'test': test_exp}}
 
+"""
+Good options to try:
+-epochs 15000
+-patience 100
+-warmup 100
+-nsteps 2-128
+-system fsw_phase_{1,2,3,4}
+-trainset smooth_pid, pid, no_relay
+
+"""
 def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('-gpu', type=int, default=None,

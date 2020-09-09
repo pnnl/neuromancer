@@ -65,7 +65,7 @@ def parse():
                            help='Step size for gradient descent.')
     opt_group.add_argument('-eval_metric', type=str, default='loop_dev_loss',
                            help='Metric for model selection and early stopping.')
-    opt_group.add_argument('-patience', type=int, default=25,
+    opt_group.add_argument('-patience', type=int, default=100,
                            help='How many epochs to allow for no improvement in eval metric before early stopping.')
     opt_group.add_argument('-warmup', type=int, default=100,
                            help='Number of epochs to wait before enacting early stopping policy.')
@@ -75,7 +75,7 @@ def parse():
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=32,
+    data_group.add_argument('-nsteps', type=int, default=250,
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system', type=str, default='UAV3D_kin', choices=['TwoTank', 'LorenzSystem', 'LotkaVolterra',
                             'UAV3D_kin', 'CSTR', 'Pendulum-v0'],
@@ -93,13 +93,15 @@ def parse():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
-                             default='blocknlin')
-    model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
-    model_group.add_argument('-n_layers', type=int, default=2,
+                             default='blackbox')
+    model_group.add_argument('-nx_hidden', type=int, default=30, help='Number of hidden states per output')
+    model_group.add_argument('-n_layers', type=int, default=3,
                              help='Number of hidden layers of single time-step state transition')
+    model_group.add_argument('-n_layers_estim', type=int, default=5,
+                             help='Number of hidden layers of estimator encoder')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
-    model_group.add_argument('-estimator_input_window', type=int, default=32,
+    model_group.add_argument('-estimator_input_window', type=int, default=100,
                              help="Number of previous time steps measurements to include in state estimator input")
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                              default='linear')
@@ -110,13 +112,13 @@ def parse():
                              help='Activation function for neural networks')
     model_group.add_argument('-sigma_min', type=float, default=0.8, help='Lower bound on eigenvalues/singular values of factorized linear maps.')
     model_group.add_argument('-sigma_max', type=float, default=1.0, help='Upper bound on eigenvalues/singular values of factorized linear maps.')
-    model_group.add_argument('-xo', default=torch.mul, choices=[torch.add, torch.mul, InterpolateAddMultiply], help='System dynamics oprations on tensors.')
+    model_group.add_argument('-xo', default='addmul', choices=['add', 'mul', 'addmul'], help='System dynamics oprations on tensors.')
 
     ##################
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
     weight_group.add_argument('-Q_con_x', type=float, default=1.0, help='Hidden state constraints penalty weight.')
-    weight_group.add_argument('-Q_dx', type=float, default=0.2,
+    weight_group.add_argument('-Q_dx', type=float, default=0.0,
                               help='Penalty weight on hidden state difference in one time step.')
     weight_group.add_argument('-Q_sub', type=float, default=0.2, help='Linear maps regularization weight.')
     weight_group.add_argument('-Q_y', type=float, default=1.0, help='Output tracking penalty weight')
@@ -216,6 +218,19 @@ if __name__ == '__main__':
                                          linargs=dict(),
                                          name='estim')
 
+    xou = {'add': torch.add,
+          'mul': torch.mul,
+          'addmul': InterpolateAddMultiply()}[args.xo]
+
+    xoe = {'add': torch.add,
+          'mul': torch.mul,
+          'addmul': InterpolateAddMultiply()}[args.xo]
+
+    xod = {'add': torch.add,
+          'mul': torch.mul,
+          'addmul': InterpolateAddMultiply()}[args.xo]
+
+
     dynamics_model = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
@@ -226,7 +241,9 @@ if __name__ == '__main__':
                                                         name='dynamics',
                                                         input_keys={'x0': f'x0_{estimator.name}'},
                                                         linargs={'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max},
-                                                        xou=args.xo, xod=args.xo, xoe=args.xo)
+                                                        xou=xou, xod=xod, xoe=xoe)
+
+
 
     components = [estimator, dynamics_model]
 

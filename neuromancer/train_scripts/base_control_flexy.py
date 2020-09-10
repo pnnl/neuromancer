@@ -73,7 +73,7 @@ def parse():
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=8, choices=[4, 8, 16, 32, 64],
+    data_group.add_argument('-nsteps', type=int, default=16, choices=[4, 8, 16, 32, 64],
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system', type=str, default='flexy_air',
                             help='select particular dataset with keyword')
@@ -420,7 +420,7 @@ if __name__ == '__main__':
                              nonlin=activation,
                              hsizes=[nh_policy] * args.n_layers,
                              input_keys=args.policy_features,
-                             linargs=dict(),
+                             linargs={'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max},
                              name='policy').to(device)
     signal_generator = WhiteNoisePeriodicGenerator(args.nsteps, args.ny, xmax=(0.8, 0.7), xmin=0.2,
                                                    min_period=1, max_period=20, name='Y_ctrl_', device=device).to(device)

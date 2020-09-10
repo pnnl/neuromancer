@@ -14,7 +14,7 @@ import numpy as np
 from psl import EmulatorBase
 
 # lcoal imports
-from neuromancer.datasets import EmulatorDataset, FileDataset, min_max_denorm
+from neuromancer.datasets import EmulatorDataset, FileDataset, min_max_denorm, normalize
 from neuromancer.problem import Problem
 from neuromancer.datasets import Dataset, DataDict
 
@@ -185,8 +185,9 @@ class ClosedLoopSimulator(Simulator):
                                            self.dataset.min_max_norms['Ymax']) if y is not None else None
                 # update u and y trajectory history
                 if len(Y) > self.nsteps:
-                    if 'Y' in self.dataset.norm and isinstance(self.emulator, EmulatorBase):
-                        Yp_np, _, _ = self.dataset.normalize(np.concatenate(Y[-self.nsteps:]),
+                    # if 'Y' in self.dataset.norm and isinstance(self.emulator, EmulatorBase):
+                    if 'Y' in self.dataset.norm:
+                        Yp_np, _, _ = normalize(np.concatenate(Y[-self.nsteps:]),
                                                              Mmin=self.dataset.min_max_norms['Ymin'],
                                                              Mmax=self.dataset.min_max_norms['Ymax'])
                     else:

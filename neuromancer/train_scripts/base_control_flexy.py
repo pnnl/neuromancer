@@ -63,7 +63,7 @@ def parse():
     opt_group.add_argument('-lr', type=float, default=0.001,
                            choices=[3e-5, 1e-4, 3e-4, 1e-3, 3e-3, 0.01],
                            help='Step size for gradient descent.')
-    opt_group.add_argument('-patience', type=int, default=50,
+    opt_group.add_argument('-patience', type=int, default=100,
                            help='How many epochs to allow for no improvement in eval metric before early stopping.')
     opt_group.add_argument('-warmup', type=int, default=100,
                            help='Number of epochs to wait before enacting early stopping policy.')
@@ -73,7 +73,7 @@ def parse():
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=4, choices=[4, 8, 16, 32, 64],
+    data_group.add_argument('-nsteps', type=int, default=8, choices=[4, 8, 16, 32, 64],
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system', type=str, default='flexy_air',
                             help='select particular dataset with keyword')
@@ -85,20 +85,25 @@ def parse():
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y', 'X'],
                             help='List of sequences to max-min normalize')
-    data_group.add_argument('-model_file', type=str,  # choices=['/qfs/projects/deepmpc/best_flexy_models/best_blocknlin_nlinsearch/best_model.pth'],# choices=glob.glob('/qfs/projects/deepmpc/best_flexy_models/*/best_model.pth'),
-                            default='../datasets/Flexy_air/best_model_flexy1.pth')
-    mfiles = ['/qfs/projects/deepmpc/best_flexy_models/best_blocknlin_nlinsearch/best_model.pth',]
+    mfiles = ['/qfs/projects/deepmpc/best_flexy_models/best_blocknlin_nlinsearch/best_model.pth',
+              '../neuromancer/neuromancer/datasets/Flexy_air/models/best_model_flexy1.pth',
+              '../neuromancer/neuromancer/datasets/Flexy_air/models/best_model_flexy2.pth',
+              '../neuromancer/neuromancer/datasets/Flexy_air/ape_models/best_model_blocknlin.pth']
+    data_group.add_argument('-model_file', type=str, default=mfiles[1])
+    # mfiles[2] - This model requires nsteps >=10
+
     ##################
     # POLICY PARAMETERS
     policy_group = parser.add_argument_group('POLICY PARAMETERS')
     policy_group.add_argument('-policy', type=str,
-                              choices=['mlp', 'rnn', 'residual_mlp'], default='mlp')
+                              choices=['mlp', 'linear'], default='mlp')
     policy_group.add_argument('-n_hidden', type=int, default=20, choices=list(range(5, 50, 5)),
                               help='Number of hidden states')
     policy_group.add_argument('-n_layers', type=int, default=2, choices=list(range(1, 10)),
                              help='Number of hidden layers of single time-step state transition')
     policy_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
-    policy_group.add_argument('-policy_features', nargs='+', default=['Y_ctrl_p', 'Rf'], help='Policy features')
+    # policy_group.add_argument('-policy_features', nargs='+', default=['Y_ctrl_p', 'Rf'], help='Policy features')
+    policy_group.add_argument('-policy_features', nargs='+', default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'], help='Policy features')
     policy_group.add_argument('-activation', choices=['gelu', 'softexp'], default='gelu',
                               help='Activation function for neural networks')
     policy_group.add_argument('-perturbation', choices=['white_noise_sine_wave'], default='white_noise')
@@ -125,25 +130,25 @@ def parse():
     ##################
     # WEIGHT PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
-    weight_group.add_argument('-Q_con_x', type=float, default=1.0, choices=[0.1, 1.0, 10.0],
+    weight_group.add_argument('-Q_con_x', type=float, default=1.0, choices=[0.1, 1.0, 10.0, 100.0],
                               help='Hidden state constraints penalty weight.')
-    weight_group.add_argument('-Q_con_y', type=float, default=1.0, choices=[0.1, 1.0, 10.0],
+    weight_group.add_argument('-Q_con_y', type=float, default=2.0, choices=[0.1, 1.0, 10.0, 100.0],
                               help='Observable constraints penalty weight.')
-    weight_group.add_argument('-Q_dx', type=float, default=0.1, choices=[0.1, 1.0, 10.0],
+    weight_group.add_argument('-Q_dx', type=float, default=0.1, choices=[0.1, 1.0, 10.0, 100.0],
                               help='Penalty weight on hidden state difference in one time step.')
     weight_group.add_argument('-Q_sub', type=float, default=0.1, help='Linear maps regularization weight.',
                               choices=[0.1, 1.0, 10.0])
-    weight_group.add_argument('-Q_y', type=float, default=1.0, choices=[0.1, 1.0, 10.0],
+    weight_group.add_argument('-Q_y', type=float, default=1.0, choices=[0.1, 1.0, 10.0, 100.0],
                               help='Output tracking penalty weight')
-    weight_group.add_argument('-Q_e', type=float, default=1.0, choices=[0.1, 1.0, 10.0],
+    weight_group.add_argument('-Q_e', type=float, default=1.0, choices=[0.1, 1.0, 10.0, 100.0],
                               help='State estimator hidden prediction penalty weight')
-    weight_group.add_argument('-Q_con_fdu', type=float, default=0.0, choices=[0.1, 1.0, 10.0],
+    weight_group.add_argument('-Q_con_fdu', type=float, default=0.0, choices=[0.1, 1.0, 10.0, 100.0],
                               help='Penalty weight on control actions and disturbances.')
-    weight_group.add_argument('-Q_con_u', type=float, default=10.0, choices=[0.1, 1.0, 10.0],
+    weight_group.add_argument('-Q_con_u', type=float, default=10.0, choices=[0.1, 1.0, 10.0, 100.0],
                               help='Input constraints penalty weight.')
-    weight_group.add_argument('-Q_r', type=float, default=1.0, choices=[0.1, 1.0, 10.0],
+    weight_group.add_argument('-Q_r', type=float, default=1.0, choices=[0.1, 1.0, 10.0, 100.0],
                               help='Reference tracking penalty weight')
-    weight_group.add_argument('-Q_du', type=float, default=0.0, choices=[0.1, 1.0, 10.0],
+    weight_group.add_argument('-Q_du', type=float, default=0.0, choices=[0.1, 1.0, 10.0, 100.0],
                               help='control action difference penalty weight')
 
     ####################
@@ -202,14 +207,17 @@ def dataset_load(args, device):
 
         nsim = dataset.data['Y'].shape[0]
         nu = dataset.data['U'].shape[1]
-        new_sequences = {'Y_max': 0.8 * np.ones([nsim, 1]), 'Y_min': 0.2 * np.ones([nsim, 1]),
+        # new_sequences = {'Y_max': 0.8 * np.ones([nsim, 1]), 'Y_min': 0.2 * np.ones([nsim, 1]),
+        new_sequences = {'Y_max': psl.Periodic(nx=1, nsim=nsim, numPeriods=30, xmax=0.9, xmin=0.6),
+                         'Y_min': psl.Periodic(nx=1, nsim=nsim, numPeriods=25, xmax=0.4, xmin=0.1),
                          'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
                          # 'R': psl.Steps(nx=1, nsim=nsim, randsteps=60, xmax=0.7, xmin=0.3),
-                         'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.7, xmin=0.3)
+                         'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.8, xmin=0.2)
                          # 'Y_ctrl_': psl.RandomWalk(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny, sigma=0.05)}
                          #'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
                          }
         dataset.add_data(new_sequences)
+        # dataset.dims['Rf'] = (9000, 1)
     return dataset
 
 
@@ -270,6 +278,7 @@ class WhiteNoisePeriodicGenerator(SignalGenerator):
         self.period_generator = lambda nsim, xmin, xmax: psl.Periodic(nx=self.nx, nsim=nsim,
                                                                       numPeriods=random.randint(self.min_period, self.max_period),
                                                                       xmax=xmax, xmin=xmin)[:nsim]
+        # self.sequence_generator = lambda nsim, xmin, xmax: self.period_generator(nsim, xmin, xmax) + self.white_noise_generator(nsim, -0.1*xmax, 0.1*xmax)
         self.sequence_generator = lambda nsim, xmin, xmax: self.period_generator(nsim, xmin, xmax) + self.white_noise_generator(nsim, xmin, 1.0 - xmax)
 
     def get_xmax(self):
@@ -312,14 +321,14 @@ class PeriodicGenerator(SignalGenerator):
         super().__init__(nsteps, nx, xmax, xmin, name=name, device=device)
         self.min_period = min_period
         self.max_period = max_period
-        self.sequence_generator = lambda nsim: psl.Periodic(nx=self.nx, nsim=nsim, numPeriods=random.randint(self.min_period, self.max_period),
-                                                            xmax=self.xmax, xmin=self.xmin)
+        self.sequence_generator = lambda nsim, xmin, xmax: psl.Periodic(nx=self.nx, nsim=nsim, numPeriods=random.randint(self.min_period, self.max_period),
+                                                            xmax=xmax, xmin=xmin)
 
 class WhiteNoiseGenerator(SignalGenerator):
     def __init__(self, nsteps, nx, xmax, xmin, name='period', device='cpu'):
         super().__init__(nsteps, nx, xmax, xmin, name=name, device=device)
-        self.sequence_generator = lambda nsim: psl.WhiteNoise(nx=self.nx, nsim=nsim,
-                                                              xmax=self.xmax, xmin=self.xmin)
+        self.sequence_generator = lambda nsim, xmin, xmax: psl.WhiteNoise(nx=self.nx, nsim=nsim,
+                                                              xmax=xmax, xmin=xmin)
 
 class AddGenerator(SignalGenerator):
     def __init__(self, SG1, SG2, nsteps, nx, xmax, xmin, name='period', device='cpu'):
@@ -413,13 +422,14 @@ if __name__ == '__main__':
                              input_keys=args.policy_features,
                              linargs=dict(),
                              name='policy').to(device)
-    signal_generator = WhiteNoisePeriodicGenerator(args.nsteps, args.ny, xmax=(0.90, 0.8), xmin=0.0,
+    signal_generator = WhiteNoisePeriodicGenerator(args.nsteps, args.ny, xmax=(0.8, 0.7), xmin=0.2,
                                                    min_period=1, max_period=20, name='Y_ctrl_', device=device).to(device)
-    # reference_generator = WhiteNoisePeriodicGenerator(args.nsteps, args.ny, xmax=(0.90, 0.8), xmin=0.0,
+    # reference_generator = PeriodicGenerator(args.nsteps, args.ny, xmax=0.7, xmin=0.3,
     #                                                min_period=1, max_period=20, name='R')
     # dynamics_generator = SignalGeneratorDynamics(dynamics_model, estimator, args.nsteps, xmax=1.0, xmin=0.0, name='Y_ctrl_')
     # components = [dynamics_generator, estimator, policy, dynamics_model]
     components = [signal_generator, estimator, policy, dynamics_model]
+    # components = [signal_generator, reference_generator, estimator, policy, dynamics_model]
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
@@ -456,9 +466,11 @@ if __name__ == '__main__':
     unfreeze_weight(model, module_names=args.unfreeze)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     plot_keys = ['Y_pred', 'U_pred', 'x0_estim']  # variables to be plotted
-    visualizer = VisualizerClosedLoop(dataset, dynamics_model, plot_keys, args.verbosity, savedir=args.savedir)
+    visualizer = VisualizerClosedLoop(dataset, policy, plot_keys, args.verbosity, savedir=args.savedir)
     emulator = dynamics_model
-    simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator)
+    # TODO: hacky solution for policy input keys compatibility with simulator
+    policy.input_keys[0] = 'Yp'
+    simulator = ClosedLoopSimulator(model=model, dataset=dataset, emulator=emulator, policy=policy)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
                       simulator=simulator, epochs=args.epochs,
                       patience=args.patience, warmup=args.warmup)
@@ -469,4 +481,10 @@ if __name__ == '__main__':
 
     if False:
         model.load_state_dict(best_model)
-        torch.save(model, '../datasets/Flexy_air/best_policy_flexy.pth', pickle_module=dill)
+        # torch.save(model, './test/best_policy_flexy.pth', pickle_module=dill)
+        torch.save(model.components[2], './test/best_policy_flexy.pth', pickle_module=dill)
+        torch.save(model.components[1], './test/best_estimator_flexy.pth', pickle_module=dill)
+        torch.save(model.components[3], './test/best_dynamics_flexy.pth', pickle_module=dill)
+
+
+

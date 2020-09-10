@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     model = 'model2'
 
-    if model == 'model0':
+    if model == 'model1':
         # state feedback policy with estimator in the loop
         device_simulator = torch.load('../datasets/Flexy_air/device_test_models/model0/best_model_flexy1.pth', pickle_module=dill)
         policy_problem = torch.load('../datasets/Flexy_air/device_test_models/model0/best_model_flexy1_policy1.pth', pickle_module=dill)

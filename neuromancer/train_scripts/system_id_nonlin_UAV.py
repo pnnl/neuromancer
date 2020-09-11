@@ -75,7 +75,7 @@ def parse():
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=250,
+    data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system', type=str, default='UAV3D_kin', choices=['TwoTank', 'LorenzSystem', 'LotkaVolterra',
                             'UAV3D_kin', 'CSTR', 'Pendulum-v0'],
@@ -88,27 +88,31 @@ def parse():
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y'],
                             help='List of sequences to max-min normalize')
+    data_group.add_argument('-norm_type', nargs='+', default='normalize', choices=['normalize', 'normalize2'],
+                            help='List of types of normalization')
 
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
                              default='blocknlin')
-    model_group.add_argument('-nx_hidden', type=int, default=100, help='Number of hidden states per output')
-    model_group.add_argument('-n_layers', type=int, default=3,
+    model_group.add_argument('-nx_hidden', type=int, default=40, help='Number of hidden states per output')
+    model_group.add_argument('-n_layers', type=int, default=5,
                              help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-n_layers_estim', type=int, default=5,
                              help='Number of hidden layers of estimator encoder')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
-    model_group.add_argument('-estimator_input_window', type=int, default=100,
+    model_group.add_argument('-estimator_input_window', type=int, default=10,
                              help="Number of previous time steps measurements to include in state estimator input")
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
+                             default='linear')
+    model_group.add_argument('-linear_map_fy', type=str, choices=list(slim.maps.keys()),
                              default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='mlp',
                              choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
-    model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='relu',
+    model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
                              help='Activation function for neural networks')
     model_group.add_argument('-sigma_min', type=float, default=0.8, help='Lower bound on eigenvalues/singular values of factorized linear maps.')
     model_group.add_argument('-sigma_max', type=float, default=1.0, help='Upper bound on eigenvalues/singular values of factorized linear maps.')
@@ -164,10 +168,10 @@ def logging(args):
 
 def dataset_load(args, device):
     if systems[args.system] == 'emulator':
-        dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
+        dataset = EmulatorDataset(system=args.system, nsim=args.nsim, norm_type=args.norm_type,
                                   norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     else:
-        dataset = FileDataset(system=args.system, nsim=args.nsim,
+        dataset = FileDataset(system=args.system, nsim=args.nsim, norm_type=args.norm_type,
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     return dataset
 
@@ -243,7 +247,11 @@ if __name__ == '__main__':
                                                         linargs={'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max},
                                                         xou=xou, xod=xod, xoe=xoe)
 
-    # dynamics_model.fu = slim.maps[args.linear_map](3, nx, sigma_max=0.5, sigma_min=1.0)
+    dynamics_model.fu = slim.maps[args.linear_map](3, nx, sigma_min=0.5, sigma_max=1.0)
+    # dynamics_model.fy = slim.maps[args.linear_map_fy](nx, dataset.dims['Y'][-1], sigma_min=0.99, sigma_max=1.0)
+    # dynamics_model.fx = slim.maps[args.linear_map_fy](nx, nx, sigma_min=0.99, sigma_max=1.0)
+    # dynamics_model.fx = torch.eye(nx, nx)
+
 
     components = [estimator, dynamics_model]
 

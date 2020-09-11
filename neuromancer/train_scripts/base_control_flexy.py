@@ -73,7 +73,7 @@ def parse():
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=16, choices=[4, 8, 16, 32, 64],
+    data_group.add_argument('-nsteps', type=int, default=32, choices=[4, 8, 16, 32, 64],
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system', type=str, default='flexy_air',
                             help='select particular dataset with keyword')
@@ -86,9 +86,9 @@ def parse():
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y', 'X'],
                             help='List of sequences to max-min normalize')
     mfiles = ['/qfs/projects/deepmpc/best_flexy_models/best_blocknlin_nlinsearch/best_model.pth',
-              '../neuromancer/neuromancer/datasets/Flexy_air/models/best_model_flexy1.pth',
-              '../neuromancer/neuromancer/datasets/Flexy_air/models/best_model_flexy2.pth',
-              '../neuromancer/neuromancer/datasets/Flexy_air/ape_models/best_model_blocknlin.pth']
+              '../datasets/Flexy_air/models/best_model_flexy1.pth',
+              '../datasets/Flexy_air/models/best_model_flexy2.pth',
+              '../datasets/Flexy_air/ape_models/best_model_blocknlin.pth']
     data_group.add_argument('-model_file', type=str, default=mfiles[1])
     # mfiles[2] - This model requires nsteps >=10
 
@@ -219,6 +219,21 @@ def dataset_load(args, device):
         dataset.add_data(new_sequences)
         # dataset.dims['Rf'] = (9000, 1)
     return dataset
+
+
+class NoiseGenerator(nn.Module):
+    def __init__(self, ratio=0.05, keys=None, name='noise', device='cpu'):
+        super().__init__()
+        self.name = name
+        self.ratio = ratio
+        self.keys = keys
+        self.device = device
+
+    def forward(self, data):
+        noisy_data = dict()
+        for key in self.keys:
+            noisy_data[key+self.name] = data[key] + self.ratio*torch.randn(data[key].shape)
+        return noisy_data
 
 
 class SignalGenerator(nn.Module):
@@ -422,25 +437,26 @@ if __name__ == '__main__':
                              input_keys=args.policy_features,
                              linargs={'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max},
                              name='policy').to(device)
+
     signal_generator = WhiteNoisePeriodicGenerator(args.nsteps, args.ny, xmax=(0.8, 0.7), xmin=0.2,
                                                    min_period=1, max_period=20, name='Y_ctrl_', device=device).to(device)
     # reference_generator = PeriodicGenerator(args.nsteps, args.ny, xmax=0.7, xmin=0.3,
     #                                                min_period=1, max_period=20, name='R')
     # dynamics_generator = SignalGeneratorDynamics(dynamics_model, estimator, args.nsteps, xmax=1.0, xmin=0.0, name='Y_ctrl_')
+
+    noise_generator = NoiseGenerator(ratio=0.05, keys=['Y_pred_dynamics'], name='_noise', device=device).to(device)
+
     # components = [dynamics_generator, estimator, policy, dynamics_model]
-    components = [signal_generator, estimator, policy, dynamics_model]
+    components = [signal_generator, estimator, policy, dynamics_model, noise_generator]
     # components = [signal_generator, reference_generator, estimator, policy, dynamics_model]
 
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
-    # TODO: reformulate Qdu constraint based on the feedback during real time control
     regularization = Objective(['reg_error_policy'], lambda reg: reg,
                                weight=args.Q_sub).to(device)
     reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
                                weight=args.Q_r, name='ref_loss').to(device)
-    # reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred, ref),
-    #                           weight=args.Q_r, name='ref_loss').to(device)
     control_smoothing = Objective(['U_pred_policy'], lambda x: F.mse_loss(x[1:], x[:-1]),
                                   weight=args.Q_du, name='control_smoothing').to(device)
     observation_lower_bound_penalty = Objective(['Y_pred_dynamics', 'Y_minf'],
@@ -453,6 +469,24 @@ if __name__ == '__main__':
                                            weight=args.Q_con_u, name='input_lower_bound').to(device)
     inputs_upper_bound_penalty = Objective(['U_pred_policy', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                            weight=args.Q_con_u, name='input_upper_bound').to(device)
+
+    # LOSS clipping
+    # reference_loss = Objective(['Y_pred_dynamics', 'Rf', 'Y_minf', 'Y_maxf'],
+    #                            lambda pred, ref, xmin, xmax: F.mse_loss(pred[:, :, :1]*torch.gt(ref, xmin).int()*torch.lt(ref, xmax).int(), ref*torch.gt(ref, xmin).int()*torch.lt(ref, xmax).int()),
+    #                            weight=args.Q_r, name='ref_loss').to(device)
+    # reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred, ref),
+    #                           weight=args.Q_r, name='ref_loss').to(device)
+
+    # NOISE
+    # reference_loss = Objective(['Y_pred_dynamics_noise', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
+    #                            weight=args.Q_r, name='ref_loss').to(device)
+    # observation_lower_bound_penalty = Objective(['Y_pred_dynamics_noise', 'Y_minf'],
+    #                                             lambda x, xmin: torch.mean(F.relu(-x[:, :, :1] + xmin)),
+    #                                             weight=args.Q_con_y, name='observation_lower_bound').to(device)
+    # observation_upper_bound_penalty = Objective(['Y_pred_dynamics_noise', 'Y_maxf'],
+    #                                             lambda x, xmax: torch.mean(F.relu(x[:, :, :1] - xmax)),
+    #                                             weight=args.Q_con_y, name='observation_upper_bound').to(device)
+
 
     objectives = [regularization, reference_loss]
     constraints = [observation_lower_bound_penalty, observation_upper_bound_penalty,
@@ -486,5 +520,8 @@ if __name__ == '__main__':
         torch.save(model.components[1], './test/best_estimator_flexy.pth', pickle_module=dill)
         torch.save(model.components[3], './test/best_dynamics_flexy.pth', pickle_module=dill)
 
-
+# TODO: add noiser to system dynamics observation and control action
+# TODO: drop loss function value on reference if it is outside of the constraints
+# TODO: add robust margins on constraints
+# TODO: Constrained Neural Feedback Systems - paper title
 

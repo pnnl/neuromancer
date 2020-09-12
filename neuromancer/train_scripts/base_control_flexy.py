@@ -57,6 +57,7 @@ def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('-gpu', type=int, default=None,
                         help="Gpu to use")
+    ##################
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
     opt_group.add_argument('-epochs', type=int, default=5000)
@@ -69,7 +70,6 @@ def parse():
                            help='Number of epochs to wait before enacting early stopping policy.')
     opt_group.add_argument('-skip_eval_sim', action='store_true',
                            help='Whether to run simulator during evaluation phase of training.')
-
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
@@ -91,7 +91,6 @@ def parse():
               '../datasets/Flexy_air/ape_models/best_model_blocknlin.pth']
     data_group.add_argument('-model_file', type=str, default=mfiles[1])
     # mfiles[2] - This model requires nsteps >=10
-
     ##################
     # POLICY PARAMETERS
     policy_group = parser.add_argument_group('POLICY PARAMETERS')
@@ -107,7 +106,6 @@ def parse():
     policy_group.add_argument('-activation', choices=['gelu', 'softexp'], default='gelu',
                               help='Activation function for neural networks')
     policy_group.add_argument('-perturbation', choices=['white_noise_sine_wave'], default='white_noise')
-
     ##################
     # LINEAR PARAMETERS
     linear_group = parser.add_argument_group('LINEAR PARAMETERS')
@@ -123,10 +121,6 @@ def parse():
     layers_group.add_argument('-freeze', nargs='+', default=[''], help='sets requires grad to False')
     layers_group.add_argument('-unfreeze', default=['components.2'],
                               help='sets requires grad to True')
-
-    ##################
-    # WEIGHT PARAMETERS
-    weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
     ##################
     # WEIGHT PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
@@ -150,7 +144,8 @@ def parse():
                               help='Reference tracking penalty weight')
     weight_group.add_argument('-Q_du', type=float, default=0.0, choices=[0.1, 1.0, 10.0, 100.0],
                               help='control action difference penalty weight')
-
+    weight_group.add_argument('-tighten', type=float, default=0.05, choices=[0.1, 0.05, 0.01, 0.0],
+                              help='control action difference penalty weight')
     ####################
     # LOGGING PARAMETERS
     log_group = parser.add_argument_group('LOGGING PARAMETERS')
@@ -470,6 +465,18 @@ if __name__ == '__main__':
     inputs_upper_bound_penalty = Objective(['U_pred_policy', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax)),
                                            weight=args.Q_con_u, name='input_upper_bound').to(device)
 
+    # Constraints tightening
+    observation_lower_bound_penalty = Objective(['Y_pred_dynamics', 'Y_minf'],
+                                                lambda x, xmin: torch.mean(F.relu(-x[:, :, :1] + xmin+args.tighten)),
+                                                weight=args.Q_con_y, name='observation_lower_bound').to(device)
+    observation_upper_bound_penalty = Objective(['Y_pred_dynamics', 'Y_maxf'],
+                                                lambda x, xmax: torch.mean(F.relu(x[:, :, :1] - xmax+args.tighten)),
+                                                weight=args.Q_con_y, name='observation_upper_bound').to(device)
+    inputs_lower_bound_penalty = Objective(['U_pred_policy', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin+args.tighten)),
+                                           weight=args.Q_con_u, name='input_lower_bound').to(device)
+    inputs_upper_bound_penalty = Objective(['U_pred_policy', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax+args.tighten)),
+                                           weight=args.Q_con_u, name='input_upper_bound').to(device)
+
     # LOSS clipping
     # reference_loss = Objective(['Y_pred_dynamics', 'Rf', 'Y_minf', 'Y_maxf'],
     #                            lambda pred, ref, xmin, xmax: F.mse_loss(pred[:, :, :1]*torch.gt(ref, xmin).int()*torch.lt(ref, xmax).int(), ref*torch.gt(ref, xmin).int()*torch.lt(ref, xmax).int()),
@@ -520,7 +527,9 @@ if __name__ == '__main__':
         torch.save(model.components[1], './test/best_estimator_flexy.pth', pickle_module=dill)
         torch.save(model.components[3], './test/best_dynamics_flexy.pth', pickle_module=dill)
 
-# TODO: add noiser to system dynamics observation and control action
+# TODO: add noiser to control action
+# TODO: UQ via ensemble methods
+# TODO: adaptive constraints tightening based on UQ on the system dynamics model
 # TODO: drop loss function value on reference if it is outside of the constraints
 # TODO: add robust margins on constraints
 # TODO: Constrained Neural Feedback Systems - paper title

@@ -198,7 +198,7 @@ class ClosedLoopSimulator(Simulator):
 
             # control policy model
             # step_output = self.model(step_data)
-            step_output = self.policy(step_data).to(self.device)
+            step_output = self.policy(step_data)
 
             # # model trajectories
             # x_key = [k for k in step_output.keys() if 'X_pred' in k]

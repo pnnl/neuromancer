@@ -192,13 +192,13 @@ class ClosedLoopSimulator(Simulator):
                                                              Mmax=self.dataset.min_max_norms['Ymax'])
                     else:
                         Yp_np = np.concatenate(Y[-self.nsteps:])
-                    step_data['Yp'] = torch.tensor(np.concatenate(Yp_np, 0)).reshape(self.nsteps, 1, -1).float()
+                    step_data['Yp'] = torch.tensor(np.concatenate(Yp_np, 0)).reshape(self.nsteps, 1, -1).float().to(self.device)
                 if len(U_opt) > self.nsteps:
-                    step_data['Up'] = torch.cat(U_opt[-self.nsteps:], dim=0).reshape(self.nsteps, 1, -1).float()
+                    step_data['Up'] = torch.cat(U_opt[-self.nsteps:], dim=0).reshape(self.nsteps, 1, -1).float().to(self.device)
 
             # control policy model
             # step_output = self.model(step_data)
-            step_output = self.policy(step_data)
+            step_output = self.policy(step_data).to(self.device)
 
             # # model trajectories
             # x_key = [k for k in step_output.keys() if 'X_pred' in k]

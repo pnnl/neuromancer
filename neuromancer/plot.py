@@ -224,11 +224,11 @@ def pltCL(Y, R=None, U=None, D=None, X=None,
         else:
             ax[j, 0].plot(array, linewidth=3)
         ax[j, 0].grid(True)
-        ax[j, 0].set_title(name, fontsize=20)
-        ax[j, 0].set_xlabel('Time', fontsize=20)
-        ax[j, 0].set_ylabel(notation, fontsize=20)
-        ax[j, 0].tick_params(axis='x', labelsize=18)
-        ax[j, 0].tick_params(axis='y', labelsize=18)
+        ax[j, 0].set_title(name, fontsize=14)
+        ax[j, 0].set_xlabel('Time', fontsize=14)
+        ax[j, 0].set_ylabel(notation, fontsize=14)
+        ax[j, 0].tick_params(axis='x', labelsize=12)
+        ax[j, 0].tick_params(axis='y', labelsize=12)
     plt.tight_layout()
     if figname is not None:
         plt.savefig(figname)

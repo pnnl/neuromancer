@@ -171,6 +171,24 @@ def dataset_load(args, device):
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     return dataset
 
+class NonlinearExpansion(nn.Module):
+    def __init__(self, keys=None, name='nlin_expand', device='cpu', order=2):
+        super().__init__()
+        self.name = name
+        self.keys = keys
+        self.device = device
+        self.order = order
+    def forward(self, data):
+        nlin_data = dict()
+        for key in self.keys:
+            for i, o in enumerate(range(1, self.order+1)):
+                comb = itertools.combinations_with_replacement(range(data[key].shape[-1]), r=o)
+                for j, c in enumerate(comb):
+                    subset = torch.index_select(data[key], -1, torch.tensor(c, dtype=torch.long))
+                    subset = torch.prod(subset, -1).unsqueeze(-1)
+                    nlin_data[f'{key}_{i}_{j}'] = subset.to(self.device)
+
+        return nlin_data
 
 if __name__ == '__main__':
     ###############################

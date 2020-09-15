@@ -14,7 +14,7 @@ import numpy as np
 from psl import EmulatorBase
 
 # lcoal imports
-from neuromancer.datasets import EmulatorDataset, FileDataset, min_max_denorm
+from neuromancer.datasets import EmulatorDataset, FileDataset, min_max_denorm, normalize
 from neuromancer.problem import Problem
 from neuromancer.datasets import Dataset, DataDict
 
@@ -91,11 +91,12 @@ class MultiSequenceOpenLoopSimulator(Simulator):
 
 
 class ClosedLoopSimulator(Simulator):
-    def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None):
+    def __init__(self, model: Problem, dataset: Dataset, policy: nn.Module, emulator: [EmulatorBase, nn.Module] = None):
         super().__init__(model=model, dataset=dataset, emulator=emulator)
         assert isinstance(emulator, EmulatorBase) or isinstance(emulator,  nn.Module), \
             f'{type(emulator)} is not EmulatorBase or nn.Module.'
         self.emulator = emulator
+        self.policy = policy
         self.ninit = 0
         self.nsim = self.dataset.nstep_data['Yf'].shape[1]
         if isinstance(emulator, EmulatorBase):
@@ -184,25 +185,26 @@ class ClosedLoopSimulator(Simulator):
                                            self.dataset.min_max_norms['Ymax']) if y is not None else None
                 # update u and y trajectory history
                 if len(Y) > self.nsteps:
-                    if 'Y' in self.dataset.norm and isinstance(self.emulator, EmulatorBase):
-                        Yp_np, _, _ = self.dataset.normalize(np.concatenate(Y[-self.nsteps:]),
+                    # if 'Y' in self.dataset.norm and isinstance(self.emulator, EmulatorBase):
+                    if 'Y' in self.dataset.norm:
+                        Yp_np, _, _ = normalize(np.concatenate(Y[-self.nsteps:]),
                                                              Mmin=self.dataset.min_max_norms['Ymin'],
                                                              Mmax=self.dataset.min_max_norms['Ymax'])
                     else:
                         Yp_np = np.concatenate(Y[-self.nsteps:])
-                    step_data['Yp'] = torch.tensor(np.concatenate(Yp_np, 0)).reshape(self.nsteps, 1, -1).float()
-
+                    step_data['Yp'] = torch.tensor(np.concatenate(Yp_np, 0)).reshape(self.nsteps, 1, -1).float().to(self.device)
                 if len(U_opt) > self.nsteps:
-                    step_data['Up'] = torch.cat(U_opt[-self.nsteps:], dim=0).reshape(self.nsteps, 1, -1).float()
+                    step_data['Up'] = torch.cat(U_opt[-self.nsteps:], dim=0).reshape(self.nsteps, 1, -1).float().to(self.device)
 
             # control policy model
-            step_output = self.model(step_data)
+            # step_output = self.model(step_data)
+            step_output = self.policy(step_data)
 
-            # model trajectories
-            x_key = [k for k in step_output.keys() if 'X_pred' in k]
-            X_pred.append(step_output[x_key[0]])
-            y_key = [k for k in step_output.keys() if 'Y_pred' in k]
-            Y_pred.append(step_output[y_key[0]])
+            # # model trajectories
+            # x_key = [k for k in step_output.keys() if 'X_pred' in k]
+            # X_pred.append(step_output[x_key[0]])
+            # y_key = [k for k in step_output.keys() if 'Y_pred' in k]
+            # Y_pred.append(step_output[y_key[0]])
             u_key = [k for k in step_output.keys() if 'U_pred' in k]
             U_pred.append(step_output[u_key[0]])
             uopt = step_output[u_key[0]][0].detach()
@@ -225,15 +227,22 @@ class ClosedLoopSimulator(Simulator):
                 Umin.append(umin) if umin is not None else None
                 Umax.append(umax) if umax is not None else None
 
-        return {'X_pred': torch.cat(X_pred, dim=1), 'Y_pred': torch.cat(Y_pred, dim=1),
-                'U_pred': torch.cat(U_pred, dim=1), 'U_opt': torch.cat(U_opt, dim=0),
-                'Y': np.concatenate(Y, 0), 'X': np.concatenate(X, 0), 'U': np.concatenate(U, 0),
+        return {'Y': np.concatenate(Y, 0), 'X': np.concatenate(X, 0), 'U': np.concatenate(U, 0),
                 'D': np.concatenate(D, 0) if D is not None else None,
                 'R': np.concatenate(R, 0) if R is not None else None,
                 'Ymin': np.concatenate(Ymin, 0) if Ymin is not None else None,
                 'Ymax': np.concatenate(Ymax, 0) if Ymax is not None else None,
                 'Umin': np.concatenate(Umin, 0) if Umin is not None else None,
                 'Umax': np.concatenate(Umax, 0) if Umax is not None else None}
+        # return {'X_pred': torch.cat(X_pred, dim=1), 'Y_pred': torch.cat(Y_pred, dim=1),
+        #         'U_pred': torch.cat(U_pred, dim=1), 'U_opt': torch.cat(U_opt, dim=0),
+        #         'Y': np.concatenate(Y, 0), 'X': np.concatenate(X, 0), 'U': np.concatenate(U, 0),
+        #         'D': np.concatenate(D, 0) if D is not None else None,
+        #         'R': np.concatenate(R, 0) if R is not None else None,
+        #         'Ymin': np.concatenate(Ymin, 0) if Ymin is not None else None,
+        #         'Ymax': np.concatenate(Ymax, 0) if Ymax is not None else None,
+        #         'Umin': np.concatenate(Umin, 0) if Umin is not None else None,
+        #         'Umax': np.concatenate(Umax, 0) if Umax is not None else None}
 
 
 if __name__ == '__main__':

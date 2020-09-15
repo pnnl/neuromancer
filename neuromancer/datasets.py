@@ -121,11 +121,26 @@ def normalize(M, Mmin=None, Mmax=None):
         return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
 
 
+def normalize2(M, Mmin=None, Mmax=None):
+    """
+    :param M: (2-d np.array) Data to be normalized
+    :param Mmin: (int) Optional minimum. If not provided is inferred from data.
+    :param Mmax: (int) Optional maximum. If not provided is inferred from data.
+    :return: (2-d np.array) Min-max normalized data
+    """
+    Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
+    Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        M_norm = 2*((M - Mmin) / (Mmax - Mmin))-1
+    return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
+
+
 class Dataset:
 
     def __init__(self, system=None, nsim=10000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
-                 savedir='test'):
+                 savedir='test', norm_type='normalize'):
         """
 
         :param system: (str) Identifier for dataset.
@@ -150,6 +165,7 @@ class Dataset:
         """
         assert not (system is None and len(sequences) == 0), 'Trying to instantiate an empty dataset.'
         self.name = name
+        self.norm_type = norm_type
         self.savedir = savedir
         os.makedirs(self.savedir, exist_ok=True)
         self.system, self.nsim, self.ninit, self.norm, self.nsteps, self.device = system, nsim, ninit, norm, nsteps, device
@@ -180,7 +196,11 @@ class Dataset:
         for k, v in data.items():
             v = v.reshape(v.shape[0], -1)
             if k in norm:
-                v, vmin, vmax = normalize(v)
+                if self.norm_type == 'normalize2':
+                    v, vmin, vmax = normalize2(v)
+                else:
+                    v, vmin, vmax = normalize(v)
+
                 self.min_max_norms.update({k + 'min': vmin, k + 'max': vmax})
                 data[k] = v
         return data

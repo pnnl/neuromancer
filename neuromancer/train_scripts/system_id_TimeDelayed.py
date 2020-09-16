@@ -44,7 +44,7 @@ from neuromancer.visuals import VisualizerOpen, VisualizerTrajectories
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem, Objective
 from neuromancer.activations import BLU, SoftExponential
-from neuromancer.simulators import OpenLoopSimulator
+from neuromancer.simulators import OpenLoopSimulator, MHOpenLoopSimulator
 
 """ python system_id.py -system flexy_air -epochs 10 -nx_hidden 2
 0 -ssm_type blackbox -state_estimator mlp -nonlinear_map residual_mlp -n_layers 2 -nsim 10000 -nsteps 32 -lr 0.001
@@ -59,14 +59,14 @@ def parse():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=100)
+    opt_group.add_argument('-epochs', type=int, default=10)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
     opt_group.add_argument('-eval_metric', type=str, default='loop_dev_loss',
                            help='Metric for model selection and early stopping.')
-    opt_group.add_argument('-patience', type=int, default=5,
+    opt_group.add_argument('-patience', type=int, default=25,
                            help='How many epochs to allow for no improvement in eval metric before early stopping.')
-    opt_group.add_argument('-warmup', type=int, default=0,
+    opt_group.add_argument('-warmup', type=int, default=100,
                            help='Number of epochs to wait before enacting early stopping policy.')
     opt_group.add_argument('-skip_eval_sim', action='store_true',
                            help='Whether to run simulator during evaluation phase of training.')
@@ -76,7 +76,7 @@ def parse():
     data_group = parser.add_argument_group('DATA PARAMETERS')
     data_group.add_argument('-nsteps', type=int, default=32,
                             help='Number of steps for open loop during training.')
-    data_group.add_argument('-system', type=str, default='Reno_ROM40', choices=list(systems.keys()),
+    data_group.add_argument('-system', type=str, default='LotkaVolterra', choices=list(systems.keys()),
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=10000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
@@ -105,7 +105,7 @@ def parse():
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
                              help='Activation function for neural networks')
-    model_group.add_argument('-timedelay', type=int, default=0, help='time delayed features of SSM')
+    model_group.add_argument('-timedelay', type=int, default=10, help='time delayed features of SSM')
 
     ##################
     # Weight PARAMETERS
@@ -271,7 +271,8 @@ if __name__ == '__main__':
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     visualizer = VisualizerOpen(dataset, dynamics_model, args.verbosity, args.savedir,
                                 training_visuals=args.train_visuals, trace_movie=args.trace_movie)
-    simulator = OpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
+    # simulator = OpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
+    simulator = MHOpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
                       simulator=simulator, epochs=args.epochs, eval_metric=args.eval_metric,
                       patience=args.patience, warmup=args.warmup)

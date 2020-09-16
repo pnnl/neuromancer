@@ -101,7 +101,8 @@ def parse():
     model_group.add_argument('-n_layers_estim', type=int, default=1,
                              help='Number of hidden layers of estimator encoder')
     model_group.add_argument('-state_estimator', type=str,
-                             choices=['rnn', 'mlp', 'linear', 'residual_mlp', 'fullyObservable'], default='linear')
+                             choices=['rnn', 'mlp', 'linear', 'residual_mlp', 'fullyObservable'],
+                             default='linear')
     model_group.add_argument('-estimator_input_window', type=int, default=1,
                              help="Number of previous time steps measurements to include in state estimator input")
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
@@ -179,8 +180,7 @@ if __name__ == '__main__':
     ########## LOGGING ############
     ###############################
     args = parse().parse_args()
-
-    args.bias = True
+    # args.bias = True
 
     print({k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)})
     logger, device = logging(args)

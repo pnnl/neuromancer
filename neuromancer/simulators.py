@@ -77,7 +77,7 @@ class MHOpenLoopSimulator(Simulator):
 
     def simulate(self, data):
         Y, X, L = [], [], []
-        Yp, Yf, Xp, Xf, X0 = [], [], [], [], []
+        Yp, Yf, Xp, Xf = [], [], [], []
         # yN = torch.zeros(self.dataset.nsteps, data['Yp'].shape[1], self.dataset.dims['Yp'])
         yN = data['Yp'][:self.dataset.nsteps, :, :]
         nsim = data['Yp'].shape[0]
@@ -106,18 +106,14 @@ class MHOpenLoopSimulator(Simulator):
             xf_key = [k for k in step_output.keys() if 'Xf' in k]
             xf = step_output[xf_key[0]][0].unsqueeze(0)
             Xf.append(xf)
-            x0_key = [k for k in step_output.keys() if 'x0' in k]
-            x0 = step_output[x0_key[0]][0].unsqueeze(0)
-            X0.append(x0)
-            # loss
             loss_keys = [k for k in step_output.keys() if 'loss' in k]
             loss_item = step_output[loss_keys[0]]
             L.append(loss_item)
         output = dict()
-        for tensor_list, name in zip([X, Y, L, Yp, Yf, Xp, Xf, X0],
+        for tensor_list, name in zip([X, Y, L, Yp, Yf, Xp, Xf],
                                      [x_key[0], y_key[0], loss_keys[0],
                                       yp_key[0], yf_key[0],
-                                      xp_key[0], xf_key[0], x0_key[0]]):
+                                      xp_key[0], xf_key[0]]):
             if tensor_list:
                 output[name] = torch.stack(tensor_list)
         return {**data, **output}

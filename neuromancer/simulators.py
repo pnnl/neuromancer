@@ -55,7 +55,6 @@ class OpenLoopSimulator(Simulator):
 
 class MHOpenLoopSimulator(Simulator):
     """
-    TODO
     moving horizon open loop simulator
     """
     def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None,
@@ -121,8 +120,6 @@ class MHOpenLoopSimulator(Simulator):
                                       xp_key[0], xf_key[0], x0_key[0]]):
             if tensor_list:
                 output[name] = torch.stack(tensor_list)
-        print(output.keys())
-        print(data.keys())
         return {**data, **output}
 
 

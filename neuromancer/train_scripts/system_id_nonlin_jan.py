@@ -61,7 +61,7 @@ def parse():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=1000)
+    opt_group.add_argument('-epochs', type=int, default=100)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
     opt_group.add_argument('-eval_metric', type=str, default='loop_dev_loss',
@@ -95,7 +95,7 @@ def parse():
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
                              default='blackbox')
-    model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
+    model_group.add_argument('-nx_hidden', type=int, default=30, help='Number of hidden states per output')
     model_group.add_argument('-n_layers', type=int, default=2,
                              help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-n_layers_estim', type=int, default=1,
@@ -106,7 +106,7 @@ def parse():
                              help="Number of previous time steps measurements to include in state estimator input")
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                              default='linear')
-    model_group.add_argument('-nonlinear_map', type=str, default='rnn',
+    model_group.add_argument('-nonlinear_map', type=str, default='mlp',
                              choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp', 'basislinear'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='relu',
@@ -114,6 +114,7 @@ def parse():
     model_group.add_argument('-sigma_min', type=float, default=0.8, help='Lower bound on eigenvalues/singular values of factorized linear maps.')
     model_group.add_argument('-sigma_max', type=float, default=1.0, help='Upper bound on eigenvalues/singular values of factorized linear maps.')
     model_group.add_argument('-xo', default='add', choices=['add', 'mul', 'addmul'], help='System dynamics oprations on tensors.')
+    model_group.add_argument('-residual', type=int, default=0, choices=[1, 0], help="residual form of dynamics")
 
     ##################
     # Weight PARAMETERS
@@ -247,7 +248,7 @@ if __name__ == '__main__':
                                                         name='dynamics',
                                                         input_keys={'x0': f'x0_{estimator.name}'},
                                                         linargs={'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max},
-                                                        xou=xou, xod=xod, xoe=xoe)
+                                                        xou=xou, xod=xod, xoe=xoe, residual=args.residual)
 
     # linearizer = ....
 

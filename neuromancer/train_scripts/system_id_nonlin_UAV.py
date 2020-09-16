@@ -116,7 +116,7 @@ def parse():
                              help='Activation function for neural networks')
     model_group.add_argument('-sigma_min', type=float, default=0.8, help='Lower bound on eigenvalues/singular values of factorized linear maps.')
     model_group.add_argument('-sigma_max', type=float, default=1.0, help='Upper bound on eigenvalues/singular values of factorized linear maps.')
-    model_group.add_argument('-xo', default='mul', choices=['add', 'mul', 'addmul'], help='System dynamics oprations on tensors.')
+    model_group.add_argument('-xo', default='addmul', choices=['add', 'mul', 'addmul'], help='System dynamics oprations on tensors.')
 
     ##################
     # Weight PARAMETERS

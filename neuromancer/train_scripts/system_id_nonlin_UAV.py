@@ -95,9 +95,9 @@ def parse():
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
-                             default='blocknlin')
-    model_group.add_argument('-nx_hidden', type=int, default=40, help='Number of hidden states per output')
-    model_group.add_argument('-n_layers', type=int, default=5,
+                             default='hw')
+    model_group.add_argument('-nx_hidden', type=int, default=60, help='Number of hidden states per output')
+    model_group.add_argument('-n_layers', type=int, default=4,
                              help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-n_layers_estim', type=int, default=5,
                              help='Number of hidden layers of estimator encoder')
@@ -116,16 +116,16 @@ def parse():
                              help='Activation function for neural networks')
     model_group.add_argument('-sigma_min', type=float, default=0.8, help='Lower bound on eigenvalues/singular values of factorized linear maps.')
     model_group.add_argument('-sigma_max', type=float, default=1.0, help='Upper bound on eigenvalues/singular values of factorized linear maps.')
-    model_group.add_argument('-xo', default='addmul', choices=['add', 'mul', 'addmul'], help='System dynamics oprations on tensors.')
+    model_group.add_argument('-xo', default='mul', choices=['add', 'mul', 'addmul'], help='System dynamics oprations on tensors.')
 
     ##################
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
-    weight_group.add_argument('-Q_con_x', type=float, default=1.0, help='Hidden state constraints penalty weight.')
+    weight_group.add_argument('-Q_con_x', type=float, default=1.2, help='Hidden state constraints penalty weight.')
     weight_group.add_argument('-Q_dx', type=float, default=0.0,
                               help='Penalty weight on hidden state difference in one time step.')
     weight_group.add_argument('-Q_sub', type=float, default=0.2, help='Linear maps regularization weight.')
-    weight_group.add_argument('-Q_y', type=float, default=1.0, help='Output tracking penalty weight')
+    weight_group.add_argument('-Q_y', type=float, default=0.1, help='Output tracking penalty weight')
     weight_group.add_argument('-Q_e', type=float, default=1.0, help='State estimator hidden prediction penalty weight')
     weight_group.add_argument('-Q_con_fdu', type=float, default=0.0,
                               help='Penalty weight on control actions and disturbances.')
@@ -247,7 +247,7 @@ if __name__ == '__main__':
                                                         linargs={'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max},
                                                         xou=xou, xod=xod, xoe=xoe)
 
-    dynamics_model.fu = slim.maps[args.linear_map](3, nx, sigma_min=0.5, sigma_max=1.0)
+    dynamics_model.fu = slim.maps[args.linear_map](3, nx, sigma_min=0.9, sigma_max=1.0)
     # dynamics_model.fy = slim.maps[args.linear_map_fy](nx, dataset.dims['Y'][-1], sigma_min=0.99, sigma_max=1.0)
     # dynamics_model.fx = slim.maps[args.linear_map_fy](nx, nx, sigma_min=0.99, sigma_max=1.0)
     # dynamics_model.fx = torch.eye(nx, nx)

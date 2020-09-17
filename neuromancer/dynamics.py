@@ -492,6 +492,26 @@ def hw(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
     return BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, xou=xou, xod=xod, xoe=xoe, name=name, input_keys=input_keys, residual=residual)
 
 
+def wiener(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None,
+                activation=nn.GELU, name='hw', input_keys=dict(), residual=False, linargs=dict(),
+                xou=torch.add, xod=torch.add, xoe=torch.add):
+    """
+    wiener state space model for training
+    """
+    xkey, ykey, ukey, dkey = BlockSSM.keys(input_keys)
+    nx = datadims[xkey][-1]
+    ny = datadims[ykey][-1]
+    nu = datadims[ukey][-1] if ukey in datadims else 0
+    nd = datadims[dkey][-1] if dkey in datadims else 0
+    fx = linmap(nx, nx, bias=bias, linargs=linargs)
+    fy = nonlinmap(nx, ny, bias=bias, hsizes=[nx]*n_layers, Linear=linmap, nonlin=activation, linargs=linargs)
+    fu = linmap(nu, nx, bias=bias, linargs=linargs) if nu != 0 else None
+    fd = linmap(nd, nx, bias=bias, linargs=linargs) if nd != 0 else None
+    fe = linmap(nx, nx, bias=bias, linargs=linargs) if fe is not None else None
+    return BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, xou=xou, xod=xod, xoe=xoe, name=name, input_keys=input_keys, residual=residual)
+
+
+
 def blackboxTD(bias, linmap, nonlinmap, datadims, n_layers=2, fe=None, timedelay=0,
              activation=nn.GELU, name='blackbox', input_keys=dict(), residual=False,  linargs=dict()):
     """

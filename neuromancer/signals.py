@@ -14,7 +14,7 @@ from neuromancer.datasets import normalize, EmulatorDataset, FileDataset, system
 import psl
 from collections import defaultdict
 import dill
-
+import itertools
 
 
 def freeze_weight(model, module_names=['']):

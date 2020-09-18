@@ -563,6 +563,9 @@ class MultiExperimentDataset(FileDataset):
             for d in dset:
                 d.name = name
 
+def _check_data(data):
+
+    return not np.any(np.isnan(data)) #(np.any(np.all(np.isclose(data[1:] - data[:-1], 0.), axis=0)) or np.any(np.all(np.isclose(data, 0.), axis=0)))
 
 class EmulatorDataset(Dataset):
 
@@ -573,7 +576,15 @@ class EmulatorDataset(Dataset):
         """
         systems = emulators.systems  # list of available emulators
         model = systems[self.system](nsim=self.nsim, ninit=self.ninit)  # instantiate model class
-        return model.simulate()  # simulate open loop
+        sim = model.simulate()  # simulate open loop
+        while not _check_data(sim['Y']):
+            print('Emulator generated invalid data, resimulating...')
+            del sim['Y']
+            del model
+            model = systems[self.system](nsim=self.nsim, ninit=self.ninit)  # instantiate model class
+            sim = model.simulate()
+
+        return sim
 
 
 class MultiExperimentEmulatorDataset(MultiExperimentDataset):

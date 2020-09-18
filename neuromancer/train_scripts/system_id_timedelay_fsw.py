@@ -43,7 +43,7 @@ import neuromancer.loggers as loggers
 from neuromancer.visuals import VisualizerOpen, VisualizerTrajectories
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem, Objective
-from neuromancer.activations import activations
+from neuromancer.activations import BLU, SoftExponential
 from neuromancer.simulators import MultiSequenceOpenLoopSimulator
 
 """ python system_id.py -system flexy_air -epochs 10 -nx_hidden 2
@@ -81,9 +81,9 @@ datasplits = {'all': {'train': list(all_train),
                   'pid': {'train': train_pid_idxs,
                           'dev': dev_exp,
                           'test': test_exp},
-                  'smooth_pid': {'train': [3, 4, 5, 6],
-                          'dev': [7],
-                          'test': [2]},
+                  'smooth_pid': {'train': [3, 4],
+                          'dev': [2, 6],
+                          'test': [5, 7]},
                   'constant': {'train': constant_idxs,
                                'dev': dev_exp,
                                'test': test_exp},
@@ -119,8 +119,6 @@ def parse():
     opt_group.add_argument('-epochs', type=int, default=100)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
-    opt_group.add_argument('-clip', type=float, default=2.0,
-                           help='Value to clip norm of gradients.')
     opt_group.add_argument('-eval_metric', type=str, default='loop_dev_loss',
                            help='Metric for model selection and early stopping.')
     opt_group.add_argument('-patience', type=int, default=5,
@@ -129,8 +127,6 @@ def parse():
                            help='Number of epochs to wait before enacting early stopping policy.')
     opt_group.add_argument('-skip_eval_sim', action='store_true',
                            help='Whether to run simulator during evaluation phase of training.')
-    opt_group.add_argument('-lr_scheduler', action='store_true',
-                           help='Whether to use reduce learnrate on plateau scheduler halving lr at each update')
 
     #################
     # DATA PARAMETERS
@@ -165,8 +161,8 @@ def parse():
                              default='linear')
     model_group.add_argument('-nonlinear_map', type=str, default='residual_mlp',
                              choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
-    model_group.add_argument('-bias', type=int, default=0, choices=[0, 1], help='Whether to use bias in the neural network models.')
-    model_group.add_argument('-activation', choices=list(activations.keys()), default='gelu',
+    model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
+    model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
                              help='Activation function for neural networks')
     model_group.add_argument('-timedelay', type=int, default=0, help='time delayed features of SSM')
 
@@ -247,11 +243,10 @@ if __name__ == '__main__':
     print(dataset.dims)
     nx = dataset.dims['Y'][-1]*args.nx_hidden
 
-    activation = activations[args.activation]
-    # {'gelu': nn.GELU,
-    #               'relu': nn.ReLU,
-    #               'blu': BLU,
-    #               'softexp': SoftExponential}[args.activation]
+    activation = {'gelu': nn.GELU,
+                  'relu': nn.ReLU,
+                  'blu': BLU,
+                  'softexp': SoftExponential}[args.activation]
 
     linmap = slim.maps[args.linear_map]
 
@@ -340,7 +335,7 @@ if __name__ == '__main__':
     simulator = MultiSequenceOpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
     trainer = Trainer(model, dataset, optimizer, logger=logger, visualizer=visualizer,
                       simulator=simulator, epochs=args.epochs, eval_metric=args.eval_metric,
-                      patience=args.patience, warmup=args.warmup, clip=args.clip, lr_scheduler=args.lr_scheduler)
+                      patience=args.patience, warmup=args.warmup)
     best_model = trainer.train()
     trainer.evaluate(best_model)
     logger.clean_up()

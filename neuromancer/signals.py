@@ -14,7 +14,7 @@ from neuromancer.datasets import normalize, EmulatorDataset, FileDataset, system
 import psl
 from collections import defaultdict
 import dill
-
+import itertools
 
 
 def freeze_weight(model, module_names=['']):
@@ -191,6 +191,30 @@ class AddGenerator(SignalGenerator):
         assert SG1.nsteps == SG2.nsteps, 'Nsteps must match to compose sequence generators'
         assert SG1.nx == SG2.nx, 'Nx must match to compose sequence generators'
         self.sequence_generator = lambda nsim: SG1.sequence_generator(nsim) + SG2.sequence_generator(nsim)
+
+class NonlinearExpansion(nn.Module):
+    def __init__(self, keys=None, name='nlin_expand', device='cpu', order=2):
+        super().__init__()
+        self.name = name
+        self.keys = keys
+        self.device = device
+        self.order = order
+
+        self.output_keys = [f'{key}_{name}' for key in keys]
+
+    def forward(self, data):
+        nlin_data = dict()
+        for key in self.keys:
+            expansions = []
+            for i, o in enumerate(range(1, self.order+1)):
+                comb = itertools.combinations_with_replacement(range(data[key].shape[-1]), r=o)
+                for j, c in enumerate(comb):
+                    subset = torch.index_select(data[key], -1, torch.tensor(c, dtype=torch.long))
+                    subset = torch.prod(subset, -1).unsqueeze(-1)
+                    expansions.append(subset)
+            nlin_data[f'{key}_{self.name}'] = torch.concat(expansions, dim=-1).to(self.device)
+
+        return nlin_data
 
 
 if __name__ == '__main__':

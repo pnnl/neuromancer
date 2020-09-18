@@ -42,7 +42,7 @@ keys = ['linear_map', 'estimator_input_window', 'sigma_max',
 
 params = pickle.load(open(args.params_file, 'rb'))
 learnrates = [0.001, 0.003]
-stub = 'python system_id.py -gpu 0 -epochs 15000 -location args.results -logger mlflow -exp wann_finetune -warmup 100 -patience 100 '
+stub = 'python system_id.py -gpu 0 -epochs 15000 -location %s -logger mlflow -exp wann_finetune -warmup 100 -patience 100 ' % args.results
 print([k for k in params.columns])
 for idx in params.index:
     print(idx)

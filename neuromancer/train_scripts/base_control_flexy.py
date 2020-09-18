@@ -144,8 +144,14 @@ def parse():
                               help='Reference tracking penalty weight')
     weight_group.add_argument('-Q_du', type=float, default=0.0, choices=[0.1, 1.0, 10.0, 100.0],
                               help='control action difference penalty weight')
+    # objective and constraints variations
+    weight_group.add_argument('-con_tighten', choices=[0, 1], default=0)
     weight_group.add_argument('-tighten', type=float, default=0.05, choices=[0.1, 0.05, 0.01, 0.0],
                               help='control action difference penalty weight')
+    weight_group.add_argument('-loss_clip', choices=[0, 1], default=0)
+    weight_group.add_argument('-noise', choices=[0, 1], default=0)
+
+
     ####################
     # LOGGING PARAMETERS
     log_group = parser.add_argument_group('LOGGING PARAMETERS')
@@ -448,16 +454,22 @@ if __name__ == '__main__':
     ##########################################
     ########## MULTI-OBJECTIVE LOSS ##########
     ##########################################
+    # NOISE
+    if args.noise:
+        output_key = 'Y_pred_dynamics_noise'
+    else:
+        output_key = 'Y_pred_dynamics'
+
+    reference_loss = Objective([output_key, 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
+                               weight=args.Q_r, name='ref_loss').to(device)
     regularization = Objective(['reg_error_policy'], lambda reg: reg,
                                weight=args.Q_sub).to(device)
-    reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
-                               weight=args.Q_r, name='ref_loss').to(device)
     control_smoothing = Objective(['U_pred_policy'], lambda x: F.mse_loss(x[1:], x[:-1]),
                                   weight=args.Q_du, name='control_smoothing').to(device)
-    observation_lower_bound_penalty = Objective(['Y_pred_dynamics', 'Y_minf'],
+    observation_lower_bound_penalty = Objective([output_key, 'Y_minf'],
                                                 lambda x, xmin: torch.mean(F.relu(-x[:, :, :1] + xmin)),
                                                 weight=args.Q_con_y, name='observation_lower_bound').to(device)
-    observation_upper_bound_penalty = Objective(['Y_pred_dynamics', 'Y_maxf'],
+    observation_upper_bound_penalty = Objective([output_key, 'Y_maxf'],
                                                 lambda x, xmax: torch.mean(F.relu(x[:, :, :1] - xmax)),
                                                 weight=args.Q_con_y, name='observation_upper_bound').to(device)
     inputs_lower_bound_penalty = Objective(['U_pred_policy', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin)),
@@ -466,34 +478,23 @@ if __name__ == '__main__':
                                            weight=args.Q_con_u, name='input_upper_bound').to(device)
 
     # Constraints tightening
-    observation_lower_bound_penalty = Objective(['Y_pred_dynamics', 'Y_minf'],
-                                                lambda x, xmin: torch.mean(F.relu(-x[:, :, :1] + xmin+args.tighten)),
-                                                weight=args.Q_con_y, name='observation_lower_bound').to(device)
-    observation_upper_bound_penalty = Objective(['Y_pred_dynamics', 'Y_maxf'],
-                                                lambda x, xmax: torch.mean(F.relu(x[:, :, :1] - xmax+args.tighten)),
-                                                weight=args.Q_con_y, name='observation_upper_bound').to(device)
-    inputs_lower_bound_penalty = Objective(['U_pred_policy', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin+args.tighten)),
-                                           weight=args.Q_con_u, name='input_lower_bound').to(device)
-    inputs_upper_bound_penalty = Objective(['U_pred_policy', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax+args.tighten)),
-                                           weight=args.Q_con_u, name='input_upper_bound').to(device)
+    if args.con_tighten:
+        observation_lower_bound_penalty = Objective([output_key, 'Y_minf'],
+                                                    lambda x, xmin: torch.mean(F.relu(-x[:, :, :1] + xmin+args.tighten)),
+                                                    weight=args.Q_con_y, name='observation_lower_bound').to(device)
+        observation_upper_bound_penalty = Objective([output_key, 'Y_maxf'],
+                                                    lambda x, xmax: torch.mean(F.relu(x[:, :, :1] - xmax+args.tighten)),
+                                                    weight=args.Q_con_y, name='observation_upper_bound').to(device)
+        inputs_lower_bound_penalty = Objective(['U_pred_policy', 'U_minf'], lambda x, xmin: torch.mean(F.relu(-x + xmin+args.tighten)),
+                                               weight=args.Q_con_u, name='input_lower_bound').to(device)
+        inputs_upper_bound_penalty = Objective(['U_pred_policy', 'U_maxf'], lambda x, xmax: torch.mean(F.relu(x - xmax+args.tighten)),
+                                               weight=args.Q_con_u, name='input_upper_bound').to(device)
 
     # LOSS clipping
-    # reference_loss = Objective(['Y_pred_dynamics', 'Rf', 'Y_minf', 'Y_maxf'],
-    #                            lambda pred, ref, xmin, xmax: F.mse_loss(pred[:, :, :1]*torch.gt(ref, xmin).int()*torch.lt(ref, xmax).int(), ref*torch.gt(ref, xmin).int()*torch.lt(ref, xmax).int()),
-    #                            weight=args.Q_r, name='ref_loss').to(device)
-    # reference_loss = Objective(['Y_pred_dynamics', 'Rf'], lambda pred, ref: F.mse_loss(pred, ref),
-    #                           weight=args.Q_r, name='ref_loss').to(device)
-
-    # NOISE
-    # reference_loss = Objective(['Y_pred_dynamics_noise', 'Rf'], lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
-    #                            weight=args.Q_r, name='ref_loss').to(device)
-    # observation_lower_bound_penalty = Objective(['Y_pred_dynamics_noise', 'Y_minf'],
-    #                                             lambda x, xmin: torch.mean(F.relu(-x[:, :, :1] + xmin)),
-    #                                             weight=args.Q_con_y, name='observation_lower_bound').to(device)
-    # observation_upper_bound_penalty = Objective(['Y_pred_dynamics_noise', 'Y_maxf'],
-    #                                             lambda x, xmax: torch.mean(F.relu(x[:, :, :1] - xmax)),
-    #                                             weight=args.Q_con_y, name='observation_upper_bound').to(device)
-
+    if args.loss_clip:
+        reference_loss = Objective([output_key, 'Rf', 'Y_minf', 'Y_maxf'],
+                                   lambda pred, ref, xmin, xmax: F.mse_loss(pred[:, :, :1]*torch.gt(ref, xmin).int()*torch.lt(ref, xmax).int(), ref*torch.gt(ref, xmin).int()*torch.lt(ref, xmax).int()),
+                                   weight=args.Q_r, name='ref_loss').to(device)
 
     objectives = [regularization, reference_loss]
     constraints = [observation_lower_bound_penalty, observation_upper_bound_penalty,

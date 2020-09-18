@@ -45,7 +45,7 @@ for system, datatype in zip(systems, datatypes):
             for nonlinear in nonlinear_map:
                 for nsteps in nsteps_range:
                     for i in range(args.nsamples):
-                        cmd = 'python system_id_nonlin_UAV.py ' +\
+                        cmd = 'python ../neuromancer/train_scripts/system_id_nonlin_UAV.py ' +\
                               '-gpu 0 ' + \
                               '-epochs 1000 ' + \
                               '-location %s ' % args.results + \

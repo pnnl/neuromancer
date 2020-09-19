@@ -48,6 +48,7 @@ user@machine:~$ source activate neuromancer
 ```
 
 ### TODO
+    [ ] In datasets add data_transforms method to act on dataset.data to generate: finite difference sequences via np.diff, nonlinear expansions, spectral decompositions
     [ ] unify batching/unbatching via single function in datasets.py?
     [ ] finish batch_data_exp_id for datasets generated via multiple experiment runs: batch based on exp_idx and nsteps
     [ ] update plot_matrix method in VisualizerOpen(Visualizer) - currently supports only linear maps with effective_W

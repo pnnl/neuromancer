@@ -171,7 +171,6 @@ def dataset_load(args, device):
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
     return dataset
 
-
 if __name__ == '__main__':
     ###############################
     ########## LOGGING ############
@@ -242,8 +241,6 @@ if __name__ == '__main__':
                                                         input_keys={'x0': f'x0_{estimator.name}'},
                                                         linargs={'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max},
                                                         xou=xou, xod=xod, xoe=xoe)
-
-
 
     components = [estimator, dynamics_model]
 

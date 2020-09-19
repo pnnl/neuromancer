@@ -30,6 +30,7 @@ import argparse
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
+import numpy as np
 
 # code ecosystem imports
 import slim
@@ -60,7 +61,7 @@ def parse():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=1000)
+    opt_group.add_argument('-epochs', type=int, default=50)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
     opt_group.add_argument('-eval_metric', type=str, default='loop_dev_loss',
@@ -80,7 +81,7 @@ def parse():
     data_group.add_argument('-system', type=str, default='UAV3D_kin', choices=['TwoTank', 'LorenzSystem', 'LotkaVolterra',
                             'UAV3D_kin', 'CSTR', 'Pendulum-v0'],
                             help='select particular dataset with keyword')
-    data_group.add_argument('-nsim', type=int, default=10000,
+    data_group.add_argument('-nsim', type=int, default=50000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
                                  'train, dev, and test will be split evenly from contiguous, sequential, '
                                  'non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,'
@@ -94,10 +95,10 @@ def parse():
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
-    model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
-                             default='blocknlin')
-    model_group.add_argument('-nx_hidden', type=int, default=40, help='Number of hidden states per output')
-    model_group.add_argument('-n_layers', type=int, default=5,
+    model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'wiener', 'blocknlin', 'linear'],
+                             default='wiener')
+    model_group.add_argument('-nx_hidden', type=int, default=60, help='Number of hidden states per output')
+    model_group.add_argument('-n_layers', type=int, default=4,
                              help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-n_layers_estim', type=int, default=5,
                              help='Number of hidden layers of estimator encoder')
@@ -121,7 +122,7 @@ def parse():
     ##################
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
-    weight_group.add_argument('-Q_con_x', type=float, default=1.0, help='Hidden state constraints penalty weight.')
+    weight_group.add_argument('-Q_con_x', type=float, default=12, help='Hidden state constraints penalty weight.')
     weight_group.add_argument('-Q_dx', type=float, default=0.0,
                               help='Penalty weight on hidden state difference in one time step.')
     weight_group.add_argument('-Q_sub', type=float, default=0.2, help='Linear maps regularization weight.')
@@ -192,6 +193,19 @@ if __name__ == '__main__':
     ########## PROBLEM COMPONENTS ############
     ##########################################
     print(dataset.dims)
+    dataset.dims['nsim'] = dataset.dims['nsim'] - 1
+
+    DiffData = np.diff(dataset.data['Y'], axis=0)
+
+    # dataset.del_data(['Y'])
+    print(dataset.norm)
+
+    dataset.norm = []
+    dataset.add_data({'X': dataset.data['X'][:-1],
+                      'U': dataset.data['U'][:-1]}, overwrite=True)
+
+    dataset.add_data({'Y': DiffData}, overwrite=True, norm=args.norm)
+
     nx = dataset.dims['Y'][-1] * args.nx_hidden
 
     activation = {'gelu': nn.GELU,
@@ -238,6 +252,7 @@ if __name__ == '__main__':
     dynamics_model = {'blackbox': dynamics.blackbox,
                       'blocknlin': dynamics.blocknlin,
                       'hammerstein': dynamics.hammerstein,
+                      'wiener': dynamics.wiener,
                       'hw': dynamics.hw}[args.ssm_type](args.bias, linmap, nonlinmap,
                                                         {**dataset.dims, 'x0_estim': (nx,)},
                                                         n_layers=args.n_layers,
@@ -247,7 +262,7 @@ if __name__ == '__main__':
                                                         linargs={'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max},
                                                         xou=xou, xod=xod, xoe=xoe)
 
-    dynamics_model.fu = slim.maps[args.linear_map](3, nx, sigma_min=0.5, sigma_max=1.0)
+    # dynamics_model.fu = slim.maps[args.linear_map](3, nx, sigma_min=0.9, sigma_max=1.0)
     # dynamics_model.fy = slim.maps[args.linear_map_fy](nx, dataset.dims['Y'][-1], sigma_min=0.99, sigma_max=1.0)
     # dynamics_model.fx = slim.maps[args.linear_map_fy](nx, nx, sigma_min=0.99, sigma_max=1.0)
     # dynamics_model.fx = torch.eye(nx, nx)

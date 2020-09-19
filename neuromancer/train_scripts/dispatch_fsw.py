@@ -1,14 +1,15 @@
 import os
 import argparse
 import random
+from system_id_timedelay_fsw import datasplits
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument('-hours', type=int, help='number of gpu hours to request for job', default=72)
 parser.add_argument('-partition', type=str, help='Partition of gpus to access', default='shared_dlt')
-parser.add_argument('-allocation', type=str, help='Allocation name for billing', default='pins')
+parser.add_argument('-allocation', type=str, help='Allocation name for billing', default='deepmpc')
 parser.add_argument('-env', type=str, help='Name of conda environment for running code.', default='dltneuro')
-parser.add_argument('-results', type=str, help='Where to log mlflow results', default='/qfs/projects/deepmpc/mlflow/fsw_initial_exp_2020_09_09/mlruns')
+parser.add_argument('-results', type=str, help='Where to log mlflow results', default='/qfs/projects/deepmpc/mlflow/fsw_second_exp_2020_09_18/mlruns')
 parser.add_argument('-exp_folder', type=str, help='Where to save sbatch scripts and log files', default='sbatch/')
 
 args = parser.parse_args()
@@ -35,10 +36,10 @@ nsteps = [16, 32, 64, 128]
 ssm_type = ['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear']
 nx_hidden = range(5, 50, 5)
 n_layers = range(1, 11)
-state_estimator = ['rnn', 'mlp', 'linear', 'residual_mlp']
+state_estimator = ['mlp', 'linear', 'residual_mlp']
 estimator_input_window = range(1, 11)
 linear_map = ['linear', 'pf', 'softSVD', 'lasso']
-nonlinear_map = ['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp']
+nonlinear_map = ['mlp', 'linear', 'residual_mlp']
 bias = [0, 1]
 activation = ['gelu', 'relu', 'tanh', 'softexp', 'blu']
 timedelay = range(11)
@@ -48,11 +49,10 @@ Q_sub = (0.1, 1.0)
 Q_y = (1.0, 10.0)
 Q_e = (1.0, 10.0)
 Q_con_fdu = (0.0, 1.0)
-trainsets = ['pid', 'smooth_pid', 'no_relay']
-systems = ['fsw_phase_1', 'fsw_phase_2', 'fsw_phase_3', 'fsw_phase_4']
-for i in range(200):
+systems = ['fsw_phase_1', 'fsw_phase_2']
+for i in range(100):
     for system in systems:
-        for tset in trainsets:
+        for tset in datasplits:
             cmd = 'python system_id_timedelay_fsw.py ' + \
                   '-gpu 0 ' + \
                   '-patience 100 ' + \
@@ -62,7 +62,6 @@ for i in range(200):
                   '-location %s ' % args.results + \
                   '-lr_scheduler ' + \
                   '-system %s ' % system + \
-                  '-linear_map %s ' % random.choice(linear_map) + \
                   '-activation %s ' % random.choice(activation) + \
                   '-linear_map %s ' % random.choice(linear_map) + \
                   '-timedelay %s ' % random.choice(timedelay) + \
@@ -75,6 +74,7 @@ for i in range(200):
                   '-state_estimator %s ' % random.choice(state_estimator) + \
                   '-nx_hidden %s ' % random.choice(nx_hidden) + \
                   '-bias %s ' % random.choice(bias) + \
+                  '-trainset %s ' % tset +\
                   '-Q_con_fdu %s -Q_con_x %s -Q_dx %s -Q_sub %s -Q_y %s -Q_e %s ' % (random.uniform(*Q_con_fdu),
                                                                                      random.uniform(*Q_con_x),
                                                                                      random.uniform(*Q_dx),

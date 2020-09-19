@@ -67,13 +67,19 @@ s', logger='stdout', lr=0.001, n_layers=2, nonlinear_map='residual_mlp', norm=['
    Set 6: 4 relay, constant power
    Set 7: 2 constant power, PID
    """
-train_pid_idxs = [3, 4, 5, 8]
+noisy_pid_idxs = [1, 8]
+offkilter_pid_idx = [5]
+train_pid_idxs = [4]
 constant_idxs = [6, 7]
 train_relay_idxs = [10, 11, 12, 14]
 all_train = set(train_pid_idxs + constant_idxs + train_relay_idxs)
 
-all_dev_exp, all_test_exp = [1, 9], [2, 13]
-dev_exp, test_exp = [1], [2]
+all_dev_exp, all_test_exp = [3, 9], [2, 13]
+dev_exp, test_exp = [3], [13]
+# dev_exp, test_exp = [3], [13]
+all_pid = [3, 4, 5, 8]
+all_pid_dev = [1]
+all_pid_test = [2]
 
 datasplits = {'all': {'train': list(all_train),
                       'dev': dev_exp,
@@ -81,9 +87,6 @@ datasplits = {'all': {'train': list(all_train),
                   'pid': {'train': train_pid_idxs,
                           'dev': dev_exp,
                           'test': test_exp},
-                  'smooth_pid': {'train': [3, 4, 5, 6],
-                          'dev': [7],
-                          'test': [2]},
                   'constant': {'train': constant_idxs,
                                'dev': dev_exp,
                                'test': test_exp},
@@ -98,7 +101,10 @@ datasplits = {'all': {'train': list(all_train),
                                   'test': test_exp},
                   'no_relay': {'train': list(all_train - set(train_relay_idxs)),
                                'dev': dev_exp,
-                               'test': test_exp}}
+                               'test': test_exp},
+                  'all_pid': {'train': all_pid,
+                              'dev': all_pid_dev,
+                              'test': all_pid_test}}
 
 """
 Good options to try:
@@ -139,7 +145,7 @@ def parse():
                             help='Number of steps for open loop during training.')
     data_group.add_argument('-system', type=str, default='fsw_phase_2', choices=list(systems.keys()),
                             help='select particular dataset with keyword')
-    data_group.add_argument('-nsim', type=int, default=10000,
+    data_group.add_argument('-nsim', type=int, default=100000000000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
                                  'train, dev, and test will be split evenly from contiguous, sequential, '
                                  'non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,'
@@ -280,7 +286,8 @@ if __name__ == '__main__':
     dynamics_model = {'blackbox': dynamics.blackboxTD,
                       'blocknlin': dynamics.blocknlinTD,
                       'hammerstein': dynamics.hammersteinTD,
-                      'hw': dynamics.hwTD}[args.ssm_type](args.bias, linmap, nonlinmap, {**dataset.dims, 'Xtd_estim': (nx,)},
+                      'hw': dynamics.hwTD,
+                      'linear': dynamics.linearTD}[args.ssm_type](args.bias, linmap, nonlinmap, {**dataset.dims, 'Xtd_estim': (nx,)},
                                                         n_layers=args.n_layers,
                                                         activation=activation,
                                                         name='dynamics',

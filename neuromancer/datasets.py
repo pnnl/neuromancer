@@ -401,9 +401,10 @@ class FileDataset(Dataset):
 
 
 class MultiExperimentDataset(FileDataset):
+    # TODO: This will break if nsim is small enough to exclude some experiments
     def __init__(self, system='fsw_phase_2', nsim=10000000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
-                 savedir='test', split=[.5, .25]):
+                 savedir='test', split=[.5, .25], norm_type='normalize'):
         """
         :param split: (2-tuple of float) First index is proportion of experiments from train, second is proportion from dev,
                        leftover are for test set.
@@ -419,6 +420,7 @@ class MultiExperimentDataset(FileDataset):
         """
         assert not (system is None and len(sequences) == 0), 'Trying to instantiate an empty dataset.'
         self.name = name
+        self.norm_type = norm_type
         self.savedir = savedir
         os.makedirs(self.savedir, exist_ok=True)
         self.system, self.nsim, self.ninit, self.norm, self.nsteps, self.device = system, nsim, ninit, norm, nsteps, device
@@ -678,10 +680,10 @@ systems_datapaths = {'tank': os.path.join(resource_path, 'NLIN_SISO_two_tank/NLI
                      'aero': os.path.join(resource_path, 'NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'),
                      'flexy_air': os.path.join(resource_path, 'Flexy_air/flexy_air_data.csv'),
                      'EED_building': os.path.join(resource_path, 'EED_building/EED_building.csv'),
-                     'fsw_phase_1': os.path.join(resource_path, 'FSW/by_step/fsw_data_step1.csv'),
-                     'fsw_phase_2': os.path.join(resource_path, 'FSW/by_step/fsw_data_step2.csv'),
-                     'fsw_phase_3': os.path.join(resource_path, 'FSW/by_step/fsw_data_step3.csv'),
-                     'fsw_phase_4': os.path.join(resource_path, 'FSW/by_step/fsw_data_step4.csv'),
+                     'fsw_phase_1': os.path.join(resource_path, 'FSW/by_step/fsw_data_phase_1.csv'),
+                     'fsw_phase_2': os.path.join(resource_path, 'FSW/by_step/fsw_data_phase_2.csv'),
+                     'fsw_phase_3': os.path.join(resource_path, 'FSW/by_step/fsw_data_phase_3.csv'),
+                     'fsw_phase_4': os.path.join(resource_path, 'FSW/by_step/fsw_data_phase_4.csv'),
                      }
 
 
@@ -758,22 +760,27 @@ datasplits = {'all': {'train': list(all_train),
 
 if __name__ == '__main__':
 
-    # for system in [k for k, v in systems.items() if v == 'emulator' and k != 'Pendulum-v0'
-    #                                                 and not isinstance(v, emulators.GymWrapper)]:
-    #     print(system)
-    #     dataset = MultiExperimentEmulatorDataset(system=system)
+    for system in [k for k, v in systems.items() if v == 'emulator'
+                                                    and k not in ['CartPole-v1',
+                                                                  'Acrobot-v1',
+                                                                  'MountainCar-v0',
+                                                                  'Pendulum-v0',
+                                                                  'MountainCarContinuous-v0']]:
+        print(system)
+        dataset = MultiExperimentEmulatorDataset(system=system)
     for system in ['fsw_phase_1', 'fsw_phase_2', 'fsw_phase_3', 'fsw_phase_4']:
         print(system)
         dataset = MultiExperimentDataset(system, split=datasplits['pid'])
-    # for system, data_type in systems.items():
-    #     print(system)
-    #     if data_type == 'emulator':
-    #         dataset = EmulatorDataset(system)
-    #     elif data_type == 'datafile':
-    #         dataset = FileDataset(system)
-    #
-    # # testing adding sequences
-    # nsim, ny = dataset.data['Y'].shape
-    # new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
-    # dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
-    #
+    for system, data_type in systems.items():
+        print(system)
+        if data_type == 'emulator':
+            dataset = EmulatorDataset(system)
+        elif data_type == 'datafile':
+            dataset = FileDataset(system)
+
+    # testing adding sequences
+    nsim, ny = dataset.data['Y'].shape
+    new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
+    dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
+
+

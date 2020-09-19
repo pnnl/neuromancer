@@ -53,6 +53,73 @@ class OpenLoopSimulator(Simulator):
         return self.model(data)
 
 
+class MHOpenLoopSimulator(Simulator):
+    """
+    moving horizon open loop simulator
+    """
+    def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None,
+                 eval_sim=True):
+        super().__init__(model=model, dataset=dataset, emulator=emulator, eval_sim=eval_sim)
+
+    def horizon_data(self, data, i):
+        """
+        will work with open loop dataset
+        :param data:
+        :param i: i-th time step
+        :return:
+        """
+        step_data = DataDict()
+        for k, v in data.items():
+            step_data[k] = v[i:self.dataset.nsteps+i, :, :]
+            # step_data[k] = v[i:self.dataset.nsteps+i, :, :].reshape(self.dataset.nsteps, v.shape[1], v.shape[2])
+        step_data.name = data.name
+        return step_data
+
+    def simulate(self, data):
+        Y, X, L = [], [], []
+        Yp, Yf, Xp, Xf = [], [], [], []
+        # yN = torch.zeros(self.dataset.nsteps, data['Yp'].shape[1], self.dataset.dims['Yp'])
+        yN = data['Yp'][:self.dataset.nsteps, :, :]
+        nsim = data['Yp'].shape[0]
+        for i in range(nsim-self.dataset.nsteps):
+            step_data = self.horizon_data(data, i)
+            step_data['Yp'] = yN
+            step_output = self.model(step_data)
+            # outputs
+            y_key = [k for k in step_output.keys() if 'Y_pred' in k]
+            y = step_output[y_key[0]][0].unsqueeze(0)
+            Y.append(y)
+            yN = torch.cat([yN, y])[1:]
+            yp_key = [k for k in step_output.keys() if 'Yp' in k]
+            yp = step_output[yp_key[0]][0].unsqueeze(0)
+            Yp.append(yp)
+            yf_key = [k for k in step_output.keys() if 'Yf' in k]
+            yf = step_output[yf_key[0]][0].unsqueeze(0)
+            Yf.append(yf)
+            # states
+            x_key = [k for k in step_output.keys() if 'X_pred' in k]
+            x = step_output[x_key[0]][0].unsqueeze(0)
+            X.append(x)
+            xp_key = [k for k in step_output.keys() if 'Xp' in k]
+            xp = step_output[xp_key[0]][0].unsqueeze(0)
+            Xp.append(xp)
+            xf_key = [k for k in step_output.keys() if 'Xf' in k]
+            xf = step_output[xf_key[0]][0].unsqueeze(0)
+            Xf.append(xf)
+            loss_keys = [k for k in step_output.keys() if 'loss' in k]
+            loss_item = step_output[loss_keys[0]]
+            L.append(loss_item)
+        output = dict()
+        for tensor_list, name in zip([X, Y, L, Yp, Yf, Xp, Xf],
+                                     [x_key[0], y_key[0], loss_keys[0],
+                                      yp_key[0], yf_key[0],
+                                      xp_key[0], xf_key[0]]):
+            if tensor_list:
+                output[name] = torch.stack(tensor_list)
+        return {**data, **output}
+
+
+
 class MultiSequenceOpenLoopSimulator(Simulator):
     def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None,
                  eval_sim=True, stack=False):

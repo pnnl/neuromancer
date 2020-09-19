@@ -30,6 +30,7 @@ import argparse
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
+import itertools
 
 # code ecosystem imports
 import slim
@@ -45,6 +46,7 @@ from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem, Objective
 from neuromancer.activations import BLU, SoftExponential
 from neuromancer.simulators import OpenLoopSimulator, MHOpenLoopSimulator
+from neuromancer.operators import InterpolateAddMultiply
 
 """ python system_id.py -system flexy_air -epochs 10 -nx_hidden 2
 0 -ssm_type blackbox -state_estimator mlp -nonlinear_map residual_mlp -n_layers 2 -nsim 10000 -nsteps 32 -lr 0.001
@@ -59,12 +61,12 @@ def parse():
                         help="Gpu to use")
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=10)
+    opt_group.add_argument('-epochs', type=int, default=100)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            help='Step size for gradient descent.')
     opt_group.add_argument('-eval_metric', type=str, default='loop_dev_loss',
                            help='Metric for model selection and early stopping.')
-    opt_group.add_argument('-patience', type=int, default=25,
+    opt_group.add_argument('-patience', type=int, default=100,
                            help='How many epochs to allow for no improvement in eval metric before early stopping.')
     opt_group.add_argument('-warmup', type=int, default=100,
                            help='Number of epochs to wait before enacting early stopping policy.')
@@ -74,9 +76,10 @@ def parse():
     #################
     # DATA PARAMETERS
     data_group = parser.add_argument_group('DATA PARAMETERS')
-    data_group.add_argument('-nsteps', type=int, default=32,
+    data_group.add_argument('-nsteps', type=int, default=1,
                             help='Number of steps for open loop during training.')
-    data_group.add_argument('-system', type=str, default='LotkaVolterra', choices=list(systems.keys()),
+    data_group.add_argument('-system', type=str, default='LotkaVolterra', choices=['TwoTank', 'LorenzSystem', 'LotkaVolterra',
+                            'UAV3D_kin', 'CSTR', 'Pendulum-v0'],
                             help='select particular dataset with keyword')
     data_group.add_argument('-nsim', type=int, default=10000,
                             help='Number of time steps for full dataset. (ntrain + ndev + ntest)'
@@ -86,37 +89,45 @@ def parse():
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y'],
                             help='List of sequences to max-min normalize')
-    
+
     ##################
     # MODEL PARAMETERS
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
-                             default='blocknlin')
-    model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
-    model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
+                             default='blackbox')
+    model_group.add_argument('-nx_hidden', type=int, default=30, help='Number of hidden states per output')
+    model_group.add_argument('-n_layers', type=int, default=2,
+                             help='Number of hidden layers of single time-step state transition')
+    model_group.add_argument('-n_layers_estim', type=int, default=1,
+                             help='Number of hidden layers of estimator encoder')
     model_group.add_argument('-state_estimator', type=str,
-                             choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
+                             choices=['rnn', 'mlp', 'linear', 'residual_mlp', 'fullyObservable'],
+                             default='linear')
     model_group.add_argument('-estimator_input_window', type=int, default=1,
                              help="Number of previous time steps measurements to include in state estimator input")
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                              default='linear')
-    model_group.add_argument('-nonlinear_map', type=str, default='residual_mlp',
-                             choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
+    model_group.add_argument('-nonlinear_map', type=str, default='mlp',
+                             choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp', 'basislinear'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
-    model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',
+    model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='relu',
                              help='Activation function for neural networks')
-    model_group.add_argument('-timedelay', type=int, default=10, help='time delayed features of SSM')
+    model_group.add_argument('-sigma_min', type=float, default=0.8, help='Lower bound on eigenvalues/singular values of factorized linear maps.')
+    model_group.add_argument('-sigma_max', type=float, default=1.0, help='Upper bound on eigenvalues/singular values of factorized linear maps.')
+    model_group.add_argument('-xo', default='add', choices=['add', 'mul', 'addmul'], help='System dynamics oprations on tensors.')
+    model_group.add_argument('-residual', type=int, default=0, choices=[1, 0], help="residual form of dynamics")
 
     ##################
     # Weight PARAMETERS
     weight_group = parser.add_argument_group('WEIGHT PARAMETERS')
-    weight_group.add_argument('-Q_con_x', type=float,  default=1.0, help='Hidden state constraints penalty weight.')
-    weight_group.add_argument('-Q_dx', type=float,  default=0.2,
+    weight_group.add_argument('-Q_con_x', type=float, default=1.0, help='Hidden state constraints penalty weight.')
+    weight_group.add_argument('-Q_dx', type=float, default=0.0,
                               help='Penalty weight on hidden state difference in one time step.')
-    weight_group.add_argument('-Q_sub', type=float,  default=0.2, help='Linear maps regularization weight.')
-    weight_group.add_argument('-Q_y', type=float,  default=1.0, help='Output tracking penalty weight')
-    weight_group.add_argument('-Q_e', type=float,  default=1.0, help='State estimator hidden prediction penalty weight')
-    weight_group.add_argument('-Q_con_fdu', type=float,  default=0.0, help='Penalty weight on control actions and disturbances.')
+    weight_group.add_argument('-Q_sub', type=float, default=0.2, help='Linear maps regularization weight.')
+    weight_group.add_argument('-Q_y', type=float, default=1.0, help='Output tracking penalty weight')
+    weight_group.add_argument('-Q_e', type=float, default=1.0, help='State estimator hidden prediction penalty weight')
+    weight_group.add_argument('-Q_con_fdu', type=float, default=0.0,
+                              help='Penalty weight on control actions and disturbances.')
 
     ####################
     # LOGGING PARAMETERS
@@ -145,11 +156,11 @@ def logging(args):
         Logger = loggers.MLFlowLogger(args=args, savedir=args.savedir, verbosity=args.verbosity,
                                       stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
                                               'nstep_dev_ref_loss', 'loop_dev_ref_loss'))
-        
+
     else:
         Logger = loggers.BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity,
                                      stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
-                                     'nstep_dev_ref_loss', 'loop_dev_ref_loss'))
+                                             'nstep_dev_ref_loss', 'loop_dev_ref_loss'))
     device = f'cuda:{args.gpu}' if (args.gpu is not None) else 'cpu'
     return Logger, device
 
@@ -169,6 +180,8 @@ if __name__ == '__main__':
     ########## LOGGING ############
     ###############################
     args = parse().parse_args()
+    # args.bias = True
+
     print({k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)})
     logger, device = logging(args)
 
@@ -180,7 +193,7 @@ if __name__ == '__main__':
     ########## PROBLEM COMPONENTS ############
     ##########################################
     print(dataset.dims)
-    nx = dataset.dims['Y'][-1]*args.nx_hidden
+    nx = dataset.dims['Y'][-1] * args.nx_hidden
 
     activation = {'gelu': nn.GELU,
                   'relu': nn.ReLU,
@@ -193,12 +206,14 @@ if __name__ == '__main__':
                  'mlp': blocks.MLP,
                  'rnn': blocks.RNN,
                  'pytorch_rnn': blocks.PytorchRNN,
+                 'basislinear': blocks.BasisLinear,
                  'residual_mlp': blocks.ResMLP}[args.nonlinear_map]
 
-    estimator = {'linear': estimators.seq2seqLinearEstimator,
-                 'mlp': estimators.seq2seqMLPEstimator,
-                 'rnn': estimators.seq2seqRNNEstimator,
-                 'residual_mlp': estimators.seq2seqResMLPEstimator
+    estimator = {'linear': estimators.LinearEstimator,
+                 'fullyObservable': estimators.FullyObservable,
+                 'mlp': estimators.MLPEstimator,
+                 'rnn': estimators.RNNEstimator,
+                 'residual_mlp': estimators.ResMLPEstimator
                  }[args.state_estimator]({**dataset.dims, 'x0': (nx,)},
                                          nsteps=args.nsteps,
                                          window_size=args.estimator_input_window,
@@ -208,18 +223,34 @@ if __name__ == '__main__':
                                          hsizes=[nx] * args.n_layers,
                                          input_keys=['Yp'],
                                          linargs=dict(),
-                                         timedelay=args.timedelay,
                                          name='estim')
 
-    dynamics_model = {'blackbox': dynamics.blackboxTD,
-                      'blocknlin': dynamics.blocknlinTD,
-                      'hammerstein': dynamics.hammersteinTD,
-                      'hw': dynamics.hwTD}[args.ssm_type](args.bias, linmap, nonlinmap, {**dataset.dims, 'Xtd_estim': (nx,)},
+    xou = {'add': torch.add,
+          'mul': torch.mul,
+          'addmul': InterpolateAddMultiply()}[args.xo]
+
+    xoe = {'add': torch.add,
+          'mul': torch.mul,
+          'addmul': InterpolateAddMultiply()}[args.xo]
+
+    xod = {'add': torch.add,
+          'mul': torch.mul,
+          'addmul': InterpolateAddMultiply()}[args.xo]
+
+
+    dynamics_model = {'blackbox': dynamics.blackbox,
+                      'blocknlin': dynamics.blocknlin,
+                      'hammerstein': dynamics.hammerstein,
+                      'hw': dynamics.hw}[args.ssm_type](args.bias, linmap, nonlinmap,
+                                                        {**dataset.dims, 'x0_estim': (nx,)},
                                                         n_layers=args.n_layers,
                                                         activation=activation,
                                                         name='dynamics',
-                                                        timedelay=args.timedelay,
-                                                        input_keys={'Xtd': f'Xtd_{estimator.name}'})
+                                                        input_keys={'x0': f'x0_{estimator.name}'},
+                                                        linargs={'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max},
+                                                        xou=xou, xod=xod, xoe=xoe, residual=args.residual)
+
+    # linearizer = ....
 
     components = [estimator, dynamics_model]
 
@@ -231,12 +262,12 @@ if __name__ == '__main__':
     dxudmin = -0.05
     dxudmax = 0.05
     estimator_loss = Objective(['X_pred', 'x0'],
-                                lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
-                                weight=args.Q_e, name='arrival_cost')
+                               lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
+                               weight=args.Q_e, name='arrival_cost')
     regularization = Objective([f'reg_error_estim', f'reg_error_dynamics'],
                                lambda reg1, reg2: reg1 + reg2, weight=args.Q_sub, name='reg_error')
     reference_loss = Objective(['Y_pred_dynamics', 'Yf'], F.mse_loss, weight=args.Q_y,
-                                name='ref_loss')
+                               name='ref_loss')
     state_smoothing = Objective(['X_pred_dynamics'], lambda x: F.mse_loss(x[1:], x[:-1]), weight=args.Q_dx,
                                 name='state_smoothing')
     observation_lower_bound_penalty = Objective(['Y_pred_dynamics'],

@@ -101,7 +101,7 @@ def parse():
                              help="Number of previous time steps measurements to include in state estimator input")
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                              default='linear')
-    model_group.add_argument('-nonlinear_map', type=str, default='mlp',
+    model_group.add_argument('-nonlinear_map', type=str, default='residual_mlp',
                              choices=['mlp', 'rnn', 'pytorch_rnn', 'linear', 'residual_mlp'])
     model_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     model_group.add_argument('-activation', choices=['relu', 'gelu', 'blu', 'softexp'], default='gelu',

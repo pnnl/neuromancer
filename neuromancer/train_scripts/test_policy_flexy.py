@@ -15,10 +15,12 @@ import dill
 import warnings
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-
+import scipy.linalg as LA
+import os
 # machine learning data science imports
 import numpy as np
 import torch
+import matplotlib.patches as mpatches
 
 # local imports
 from neuromancer.plot import pltCL, pltOL, get_colors
@@ -123,8 +125,8 @@ def pltOL_paper(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
                   array is not None]
 
     fig, ax = plt.subplots(nrows=len(plot_setup), ncols=1, figsize=(20, 16), squeeze=False)
-    custom_lines = [Line2D([0], [0], color='indianred', lw=4, linestyle='-'),
-                    Line2D([0], [0], color='cornflowerblue', lw=4, linestyle='--')]
+    custom_lines = [Line2D([0], [0], color='indianred', lw=4, linestyle='--'),
+                    Line2D([0], [0], color='cornflowerblue', lw=4, linestyle='-')]
     for j, (name, notation, array) in enumerate(plot_setup):
         if notation == 'Y' and Ytrain is not None:
             notation = 'Y [cm]'
@@ -145,10 +147,158 @@ def pltOL_paper(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
         ax[j, 0].axvspan(0, 3000, facecolor='grey', alpha=0.4, zorder=-100)
         ax[j, 0].axvspan(3000, 6000, facecolor='grey', alpha=0.2, zorder=-100)
         ax[j, 0].margins(0, 0.1)
+        ax[j, 0].text(700, -5, '             Train                ',
+                   bbox={'edgecolor': 'none', 'facecolor': 'white', 'alpha': 0.0})
+        ax[j, 0].text(3700, -5, '           Validation           ',
+                   bbox={'edgecolor': 'none', 'facecolor': 'grey', 'alpha': 0.0})
+        ax[j, 0].text(6700, -5, '              Test                ',
+                   bbox={'edgecolor': 'none', 'facecolor': 'grey', 'alpha': 0.0})
 
     # plt.tight_layout()
     if figname is not None:
         plt.savefig(figname)
+
+
+def plot_eigenvalues(model, savedir='./test/'):
+    if hasattr(model, 'fx'):
+        if hasattr(model.fx, 'effective_W'):
+            rows = 1
+            mat = model.fx.effective_W().detach().cpu().numpy()
+        elif hasattr(model.fx, 'linear'):
+            rows = len(model.fx.linear)
+            Mat = []
+            for linear in model.fx.linear:
+                Mat.append(linear.weight.detach().cpu().numpy())
+        else:
+            rows = 0
+    elif hasattr(model, 'fxud'):
+        if hasattr(model.fxud, 'effective_W'):
+            rows = 1
+            mat = model.fxud.effective_W().detach().cpu().numpy()
+        elif hasattr(model.fxud, 'linear'):
+            rows = len(model.fxud.linear)
+            Mat = []
+            for linear in model.fxud.linear:
+                Mat.append(linear.weight.detach().cpu().numpy())
+        else:
+            rows = 0
+    # plt.style.use('dark_background')
+
+    if rows == 1:
+        fig, (eigax1) = plt.subplots(rows, 1)
+        eigax1.set_ylim(-1.1, 1.1)
+        eigax1.set_xlim(-1.1, 1.1)
+        eigax1.set_aspect(1)
+        if not mat.shape[0] == mat.shape[1]:
+            # singular values of rectangular matrix
+            s, w, d = np.linalg.svd(mat.T)
+            eigax1.set_title('Singular values')
+        else:
+            w, v = LA.eig(mat.T)
+            eigax1.set_title('Eigenvalues')
+        eigax1.scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))
+        patch = mpatches.Circle((0, 0), radius=1, alpha=0.2)
+        eigax1.add_patch(patch)
+        plt.tight_layout()
+        plt.savefig(os.path.join(savedir, 'eigmat.png'))
+    elif rows > 1:
+        rows2 = int(np.ceil(rows / 2))
+        fig, axes = plt.subplots(rows2, 2)
+        # axes[0, 0].set_title('Weights Eigenvalues')
+        count = 0
+        for k in range(rows):
+            axes[int(np.floor(k / 2)), 0].set_ylim(-1.1, 1.1)
+            axes[int(np.floor(k / 2)), 0].set_xlim(-1.1, 1.1)
+            axes[int(np.floor(k / 2)), 0].set_aspect(1)
+            axes[int(np.floor(k / 2)), 1].set_ylim(-1.1, 1.1)
+            axes[int(np.floor(k / 2)), 1].set_xlim(-1.1, 1.1)
+            axes[int(np.floor(k / 2)), 1].set_aspect(1)
+            if not Mat[k].shape[0] == Mat[k].shape[1]:
+                # singular values of rectangular matrix
+                s, w, d = np.linalg.svd(Mat[k].T)
+                # axes[int(np.floor(k / 2)), 0].set_title('Singular values')
+                # axes[int(np.floor(k / 2)), 1].set_title('Singular values')
+            else:
+                w, v = LA.eig(Mat[k].T)
+                # axes[int(np.floor(k / 2)), 0].set_title('Eigenvalues') if count == 0 else None
+                # axes[int(np.floor(k / 2)), 1].set_title('Eigenvalues') if count == 0 else None
+                count += 1
+            if k % 2 == 0:
+                axes[int(np.floor(k / 2)), 0].scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))
+                patch = mpatches.Circle((0, 0), radius=1, alpha=0.2)
+                axes[int(np.floor(k / 2)), 0].add_patch(patch)
+            else:
+                axes[int(np.floor(k / 2)), 1].scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))
+                patch = mpatches.Circle((0, 0), radius=1, alpha=0.2)
+                axes[int(np.floor(k / 2)), 1].add_patch(patch)
+        plt.tight_layout()
+        plt.savefig(os.path.join(savedir, 'eigmat.png'))
+
+
+def plot_weights(model, savedir='./test/'):
+    if hasattr(model, 'fx'):
+        if hasattr(model.fx, 'effective_W'):
+            rows = 1
+            mat = model.fx.effective_W().detach().cpu().numpy()
+        elif hasattr(model.fx, 'linear'):
+            rows = len(model.fx.linear)
+            Mat = []
+            for linear in model.fx.linear:
+                Mat.append(linear.weight.detach().cpu().numpy())
+        else:
+            rows = 0
+    elif hasattr(model, 'fxud'):
+        if hasattr(model.fxud, 'effective_W'):
+            rows = 1
+            mat = model.fxud.effective_W().detach().cpu().numpy()
+        elif hasattr(model.fxud, 'linear'):
+            rows = len(model.fxud.linear)
+            Mat = []
+            for linear in model.fxud.linear:
+                Mat.append(linear.weight.detach().cpu().numpy())
+        else:
+            rows = 0
+    # plt.style.use('dark_background')
+    if rows == 1:
+        fig, (eigax, matax) = plt.subplots(rows, 2)
+        eigax.set_ylim(-1.1, 1.1)
+        eigax.set_xlim(-1.1, 1.1)
+        eigax.set_aspect(1)
+        matax.axis('off')
+        matax.set_title('State Transition Weights')
+        matax.imshow(mat.T)
+        if not mat.shape[0] == mat.shape[1]:
+            # singular values of rectangular matrix
+            s, w, d = np.linalg.svd(mat.T)
+            eigax.set_title('Weights Singular values')
+        else:
+            w, v = LA.eig(mat.T)
+            eigax.set_title('Weights Eigenvalues')
+        eigax.scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))
+        plt.tight_layout()
+        plt.savefig(os.path.join(savedir, 'eigmat.png'))
+    elif rows > 1:
+        fig, axes = plt.subplots(rows, 2)
+        # axes[0, 0].set_title('Weights Eigenvalues')
+        axes[0, 1].set_title('State Transition Weights')
+        count = 0
+        for k in range(rows):
+            axes[k, 0].set_ylim(-1.1, 1.1)
+            axes[k, 0].set_xlim(-1.1, 1.1)
+            axes[k, 0].set_aspect(1)
+            axes[k, 1].axis('off')
+            axes[k, 1].imshow(Mat[k].T)
+            if not Mat[k].shape[0] == Mat[k].shape[1]:
+                # singular values of rectangular matrix
+                s, w, d = np.linalg.svd(Mat[k].T)
+                axes[k, 0].set_title('Weights Singular values')
+            else:
+                w, v = LA.eig(Mat[k].T)
+                axes[k, 0].set_title('Weights Eigenvalues') if count == 0 else None
+                count += 1
+            axes[k, 0].scatter(w.real, w.imag, alpha=0.5, c=get_colors(len(w.real)))
+        plt.tight_layout()
+        plt.savefig(os.path.join(savedir, 'eigmat.png'))
 
 
 def normalize(M, Mmin=None, Mmax=None):
@@ -253,6 +403,8 @@ if __name__ == '__main__':
     Y_plot = min_max_denorm(np.asarray(Y), normalizations['Ymin'], normalizations['Ymax'])
     R_plot = min_max_denorm(dataset.data['Y'][:,:1], normalizations['Ymin'], normalizations['Ymax'])
     pltOL_paper(Y=Y_plot, Ytrain=R_plot)
+
+    plot_eigenvalues(dynamics)
 
     # Closed loop
     yN = torch.zeros(nsteps, 1, 1)

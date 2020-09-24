@@ -8,6 +8,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.linalg as LA
+import matplotlib.patches as mpatches
 
 # local imports
 from neuromancer.datasets import unbatch_data
@@ -98,6 +99,8 @@ class VisualizerOpen(Visualizer):
                 w, v = LA.eig(mat.T)
                 eigax.set_title('Weights Eigenvalues')
             eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
+            patch = mpatches.Circle((0, 0), radius=1, alpha=0.2)
+            eigax.add_patch(patch)
             plt.tight_layout()
             plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
         elif rows > 1:
@@ -120,6 +123,8 @@ class VisualizerOpen(Visualizer):
                     axes[k, 0].set_title('Weights Eigenvalues') if count == 0 else None
                     count += 1
                 axes[k, 0].scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
+                patch = mpatches.Circle((0, 0), radius=1, alpha=0.2)
+                axes[k, 0].add_patch(patch)
             plt.tight_layout()
             plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
 

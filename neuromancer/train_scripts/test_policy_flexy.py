@@ -21,6 +21,7 @@ import os
 import numpy as np
 import torch
 import matplotlib.patches as mpatches
+import time
 
 # local imports
 from neuromancer.plot import pltCL, pltOL, get_colors
@@ -33,6 +34,7 @@ def parse():
     parser.add_argument('-ref_type', type=str, default='periodic', choices=['steps', 'periodic'],
                         help="shape of the reference signal")
     parser.add_argument('-dynamic_constraints', type=int, default=0, choices=[0, 1])
+    parser.add_argument('-test_scalability', type=int, default=1, choices=[0, 1])
     return parser
 
 
@@ -403,7 +405,6 @@ if __name__ == '__main__':
     Y_plot = min_max_denorm(np.asarray(Y), normalizations['Ymin'], normalizations['Ymax'])
     R_plot = min_max_denorm(dataset.data['Y'][:,:1], normalizations['Ymin'], normalizations['Ymax'])
     pltOL_paper(Y=Y_plot, Ytrain=R_plot)
-
     plot_eigenvalues(dynamics)
 
     # Closed loop
@@ -433,3 +434,58 @@ if __name__ == '__main__':
     pltCL(Y=np.asarray(Y), R=np.asarray(R), U=np.asarray(U),
           Ymin=np.asarray(Ymin), Ymax=np.asarray(Ymax),
           Umin=np.asarray(Umin), Umax=np.asarray(Umax))
+
+
+    if args.test_scalability:
+        scalability_models = ['policy_flexy_N5.pth', 'policy_flexy_N7.pth',
+                              'policy_flexy_N10.pth', 'policy_flexy_N12.pth',
+                              'policy_flexy_N15.pth']
+        CPU_mean = []
+        CPU_max = []
+        for model in scalability_models:
+            CPU = []
+
+            policy = torch.load('../datasets/Flexy_air/scalability/' + model,
+                                pickle_module=dill)
+            dynamics = torch.load('../datasets/Flexy_air/device_test_models/model4/best_dynamics_flexy.pth',
+                                  pickle_module=dill)
+            estimator = torch.load('../datasets/Flexy_air/device_test_models/model4/best_estimator_flexy.pth',
+                                   pickle_module=dill)
+            estimator.input_keys[0] = 'Yp'
+            policy.input_keys[0] = 'Yp'
+
+            # Closed loop
+            yN = torch.zeros(nsteps, 1, 1)
+            Y, U, R = [], [], []
+            Ymin, Ymax, Umin, Umax = [], [], [], []
+            for k in range(nsim - nsteps):
+                y, x = HW_emulator.get_state()
+                yN = torch.cat([yN, y])[1:]
+                estim_out = estimator({'Yp': yN})
+                features = {'x0_estim': estim_out['x0_estim'], 'Yp': yN,
+                            'Y_minf': torch.tensor(bounds_reference['Y_min'][k:nsteps + k]).float().reshape(nsteps, 1,
+                                                                                                            -1),
+                            'Y_maxf': torch.tensor(bounds_reference['Y_max'][k:nsteps + k]).float().reshape(nsteps, 1,
+                                                                                                            -1),
+                            'Rf': torch.tensor(bounds_reference['R'][k:nsteps + k]).float().reshape(nsteps, 1, -1),
+                            'Df': torch.tensor(dataset.data['D'][k:nsteps + k]).float().reshape(nsteps, 1, -1)}
+
+                start_step_time = time.time()
+                policy_out = policy(features)
+                eval_time = time.time() - start_step_time
+                CPU.append(eval_time)
+                uopt = policy_out['U_pred_policy'][0].reshape(1, 1, -1).float()
+                d = torch.tensor(dataset.data['D'][k]).reshape(1, 1, -1).float()
+                HW_emulator.send_control(uopt, d=d, Y=yN, x=x)
+                # U.append(uopt.detach().numpy().reshape(-1))
+                # Y.append(y.detach().numpy().reshape(-1))
+                # R.append(bounds_reference['R'][k])
+                # Ymax.append(bounds_reference['Y_max'][k])
+                # Ymin.append(bounds_reference['Y_min'][k])
+                # Umax.append(bounds_reference['U_max'][k])
+                # Umin.append(bounds_reference['U_min'][k])
+            # pltCL(Y=np.asarray(Y), R=np.asarray(R), U=np.asarray(U),
+            #       Ymin=np.asarray(Ymin), Ymax=np.asarray(Ymax),
+            #       Umin=np.asarray(Umin), Umax=np.asarray(Umax))
+            CPU_mean.append(np.mean(CPU)*1000)
+            CPU_max.append(np.max(CPU)*1000)

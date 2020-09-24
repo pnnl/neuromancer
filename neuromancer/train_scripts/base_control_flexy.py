@@ -60,7 +60,7 @@ def parse():
     ##################
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=5000)
+    opt_group.add_argument('-epochs', type=int, default=1000)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            choices=[3e-5, 1e-4, 3e-4, 1e-3, 3e-3, 0.01],
                            help='Step size for gradient descent.')

@@ -105,7 +105,7 @@ def parse():
     policy_group.add_argument('-policy_features', nargs='+', default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'], help='Policy features')
     policy_group.add_argument('-activation', choices=['gelu', 'softexp'], default='gelu',
                               help='Activation function for neural networks')
-    policy_group.add_argument('-perturbation', choices=['white_noise_sine_wave'], default='white_noise')
+    policy_group.add_argument('-perturbation', choices=['white_noise_sine_wave', 'white_noise'], default='white_noise')
     ##################
     # LINEAR PARAMETERS
     linear_group = parser.add_argument_group('LINEAR PARAMETERS')
@@ -142,7 +142,7 @@ def parse():
                               help='Input constraints penalty weight.')
     weight_group.add_argument('-Q_r', type=float, default=1.0, choices=[0.1, 1.0, 10.0, 100.0],
                               help='Reference tracking penalty weight')
-    weight_group.add_argument('-Q_du', type=float, default=0.0, choices=[0.1, 1.0, 10.0, 100.0],
+    weight_group.add_argument('-Q_du', type=float, default=0.1, choices=[0.1, 1.0, 10.0, 100.0],
                               help='control action difference penalty weight')
     # objective and constraints variations
     weight_group.add_argument('-con_tighten', choices=[0, 1], default=0)
@@ -410,6 +410,7 @@ if __name__ == '__main__':
             dynamics_model = load_model.components[k]
             dynamics_model.input_keys[2] = 'U_pred_policy'
             dynamics_model.fe = None
+            dynamics_model.fyu = None
             dynamics_model.to(device)
         if load_model.components[k].name == 'estim':
             estimator = load_model.components[k]

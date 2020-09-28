@@ -160,17 +160,82 @@ def plot_eigenvalues(model, savedir='./test/'):
 
 
 
+def plot_eigenvalues_compact(model, savedir='./test/'):
+    Mat = []
+    if hasattr(model, 'fx'):
+        if hasattr(model.fx, 'effective_W'):
+            rows = 1
+            Mat.append(model.fx.effective_W().detach().cpu().numpy())
+        elif hasattr(model.fx, 'linear'):
+            rows = len(model.fx.linear)
+            for linear in model.fx.linear:
+                Mat.append(linear.weight.detach().cpu().numpy())
+        elif hasattr(model.fx, 'rnn'):
+            if isinstance(model.fx.rnn, torch.nn.RNN):
+                rows = len(model.fx.rnn.all_weights[0])
+                for cell in model.fx.rnn.all_weights[0]:
+                    Mat.append(cell.detach().cpu().numpy())
+            else:
+                rows = len(model.fx.rnn.rnn_cells)
+                for cell in model.fx.rnn.rnn_cells:
+                    Mat.append(cell.lin_hidden.effective_W().detach().cpu().numpy())
+        else:
+            rows = 0
+    elif hasattr(model, 'fxud'):
+        if hasattr(model.fxud, 'effective_W'):
+            rows = 1
+            Mat.append(model.fxud.effective_W().detach().cpu().numpy())
+        elif hasattr(model.fxud, 'linear'):
+            rows = len(model.fxud.linear)
+            for linear in model.fxud.linear:
+                Mat.append(linear.weight.detach().cpu().numpy())
+        elif hasattr(model.fxud, 'rnn'):
+            if isinstance(dynamics.fxud.rnn, torch.nn.RNN):
+                rows = len(dynamics.fxud.rnn.all_weights[0])
+                for cell in dynamics.fxud.rnn.all_weights[0]:
+                    Mat.append(cell.detach().cpu().numpy())
+            else:
+                rows = len(dynamics.fxud.rnn.rnn_cells)
+                for cell in dynamics.fxud.rnn.rnn_cells:
+                    Mat.append(cell.lin_hidden.effective_W().detach().cpu().numpy())
+        else:
+            rows = 0
+    # plt.style.use('dark_background')
+    W = []
+    for k in range(rows):
+        if not Mat[k].shape[0] == Mat[k].shape[1]:
+            # singular values of rectangular matrix
+            s, w, d = np.linalg.svd(Mat[k].T)
+            w = np.sqrt(w)
+        else:
+            w, v = LA.eig(Mat[k].T)
+        W = np.append(W, w)
+    fig, (eigax1) = plt.subplots(1, 1)
+    eigax1.set_ylim(-1.1, 1.1)
+    eigax1.set_xlim(-1.1, 1.1)
+    eigax1.set_aspect(1)
+    eigax1.scatter(W.real, W.imag, alpha=0.5, c=get_colors(len(W.real)))
+    patch = mpatches.Circle((0, 0), radius=1, alpha=0.2)
+    eigax1.add_patch(patch)
+    plt.tight_layout()
+    plt.savefig(os.path.join(savedir, 'eigmat.png'))
+
+
 if __name__ == '__main__':
 
-    paths = ['best_models_bnl_paper/blocknlin/aero/best_model.pth',
-             'best_models_bnl_paper/blocknlin/cstr/best_model.pth',
-             'best_models_bnl_paper/blocknlin/twotank/best_model.pth',
-             'best_models_bnl_paper/blackbox/aero/best_model.pth',
-             'best_models_bnl_paper/blackbox/cstr/best_model.pth',
-             'best_models_bnl_paper/blackbox/twotank/best_model.pth']
+    paths = ['ACC_models/best_models_bnl_paper/blocknlin/aero/best_model.pth',
+             'ACC_models/best_models_bnl_paper/blocknlin/cstr/best_model.pth',
+             'ACC_models/best_models_bnl_paper/blocknlin/twotank/best_model.pth',
+             'ACC_models/nonlin_ablation_models/aero_uberablate_best_model.pth',
+             'ACC_models/nonlin_ablation_models/CSTR_uberablate_best_model.pth',
+             'ACC_models/nonlin_ablation_models/TwoTank_uberablate_best_model.pth']
+             # 'ACC_models/best_models_bnl_paper/blackbox/aero/best_model.pth',
+             # 'ACC_models/best_models_bnl_paper/blackbox/cstr/best_model.pth',
+             # 'ACC_models/best_models_bnl_paper/blackbox/twotank/best_model.pth']
 
     device = torch.device('cpu')
     for path in paths:
         model = torch.load(path, pickle_module=dill, map_location=device)
         dynamics = model.components[1]
-        plot_eigenvalues(dynamics)
+        # plot_eigenvalues(dynamics)
+        plot_eigenvalues_compact(dynamics)

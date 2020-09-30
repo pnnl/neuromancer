@@ -11,7 +11,7 @@ from numpy import genfromtxt
 # Column 2 = input (u)
 # Column 3 = output (yp)
 #data = np.loadtxt('fsw_data_relay_tuning_exp9.txt',delimiter=',')
-data = genfromtxt('fsw_data_relay_tuning_exp9.csv', delimiter=',')
+data = genfromtxt('data.txt', delimiter=',')
 
 u0 = data[0,1]
 yp0 = data[0,2]
@@ -33,7 +33,7 @@ def fopdt(y,t,uf,Km,taum,thetam):
     #  uf     = input linear function (for time shift)
     #  Km     = model gain
     #  taum   = model time constant
-    #  thetam = model time constant
+    #  thetam = model time delay
     # time-shift u
     try:
         if (t-thetam) <= 0:

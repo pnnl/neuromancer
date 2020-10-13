@@ -17,11 +17,15 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import scipy.linalg as LA
 import os
+from scipy import signal
+import matplotlib.pyplot as plt
+
 # machine learning data science imports
 import numpy as np
 import torch
 import matplotlib.patches as mpatches
 import time
+import random
 
 # local imports
 from neuromancer.plot import pltCL, pltOL, get_colors
@@ -31,10 +35,11 @@ import psl
 
 def parse():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-ref_type', type=str, default='periodic', choices=['steps', 'periodic'],
+    parser.add_argument('-ref_type', type=str, default='spline',
+                        choices=['steps', 'periodic', 'ramps', 'static', 'spline'],
                         help="shape of the reference signal")
-    parser.add_argument('-dynamic_constraints', type=int, default=0, choices=[0, 1])
-    parser.add_argument('-test_scalability', type=int, default=1, choices=[0, 1])
+    parser.add_argument('-dynamic_constraints', type=int, default=1, choices=[0, 1])
+    parser.add_argument('-test_scalability', type=int, default=0, choices=[0, 1])
     return parser
 
 
@@ -72,6 +77,7 @@ class SimulatorX:
     def get_state(self):
         return self.y, self.x
 
+
 def pltCL_paper(Y, R=None, U=None, D=None, X=None,
           Ymin=None, Ymax=None, Umin=None, Umax=None, figname=None):
     """
@@ -84,31 +90,35 @@ def pltCL_paper(Y, R=None, U=None, D=None, X=None,
                   array is not None]
 
     fig, ax = plt.subplots(nrows=len(plot_setup), ncols=1, figsize=(20, 16), squeeze=False)
-    custom_lines = [Line2D([0], [0], color='gray', lw=4, linestyle='--'),
-                    Line2D([0], [0], color='gray', lw=4, linestyle='-')]
+    custom_lines = [Line2D([0], [0], color='indianred', lw=4, linestyle='--'),
+                    Line2D([0], [0], color='cornflowerblue', lw=4, linestyle='-')]
     for j, (name, notation, array) in enumerate(plot_setup):
         if notation == 'Y' and R is not None:
+            notation = 'position [cm]'
             colors = get_colors(array.shape[1])
             for k in range(array.shape[1]):
-                ax[j, 0].plot(R[:, k], '--', linewidth=3, c=colors[k])
-                ax[j, 0].plot(array[:, k], '-', linewidth=3, c=colors[k])
-                ax[j, 0].legend(custom_lines, ['Reference', 'Output'])
+                ax[j, 0].plot(R[:, k], '--', linewidth=3, c='indianred')
+                ax[j, 0].plot(array[:, k], '-', linewidth=3, c='cornflowerblue')
+                ax[j, 0].legend(custom_lines, ['Reference', 'Output'], loc='best')
                 ax[j, 0].plot(Ymin[:, k], '--', linewidth=3, c='k') if Ymin is not None else None
                 ax[j, 0].plot(Ymax[:, k], '--', linewidth=3, c='k') if Ymax is not None else None
         if notation == 'U':
             for k in range(array.shape[1]):
-                ax[j, 0].plot(array, linewidth=3)
+                ax[j, 0].plot(array, linewidth=3, c='cornflowerblue')
                 ax[j, 0].plot(Umin[:, k], '--', linewidth=3, c='k') if Umin is not None else None
                 ax[j, 0].plot(Umax[:, k], '--', linewidth=3, c='k') if Umax is not None else None
         else:
             ax[j, 0].plot(array, linewidth=3)
+        ax[j, 0].set(xticks=(0, 500, 1000, 1500, 2000, 2500, 3000),
+                     xticklabels=('0', '125', '250', '375', '500', '625', '750'))
         ax[j, 0].grid(True)
-        ax[j, 0].set_title(name, fontsize=14)
-        ax[j, 0].set_xlabel('Time', fontsize=14)
+        ax[j, 0].axvspan(0, 3000)
+        # ax[j, 0].set_title(name, fontsize=14)
+        ax[j, 0].set_xlabel('Time [s]', fontsize=14)
         ax[j, 0].set_ylabel(notation, fontsize=14)
         ax[j, 0].tick_params(axis='x', labelsize=12)
         ax[j, 0].tick_params(axis='y', labelsize=12)
-    plt.tight_layout()
+    # plt.tight_layout()
     if figname is not None:
         plt.savefig(figname)
 
@@ -131,7 +141,7 @@ def pltOL_paper(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
                     Line2D([0], [0], color='cornflowerblue', lw=4, linestyle='-')]
     for j, (name, notation, array) in enumerate(plot_setup):
         if notation == 'Y' and Ytrain is not None:
-            notation = 'Y [cm]'
+            notation = 'position [cm]'
             for k in range(array.shape[1]):
                 ax[j, 0].plot(Ytrain[:, k], '--', linewidth=3, c='indianred')
                 ax[j, 0].plot(array[:, k], '-', linewidth=3, c='cornflowerblue')
@@ -377,8 +387,18 @@ if __name__ == '__main__':
     nu = 1
     nsteps = policy.nsteps
 
-    R = {'steps': psl.Steps(nx=1, nsim=nsim, randsteps=30, xmax=0.7, xmin=0.3),
-         'periodic': psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.7, xmin=0.3)}[args.ref_type]
+    # mean the disturbance
+    disturb_static = 0.44
+    # dataset.data['D'] = np.mean(dataset.data['D']) * np.ones((dataset.data['D']).shape)
+    dataset.data['D'] = disturb_static * np.ones((dataset.data['D']).shape)
+
+    # list(np.random.random(10))
+    R = {'static': 0.5*np.ones([nsim,1]),
+         'spline': psl.SplineSignal(nsim=nsim, values=[0.3, 0.7, 0.6, 0.8, 0.5, 0.7, 0.4, 0.8, 0.3]).reshape(nsim, 1),
+         # 'spline': psl.SplineSignal(nsim=nsim, values=[0.5, 0.6, 0.4, 0.8, 0.5, 0.6, 0.5, 0.6, 0.4]).reshape(nsim,1),
+         'steps': psl.Steps(nx=1, nsim=nsim, randsteps=15, xmax=0.7, xmin=0.3),
+         'periodic': psl.Periodic(nx=1, nsim=nsim, numPeriods=15, xmax=0.7, xmin=0.3),
+         'ramps': psl.sawtooth(nx=1, nsim=nsim, numPeriods=15, xmax=0.7, xmin=0.3)}[args.ref_type]
 
     if args.dynamic_constraints:
         bounds_reference = {'Y_max': psl.Periodic(nx=ny, nsim=nsim, numPeriods=30, xmax=0.9, xmin=0.6),
@@ -431,9 +451,22 @@ if __name__ == '__main__':
         Ymin.append(bounds_reference['Y_min'][k])
         Umax.append(bounds_reference['U_max'][k])
         Umin.append(bounds_reference['U_min'][k])
-    pltCL(Y=np.asarray(Y), R=np.asarray(R), U=np.asarray(U),
-          Ymin=np.asarray(Ymin), Ymax=np.asarray(Ymax),
-          Umin=np.asarray(Umin), Umax=np.asarray(Umax))
+    Y_ctrl = np.asarray(Y)
+    R_ctrl = np.asarray(R)
+    U_ctrl = np.asarray(U)
+    Ymin_ctrl = np.asarray(Ymin)
+    Ymax_ctrl = np.asarray(Ymax)
+    Umin_ctrl = np.asarray(Umin)
+    Umax_ctrl = np.asarray(Umax)
+    # plotsteps = nsim-nsteps
+    plotsteps = 3000  # plot only test set
+    # pltCL_paper(Y=Y_ctrl[-plotsteps:], R=R_ctrl[-plotsteps:], U=U_ctrl[-plotsteps:],
+    #       Ymin=Ymin_ctrl[-plotsteps:], Ymax=Ymax_ctrl[-plotsteps:],
+    #       Umin=Umin_ctrl[-plotsteps:], Umax=Umax_ctrl[-plotsteps:])
+    pltCL_paper(Y=Y_ctrl[-plotsteps:], R=R_ctrl[-plotsteps:],
+          Ymin=Ymin_ctrl[-plotsteps:], Ymax=Ymax_ctrl[-plotsteps:],
+          Umin=Umin_ctrl[-plotsteps:], Umax=Umax_ctrl[-plotsteps:])
+
 
 
     if args.test_scalability:

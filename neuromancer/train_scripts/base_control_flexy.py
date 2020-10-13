@@ -98,7 +98,7 @@ def parse():
                               choices=['mlp', 'linear'], default='mlp')
     policy_group.add_argument('-n_hidden', type=int, default=20, choices=list(range(5, 50, 5)),
                               help='Number of hidden states')
-    policy_group.add_argument('-n_layers', type=int, default=2, choices=list(range(1, 10)),
+    policy_group.add_argument('-n_layers', type=int, default=3, choices=list(range(1, 10)),
                              help='Number of hidden layers of single time-step state transition')
     policy_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     # policy_group.add_argument('-policy_features', nargs='+', default=['Y_ctrl_p', 'Rf'], help='Policy features')

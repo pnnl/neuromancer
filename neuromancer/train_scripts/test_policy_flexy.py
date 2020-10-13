@@ -112,7 +112,6 @@ def pltCL_paper(Y, R=None, U=None, D=None, X=None,
         ax[j, 0].set(xticks=(0, 500, 1000, 1500, 2000, 2500, 3000),
                      xticklabels=('0', '125', '250', '375', '500', '625', '750'))
         ax[j, 0].grid(True)
-        ax[j, 0].axvspan(0, 3000)
         # ax[j, 0].set_title(name, fontsize=14)
         ax[j, 0].set_xlabel('Time [s]', fontsize=14)
         ax[j, 0].set_ylabel(notation, fontsize=14)

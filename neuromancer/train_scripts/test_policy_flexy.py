@@ -99,7 +99,7 @@ def pltCL_paper(Y, R=None, U=None, D=None, X=None,
             for k in range(array.shape[1]):
                 ax[j, 0].plot(R[:, k], '--', linewidth=3, c='indianred')
                 ax[j, 0].plot(array[:, k], '-', linewidth=3, c='cornflowerblue')
-                ax[j, 0].legend(custom_lines, ['Reference', 'Output'], loc='best')
+                # ax[j, 0].legend(custom_lines, ['Reference', 'Output'], loc='best')
                 ax[j, 0].plot(Ymin[:, k], '--', linewidth=3, c='k') if Ymin is not None else None
                 ax[j, 0].plot(Ymax[:, k], '--', linewidth=3, c='k') if Ymax is not None else None
         if notation == 'U':
@@ -112,11 +112,12 @@ def pltCL_paper(Y, R=None, U=None, D=None, X=None,
         ax[j, 0].set(xticks=(0, 500, 1000, 1500, 2000, 2500, 3000),
                      xticklabels=('0', '125', '250', '375', '500', '625', '750'))
         ax[j, 0].grid(True)
+        ax[j, 0].margins(0, 0.1)
         # ax[j, 0].set_title(name, fontsize=14)
-        ax[j, 0].set_xlabel('Time [s]', fontsize=14)
-        ax[j, 0].set_ylabel(notation, fontsize=14)
-        ax[j, 0].tick_params(axis='x', labelsize=12)
-        ax[j, 0].tick_params(axis='y', labelsize=12)
+        ax[j, 0].set_xlabel('time [s]', fontsize=20)
+        ax[j, 0].set_ylabel(notation, fontsize=20)
+        ax[j, 0].tick_params(axis='x', labelsize=18)
+        ax[j, 0].tick_params(axis='y', labelsize=18)
     # plt.tight_layout()
     if figname is not None:
         plt.savefig(figname)
@@ -144,17 +145,17 @@ def pltOL_paper(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
             for k in range(array.shape[1]):
                 ax[j, 0].plot(Ytrain[:, k], '--', linewidth=3, c='indianred')
                 ax[j, 0].plot(array[:, k], '-', linewidth=3, c='cornflowerblue')
-                ax[j, 0].legend(custom_lines, ['True', 'Pred'], fontsize=14)
+                # ax[j, 0].legend(custom_lines, ['True', 'Pred'], fontsize=14)
                 ax[j, 0].set(xticks=(0, 2000, 4000, 6000, 8000),
                              xticklabels=('0', '500', '1000', '1500', '2000'))
         else:
             ax[j, 0].plot(array, linewidth=3)
         ax[j, 0].grid(True)
         # ax[j, 0].set_title(name, fontsize=16)
-        ax[j, 0].set_xlabel('Time [s]', fontsize=16)
-        ax[j, 0].set_ylabel(notation, fontsize=16)
-        ax[j, 0].tick_params(axis='x', labelsize=14)
-        ax[j, 0].tick_params(axis='y', labelsize=14)
+        ax[j, 0].set_xlabel('time [s]', fontsize=20)
+        ax[j, 0].set_ylabel(notation, fontsize=20)
+        ax[j, 0].tick_params(axis='x', labelsize=18)
+        ax[j, 0].tick_params(axis='y', labelsize=18)
         ax[j, 0].axvspan(0, 3000, facecolor='grey', alpha=0.4, zorder=-100)
         ax[j, 0].axvspan(3000, 6000, facecolor='grey', alpha=0.2, zorder=-100)
         ax[j, 0].margins(0, 0.1)
@@ -400,8 +401,8 @@ if __name__ == '__main__':
          'ramps': psl.sawtooth(nx=1, nsim=nsim, numPeriods=15, xmax=0.7, xmin=0.3)}[args.ref_type]
 
     if args.dynamic_constraints:
-        bounds_reference = {'Y_max': psl.Periodic(nx=ny, nsim=nsim, numPeriods=30, xmax=0.9, xmin=0.6),
-                            'Y_min': psl.Periodic(nx=ny, nsim=nsim, numPeriods=25, xmax=0.4, xmin=0.1),
+        bounds_reference = {'Y_max': psl.Periodic(nx=ny, nsim=nsim, numPeriods=30, xmax=0.8, xmin=0.8),
+                            'Y_min': psl.Periodic(nx=ny, nsim=nsim, numPeriods=25, xmax=0.2, xmin=0.2),
                             'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]), 'R': R}
     else:
         bounds_reference = {'Y_max': 0.8 * np.ones([nsim, ny]), 'Y_min': 0.2 * np.ones([nsim, ny]),

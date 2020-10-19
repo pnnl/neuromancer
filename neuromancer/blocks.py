@@ -71,7 +71,7 @@ class MLP(nn.Module):
         :return:
         """
         for lin, nlin in zip(self.linear, self.nonlin):
-            x = lin(nlin(x))
+            x = nlin(lin(x))
         return x
 
 

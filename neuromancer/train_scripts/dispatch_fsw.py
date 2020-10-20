@@ -49,7 +49,7 @@ Q_sub = (0.1, 1.0)
 Q_y = (1.0, 10.0)
 Q_e = (1.0, 10.0)
 Q_con_fdu = (0.0, 1.0)
-systems = ['fsw_phase_1', 'fsw_phase_2']
+systems = ['siso_fsw_phase_1', 'siso_fsw_phase_2']
 for i in range(100):
     for system in systems:
         for tset in datasplits:

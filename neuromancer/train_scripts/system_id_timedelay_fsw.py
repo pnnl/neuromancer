@@ -82,26 +82,26 @@ all_pid_dev = [1]
 all_pid_test = [2]
 
 datasplits = {'all': {'train': list(all_train),
-                      'dev': dev_exp,
-                      'test': test_exp},
+                      'dev': all_dev_exp,
+                      'test': all_test_exp},
                   'pid': {'train': train_pid_idxs,
-                          'dev': dev_exp,
-                          'test': test_exp},
+                          'dev': all_dev_exp,
+                          'test': all_test_exp},
                   'constant': {'train': constant_idxs,
-                               'dev': dev_exp,
-                               'test': test_exp},
+                               'dev': all_dev_exp,
+                               'test': all_test_exp},
                   'relay': {'train': train_relay_idxs,
-                            'dev': dev_exp,
-                            'test': test_exp},
+                            'dev': all_dev_exp,
+                            'test': all_test_exp},
                   'no_pid': {'train': list(all_train - set(train_pid_idxs)),
-                             'dev': dev_exp,
-                             'test': test_exp},
+                             'dev': all_dev_exp,
+                             'test': all_test_exp},
                   'no_constant': {'train': list(all_train - set(constant_idxs)),
-                                  'dev': dev_exp,
-                                  'test': test_exp},
+                                  'dev': all_dev_exp,
+                                  'test': all_test_exp},
                   'no_relay': {'train': list(all_train - set(train_relay_idxs)),
-                               'dev': dev_exp,
-                               'test': test_exp},
+                               'dev': all_dev_exp,
+                               'test': all_test_exp},
                   'all_pid': {'train': all_pid,
                               'dev': all_pid_dev,
                               'test': all_pid_test}}
@@ -161,11 +161,11 @@ def parse():
     model_group = parser.add_argument_group('MODEL PARAMETERS')
     model_group.add_argument('-ssm_type', type=str, choices=['blackbox', 'hw', 'hammerstein', 'blocknlin', 'linear'],
                              default='blocknlin')
-    model_group.add_argument('-nx_hidden', type=int, default=20, help='Number of hidden states per output')
-    model_group.add_argument('-n_layers', type=int, default=2, help='Number of hidden layers of single time-step state transition')
+    model_group.add_argument('-nx_hidden', type=int, default=48, help='Number of hidden states per output')
+    model_group.add_argument('-n_layers', type=int, default=5, help='Number of hidden layers of single time-step state transition')
     model_group.add_argument('-state_estimator', type=str,
                              choices=['rnn', 'mlp', 'linear', 'residual_mlp'], default='mlp')
-    model_group.add_argument('-estimator_input_window', type=int, default=1,
+    model_group.add_argument('-estimator_input_window', type=int, default=10,
                              help="Number of previous time steps measurements to include in state estimator input")
     model_group.add_argument('-linear_map', type=str, choices=list(slim.maps.keys()),
                              default='linear')
@@ -174,7 +174,7 @@ def parse():
     model_group.add_argument('-bias', type=int, default=0, choices=[0, 1], help='Whether to use bias in the neural network models.')
     model_group.add_argument('-activation', choices=list(activations.keys()), default='gelu',
                              help='Activation function for neural networks')
-    model_group.add_argument('-timedelay', type=int, default=0, help='time delayed features of SSM')
+    model_group.add_argument('-timedelay', type=int, default=8, help='time delayed features of SSM')
 
     ##################
     # Weight PARAMETERS
@@ -254,11 +254,6 @@ if __name__ == '__main__':
     nx = dataset.dims['Y'][-1]*args.nx_hidden
 
     activation = activations[args.activation]
-    # {'gelu': nn.GELU,
-    #               'relu': nn.ReLU,
-    #               'blu': BLU,
-    #               'softexp': SoftExponential}[args.activation]
-
     linmap = slim.maps[args.linear_map]
 
     nonlinmap = {'linear': linmap,
@@ -303,7 +298,7 @@ if __name__ == '__main__':
     xmax = 1.2
     dxudmin = -0.05
     dxudmax = 0.05
-    estimator_loss = Objective(['X_pred', 'x0'],
+    estimator_loss = Objective(['X_pred_dynamics', 'x0_estim'],
                                 lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
                                 weight=args.Q_e, name='arrival_cost')
     regularization = Objective([f'reg_error_estim', f'reg_error_dynamics'],
@@ -320,7 +315,7 @@ if __name__ == '__main__':
                                                 name='y_up_bound_error')
 
     objectives = [regularization, reference_loss]
-    constraints = [state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
+    constraints = []#[state_smoothing, observation_lower_bound_penalty, observation_upper_bound_penalty]
 
     if args.ssm_type != 'blackbox':
         if 'U' in dataset.data:

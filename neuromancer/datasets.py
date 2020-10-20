@@ -30,7 +30,7 @@ def min_max_denorm(M, Mmin, Mmax):
     :return: (2-d np.array) Un-normalized data
     """
     M_denorm = M*(Mmax - Mmin) + Mmin
-    return np.nan_to_num(M_denorm)
+    return M_denorm
 
 
 def batch_mh_data(data, nsteps):
@@ -569,6 +569,7 @@ def _check_data(data):
 
     return not np.any(np.isnan(data)) #(np.any(np.all(np.isclose(data[1:] - data[:-1], 0.), axis=0)) or np.any(np.all(np.isclose(data, 0.), axis=0)))
 
+
 class EmulatorDataset(Dataset):
 
     def load_data(self):
@@ -684,6 +685,14 @@ systems_datapaths = {'tank': os.path.join(resource_path, 'NLIN_SISO_two_tank/NLI
                      'fsw_phase_2': os.path.join(resource_path, 'FSW/by_step/fsw_data_phase_2.csv'),
                      'fsw_phase_3': os.path.join(resource_path, 'FSW/by_step/fsw_data_phase_3.csv'),
                      'fsw_phase_4': os.path.join(resource_path, 'FSW/by_step/fsw_data_phase_4.csv'),
+                     'siso_fsw_phase_1': os.path.join(resource_path, 'FSW/siso_by_step/fsw_data_phase_1.csv'),
+                     'siso_fsw_phase_2': os.path.join(resource_path, 'FSW/siso_by_step/fsw_data_phase_2.csv'),
+                     'siso_fsw_phase_3': os.path.join(resource_path, 'FSW/siso_by_step/fsw_data_phase_3.csv'),
+                     'siso_fsw_phase_4': os.path.join(resource_path, 'FSW/siso_by_step/fsw_data_phase_4.csv'),
+                     'siso_nd_fsw_phase_1': os.path.join(resource_path, 'FSW/siso_no_disturb_by_step/fsw_data_phase_1.csv'),
+                     'siso_nd_fsw_phase_2': os.path.join(resource_path, 'FSW/siso_no_disturb_by_step/fsw_data_phase_2.csv'),
+                     'siso_nd_fsw_phase_3': os.path.join(resource_path, 'FSW/siso_no_disturb_by_step/fsw_data_phase_3.csv'),
+                     'siso_nd_fsw_phase_4': os.path.join(resource_path, 'FSW/siso_no_disturb_by_step/fsw_data_phase_4.csv')
                      }
 
 
@@ -691,6 +700,14 @@ systems = {'fsw_phase_1': 'datafile',
            'fsw_phase_2': 'datafile',
            'fsw_phase_3': 'datafile',
            'fsw_phase_4': 'datafile',
+           'siso_fsw_phase_1': 'datafile',
+           'siso_fsw_phase_2': 'datafile',
+           'siso_fsw_phase_3': 'datafile',
+           'siso_fsw_phase_4': 'datafile',
+           'siso_nd_fsw_phase_1': 'datafile',
+           'siso_nd_fsw_phase_2': 'datafile',
+           'siso_nd_fsw_phase_3': 'datafile',
+           'siso_nd_fsw_phase_4': 'datafile',
            'tank': 'datafile',
            'vehicle3': 'datafile',
            'aero': 'datafile',

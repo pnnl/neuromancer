@@ -86,6 +86,8 @@ def parse():
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y'],
                             help='List of sequences to max-min normalize')
+    data_group.add_argument('-seed', type=int, default=59,
+                            help='Random seed used for simulated data generation')
     
     ##################
     # MODEL PARAMETERS
@@ -163,7 +165,7 @@ def logging(args):
 def dataset_load(args, device):
     if systems[args.system] == 'emulator':
         dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
-                                  norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)
+                                  norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir, seed=args.seed)
     else:
         dataset = FileDataset(system=args.system, nsim=args.nsim,
                               norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir)

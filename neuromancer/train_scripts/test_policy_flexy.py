@@ -35,7 +35,7 @@ import psl
 
 def parse():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-ref_type', type=str, default='spline',
+    parser.add_argument('-ref_type', type=str, default='steps',
                         choices=['steps', 'periodic', 'ramps', 'static', 'spline'],
                         help="shape of the reference signal")
     parser.add_argument('-dynamic_constraints', type=int, default=1, choices=[0, 1])
@@ -394,8 +394,8 @@ if __name__ == '__main__':
 
     # list(np.random.random(10))
     R = {'static': 0.5*np.ones([nsim,1]),
-         'spline': psl.SplineSignal(nsim=nsim, values=[0.3, 0.7, 0.6, 0.8, 0.5, 0.7, 0.4, 0.75, 0.3]).reshape(nsim, 1),
-         # 'spline': psl.SplineSignal(nsim=nsim, values=[0.5, 0.6, 0.4, 0.8, 0.5, 0.6, 0.5, 0.6, 0.4]).reshape(nsim,1),
+         # 'spline': psl.SplineSignal(nsim=nsim, values=[0.3, 0.7, 0.6, 0.8, 0.5, 0.7, 0.4, 0.75, 0.3]).reshape(nsim, 1),
+         'spline': psl.SplineSignal(nsim=nsim, values=[0.5, 0.6, 0.4, 0.8, 0.5, 0.6, 0.5, 0.6, 0.4]).reshape(nsim,1),
          'steps': psl.Steps(nx=1, nsim=nsim, randsteps=15, xmax=0.7, xmin=0.3),
          'periodic': psl.Periodic(nx=1, nsim=nsim, numPeriods=15, xmax=0.7, xmin=0.3),
          'ramps': psl.sawtooth(nx=1, nsim=nsim, numPeriods=15, xmax=0.7, xmin=0.3)}[args.ref_type]

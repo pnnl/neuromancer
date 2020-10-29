@@ -2,6 +2,8 @@ from neuromancer.blocks import MLP
 import torch.nn as nn
 import torch
 import slim
+import scipy.linalg as LA
+import numpy as np
 
 
 class JacobianMLP(nn.Module):
@@ -59,3 +61,35 @@ fxj = JacobianMLP(4, 4, nonlin=nn.ReLU, hsizes=[4, 64, 28, 4])
 output, DJM, jacobians = fxj(x)
 print(output)
 print(torch.matmul(x, DJM))
+
+
+# eigenvalues of square neural nets
+x = torch.tensor([[-1.0, 1.0, 3.0]], requires_grad=True)
+fx = MLP(3, 3, nonlin=nn.ReLU, hsizes=[3, 3, 3], bias=False)
+
+nonlinearities = fx.nonlin
+W = []
+for i, m in enumerate(fx.linear):
+    # layer-wise parameter vayring linear map
+    Ax = torch.matmul(x, m.weight)
+    lambda_h = nonlinearities[i](Ax)/Ax
+    lambda_h_matrix = torch.diag(lambda_h.squeeze())
+    # x = lambda_h*Ax
+    x = torch.matmul(Ax, lambda_h_matrix)
+
+    # network-wise parameter vayring linear map
+    A_prime_h = torch.matmul(m.weight, lambda_h_matrix)
+    if i<1:
+        A_prime = A_prime_h
+    else:
+        A_prime = torch.matmul(A_prime, A_prime_h)
+
+    # layer eigenvalues
+    w_weight, v = LA.eig(m.weight.detach().cpu().numpy().T)
+    w_activation, v = LA.eig(lambda_h_matrix.detach().cpu().numpy().T)
+    print(f'eigenvalues of {i}-th layer weights {w_weight}')
+    print(f'eigenvalues of {i}-th layer activations {w_activation}')
+
+    # network-wise eigenvalues
+    w_net, v = LA.eig(A_prime.detach().cpu().numpy().T)
+    print(f'point-wise eigenvalues of network {w_net}')

@@ -571,6 +571,12 @@ def _check_data(data):
 
 
 class EmulatorDataset(Dataset):
+    def __init__(self, system=None, nsim=10000, ninit=0, norm=['Y'], batch_type='batch',
+                 nsteps=1, device='cpu', sequences=dict(), name='openloop',
+                 savedir='test', norm_type='normalize', seed=59):
+        self.simulator_seed = seed
+        super().__init__(system, nsim, ninit, norm, batch_type, nsteps, device, sequences, name, savedir, norm_type)
+
 
     def load_data(self):
         """
@@ -578,7 +584,7 @@ class EmulatorDataset(Dataset):
         return: (dict, str: 2-d np.array)
         """
         systems = emulators.systems  # list of available emulators
-        model = systems[self.system](nsim=self.nsim, ninit=self.ninit)  # instantiate model class
+        model = systems[self.system](nsim=self.nsim, ninit=self.ninit, seed=self.simulator_seed)  # instantiate model class
         sim = model.simulate()  # simulate open loop
         while not _check_data(sim['Y']):
             print('Emulator generated invalid data, resimulating...')

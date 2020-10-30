@@ -139,7 +139,10 @@ def LPV_net(fx, x):
         # layer-wise parameter vayring linear map
         A = lin.effective_W()                     # layer weight
         Ax = torch.matmul(x_layer, A)           # linear transform
-        lambda_h = nlin(Ax)/Ax     # activation scaling # TODO: treat division by zero
+        if sum(Ax.squeeze()) == 0:
+            lambda_h = torch.zeros(Ax.shape)
+        else:
+            lambda_h = nlin(Ax)/Ax     # activation scaling
         lambda_h_matrix = torch.diag(lambda_h.squeeze())
         # x = lambda_h*Ax
         x_layer = torch.matmul(Ax, lambda_h_matrix)
@@ -196,3 +199,11 @@ torch.matmul(x_z, fx_layer.linear[0].effective_W()) + fx_layer.linear[0].bias
 LPV_layer(fx_layer,torch.randn(1,3))
 # verify multi-layer linear parameter varying form
 A_star, W_weight, W_activation, W_layer, w_net = LPV_net(fx,torch.randn(1,3))
+
+activations = [nn.ReLU6, nn.ReLU, nn.PReLU, nn.GELU, nn.CELU, nn.ELU,
+              nn.LogSigmoid, nn.Sigmoid, nn.Tanh]
+for act in activations:
+    print(f'current activation {act}')
+    fx = MLP(nx, nx, nonlin=act, hsizes=[nx, nx, nx], bias=False)
+    A_star, W_weight, W_activation, W_layer, w_net = LPV_net(fx, torch.randn(1, 3))
+

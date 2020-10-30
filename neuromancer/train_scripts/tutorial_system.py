@@ -139,8 +139,7 @@ def LPV_net(fx, x):
         # layer-wise parameter vayring linear map
         A = lin.effective_W()                     # layer weight
         Ax = torch.matmul(x_layer, A)           # linear transform
-        lambda_h = nlin(Ax)/Ax     # activation scaling
-        # TODO: treat division by zero
+        lambda_h = nlin(Ax)/Ax     # activation scaling # TODO: treat division by zero
         lambda_h_matrix = torch.diag(lambda_h.squeeze())
         # x = lambda_h*Ax
         x_layer = torch.matmul(Ax, lambda_h_matrix)
@@ -149,7 +148,6 @@ def LPV_net(fx, x):
         # layer-wise parameter vayring linear map: A' = Lambda A
         A_prime = torch.matmul(A, lambda_h_matrix)
         x_layer_A_prime = torch.matmul(x_layer_A_prime, A_prime)
-
         print(f'layer {i+1}')
         print(x_layer_orig)
         print(x_layer)

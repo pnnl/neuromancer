@@ -44,23 +44,23 @@ class JacobianMLP(nn.Module):
             xprev = x
         DJM = torch.chain_matmul(*jacobians)
         return x, DJM, jacobians
-
-
-# Faster to calculate the DJM this way
-x = torch.tensor([[-1.0, 1.0, 3.0, 5.0]], requires_grad=True)
-fx = MLP(4, 4, nonlin=nn.ReLU, hsizes=[4, 64, 128, 4], bias=False)
-grads = []
-for i in range(4):
-    grads.append(torch.autograd.grad(fx(x).flatten()[i], x)[0].flatten())
-DJM = torch.stack(grads).T
-print(fx(x))
-print(torch.matmul(x, DJM))
-
-# Sanity check to view the factorized DJM
-fxj = JacobianMLP(4, 4, nonlin=nn.ReLU, hsizes=[4, 64, 28, 4])
-output, DJM, jacobians = fxj(x)
-print(output)
-print(torch.matmul(x, DJM))
+#
+#
+# # Faster to calculate the DJM this way
+# x = torch.tensor([[-1.0, 1.0, 3.0, 5.0]], requires_grad=True)
+# fx = MLP(4, 4, nonlin=nn.ReLU, hsizes=[4, 64, 128, 4], bias=False)
+# grads = []
+# for i in range(4):
+#     grads.append(torch.autograd.grad(fx(x).flatten()[i], x)[0].flatten())
+# DJM = torch.stack(grads).T
+# print(fx(x))
+# print(torch.matmul(x, DJM))
+#
+# # Sanity check to view the factorized DJM
+# fxj = JacobianMLP(4, 4, nonlin=nn.ReLU, hsizes=[4, 64, 28, 4])
+# output, DJM, jacobians = fxj(x)
+# print(output)
+# print(torch.matmul(x, DJM))
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -182,7 +182,7 @@ def LPV_net(fx, x):
 
 nx = 3
 # random feature point
-x_z = torch.randn(1,nx)
+x_z = torch.randn(1, nx)
 # x_z = torch.tensor([[-1.0, 1.0, 3.0]], requires_grad=True)
 
 # define square neural net
@@ -196,12 +196,13 @@ torch.matmul(x_z, fx_layer.linear[0].effective_W()) + fx_layer.linear[0].bias
 
 
 # verify single layer linear parameter varying form
-LPV_layer(fx_layer,torch.randn(1,3))
+LPV_layer(fx_layer, torch.randn(1, 3))
 # verify multi-layer linear parameter varying form
-A_star, W_weight, W_activation, W_layer, w_net = LPV_net(fx,torch.randn(1,3))
+A_star, W_weight, W_activation, W_layer, w_net = LPV_net(fx, torch.randn(1, 3))
 
 activations = [nn.ReLU6, nn.ReLU, nn.PReLU, nn.GELU, nn.CELU, nn.ELU,
-              nn.LogSigmoid, nn.Sigmoid, nn.Tanh]
+               nn.LogSigmoid, nn.Sigmoid, nn.Tanh]
+
 for act in activations:
     print(f'current activation {act}')
     fx = MLP(nx, nx, nonlin=act, hsizes=[nx, nx, nx], bias=False)

@@ -41,7 +41,6 @@ if __name__ == '__main__':
         f = act()
         activations.append(f)
 
-    # Stable activations
     X_stable = []
     X_unstable = []
     Act_stable = []
@@ -58,6 +57,7 @@ if __name__ == '__main__':
     print(f'unstable activations: {Act_unstable}')
     print(f'stable activations: {Act_stable}')
 
+    # Stable activations
     rgb_colors = get_colors(len(X_stable))
     plt.style.use('classic')
     fig, (axe) = plt.subplots(1, 1)

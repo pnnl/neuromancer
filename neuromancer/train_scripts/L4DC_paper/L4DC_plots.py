@@ -9,7 +9,7 @@ import scipy.linalg as LA
 import os
 import numpy as np
 import matplotlib.patches as mpatches
-
+import neuromancer.activations as nact
 
 
 def get_colors(k):
@@ -31,47 +31,57 @@ def get_colors(k):
 
 if __name__ == '__main__':
 
-    x_vec = torch.range(-6, 6, step=0.01)
-    activations = [nn.ReLU(), nn.PReLU(), nn.LeakyReLU(), nn.GELU(), nn.ELU(),
-                   nn.CELU(), nn.Softshrink(), nn.Softsign(), nn.Tanhshrink(),
-                   nn.Tanh(), nn.Hardshrink(), nn.Hardtanh(), nn.Hardswish()]
-    activations_unstable = [nn.SELU()]
-    activations_1 = [nn.Sigmoid(), nn.Hardsigmoid()]
-    activations_off = [nn.LogSigmoid(), nn.Softplus()]
+    x_line = torch.range(-6, 6, step=0.01)
+    x_line = x_line[x_line != 0.0]  # drop 0 due to division by 0
+    x_vec = x_line.detach().numpy()
+
+    activations = []
+    for name, act in nact.activations.items():
+        # print(name)
+        f = act()
+        activations.append(f)
 
     # Stable activations
-    X = []
+    X_stable = []
+    X_unstable = []
+    Act_stable = []
+    Act_unstable = []
     for act in activations:
-        x = act(x_vec).detach().numpy()
-        X.append(x)
-    rgb_colors = get_colors(len(X))
+        x = act(x_line).detach().numpy()
+        if any(abs(x/x_vec) > 1):
+            X_unstable.append(x)
+            Act_unstable.append(act)
+        else:
+            X_stable.append(x)
+            Act_stable.append(act)
+
+    print(f'unstable activations: {Act_unstable}')
+    print(f'stable activations: {Act_stable}')
+
+    rgb_colors = get_colors(len(X_stable))
     plt.style.use('classic')
     fig, (axe) = plt.subplots(1, 1)
     axe.set_ylim(-6, 6)
     axe.set_xlim(-6, 6)
     axe.set_aspect(1)
     axe.fill_between(x_vec, x_vec, -x_vec, alpha=0.1)
-    for k in range(len(X)):
-        axe.plot(x_vec, X[k], c=rgb_colors[k], linewidth=2)
+    for k in range(len(X_stable)):
+        axe.plot(x_vec, X_stable[k], c=rgb_colors[k], linewidth=2)
     axe.tick_params(axis='x', labelsize=18)
     axe.tick_params(axis='y', labelsize=18)
     axe.grid(True)
     plt.tight_layout()
 
     # Unstable activations
-    X = []
-    for act in activations_unstable:
-        x = act(x_vec).detach().numpy()
-        X.append(x)
-    rgb_colors = get_colors(len(X))
+    rgb_colors = get_colors(len(X_unstable))
     plt.style.use('classic')
     fig, (axe) = plt.subplots(1, 1)
     axe.set_ylim(-6, 6)
     axe.set_xlim(-6, 6)
     axe.set_aspect(1)
     axe.fill_between(x_vec, x_vec, -x_vec, alpha=0.1)
-    for k in range(len(X)):
-        axe.plot(x_vec, X[k], c=rgb_colors[k], linewidth=2)
+    for k in range(len(X_unstable)):
+        axe.plot(x_vec, X_unstable[k], c=rgb_colors[k], linewidth=2)
     axe.tick_params(axis='x', labelsize=18)
     axe.tick_params(axis='y', labelsize=18)
     axe.grid(True)

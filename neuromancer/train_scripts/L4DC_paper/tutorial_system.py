@@ -171,6 +171,8 @@ def LPV_net(fx, x):
         Ax = torch.matmul(x_layer, A)               # linear transform
         if sum(Ax.squeeze()) == 0:
             lambda_h = torch.zeros(Ax.shape)
+            # TODO: division by zero elementwise not replacing whole vector
+            # TODO: replace zero values with derivatives of activations
         else:
             lambda_h = nlin(Ax)/Ax     # activation scaling
         lambda_h_matrix = torch.diag(lambda_h.squeeze())

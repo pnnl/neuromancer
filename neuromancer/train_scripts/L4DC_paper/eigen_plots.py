@@ -11,15 +11,20 @@ import slim
 import torch
 from torch import nn
 import dill
+
+from neuromancer import blocks
 from neuromancer.datasets import EmulatorDataset
 
-os.sys.path.append("train_scripts/L4DC_paper")
+os.sys.path.append("neuromancer/train_scripts")
+os.sys.path.append("neuromancer/train_scripts/L4DC_paper")
+from autonomous_system import AutonomousSystem
 from lpv import lpv
 
 DENSITY_PALETTE = sns.color_palette("crest_r", as_cmap=True)
 DENSITY_FACECLR = DENSITY_PALETTE(0.01)
 
 sns.set_theme(style="white")
+
 
 def compute_eigenvalues(matrices):
     eigvals = []
@@ -84,7 +89,7 @@ def plot_matrix_and_eigvals(item, ax=None):
     for a in ax:
         a.clear()
 
-    ax[0].imshow(matrix, cmap='viridis')
+    ax[0].imshow(matrix, cmap="viridis")
     ax[1] = plot_eigenvalues(eigvals, ax[1])[0]
 
     despine_axis(ax[0])
@@ -105,7 +110,9 @@ def plot_Astar_anim(Astar_list, eigval_list, fname=None):
         repeat_delay=3000,
         blit=False,
     )
-    writer = writers["ffmpeg"](fps=20, bitrate=512000, codec="h264_mf", extra_args=["-s", "1280x960"])
+    writer = writers["ffmpeg"](
+        fps=20, bitrate=512000, codec="h264_mf", extra_args=["-s", "1280x960"]
+    )
     if fname is not None:
         animator.save(fname, writer=writer, dpi=200)
 
@@ -127,13 +134,14 @@ def gen_model_visuals(
     eigvals = []
     x = estim(loop_data)["x0_estim"]
     for u in loop_data["Up"]:
-        A_star, _, _, _, w_net = LPV_net(fx, x, verbose=False)
+        A_star = lpv(fx, x)
         x = fx(x) + fu(u)  # torch.matmul(x, A_star) + fu(u)
         A_stars += [A_star.detach().cpu().numpy()]
         eigvals += [w_net]
 
     plot_eigenvalues(eigvals, fname=eigval_plot_fname)
     plot_Astar_anim(A_stars, eigvals, fname=anim_fname)
+
 
 def despine_axis(ax):
     ax.set_xticks([])
@@ -143,7 +151,40 @@ def despine_axis(ax):
     ax.spines["right"].set_visible(False)
     ax.spines["bottom"].set_visible(False)
 
+
 if __name__ == "__main__":
+    linmap = slim.linear.maps["gershgorin"]
+    tut_system = AutonomousSystem(2, [2] * 4, nn.ReLU, linmap, 0.9, 1.0)
+
+    # NOTE: use this and `lpv` for less printing
+    # fx = blocks.MLP(
+    #     2,
+    #     2,
+    #     bias=False,
+    #     Linear=linmap,
+    #     nonlin=nn.ReLU,
+    #     hsizes=[2] * 4,
+    #     linargs=dict(sigma_min=0.9, sigma_max=1.0, real=True),
+    # )
+
+    Astars = []
+    grid_x, grid_y = torch.meshgrid(
+        torch.arange(-1, 1, 0.05),
+        torch.arange(-1, 1, 0.05),
+    )
+    X = torch.stack((grid_x.flatten(), grid_y.flatten())).T
+    for x in X:
+        _, Astar, _, _, _, _ = tut_system(x)
+        Astars += [Astar[0].detach().cpu().numpy()]
+    eigvals = compute_eigenvalues(Astars)
+    plot_eigenvalues(eigvals)
+    plt.show()
+
+    plot_Astar_anim(Astars, eigvals, "gershgorin.mp4")
+
+    exit()
+
+    # TODO: dead code follows
     PATH = "neuromancer/train_scripts/test/twotank_test.pth"
     SYSTEM = "TwoTank"
     PRNG = np.random.default_rng()

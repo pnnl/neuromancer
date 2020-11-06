@@ -8,3 +8,6 @@
 *test
 *mlruns
 *.idea
+**/build
+*.vscode
+**/dist

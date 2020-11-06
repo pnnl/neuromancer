@@ -154,18 +154,19 @@ def despine_axis(ax):
 
 if __name__ == "__main__":
     linmap = slim.linear.maps["gershgorin"]
-    tut_system = AutonomousSystem(2, [2] * 4, nn.ReLU, linmap, 0.9, 1.0)
 
-    # NOTE: use this and `lpv` for less printing
-    # fx = blocks.MLP(
-    #     2,
-    #     2,
-    #     bias=False,
-    #     Linear=linmap,
-    #     nonlin=nn.ReLU,
-    #     hsizes=[2] * 4,
-    #     linargs=dict(sigma_min=0.9, sigma_max=1.0, real=True),
-    # )
+    # NOTE: this prints a lot of stuff; use `lpv` for less printing
+    # tut_system = AutonomousSystem(2, [2] * 4, nn.ReLU, linmap, 0.9, 1.0)
+
+    fx = blocks.MLP(
+        2,
+        2,
+        bias=False,
+        Linear=linmap,
+        nonlin=nn.Sigmoid,
+        hsizes=[2] * 4,
+        linargs=dict(sigma_min=0.9, sigma_max=1.0, real=True),
+    )
 
     Astars = []
     grid_x, grid_y = torch.meshgrid(
@@ -174,8 +175,8 @@ if __name__ == "__main__":
     )
     X = torch.stack((grid_x.flatten(), grid_y.flatten())).T
     for x in X:
-        _, Astar, _, _, _, _ = tut_system(x)
-        Astars += [Astar[0].detach().cpu().numpy()]
+        Astar, _, _ = lpv(fx, x)
+        Astars += [Astar.detach().cpu().numpy()]
     eigvals = compute_eigenvalues(Astars)
     plot_eigenvalues(eigvals)
     plt.show()

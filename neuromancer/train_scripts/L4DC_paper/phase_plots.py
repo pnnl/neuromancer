@@ -44,7 +44,7 @@ def plot_ode_phase_portrait(
     Xp1 = -X1 + Xp1
 
     # plot vector field
-    fig, ax = plt.subplots()
+    _, ax = plt.subplots()
     ax.quiver(
         X0,
         X1,
@@ -67,15 +67,16 @@ def plot_ode_phase_portrait(
 
 
 class SsmModel:
-    def __init__(self, model):
+    def __init__(self, model, use_input=False):
         self.estim = model.components[0]
         self.fx = model.components[1].fx
+        self.fu = model.components[1].fu if use_input else lambda x: 0.0
         self.fy = model.components[1].fy
 
-    def __call__(self, x):
+    def __call__(self, x, u=None):
         x = {"Yp": x.expand(self.estim.nsteps, -1, -1)}
         x = self.estim(x)["x0_estim"]
-        x = self.fx(x)
+        x = self.fx(x) + self.fu(u)
         x = self.fy(x)
         return x
 
@@ -109,7 +110,7 @@ def plot_model_phase_portrait(
     V = -Y + V
 
     # plot vector field
-    fig, ax = plt.subplots()
+    _, ax = plt.subplots()
     ax.quiver(
         X, Y, U, V, angles="uv", pivot="mid", width=0.002, headwidth=4, headlength=5
     )
@@ -173,8 +174,8 @@ if __name__ == "__main__":
     plot_ode_phase_portrait(TwoTank(nsim=1))
     plt.show()
 
-    CSTR_PATH = "neuromancer/train_scripts/L4DC_paper/models/best_model_cstr.pth"
-    TANK_PATH = "neuromancer/train_scripts/ACC_models/best_models_bnl_paper/blocknlin/twotank/best_model.pth"
+    CSTR_PATH = "neuromancer/train_scripts/L4DC_paper/models/cstr_model.pth"
+    TANK_PATH = "neuromancer/train_scripts/L4DC_paper/models/tank_model.pth"
 
     cstr_model = torch.load(CSTR_PATH, pickle_module=dill, map_location="cpu")
     cstr_data = EmulatorDataset("CSTR", nsim=10000, seed=50, device="cpu")
@@ -183,8 +184,6 @@ if __name__ == "__main__":
     tank_data = EmulatorDataset("TwoTank", nsim=10000, seed=81, device="cpu")
 
     initial_states = [
-        # np.array([np.cos(x), np.sin(x)])*0.5 + np.array([0, 0])
-        # for x in np.arange(0, 2 * np.pi, np.pi / 2)
         np.array([0.5, 0.25]),
         np.array([0.5, 0.5]),
         np.array([0.5, 0.75]),
@@ -207,8 +206,6 @@ if __name__ == "__main__":
     plt.show()
 
     initial_states = [
-        # np.array([np.cos(x), np.sin(x)])*0.5 + np.array([0, 0])
-        # for x in np.arange(0, 2 * np.pi, np.pi / 2)
         np.array([-2, 0]),
         np.array([0.5, -1]),
     ]

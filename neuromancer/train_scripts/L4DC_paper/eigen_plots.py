@@ -12,13 +12,12 @@ import torch
 from torch import nn
 import dill
 from neuromancer.datasets import EmulatorDataset
-os.sys.path.append("train_scripts")
-from neuromancer.train_scripts.tutorial_system import LPV_net
+
+os.sys.path.append("train_scripts/L4DC_paper")
+from lpv import lpv
 
 DENSITY_PALETTE = sns.color_palette("crest_r", as_cmap=True)
-DENSITY_FACECLR = DENSITY_PALETTE(
-    0.01
-)
+DENSITY_FACECLR = DENSITY_PALETTE(0.01)
 
 sns.set_theme(style="white")
 
@@ -85,10 +84,11 @@ def plot_matrix_and_eigvals(item, ax=None):
     for a in ax:
         a.clear()
 
-    ax[0].imshow(matrix)
-    ax[0].set_xticks([])
-    ax[0].set_yticks([])
+    ax[0].imshow(matrix, cmap='viridis')
     ax[1] = plot_eigenvalues(eigvals, ax[1])[0]
+
+    despine_axis(ax[0])
+    despine_axis(ax[1])
 
     return [*ax]
 
@@ -105,50 +105,9 @@ def plot_Astar_anim(Astar_list, eigval_list, fname=None):
         repeat_delay=3000,
         blit=False,
     )
-    writer = writers["ffmpeg"](fps=20, bitrate=128000, codec="h264_mf")
+    writer = writers["ffmpeg"](fps=20, bitrate=512000, codec="h264_mf", extra_args=["-s", "1280x960"])
     if fname is not None:
-        animator.save(fname, writer=writer)
-
-
-def plot_phase_portrait(
-    fx,
-    x_lims=(-3, 3),
-    y_lims=(-3, 3),
-    step=0.1,
-    initial_states=[],
-    t=100,
-    fname=None,
-):
-    X, Y = np.meshgrid(np.arange(*x_lims, step), np.arange(*y_lims, step))
-
-    g = np.stack((X.flatten(), Y.flatten()))
-    g = torch.tensor(g, dtype=torch.float)
-    g = fx(g.T)
-    g = g.T.detach().cpu().numpy()
-    U, V = g.reshape(2, *X.shape)
-
-    # TODO(lltt): doesn't seem right to do this
-    U = -X + U
-    V = -Y + V
-
-    # plot vector field
-    fig, ax = plt.subplots()
-    ax.quiver(X, Y, U, V, pivot="mid")
-
-    # plot state trajectories over phase space if initial states given
-    initial_states = torch.tensor(initial_states, dtype=torch.float)
-    states = torch.empty(t+1, *initial_states.shape)
-    states[0, :, :] = initial_states
-    for i in range(t):
-        states[i+1, :, :] = fx(states[i, :, :])
-    states = states.transpose(1, 2).detach().cpu().numpy()
-    ax.plot(states[:, 0], states[:, 1])
-    ax.set_xlim((x_lims[0] - step/2, x_lims[1] - step/2))
-    ax.set_ylim((y_lims[0] - step/2, y_lims[1] - step/2))
-    if fname is not None:
-        plt.savefig(fname)
-
-    return [ax]
+        animator.save(fname, writer=writer, dpi=200)
 
 
 def gen_model_visuals(
@@ -176,6 +135,13 @@ def gen_model_visuals(
     plot_eigenvalues(eigvals, fname=eigval_plot_fname)
     plot_Astar_anim(A_stars, eigvals, fname=anim_fname)
 
+def despine_axis(ax):
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.spines["top"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
 
 if __name__ == "__main__":
     PATH = "neuromancer/train_scripts/test/twotank_test.pth"
@@ -185,25 +151,6 @@ if __name__ == "__main__":
     model = torch.load(PATH, pickle_module=dill, map_location="cpu")
     fx = model.components[1].fx
     fu = model.components[1].fu
-
-    # NOTE: will fail for models with nx > 2
-    print("Testing model phase portrait...")
-    initial_states = [
-        #np.array([np.cos(x), np.sin(x)])*0.5 + np.array([0, 0])
-        #for x in np.arange(0, 2 * np.pi, np.pi / 2)
-        np.array([-2, 0]),
-        np.array([0.5, -1])
-    ]
-    # spiral_A = torch.tensor([[0, 0.8], [-0.05, -.0135]], dtype=torch.float).T
-    plot_phase_portrait(
-        fx, # lambda x: torch.matmul(x, spiral_A),
-        x_lims=(-2, 2.1),
-        y_lims=(-2, 2.1),
-        step=0.1,
-        initial_states=initial_states,
-        t=100,
-        fname="model_phase_portrait.svg",
-    )
 
     print("Testing visualizations on random matrices...")
     random_matrices = [PRNG.random(size=(3, 3)) / 2.0 for _ in range(100)]

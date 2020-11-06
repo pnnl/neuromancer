@@ -23,6 +23,7 @@ class Linear(nn.Module):
     def __init__(self,  insize, outsize, bias=True,
                  Linear=slim.Linear, nonlin=SoftExponential, hsizes=[64], linargs=dict()):
         super().__init__()
+        self.in_features, self.out_features = insize, outsize
         self.linear = Linear(insize, outsize, bias=bias, **linargs)
 
     def reg_error(self):

@@ -1,78 +1,80 @@
 import torch
 import dill
 from neuromancer.datasets import EmulatorDataset
-from tqdm import tqdm
 
 from lpv import lpv
-from phase_plots import plot_random_phase_portrait, plot_phase_portrait_2d
+from phase_plots import plot_model_phase_portrait
 from eigen_plots import compute_eigenvalues, plot_Astar_anim
 
-# TODO(lltt):
-# - focus on no input case first, then extrapolate from there
-# - projection from high-dimensional state space:
-#   - random projection?
+# TODO(lltt): add support for gershgorin tutorial system (no estimator, f_u)
 
 
-def sample_data_trajectories(model, data):
+def sample_data_trajectories(model, data, fname=None):
     fx = model.components[1].fx
     fu = model.components[1].fu
     estim = model.components[0]
 
-    loop_data = data.train_loop
-
-    x = estim(loop_data)["x0_estim"]
+    x = estim(data)["x0_estim"]
     A_stars = []
-    for u in loop_data["Up"]:
+    for u in data["Up"]:
         A_star, _, _ = lpv(fx, x)
-        x = torch.matmul(x, A_star) + fu(u)
+        x = fx(x) + fu(u)
         A_stars += [A_star.detach().cpu().numpy()]
     eigvals = compute_eigenvalues(A_stars)
 
-    plot_Astar_anim(A_stars, eigvals, fname=f"{system}_sample.mp4")
+    return A_stars, eigvals
 
 
-def sample_random_trajectories(model, nsamples=1000, nsteps=100):
+def sample_random_trajectories(model, nsamples=5, nsteps=50):
     fx = model.components[1].fx
     fu = model.components[1].fu
     nx = fx.in_features
     nu = fu.in_features
 
-    random_inputs = torch.rand(nsteps, nu, device="cuda:0")
+    # TODO(lltt): constant inputs? step inputs (from dataset)?
+    random_inputs = torch.rand(nsteps, nu)
 
     samples = []
-    for i in tqdm(range(nsamples)):
+    for _ in range(nsamples):
         A_stars = []
-        x = torch.rand(1, nx, dtype=torch.float, device="cuda:0")
-        for t in tqdm(range(nsteps)):
+        x = torch.rand(1, nx)
+        for t in range(nsteps):
             Astar, _, _ = lpv(fx, x)
-            x = torch.matmul(x, Astar) + fu(random_inputs[t : t + 1, ...])
+            x = fx(x) + fu(random_inputs[t : t + 1, ...])
             A_stars += [Astar.detach().cpu().numpy()]
 
         eigvals = compute_eigenvalues(A_stars)
+        samples += [(A_stars, eigvals)]
 
-        samples += [(x, A_stars, eigvals)]
+    return samples
 
-    plot_Astar_anim(A_stars, eigvals, fname=f"sample_{i}.mp4")
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    # TODO(lltt): TwoTank model is NOT a block nonlinear model, needs nonlinear state transition
-    CSTR_MODEL_PATH = "neuromancer/train_scripts/L4DC_paper/models/best_model_cstr.pth"
-    TANK_MODEL_PATH = "neuromancer/train_scripts/ACC_models/best_models_bnl_paper/blocknlin/twotank/best_model.pth"
+    CSTR_MODEL_PATH = "neuromancer/train_scripts/L4DC_paper/models/cstr_model.pth"
+    TANK_MODEL_PATH = "neuromancer/train_scripts/L4DC_paper/models/tank_model.pth"
 
+    # CSTR A* visualizations
     cstr_model = torch.load(CSTR_MODEL_PATH, pickle_module=dill, map_location="cpu")
-    cstr_data = EmulatorDataset("CSTR", nsim=10000, seed=50, device="cuda:0")
+    cstr_data = EmulatorDataset("CSTR", nsim=10000, seed=50, device="cpu")
 
+    print("CSTR: Sampling trajectories from training data...")
+    A_stars, eigvals = sample_data_trajectories(cstr_model, cstr_data.train_loop)
+    plot_Astar_anim(A_stars, eigvals, fname=f"cstr_sample.mp4")
+
+    print("CSTR: Sampling trajectories from random data...")
+    samples = sample_random_trajectories(cstr_model)
+    for i, (A_stars, eigvals) in enumerate(samples):
+        plot_Astar_anim(A_stars, eigvals, fname=f"cstr_random_sample_{i}.mp4")
+
+    # two tank A* visualizations
+    tank_data = EmulatorDataset("TwoTank", nsim=10000, seed=81, device="cpu")
     tank_model = torch.load(TANK_MODEL_PATH, pickle_module=dill, map_location="cpu")
 
-    plot_phase_portrait_2d(cstr_model, data=cstr_data.train_loop)
-    plt.show()
+    print("Two Tank: Sampling A* trajectories from training data...")
+    A_stars, eigvals = sample_data_trajectories(tank_model, tank_data.train_loop)
+    plot_Astar_anim(A_stars, eigvals, fname=f"tank_sample.mp4")
 
-    plot_phase_portrait_2d(tank_model)
-    plt.show()
-
-    sample_data_trajectories(cstr_model, "CSTR")
-    sample_random_trajectories(cstr_model)
-
-    sample_random_trajectories(tank_model)
-    # sample_data_trajectories(tank_model, "TwoTank")
+    print("Two Tank: Sampling A* trajectories from random data...")
+    samples = sample_random_trajectories(tank_model)
+    for i, (A_stars, eigvals) in enumerate(samples):
+        plot_Astar_anim(A_stars, eigvals, fname=f"tank_random_sample_{i}.mp4")

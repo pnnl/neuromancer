@@ -2,10 +2,10 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import dill
-
+import slim
+from neuromancer import blocks
 from neuromancer.datasets import EmulatorDataset
 from psl.nonautonomous import TwoTank, CSTR
-
 from sklearn.decomposition import PCA
 
 
@@ -64,21 +64,6 @@ def plot_ode_phase_portrait(
         plt.savefig(fname)
 
     return [ax]
-
-
-class SsmModel:
-    def __init__(self, model, use_input=False):
-        self.estim = model.components[0]
-        self.fx = model.components[1].fx
-        self.fu = model.components[1].fu if use_input else lambda x: 0.0
-        self.fy = model.components[1].fy
-
-    def __call__(self, x, u=None):
-        x = {"Yp": x.expand(self.estim.nsteps, -1, -1)}
-        x = self.estim(x)["x0_estim"]
-        x = self.fx(x) + self.fu(u)
-        x = self.fy(x)
-        return x
 
 
 def plot_model_phase_portrait(
@@ -166,12 +151,27 @@ def plot_phase_portrait_hidim(fx, limits=(-1, 1), nsamples=10000, fname=None):
     return [ax]
 
 
+class SsmModel:
+    def __init__(self, model, use_input=False):
+        self.estim = model.components[0]
+        self.fx = model.components[1].fx
+        self.fu = model.components[1].fu if use_input else lambda x: 0.0
+        self.fy = model.components[1].fy
+
+    def __call__(self, x, u=None):
+        x = {"Yp": x.expand(self.estim.nsteps, -1, -1)}
+        x = self.estim(x)["x0_estim"]
+        x = self.fx(x) + self.fu(u)
+        x = self.fy(x)
+        return x
+
+
 if __name__ == "__main__":
     print("Testing ODE phase portrait...")
-    plot_ode_phase_portrait(CSTR(nsim=1))
+    plot_ode_phase_portrait(CSTR(nsim=1, seed=50))
     plt.show()
 
-    plot_ode_phase_portrait(TwoTank(nsim=1))
+    plot_ode_phase_portrait(TwoTank(nsim=1, seed=81))
     plt.show()
 
     CSTR_PATH = "neuromancer/train_scripts/L4DC_paper/models/cstr_model.pth"
@@ -205,6 +205,20 @@ if __name__ == "__main__":
     )
     plt.show()
 
+    linmap = slim.linear.maps["gershgorin"]
+    fx = blocks.MLP(
+        2,
+        2,
+        bias=False,
+        Linear=linmap,
+        nonlin=torch.nn.GELU,
+        hsizes=[2] * 10,
+        linargs=dict(sigma_min=0.9, sigma_max=1.0, real=False),
+    )
+
+    plot_model_phase_portrait(fx, x_lims=(-5, 5), y_lims=(-5, 5), step=0.5)
+    plt.show()
+
     initial_states = [
         np.array([-2, 0]),
         np.array([0.5, -1]),
@@ -212,8 +226,8 @@ if __name__ == "__main__":
     spiral_A = torch.tensor([[0, 0.8], [-0.05, -0.0135]], dtype=torch.float).T
     plot_model_phase_portrait(
         lambda x: torch.matmul(x, spiral_A),
-        x_lims=(-2, 2),
-        y_lims=(-2, 2),
+        x_lims=(-1, 1),
+        y_lims=(-1, 1),
         step=0.2,
         initial_states=initial_states,
         t=100,

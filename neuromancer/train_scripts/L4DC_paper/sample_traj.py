@@ -1,5 +1,7 @@
 import torch
 import dill
+import slim
+from neuromancer import blocks
 from neuromancer.datasets import EmulatorDataset
 
 from lpv import lpv
@@ -49,7 +51,40 @@ def sample_random_trajectories(model, nsamples=5, nsteps=50):
     return samples
 
 
+def _sample_random_trajectories(fx, nsamples=5, nsteps=50):
+    nx = fx.in_features
+    samples = []
+    for _ in range(nsamples):
+        A_stars = []
+        x = torch.rand(1, nx)
+        for t in range(nsteps):
+            Astar, _, _ = lpv(fx, x)
+            x = fx(x)
+            A_stars += [Astar.detach().cpu().numpy()]
+
+        eigvals = compute_eigenvalues(A_stars)
+        samples += [(A_stars, eigvals)]
+
+    return samples
+
+
 if __name__ == "__main__":
+    print("Gershgorin: Sampling trajectories from random data...")
+    linmap = slim.linear.maps["gershgorin"]
+    fx = blocks.MLP(
+        2,
+        2,
+        bias=False,
+        Linear=linmap,
+        nonlin=torch.nn.Sigmoid,
+        hsizes=[2] * 10,
+        linargs=dict(sigma_min=0.9, sigma_max=1.0, real=False),
+    )
+
+    samples = _sample_random_trajectories(fx, nsamples=1)
+    for i, (A_stars, eigvals) in enumerate(samples):
+        plot_Astar_anim(A_stars, eigvals, fname=f"gershgorin_random_sample_{i}.mp4")
+
     CSTR_MODEL_PATH = "neuromancer/train_scripts/L4DC_paper/models/cstr_model.pth"
     TANK_MODEL_PATH = "neuromancer/train_scripts/L4DC_paper/models/tank_model.pth"
 
@@ -78,3 +113,4 @@ if __name__ == "__main__":
     samples = sample_random_trajectories(tank_model)
     for i, (A_stars, eigvals) in enumerate(samples):
         plot_Astar_anim(A_stars, eigvals, fname=f"tank_random_sample_{i}.mp4")
+

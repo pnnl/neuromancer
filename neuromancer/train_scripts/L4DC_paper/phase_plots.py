@@ -107,9 +107,6 @@ def plot_model_phase_portrait(
 
     # plot state trajectories over phase space if initial states given
     if len(initial_states) > 0:
-        initial_states = torch.tensor(
-            initial_states, dtype=torch.float, requires_grad=False
-        )
         states = torch.empty(t + 1, *initial_states.shape, requires_grad=False)
         states[0, :, :] = initial_states
         for i in range(t):

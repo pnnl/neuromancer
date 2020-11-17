@@ -565,9 +565,9 @@ class MultiExperimentDataset(FileDataset):
             for d in dset:
                 d.name = name
 
-def _check_data(data):
 
-    return not np.any(np.isnan(data)) #(np.any(np.all(np.isclose(data[1:] - data[:-1], 0.), axis=0)) or np.any(np.all(np.isclose(data, 0.), axis=0)))
+def _check_data(data):
+    return not np.any(np.isnan(data))
 
 
 class EmulatorDataset(Dataset):
@@ -576,7 +576,6 @@ class EmulatorDataset(Dataset):
                  savedir='test', norm_type='normalize', seed=59):
         self.simulator_seed = seed
         super().__init__(system, nsim, ninit, norm, batch_type, nsteps, device, sequences, name, savedir, norm_type)
-
 
     def load_data(self):
         """

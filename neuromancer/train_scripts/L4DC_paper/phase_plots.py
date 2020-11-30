@@ -10,10 +10,10 @@ from sklearn.decomposition import PCA
 import seaborn as sns
 
 PALETTE = sns.color_palette(
-    "light:#00f", as_cmap=True
+    "light:#55f", as_cmap=True
 )  # sns.color_palette("crest_r", as_cmap=True)
 
-from lpv import lpv
+from tutorial_system import LPV_net
 
 
 def plot_ode_phase_portrait(
@@ -181,14 +181,14 @@ def plot_astar_phase_portrait(
     be plotted over portrait.
     """
     X, Y = torch.meshgrid(
-        torch.arange(x_lims[0] - step, x_lims[1] + step, step),
-        torch.arange(y_lims[0] - step, y_lims[1] + step, step),
+        torch.arange(x_lims[0], x_lims[1] + step, step),
+        torch.arange(y_lims[0], y_lims[1] + step, step),
     )
     grid = torch.stack((X.flatten(), Y.flatten())).T
 
     Xplus = torch.empty_like(grid)
     for i, sample in enumerate(grid):
-        Astar, Astar_b, bstar, _, _, _, _ = lpv(model, sample)
+        Astar, Astar_b, bstar = LPV_net(model, sample)
         if use_bias:
             Xplus[i, ...] = torch.matmul(sample, Astar_b) + bstar
         else:
@@ -207,9 +207,9 @@ def plot_astar_phase_portrait(
             magnitudes,
             extent=[
                 x_lims[0] - step / 2,
-                x_lims[1] - step / 2,
+                x_lims[1] + step / 2,
                 y_lims[0] - step / 2,
-                y_lims[1] - step / 2,
+                y_lims[1] + step / 2,
             ],
             interpolation="bicubic",
             cmap=PALETTE,
@@ -236,6 +236,9 @@ def plot_astar_phase_portrait(
     V = -Y + V
     """
 
+    ax.plot([0., 0.], (y_lims[0] - step / 2, y_lims[1] + step / 2), c="black", lw=0.5)
+    ax.plot((x_lims[0] - step / 2, x_lims[1] + step / 2), [0., 0.], c="black", lw=0.5)
+
     # plot vector field
     ax.quiver(
         X, Y, U, V, angles="uv", pivot="mid", width=0.002, headwidth=4, headlength=5
@@ -253,7 +256,7 @@ def plot_astar_phase_portrait(
         for i in range(t):
             for k in range(initial_states.shape[0]):
                 sample = states[i, k, :]
-                Astar, Astar_b, bstar, _, _, _, _ = lpv(model, sample)
+                Astar, Astar_b, bstar = LPV_net(model, sample)
                 if use_bias:
                     states[i + 1, k, :] = torch.matmul(sample, Astar_b) + bstar
                 else:
@@ -261,8 +264,8 @@ def plot_astar_phase_portrait(
         states = states.transpose(1, 2).detach().cpu().numpy()
         ax.plot(states[:, 0], states[:, 1], marker="o", ms=3)
 
-    ax.set_xlim((x_lims[0] - step / 2, x_lims[1] - step / 2))
-    ax.set_ylim((y_lims[0] - step / 2, y_lims[1] - step / 2))
+    ax.set_xlim((x_lims[0] - step / 2, x_lims[1] + step / 2))
+    ax.set_ylim((y_lims[0] - step / 2, y_lims[1] + step / 2))
     ax.set_aspect(1)
 
     if fname is not None:

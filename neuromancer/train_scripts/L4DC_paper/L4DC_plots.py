@@ -57,7 +57,7 @@ if __name__ == '__main__':
             # if abs(x_1 - x_2).squeeze() <= 0.01 and abs(x_3 - x_4).squeeze() <= 0.01:
             x_1 = act(torch.tensor([-6.0])).detach().numpy()
             x_2 = act(torch.tensor([6.0])).detach().numpy()
-            if abs(x_1).squeeze() <= 6.0 and abs(x_2).squeeze() <= 6.0:
+            if abs(x_1).squeeze() < 6.0 and abs(x_2).squeeze() < 6.0:
                 X_BIBO_stable.append(x)
                 Act_BIBO_stable.append(act)
             else:

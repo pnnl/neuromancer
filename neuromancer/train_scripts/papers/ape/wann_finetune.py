@@ -1,0 +1,57 @@
+import pickle
+
+import os
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('-hours', type=int, help='number of gpu hours to request for job', default=96)
+parser.add_argument('-partition', type=str, help='Partition of gpus to access', default='shared_dlt')
+parser.add_argument('-allocation', type=str, help='Allocation name for billing', default='pins')
+parser.add_argument('-env', type=str, help='Name of conda environment for running code.', default='acdc')
+parser.add_argument('-results', type=str, help='Where to log mlflow results', default='/qfs/projects/deepmpc/mlflow/wannfinetune_2020_09_5/mlruns')
+parser.add_argument('-exp_folder', type=str, help='Where to save sbatch scripts and log files',
+                    default='sbatch/')
+parser.add_argument('-nsamples', type=int, help='Number of samples for each experimental configuration',
+                    default=5)
+parser.add_argument('-params_file', default='/qfs/projects/deepmpc/best_aero_models/best_wann_models/aero_wann_best_20200826.pkl')
+
+args = parser.parse_args()
+
+template = '#!/bin/bash\n' +\
+           '#SBATCH -A %s\n' % args.allocation +\
+           '#SBATCH -t %s:00:00\n' % args.hours +\
+           '#SBATCH --gres=gpu:1\n' +\
+           '#SBATCH -p %s\n' % args.partition +\
+           '#SBATCH -N 1\n' +\
+           '#SBATCH -n 2\n' +\
+           '#SBATCH -o %j.out\n' +\
+           '#SBATCH -e %j.err\n' +\
+           'source /etc/profile.d/modules.sh\n' +\
+           'module purge\n' +\
+           'module load python/anaconda3.2019.3\n' +\
+           'ulimit\n' +\
+           'source activate %s\n\n' % args.env
+
+os.system('mkdir %s' % args.exp_folder)
+os.system('mkdir temp')
+
+keys = ['linear_map', 'estimator_input_window', 'sigma_max',
+        'n_layers', 'state_estimator', 'ssm_type', 'nonlinear_map', 'system', 'activation',
+        'nx_hidden']
+
+params = pickle.load(open(args.params_file, 'rb'))
+learnrates = [0.001, 0.003]
+stub = 'python system_id.py -gpu 0 -epochs 15000 -location %s -logger mlflow -exp wann_finetune -warmup 100 -patience 100 ' % args.results
+print([k for k in params.columns])
+for idx in params.index:
+    print(idx)
+    for lr in learnrates:
+        savedir = '_'.join([str(params['params.' + p][idx]) for p in keys] + [str(lr)])
+        argstring = ' '.join(['-' + p + ' ' + str(params['params.' + p][idx]) for p in keys] + [' -savedir %s ' % savedir, ' -lr %s ' % lr])
+        cmd = stub + argstring
+        print(cmd)
+        with open(os.path.join(args.exp_folder, 'exp_%s.slurm' % savedir), 'w') as cmdfile: # unique name for sbatch script
+            cmdfile.write(template + cmd)
+
+

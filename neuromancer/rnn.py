@@ -1,30 +1,28 @@
-# machine learning/data science imports
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# ecosystem imports
 import slim
 
 
 class RNNCell(nn.Module):
-    def __init__(self, input_size, hidden_size, bias=False, nonlin=F.gelu, Linear=slim.Linear, linargs=dict()):
+    def __init__(self, input_size, hidden_size, bias=False, nonlin=F.gelu, linear_map=slim.Linear, linargs=dict()):
         """
 
         :param input_size:
         :param hidden_size:
         :param bias:
         :param nonlinearity:
-        :param Linear:
+        :param linear_map:
         :param linargs:
         """
         super().__init__()
         self.input_size, self.hidden_size = input_size, hidden_size
         self.in_features, self.out_features = input_size, hidden_size
         self.nonlin = nonlin
-        self.lin_in = Linear(input_size, hidden_size, bias=bias, **linargs)
-        self.lin_hidden = Linear(hidden_size, hidden_size, bias=bias, **linargs)
-        if type(Linear) is slim.Linear:
+        self.lin_in = linear_map(input_size, hidden_size, bias=bias, **linargs)
+        self.lin_hidden = linear_map(hidden_size, hidden_size, bias=bias, **linargs)
+        if type(linear_map) is slim.Linear:
             torch.nn.init.orthogonal_(self.lin_hidden.linear.weight)
 
     def reg_error(self):
@@ -36,7 +34,7 @@ class RNNCell(nn.Module):
 
 class RNN(nn.Module):
     def __init__(self, input_size, hsizes=(16,),
-                 bias=False, nonlin=nn.GELU, Linear=slim.Linear, linargs=dict()):
+                 bias=False, nonlin=nn.GELU, linear_map=slim.Linear, linargs=dict()):
         """
 
         :param input_size:
@@ -52,9 +50,9 @@ class RNN(nn.Module):
         num_layers = len(hsizes)
         self.in_features, self.out_features = input_size, hidden_size
         rnn_cells = [RNNCell(input_size, hidden_size, bias=bias, nonlin=nonlin(),
-                     Linear=Linear, linargs=linargs)]
+                     linear_map=linear_map, linargs=linargs)]
         rnn_cells += [RNNCell(hidden_size, hidden_size, bias=bias, nonlin=nonlin(),
-                      Linear=Linear, linargs=linargs)
+                      linear_map=linear_map, linargs=linargs)
                       for k in range(num_layers-1)]
         self.rnn_cells = nn.ModuleList(rnn_cells)
         self.num_layers = len(rnn_cells)
@@ -90,24 +88,24 @@ class RNN(nn.Module):
 if __name__ == '__main__':
     x = torch.rand(20, 5, 8)
     for bias in [True, False]:
-        for name, map in slim.maps.items():
+        for name, linear_map in slim.maps.items():
             print(name)
-            rnn = RNN(8, hsizes=[8, 8], bias=bias, Linear=map)
+            rnn = RNN(8, hsizes=[8, 8], bias=bias, linear_map=linear_map)
             out = rnn(x)
             print(out[0].shape, out[1].shape)
 
-        for map in set(slim.maps.values()) - slim.square_maps:
-            rnn = RNN(8, hsizes=[16, 16], bias=bias, Linear=map)
+        for linear_map in set(slim.maps.values()) - slim.square_maps:
+            rnn = RNN(8, hsizes=[16, 16], bias=bias, linear_map=linear_map)
             out = rnn(x)
             print(out[0].shape, out[1].shape)
 
-        for name, map in slim.maps.items():
+        for name, linear_map in slim.maps.items():
             print(name)
-            rnn = RNN(8, hsizes=[8, 8], bias=bias, Linear=map)
+            rnn = RNN(8, hsizes=[8, 8], bias=bias, linear_map=linear_map)
             out = rnn(x)
             print(out[0].shape, out[1].shape)
 
-        for map in set(slim.maps.values()) - slim.square_maps:
-            rnn = RNN(8, hsizes=[16, 16], bias=bias, Linear=map)
+        for linear_map in set(slim.maps.values()) - slim.square_maps:
+            rnn = RNN(8, hsizes=[16, 16], bias=bias, linear_map=linear_map)
             out = rnn(x)
             print(out[0].shape, out[1].shape)

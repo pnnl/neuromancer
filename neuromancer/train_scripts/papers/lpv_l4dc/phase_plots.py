@@ -74,6 +74,7 @@ def plot_model_phase_portrait(
     data=None,
     initial_states=[],
     t=100,
+    regions=True,
     fname=None,
 ):
     """
@@ -85,6 +86,34 @@ def plot_model_phase_portrait(
     if `initial_states` is specified, trajectories over `t` steps will
     be plotted over portrait.
     """
+    _, ax = plt.subplots()
+    if regions:
+        X, Y = torch.meshgrid(
+            torch.arange(*x_lims, (x_lims[1] - x_lims[0]) / 1024),
+            torch.arange(*y_lims, (y_lims[1] - y_lims[0]) / 1024),
+        )
+        grid = torch.stack((X.flatten(), Y.flatten())).T
+        grid = model(grid)
+
+        U, V = grid.T.reshape(2, *X.shape).detach().cpu().numpy()
+
+        U = -X + U
+        V = -Y + V
+
+        magnitudes = np.stack((U, V), axis=-1)
+        magnitudes = np.linalg.norm(magnitudes, ord=2, axis=-1).T[::-1, :]
+        ax.imshow(
+            magnitudes,
+            extent=[
+                x_lims[0] - step / 2,
+                x_lims[1] - step / 2,
+                y_lims[0] - step / 2,
+                y_lims[1] - step / 2,
+            ],
+            interpolation="bicubic",
+            cmap=PALETTE,
+        )
+
     X, Y = torch.meshgrid(torch.arange(*x_lims, step), torch.arange(*y_lims, step))
     grid = torch.stack((X.flatten(), Y.flatten())).T
     grid = model(grid)
@@ -95,7 +124,6 @@ def plot_model_phase_portrait(
     V = -Y + V
 
     # plot vector field
-    _, ax = plt.subplots()
     ax.quiver(
         X, Y, U, V, angles="uv", pivot="mid", width=0.002, headwidth=4, headlength=5
     )
@@ -112,13 +140,14 @@ def plot_model_phase_portrait(
         for i in range(t):
             states[i + 1, :, :] = model(states[i, :, :])
         states = states.transpose(1, 2).detach().cpu().numpy()
-        ax.plot(states[:, 0], states[:, 1])
+        ax.plot(states[:, 0], states[:, 1], marker="o", ms=3)
 
     ax.set_xlim((x_lims[0] - step / 2, x_lims[1] - step / 2))
     ax.set_ylim((y_lims[0] - step / 2, y_lims[1] - step / 2))
 
     if fname is not None:
         plt.savefig(fname)
+        plt.close()
 
     return [ax]
 
@@ -148,22 +177,21 @@ def plot_phase_portrait_hidim(fx, limits=(-1, 1), nsamples=10000, fname=None):
     return [ax]
 
 
-class SsmModel:
-    def __init__(self, model, use_input=False):
-        self.estim = model.components[0]
-        self.fx = model.components[1].fx
-        self.fu = model.components[1].fu if use_input else lambda x: 0.0
-        self.fy = model.components[1].fy
-
-    def __call__(self, x, u=None):
-        x = {"Yp": x.expand(self.estim.nsteps, -1, -1)}
-        x = self.estim(x)["x0_estim"]
-        x = self.fx(x) + self.fu(u)
-        x = self.fy(x)
-        return x
-
-
 if __name__ == "__main__":
+    class SsmModel:
+        def __init__(self, model, use_input=False):
+            self.estim = model.components[0]
+            self.fx = model.components[1].fx
+            self.fu = model.components[1].fu if use_input else lambda x: 0.0
+            self.fy = model.components[1].fy
+
+        def __call__(self, x, u=None):
+            x = {"Yp": x.expand(self.estim.nsteps, -1, -1)}
+            x = self.estim(x)["x0_estim"]
+            x = self.fx(x) + self.fu(u)
+            x = self.fy(x)
+            return x
+
     print("Testing ODE phase portrait...")
     plot_ode_phase_portrait(CSTR(nsim=1, seed=50))
     plt.show()

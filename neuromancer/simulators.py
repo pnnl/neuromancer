@@ -5,16 +5,14 @@ TODO: overwrite past after n-steps, continuously in first n steps
 
 """
 
-# machine learning/data science imports
 import torch
 import torch.nn as nn
 import numpy as np
 
-# ecosystem imports
 from psl import EmulatorBase
 
-# lcoal imports
-from neuromancer.datasets import EmulatorDataset, FileDataset, min_max_denorm, normalize
+from neuromancer.datasets import EmulatorDataset, FileDataset
+from neuromancer.data.normalization import normalize_01 as normalize, denormalize_01 as min_max_denorm
 from neuromancer.problem import Problem
 from neuromancer.datasets import Dataset, DataDict
 

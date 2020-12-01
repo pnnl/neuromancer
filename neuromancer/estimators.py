@@ -129,7 +129,7 @@ class seq2seqTimeDelayEstimator(TimeDelayEstimator):
 
 class FullyObservable(TimeDelayEstimator):
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
-                 Linear=slim.Linear, nonlin=nn.Identity, hsizes=[],
+                 linear_map=slim.Linear, nonlin=nn.Identity, hsizes=[],
                  input_keys=['Yp'], linargs=dict(), name='fully_observable'):
         """
         Dummmy estimator to use consistent API for fully and partially observable systems
@@ -143,19 +143,19 @@ class FullyObservable(TimeDelayEstimator):
 
 class LinearEstimator(TimeDelayEstimator):
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
-                 Linear=slim.Linear, nonlin=nn.Identity, hsizes=[],
+                 linear_map=slim.Linear, nonlin=nn.Identity, hsizes=[],
                  input_keys=['Yp'], linargs=dict(), name='linear_estim'):
         """
 
         See base class for arguments
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
-        self.net = Linear(self.in_features, self.out_features, bias=bias, **linargs)
+        self.net = linear_map(self.in_features, self.out_features, bias=bias, **linargs)
 
 
 class seq2seqLinearEstimator(seq2seqTimeDelayEstimator):
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
-                 Linear=slim.Linear, nonlin=nn.Identity, hsizes=[], timedelay=0,
+                 linear_map=slim.Linear, nonlin=nn.Identity, hsizes=[], timedelay=0,
                  input_keys=['Yp'], linargs=dict(), name='linear_estim'):
         """
 
@@ -163,7 +163,7 @@ class seq2seqLinearEstimator(seq2seqTimeDelayEstimator):
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys,
                          timedelay=timedelay, name=name)
-        self.net = Linear(self.in_features, self.out_features, bias=bias, **linargs)
+        self.net = linear_map(self.in_features, self.out_features, bias=bias, **linargs)
 
 
 class MLPEstimator(TimeDelayEstimator):
@@ -171,14 +171,14 @@ class MLPEstimator(TimeDelayEstimator):
 
     """
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
-                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64],
+                 linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64],
                  input_keys=['Yp'], linargs=dict(), name='MLP_estim'):
         """
         See base class for arguments
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
         self.net = blocks.MLP(self.in_features, self.out_features, bias=bias,
-                              Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
+                              linear_map=linear_map, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
 class seq2seqMLPEstimator(seq2seqTimeDelayEstimator):
@@ -186,7 +186,7 @@ class seq2seqMLPEstimator(seq2seqTimeDelayEstimator):
 
     """
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
-                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64], timedelay=0,
+                 linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64], timedelay=0,
                  input_keys=['Yp'], linargs=dict(), name='MLP_estim'):
         """
         See base class for arguments
@@ -194,7 +194,7 @@ class seq2seqMLPEstimator(seq2seqTimeDelayEstimator):
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys,
                          timedelay=timedelay, name=name)
         self.net = blocks.MLP(self.in_features, self.out_features, bias=bias,
-                              Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
+                              linear_map=linear_map, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
 class ResMLPEstimator(TimeDelayEstimator):
@@ -202,14 +202,14 @@ class ResMLPEstimator(TimeDelayEstimator):
 
     """
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
-                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64],
+                 linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64],
                  input_keys=['Yp'], linargs=dict(), name='ResMLP_estim'):
         """
         see base class for arguments
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
         self.net = blocks.ResMLP(self.in_features, self.out_features, bias=bias,
-                                 Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
+                                 linear_map=linear_map, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
 class seq2seqResMLPEstimator(seq2seqTimeDelayEstimator):
@@ -217,7 +217,7 @@ class seq2seqResMLPEstimator(seq2seqTimeDelayEstimator):
 
     """
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
-                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64], timedelay=0,
+                 linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64], timedelay=0,
                  input_keys=['Yp'], linargs=dict(), name='ResMLP_estim'):
         """
         see base class for arguments
@@ -225,13 +225,13 @@ class seq2seqResMLPEstimator(seq2seqTimeDelayEstimator):
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys,
                          timedelay=timedelay, name=name)
         self.net = blocks.ResMLP(self.in_features, self.out_features, bias=bias,
-                                 Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
+                                 linear_map=linear_map, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
 
 class RNNEstimator(TimeDelayEstimator):
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
-                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64],
+                 linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64],
                  input_keys=['Yp'], linargs=dict(), name='RNN_estim'):
         """
         see base class for arguments
@@ -239,7 +239,7 @@ class RNNEstimator(TimeDelayEstimator):
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
         self.in_features = self.sequence_dims_sum
         self.net = blocks.RNN(self.in_features, self.out_features, hsizes=hsizes,
-                              bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)
+                              bias=bias, nonlin=nonlin, linear_map=linear_map, linargs=linargs)
 
     def forward(self, data):
         features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
@@ -248,7 +248,7 @@ class RNNEstimator(TimeDelayEstimator):
 
 class seq2seqRNNEstimator(seq2seqTimeDelayEstimator):
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
-                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64], timedelay=0,
+                 linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64], timedelay=0,
                  input_keys=['Yp'], linargs=dict(), name='RNN_estim'):
         """
         see base class for arguments
@@ -257,7 +257,7 @@ class seq2seqRNNEstimator(seq2seqTimeDelayEstimator):
                          timedelay=timedelay, name=name)
         self.in_features = self.sequence_dims_sum
         self.net = blocks.RNN(self.in_features, self.out_features, hsizes=hsizes,
-                              bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)
+                              bias=bias, nonlin=nonlin, linear_map=linear_map, linargs=linargs)
 
     def forward(self, data):
         features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
@@ -349,7 +349,7 @@ if __name__ == '__main__':
                 print(f'{k}: {v.shape}')
             for lin in set(slim.maps.values()) - slim.square_maps:
                 print(lin)
-                e = est(data_dims, input_keys=input_keys, bias=bias, Linear=lin)
+                e = est(data_dims, input_keys=input_keys, bias=bias, linear_map=lin)
                 e_out = e(data)
                 for k, v in e_out.items():
                     print(f'{k}: {v.shape}')
@@ -363,7 +363,7 @@ if __name__ == '__main__':
                 print(f'{k}: {v.shape}')
             for lin in set(slim.maps.values()) - slim.square_maps:
                 print(lin)
-                e = est(data_dims, nsteps=N, window_size=N, input_keys=input_keys, bias=bias, Linear=lin)
+                e = est(data_dims, nsteps=N, window_size=N, input_keys=input_keys, bias=bias, linear_map=lin)
                 e_out = e(data)
                 for k, v in e_out.items():
                     print(f'{k}: {v.shape}')
@@ -377,7 +377,7 @@ if __name__ == '__main__':
                 print(f'{k}: {v.shape}')
             for lin in set(slim.maps.values()) - slim.square_maps:
                 print(lin)
-                e = est(data_dims, nsteps=N, window_size=N-1, input_keys=input_keys, bias=bias, Linear=lin)
+                e = est(data_dims, nsteps=N, window_size=N-1, input_keys=input_keys, bias=bias, linear_map=lin)
                 e_out = e(data)
                 for k, v in e_out.items():
                     print(f'{k}: {v.shape}')
@@ -392,7 +392,7 @@ if __name__ == '__main__':
                 print(f'{k}: {v.shape}')
             for lin in set(slim.maps.values()) - slim.square_maps:
                 print(lin)
-                e = est(data_dims, nsteps=N, window_size=N, timedelay=N-1, input_keys=input_keys, bias=bias, Linear=lin)
+                e = est(data_dims, nsteps=N, window_size=N, timedelay=N-1, input_keys=input_keys, bias=bias, linear_map=lin)
                 e_out = e(data)
                 for k, v in e_out.items():
                     print(f'{k}: {v.shape}')
@@ -406,7 +406,7 @@ if __name__ == '__main__':
                 print(f'{k}: {v.shape}')
             for lin in set(slim.maps.values()) - slim.square_maps:
                 print(lin)
-                e = est(data_dims, nsteps=N, window_size=N-1, timedelay=0, input_keys=input_keys, bias=bias, Linear=lin)
+                e = est(data_dims, nsteps=N, window_size=N-1, timedelay=0, input_keys=input_keys, bias=bias, linear_map=lin)
                 e_out = e(data)
                 for k, v in e_out.items():
                     print(f'{k}: {v.shape}')

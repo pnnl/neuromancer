@@ -1,102 +1,25 @@
 """
 
 """
-# python base imports
 import os
 from typing import Dict
 import warnings
 import random
 
-# machine learning/data science imports
 from scipy.io import loadmat
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import torch
 
-# ecosystem imports
 import psl as emulators
 
-# local imports
 import neuromancer.plot as plot
-
-
-def min_max_denorm(M, Mmin, Mmax):
-    """
-    denormalize min max norm
-    :param M: (2-d np.array) Data to be normalized
-    :param Mmin: (int) Minimum value
-    :param Mmax: (int) Maximum value
-    :return: (2-d np.array) Un-normalized data
-    """
-    M_denorm = M*(Mmax - Mmin) + Mmin
-    return M_denorm
-
-
-def batch_mh_data(data, nsteps):
-    """
-    moving horizon batching
-
-    :param data: np.array shape=(nsim, dim)
-    :param nsteps: (int) n-step prediction horizon
-    :return: np.array shape=(nsteps, nsamples, dim)
-    """
-    end_step = data.shape[0] - nsteps
-    data = np.asarray([data[k:k+nsteps, :] for k in range(0, end_step)])  # nchunks X nsteps X nfeatures
-    return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
-
-
-def batch_data(data, nsteps):
-    """
-
-    :param data: np.array shape=(nsim, dim)
-    :param nsteps: (int) n-step prediction horizon
-    :return: np.array shape=(nsteps, nsamples, dim)
-    """
-    nsplits = (data.shape[0]) // nsteps
-    leftover = (data.shape[0]) % nsteps
-    data = np.stack(np.split(data[:data.shape[0] - leftover], nsplits))  # nchunks X nsteps X nfeatures
-    return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
-
-
-def batch_data_exp_idx(data, idx, nsteps):
-    """
-    batch data from multiple indexed experiments
-
-    :param data: np.array shape=(nsim, dim)
-    :param nsteps: (int) n-step prediction horizon
-    :return: np.array shape=(nsteps, nsamples, dim)
-    """
-    nsplits = (data.shape[0]) // nsteps
-    leftover = (data.shape[0]) % nsteps
-    data = np.stack(np.split(data[:data.shape[0] - leftover], nsplits))  # nchunks X nsteps X nfeatures
-    return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
-
-
-def unbatch_mh_data(data):
-    """
-    Data put back together into original sequence from moving horizon dataset.
-
-    :param data: (torch.Tensor or np.array, shape=(nsteps, nsamples, dim)
-    :return:  (torch.Tensor, shape=(nsim, 1, dim)
-    """
-    data_unmove = np.asarray([data[0, k, :] for k in range(0, data.shape[1])])
-    if isinstance(data, torch.Tensor):
-        data_unmove = torch.Tensor(data_unmove)
-    return data_unmove.reshape(-1, 1, data_unmove.shape[-1])
-
-
-def unbatch_data(data):
-    """
-    Data put back together into original sequence.
-
-    :param data: (torch.Tensor or np.array, shape=(nsteps, nsamples, dim)
-    :return:  (torch.Tensor, shape=(nsim, 1, dim)
-    """
-    if isinstance(data, torch.Tensor):
-        return data.transpose(1, 0).reshape(-1, 1, data.shape[-1])
-    else:
-        return data.transpose(1, 0, 2).reshape(-1, 1, data.shape[-1])
+from neuromancer.data.normalization import norm_fns
+from neuromancer.data.batch import (
+    batch_data, batch_mh_data, batch_data_exp_idx,
+    unbatch_data, unbatch_mh_data
+)
 
 
 class DataDict(dict):
@@ -106,41 +29,10 @@ class DataDict(dict):
     pass
 
 
-def normalize(M, Mmin=None, Mmax=None):
-        """
-        :param M: (2-d np.array) Data to be normalized
-        :param Mmin: (int) Optional minimum. If not provided is inferred from data.
-        :param Mmax: (int) Optional maximum. If not provided is inferred from data.
-        :return: (2-d np.array) Min-max normalized data
-        """
-        Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
-        Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            M_norm = (M - Mmin) / (Mmax - Mmin)
-        return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
-
-
-def normalize2(M, Mmin=None, Mmax=None):
-    """
-    :param M: (2-d np.array) Data to be normalized
-    :param Mmin: (int) Optional minimum. If not provided is inferred from data.
-    :param Mmax: (int) Optional maximum. If not provided is inferred from data.
-    :return: (2-d np.array) Min-max normalized data
-    """
-    Mmin = M.min(axis=0).reshape(1, -1) if Mmin is None else Mmin
-    Mmax = M.max(axis=0).reshape(1, -1) if Mmax is None else Mmax
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        M_norm = 2*((M - Mmin) / (Mmax - Mmin))-1
-    return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
-
-
 class Dataset:
-
     def __init__(self, system=None, nsim=10000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
-                 savedir='test', norm_type='normalize'):
+                 savedir='test', norm_type='zero-one'):
         """
 
         :param system: (str) Identifier for dataset.
@@ -166,6 +58,7 @@ class Dataset:
         assert not (system is None and len(sequences) == 0), 'Trying to instantiate an empty dataset.'
         self.name = name
         self.norm_type = norm_type
+        self.norm_fn = norm_fns[self.norm_type]
         self.savedir = savedir
         os.makedirs(self.savedir, exist_ok=True)
         self.system, self.nsim, self.ninit, self.norm, self.nsteps, self.device = system, nsim, ninit, norm, nsteps, device
@@ -196,11 +89,7 @@ class Dataset:
         for k, v in data.items():
             v = v.reshape(v.shape[0], -1)
             if k in norm:
-                if self.norm_type == 'normalize2':
-                    v, vmin, vmax = normalize2(v)
-                else:
-                    v, vmin, vmax = normalize(v)
-
+                v, vmin, vmax = self.norm_fn(v)
                 self.min_max_norms.update({k + 'min': vmin, k + 'max': vmax})
                 data[k] = v
         return data
@@ -368,7 +257,6 @@ class Dataset:
 
 
 class FileDataset(Dataset):
-
     def load_data(self):
         """
         Load data from files. system argument to init should be the name of a registered dataset in systems_datapaths
@@ -404,7 +292,7 @@ class MultiExperimentDataset(FileDataset):
     # TODO: This will break if nsim is small enough to exclude some experiments
     def __init__(self, system='fsw_phase_2', nsim=10000000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
-                 savedir='test', split=[.5, .25], norm_type='normalize'):
+                 savedir='test', split=[.5, .25], norm_type='zero-one'):
         """
         :param split: (2-tuple of float) First index is proportion of experiments from train, second is proportion from dev,
                        leftover are for test set.
@@ -566,8 +454,7 @@ class MultiExperimentDataset(FileDataset):
                 d.name = name
 
 def _check_data(data):
-
-    return not np.any(np.isnan(data)) #(np.any(np.all(np.isclose(data[1:] - data[:-1], 0.), axis=0)) or np.any(np.all(np.isclose(data, 0.), axis=0)))
+    return not np.any(np.isnan(data))
 
 
 class EmulatorDataset(Dataset):
@@ -652,7 +539,6 @@ class MultiExperimentEmulatorDataset(MultiExperimentDataset):
 
 
 class DatasetMPP(Dataset):
-
     def __init__(self, norm=[], device='cpu', sequences=dict(), name='mpp'):
         """
 
@@ -805,5 +691,3 @@ if __name__ == '__main__':
     nsim, ny = dataset.data['Y'].shape
     new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
     dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
-
-

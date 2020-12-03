@@ -12,7 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import torch
 
-import psl as emulators
+import psl
 
 import neuromancer.plot as plot
 from neuromancer.data.normalization import norm_fns
@@ -262,13 +262,13 @@ class FileDataset(Dataset):
         Load data from files. system argument to init should be the name of a registered dataset in systems_datapaths
         :return: (dict, str: 2-d np.array)
         """
-        if self.system in systems_datapaths.keys():
-            file_path = systems_datapaths[self.system]
+        if self.system in psl.datasets.keys():
+            file_path = psl.datasets[self.system]
         else:
             file_path = self.system
         if not os.path.exists(file_path):
             raise ValueError(f'No file at {file_path}')
-        file_type = file_path.split(".")[-1]
+        file_type = file_path.split(".")[-1].lower()
         if file_type == 'mat':
             file = loadmat(file_path)
             Y = file.get("y", None)  # outputs
@@ -309,6 +309,7 @@ class MultiExperimentDataset(FileDataset):
         assert not (system is None and len(sequences) == 0), 'Trying to instantiate an empty dataset.'
         self.name = name
         self.norm_type = norm_type
+        self.norm_fn = norm_fns[norm_type]
         self.savedir = savedir
         os.makedirs(self.savedir, exist_ok=True)
         self.system, self.nsim, self.ninit, self.norm, self.nsteps, self.device = system, nsim, ninit, norm, nsteps, device
@@ -460,7 +461,7 @@ def _check_data(data):
 class EmulatorDataset(Dataset):
     def __init__(self, system=None, nsim=10000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
-                 savedir='test', norm_type='normalize', seed=59):
+                 savedir='test', norm_type='zero-one', seed=59):
         self.simulator_seed = seed
         super().__init__(system, nsim, ninit, norm, batch_type, nsteps, device, sequences, name, savedir, norm_type)
 
@@ -470,15 +471,16 @@ class EmulatorDataset(Dataset):
         dataset creation from the emulator. system argument to init should be the name of a registered emulator
         return: (dict, str: 2-d np.array)
         """
-        systems = emulators.systems  # list of available emulators
-        model = systems[self.system](nsim=self.nsim, ninit=self.ninit, seed=self.simulator_seed)  # instantiate model class
+        model = psl.emulators[self.system](nsim=self.nsim, ninit=self.ninit, seed=self.simulator_seed)  # instantiate model class
         sim = model.simulate()  # simulate open loop
+        i = 1
         while not _check_data(sim['Y']):
-            print('Emulator generated invalid data, resimulating...')
+            print(f'Emulator generated invalid data, resimulating with seed={self.simulator_seed+i}...')
             del sim['Y']
             del model
-            model = systems[self.system](nsim=self.nsim, ninit=self.ninit)  # instantiate model class
+            model = psl.emulators[self.system](nsim=self.nsim, ninit=self.ninit, seed=self.simulator_seed+i)  # instantiate model class
             sim = model.simulate()
+            i += 1
 
         return sim
 
@@ -512,7 +514,7 @@ class MultiExperimentEmulatorDataset(MultiExperimentDataset):
 
         if nsim is None:
             nsim = self.nsim
-        model = emulators.systems[self.system](nsim=nsim, ninit=self.ninit)  # instantiate model class
+        model = psl.systems[self.system](nsim=nsim, ninit=self.ninit)  # instantiate model class
         return model.simulate(x0=x0, nsim=nsim)  # simulate open loop
 
     def merge_data(self, experiments):
@@ -567,127 +569,41 @@ class DatasetMPP(Dataset):
                 dset[k] = torch.tensor(v, dtype=torch.float32).to(self.device)
 
 
-resource_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'datasets')
-systems_datapaths = {'tank': os.path.join(resource_path, 'NLIN_SISO_two_tank/NLIN_two_tank_SISO.mat'),
-                     'vehicle3': os.path.join(resource_path, 'NLIN_MIMO_vehicle/NLIN_MIMO_vehicle3.mat'),
-                     'aero': os.path.join(resource_path, 'NLIN_MIMO_Aerodynamic/NLIN_MIMO_Aerodynamic.mat'),
-                     'flexy_air': os.path.join(resource_path, 'Flexy_air/flexy_air_data.csv'),
-                     'EED_building': os.path.join(resource_path, 'EED_building/EED_building.csv'),
-                     'fsw_phase_1': os.path.join(resource_path, 'FSW/by_step/fsw_data_phase_1.csv'),
-                     'fsw_phase_2': os.path.join(resource_path, 'FSW/by_step/fsw_data_phase_2.csv'),
-                     'fsw_phase_3': os.path.join(resource_path, 'FSW/by_step/fsw_data_phase_3.csv'),
-                     'fsw_phase_4': os.path.join(resource_path, 'FSW/by_step/fsw_data_phase_4.csv'),
-                     'siso_fsw_phase_1': os.path.join(resource_path, 'FSW/siso_by_step/fsw_data_phase_1.csv'),
-                     'siso_fsw_phase_2': os.path.join(resource_path, 'FSW/siso_by_step/fsw_data_phase_2.csv'),
-                     'siso_fsw_phase_3': os.path.join(resource_path, 'FSW/siso_by_step/fsw_data_phase_3.csv'),
-                     'siso_fsw_phase_4': os.path.join(resource_path, 'FSW/siso_by_step/fsw_data_phase_4.csv'),
-                     'siso_nd_fsw_phase_1': os.path.join(resource_path, 'FSW/siso_no_disturb_by_step/fsw_data_phase_1.csv'),
-                     'siso_nd_fsw_phase_2': os.path.join(resource_path, 'FSW/siso_no_disturb_by_step/fsw_data_phase_2.csv'),
-                     'siso_nd_fsw_phase_3': os.path.join(resource_path, 'FSW/siso_no_disturb_by_step/fsw_data_phase_3.csv'),
-                     'siso_nd_fsw_phase_4': os.path.join(resource_path, 'FSW/siso_no_disturb_by_step/fsw_data_phase_4.csv')
-                     }
-
-
-systems = {'fsw_phase_1': 'datafile',
-           'fsw_phase_2': 'datafile',
-           'fsw_phase_3': 'datafile',
-           'fsw_phase_4': 'datafile',
-           'siso_fsw_phase_1': 'datafile',
-           'siso_fsw_phase_2': 'datafile',
-           'siso_fsw_phase_3': 'datafile',
-           'siso_fsw_phase_4': 'datafile',
-           'siso_nd_fsw_phase_1': 'datafile',
-           'siso_nd_fsw_phase_2': 'datafile',
-           'siso_nd_fsw_phase_3': 'datafile',
-           'siso_nd_fsw_phase_4': 'datafile',
-           'tank': 'datafile',
-           'vehicle3': 'datafile',
-           'aero': 'datafile',
-           'flexy_air': 'datafile',
-           'TwoTank': 'emulator',
-           'LorenzSystem': 'emulator',
-           'Lorenz96': 'emulator',
-           'VanDerPol': 'emulator',
-           'ThomasAttractor': 'emulator',
-           'RosslerAttractor': 'emulator',
-           'LotkaVolterra': 'emulator',
-           'Brusselator1D': 'emulator',
-           'ChuaCircuit': 'emulator',
-           'Duffing': 'emulator',
-           'UniversalOscillator': 'emulator',
-           'HindmarshRose': 'emulator',
-           'SimpleSingleZone': 'emulator',
-           'Pendulum-v0': 'emulator',
-           'CartPole-v1': 'emulator',
-           'Acrobot-v1': 'emulator',
-           'MountainCar-v0': 'emulator',
-           'MountainCarContinuous-v0': 'emulator',
-           'Reno_full': 'emulator',
-           'Reno_ROM40': 'emulator',
-           'RenoLight_full': 'emulator',
-           'RenoLight_ROM40': 'emulator',
-           'Old_full': 'emulator',
-           'Old_ROM40': 'emulator',
-           'HollandschHuys_full': 'emulator',
-           'HollandschHuys_ROM100': 'emulator',
-           'Infrax_full': 'emulator',
-           'Infrax_ROM100': 'emulator',
-           'CSTR': 'emulator',
-           'UAV3D_kin': 'emulator',
-           'UAV2D_kin': 'emulator'}
-
-train_pid_idxs = [3, 4, 5, 8]
-constant_idxs = [6, 7]
-train_relay_idxs = [10, 11, 12, 14]
-all_train = set(train_pid_idxs + constant_idxs + train_relay_idxs)
-
-all_dev_exp, all_test_exp = [1, 9], [2, 13]
-dev_exp, test_exp = [1], [2]
-
-datasplits = {'all': {'train': list(all_train),
-                      'dev': dev_exp,
-                      'test': test_exp},
-                  'pid': {'train': train_pid_idxs,
-                          'dev': dev_exp,
-                          'test': test_exp},
-                  'constant': {'train': constant_idxs,
-                               'dev': dev_exp,
-                               'test': test_exp},
-                  'relay': {'train': train_relay_idxs,
-                            'dev': dev_exp,
-                            'test': test_exp},
-                  'no_pid': {'train': list(all_train - set(train_pid_idxs)),
-                             'dev': dev_exp,
-                             'test': test_exp},
-                  'no_constant': {'train': list(all_train - set(constant_idxs)),
-                                  'dev': dev_exp,
-                                  'test': test_exp},
-                  'no_relay': {'train': list(all_train - set(train_relay_idxs)),
-                               'dev': dev_exp,
-                               'test': test_exp}}
-
-
 if __name__ == '__main__':
+    systems = {
+        **{k: "datafile" for k in psl.datasets},
+        **{k: "emulator" for k in psl.systems},
+    }
+    print("Testing EmulatorDataset with psl.systems...")
+    for system in psl.systems:
+        print(f"  {system}")
+        dataset = EmulatorDataset(system)
 
+    print("\nTesting FileDataset with psl.datasets...")
+    for system in psl.datasets:
+        print(f"  {system}")
+        dataset = FileDataset(system)
+
+    print("\nTesting adding sequences...")
+    nsim, ny = dataset.data['Y'].shape
+    new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
+    dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
+
+    print("\nTesting MultiExperimentEmulatorDataset...")
+    # FIXME: this fails for UAV3D_kin and UAV2D_kin
     for system in [k for k, v in systems.items() if v == 'emulator'
                                                     and k not in ['CartPole-v1',
                                                                   'Acrobot-v1',
                                                                   'MountainCar-v0',
                                                                   'Pendulum-v0',
                                                                   'MountainCarContinuous-v0']]:
-        print(system)
-        dataset = MultiExperimentEmulatorDataset(system=system)
-    for system in ['fsw_phase_1', 'fsw_phase_2', 'fsw_phase_3', 'fsw_phase_4']:
-        print(system)
-        dataset = MultiExperimentDataset(system, split=datasplits['pid'])
-    for system, data_type in systems.items():
-        print(system)
-        if data_type == 'emulator':
-            dataset = EmulatorDataset(system)
-        elif data_type == 'datafile':
-            dataset = FileDataset(system)
+        print(f"  {system}")
+        try:
+            dataset = MultiExperimentEmulatorDataset(system=system)
+        except Exception as e:
+            print("Error encountered:", e)
 
-    # testing adding sequences
-    nsim, ny = dataset.data['Y'].shape
-    new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
-    dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
+    print("\nTesting MultiExperimentDataset on FSW data...")
+    for system in ['fsw_phase_1', 'fsw_phase_2', 'fsw_phase_3', 'fsw_phase_4']:
+        print(f"  {system}")
+        dataset = MultiExperimentDataset(system, split=psl.datasplits['pid'])

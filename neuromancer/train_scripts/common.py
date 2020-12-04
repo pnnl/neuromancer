@@ -13,6 +13,7 @@ from neuromancer import estimators
 from neuromancer.problem import Problem, Objective
 from neuromancer.activations import BLU, SoftExponential
 
+
 def get_base_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-gpu", type=int, default=None, help="Gpu to use")
@@ -299,6 +300,7 @@ def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynam
     )
     return estimator, dynamics_model
 
+
 def get_objective_terms(args, dataset, estimator, dynamics_model):
     xmin = -0.2
     xmax = 1.2
@@ -380,6 +382,7 @@ def get_objective_terms(args, dataset, estimator, dynamics_model):
 
     return objectives, constraints
 
+
 def load_dataset(args, device):
     if systems[args.system] == "emulator":
         dataset = EmulatorDataset(
@@ -401,6 +404,7 @@ def load_dataset(args, device):
             savedir=args.savedir,
         )
     return dataset
+
 
 def get_logger(args):
     if args.logger == "mlflow":

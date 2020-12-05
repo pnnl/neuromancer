@@ -31,7 +31,7 @@ user@machine:~$ conda env create -f env.yml
 user@machine:~$ conda config --add channels conda-forge pytorch
 user@machine:~$ conda create -n neuromancer python=3.7
 user@machine:~$ source activate neuromancer
-(neuromancer) user@machine:~$ conda install pytorch torchvision cudatoolkit=10.2 -c pytorch
+(neuromancer) user@machine:~$ conda install pytorch torchvision -c pytorch
 (neuromancer) user@machine:~$ conda install scipy pandas matplotlib control pyts numba scikit-learn mlflow dill
 (neuromancer) user@machine:~$ conda install -c powerai gym
 ```
@@ -47,23 +47,23 @@ user@machine:~$ source activate neuromancer
 (neuromancer) user@machine:~$ python setup.py develop
 ```
 
+### Current TODOS
+
+    [ ] (Jan & Shri) Confirm environment set up works on Mac and Linux
+    [ ] (Next coding session) Put generic control script with tutorial system as default (use common.py style refactor)
+    [ ] (Jan) EED building sys id papers code release: port to neuromancer to recreate experiments
+    [ ] (Elliott) prepare constrained_block_ssm_acc for release 
+    [ ] (Jan) prepare flexy for release
+    [ ] (Elliott & Soumya) prepare lpv_14dc for release
+
+    [ ] (Aaron) break off neural koopman branch since this code won't be released in the initial release
+    [ ] (Aaron) Create docs
+
 ### TODO
-    [1] cleanup train_scripts folder
-        how to solve problem with exploding number of training scripts?
-        identify changes and moving parts
-        identify strategy for preventing replicating code in the future
-        suggestion new folders:    
-            template_scripts - demonstrating full functionality
-            example_scripts - starter scripts with concrete examples, published experiments
-            dev_scripts - development scripts for publications
-        two types of APIs: 
-            high level API - user oriented
-            low level API - advanced user and developer oriented
     
     [2] datasets
-        move datasets to psl
         refactor datasets.py - get rid of unnecessary dependencies
-        other normalizations: [-1, 1], normal distribution - part of our hyperparametrization choice
+        custom normalizations: [-6, 6] etc...
     
     [3] create new analysis file
         post hoc analysis of neural nets
@@ -86,7 +86,8 @@ user@machine:~$ source activate neuromancer
         autogenerate docs via doc strings
         python package style format with latex syntax
     
-    
+
+
 ### Older TODOs
 
 datasets category

@@ -10,7 +10,8 @@ import torch
 import torch.nn as nn
 import random
 
-from neuromancer.datasets import normalize, EmulatorDataset, FileDataset, systems
+from neuromancer.datasets import EmulatorDataset, FileDataset
+from neuromancer.data.normalization import normalize_01 as normalize
 import psl
 from collections import defaultdict
 import dill
@@ -218,8 +219,10 @@ class NonlinearExpansion(nn.Module):
 
 
 if __name__ == '__main__':
-
-    model_file = './datasets/Flexy_air/best_model_flexy1.pth'
+    import psl
+    import os
+    # TODO: don't use psl.resource_path
+    model_file = os.path.join(psl.resource_path, "Flexy_air/best_model_flexy1.pth")
     load_model = torch.load(model_file, pickle_module=dill, map_location=torch.device('cpu'))
     estimator = load_model.components[0]
     dynamics = load_model.components[1]

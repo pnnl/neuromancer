@@ -53,7 +53,7 @@ def get_base_parser():
     data_group.add_argument(
         "-system",
         type=str,
-        default="Reno_ROM40",
+        default="CSTR",
         choices=list(systems.keys()),
         help="select particular dataset with keyword",
     )

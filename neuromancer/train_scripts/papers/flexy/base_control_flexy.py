@@ -49,8 +49,7 @@ import neuromancer.policies as policies
 from neuromancer.problem import Objective, Problem
 from neuromancer.trainer import Trainer
 import psl
-from neuromancer.datasets import normalize
-from neuromancer.signals import SignalGeneratorDynamics
+from neuromancer.signals import NoiseGenerator, SignalGenerator, WhiteNoisePeriodicGenerator, PeriodicGenerator, WhiteNoiseGenerator, AddGenerator
 
 
 def parse():
@@ -60,7 +59,7 @@ def parse():
     ##################
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=1000)
+    opt_group.add_argument('-epochs', type=int, default=100)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            choices=[3e-5, 1e-4, 3e-4, 1e-3, 3e-3, 0.01],
                            help='Step size for gradient descent.')
@@ -85,11 +84,10 @@ def parse():
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y', 'X'],
                             help='List of sequences to max-min normalize')
-    mfiles = ['/qfs/projects/deepmpc/best_flexy_models/best_blocknlin_nlinsearch/best_model.pth',
-              '../datasets/Flexy_air/models/best_model_flexy1.pth',
-              '../datasets/Flexy_air/models/best_model_flexy2.pth',
-              '../datasets/Flexy_air/ape_models/best_model_blocknlin.pth']
-    data_group.add_argument('-model_file', type=str, default=mfiles[1])
+    mfiles = ['models/best_model_flexy1.pth',
+              'models/best_model_flexy2.pth',
+              'ape_models/best_model_blocknlin.pth']
+    data_group.add_argument('-model_file', type=str, default=mfiles[0])
     # mfiles[2] - This model requires nsteps >=10
     ##################
     # POLICY PARAMETERS
@@ -101,7 +99,6 @@ def parse():
     policy_group.add_argument('-n_layers', type=int, default=3, choices=list(range(1, 10)),
                              help='Number of hidden layers of single time-step state transition')
     policy_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
-    # policy_group.add_argument('-policy_features', nargs='+', default=['Y_ctrl_p', 'Rf'], help='Policy features')
     policy_group.add_argument('-policy_features', nargs='+', default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'], help='Policy features')
     policy_group.add_argument('-activation', choices=['gelu', 'softexp'], default='gelu',
                               help='Activation function for neural networks')
@@ -208,11 +205,9 @@ def dataset_load(args, device):
 
         nsim = dataset.data['Y'].shape[0]
         nu = dataset.data['U'].shape[1]
-        # new_sequences = {'Y_max': 0.8 * np.ones([nsim, 1]), 'Y_min': 0.2 * np.ones([nsim, 1]),
         new_sequences = {'Y_max': psl.Periodic(nx=1, nsim=nsim, numPeriods=30, xmax=0.9, xmin=0.6),
                          'Y_min': psl.Periodic(nx=1, nsim=nsim, numPeriods=25, xmax=0.4, xmin=0.1),
                          'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
-                         # 'R': psl.Steps(nx=1, nsim=nsim, randsteps=60, xmax=0.7, xmin=0.3),
                          'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.8, xmin=0.2)
                          # 'Y_ctrl_': psl.RandomWalk(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny, sigma=0.05)}
                          #'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
@@ -220,138 +215,6 @@ def dataset_load(args, device):
         dataset.add_data(new_sequences)
         # dataset.dims['Rf'] = (9000, 1)
     return dataset
-
-
-class NoiseGenerator(nn.Module):
-    def __init__(self, ratio=0.05, keys=None, name='noise', device='cpu'):
-        super().__init__()
-        self.name = name
-        self.ratio = ratio
-        self.keys = keys
-        self.device = device
-
-    def forward(self, data):
-        noisy_data = dict()
-        for key in self.keys:
-            noisy_data[key+self.name] = data[key] + self.ratio*torch.randn(data[key].shape)
-        return noisy_data
-
-
-class SignalGenerator(nn.Module):
-
-    def __init__(self, nsteps, nx, xmax, xmin, name='signal', device='cpu'):
-        super().__init__()
-        self.nsteps, self.nx = nsteps, nx
-        self.xmax, self.xmin, self.name = xmax, xmin, name
-        self.iter = 0
-        self.nsim = None
-        self.device = device
-
-    def get_xmax(self):
-        return self.xmax
-
-    def get_xmin(self):
-        return self.xmin
-# nstep X nsamples x nfeatures
-#
-#     end_step = data.shape[0] - nsteps
-#     data = np.asarray([data[k:k+nsteps, :] for k in range(0, end_step)])  # nchunks X nsteps X nfeatures
-#     return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
-
-    def forward(self, data):
-        key = list(data.keys())[0]
-        self.nsim = data[key].shape[1] * data[key].shape[0] + self.nsteps
-        nbatch = data[key].shape[1]
-
-        xmax, xmin = self.get_xmax(), self.get_xmin()
-        R = self.sequence_generator(self.nsim, xmax, xmin)
-        R, _, _ = normalize(R)
-
-        Rp, Rf = R[:-self.nsteps], R[self.nsteps:]
-
-        if self.iter == 0:
-            self.nstep_batch_size = nbatch
-        if nbatch == self.nstep_batch_size:
-            Rp = torch.tensor(Rp, dtype=torch.float32).view(nbatch, -1, self.nx).transpose(0, 1).to()
-            Rf = torch.tensor(Rf, dtype=torch.float32).view(nbatch, -1, self.nx).transpose(0, 1)
-        else:
-            end_step = Rp.shape[0] - self.nsteps
-            Rp = np.asarray([Rp[k:k+self.nsteps, :] for k in range(0, end_step)])  # nchunks X nsteps X nfeatures
-            Rp = torch.tensor(Rp.transpose(1, 0, 2), dtype=torch.float32)  # nsteps X nsamples X nfeatures
-            Rf = np.asarray([Rf[k:k + self.nsteps, :] for k in range(0, end_step)])  # nchunks X nsteps X nfeatures
-            Rf = torch.tensor(Rf.transpose(1, 0, 2), dtype=torch.float32)  # nsteps X nsamples X nfeatures
-        return {self.name + 'p': Rp.to(self.device), self.name + 'f': Rf.to(self.device)}
-
-
-class WhiteNoisePeriodicGenerator(SignalGenerator):
-
-    def __init__(self, nsteps, nx, xmax=(0.5, 0.1), xmin=0.0, min_period=5, max_period=30, name='period', device='cpu'):
-        super().__init__(nsteps, nx, xmax, xmin, name=name, device=device)
-        self.min_period = min_period
-        self.max_period = max_period
-        self.white_noise_generator = lambda nsim, xmin, xmax: psl.WhiteNoise(nx=self.nx, nsim=nsim,
-                                                                             xmax=xmax, xmin=xmin)[:nsim]
-        self.period_generator = lambda nsim, xmin, xmax: psl.Periodic(nx=self.nx, nsim=nsim,
-                                                                      numPeriods=random.randint(self.min_period, self.max_period),
-                                                                      xmax=xmax, xmin=xmin)[:nsim]
-        # self.sequence_generator = lambda nsim, xmin, xmax: self.period_generator(nsim, xmin, xmax) + self.white_noise_generator(nsim, -0.1*xmax, 0.1*xmax)
-        self.sequence_generator = lambda nsim, xmin, xmax: self.period_generator(nsim, xmin, xmax) + self.white_noise_generator(nsim, xmin, 1.0 - xmax)
-
-    def get_xmax(self):
-        return random.uniform(*self.xmax)
-
-
-    def forward(self, data):
-        key = list(data.keys())[0]
-        self.nsim = data[key].shape[1] * data[key].shape[0] + self.nsteps
-        nbatch = data[key].shape[1]
-
-        if self.max_period > self.nsim:
-            self.max_period = self.nsim
-        if self.min_period > self.nsim:
-            self.min_period = self.nsim
-
-        xmax, xmin = self.get_xmax(), self.get_xmin()
-        R = self.sequence_generator(self.nsim, xmax, xmin)
-        R, _, _ = normalize(R)
-
-        Rp, Rf = R[:-self.nsteps], R[self.nsteps:]
-
-        if self.iter == 0:
-            self.nstep_batch_size = nbatch
-        if nbatch == self.nstep_batch_size:
-            Rp = torch.tensor(Rp, dtype=torch.float32).view(nbatch, -1, self.nx).transpose(0, 1).to()
-            Rf = torch.tensor(Rf, dtype=torch.float32).view(nbatch, -1, self.nx).transpose(0, 1)
-        else:
-            end_step = Rp.shape[0] - self.nsteps
-            Rp = np.asarray([Rp[k:k+self.nsteps, :] for k in range(0, end_step)])  # nchunks X nsteps X nfeatures
-            Rp = torch.tensor(Rp.transpose(1, 0, 2), dtype=torch.float32)  # nsteps X nsamples X nfeatures
-            Rf = np.asarray([Rf[k:k + self.nsteps, :] for k in range(0, end_step)])  # nchunks X nsteps X nfeatures
-            Rf = torch.tensor(Rf.transpose(1, 0, 2), dtype=torch.float32)  # nsteps X nsamples X nfeatures
-        return {self.name + 'p': Rp.to(self.device), self.name + 'f': Rf.to(self.device)}
-
-
-class PeriodicGenerator(SignalGenerator):
-
-    def __init__(self, nsteps, nx, xmax, xmin, min_period=5, max_period=30, name='period', device='cpu'):
-        super().__init__(nsteps, nx, xmax, xmin, name=name, device=device)
-        self.min_period = min_period
-        self.max_period = max_period
-        self.sequence_generator = lambda nsim, xmin, xmax: psl.Periodic(nx=self.nx, nsim=nsim, numPeriods=random.randint(self.min_period, self.max_period),
-                                                            xmax=xmax, xmin=xmin)
-
-class WhiteNoiseGenerator(SignalGenerator):
-    def __init__(self, nsteps, nx, xmax, xmin, name='period', device='cpu'):
-        super().__init__(nsteps, nx, xmax, xmin, name=name, device=device)
-        self.sequence_generator = lambda nsim, xmin, xmax: psl.WhiteNoise(nx=self.nx, nsim=nsim,
-                                                              xmax=xmax, xmin=xmin)
-
-class AddGenerator(SignalGenerator):
-    def __init__(self, SG1, SG2, nsteps, nx, xmax, xmin, name='period', device='cpu'):
-        super().__init__(nsteps, nx, xmax, xmin, name=name, device=device)
-        assert SG1.nsteps == SG2.nsteps, 'Nsteps must match to compose sequence generators'
-        assert SG1.nx == SG2.nx, 'Nx must match to compose sequence generators'
-        self.sequence_generator = lambda nsim: SG1.sequence_generator(nsim) + SG2.sequence_generator(nsim)
 
 
 def freeze_weight(model, module_names=['']):
@@ -433,7 +296,7 @@ if __name__ == '__main__':
               }[args.policy]({'x0_estim': (dynamics_model.nx,), **dataset.dims},
                              nsteps=args.nsteps,
                              bias=args.bias,
-                             Linear=linmap,
+                             linear_map=linmap,
                              nonlin=activation,
                              hsizes=[nh_policy] * args.n_layers,
                              input_keys=args.policy_features,
@@ -441,15 +304,15 @@ if __name__ == '__main__':
                              name='policy').to(device)
 
     signal_generator = WhiteNoisePeriodicGenerator(args.nsteps, args.ny, xmax=(0.8, 0.7), xmin=0.2,
-                                                   min_period=1, max_period=20, name='Y_ctrl_', device=device).to(device)
+                                                   min_period=1, max_period=20, name='Y_ctrl_').to(device)
     # reference_generator = PeriodicGenerator(args.nsteps, args.ny, xmax=0.7, xmin=0.3,
     #                                                min_period=1, max_period=20, name='R')
     # dynamics_generator = SignalGeneratorDynamics(dynamics_model, estimator, args.nsteps, xmax=1.0, xmin=0.0, name='Y_ctrl_')
 
-    noise_generator = NoiseGenerator(ratio=0.05, keys=['Y_pred_dynamics'], name='_noise', device=device).to(device)
+    noise_generator = NoiseGenerator(ratio=0.05, keys=['Y_pred_dynamics'], name='_noise').to(device)
 
-    # components = [dynamics_generator, estimator, policy, dynamics_model]
     components = [signal_generator, estimator, policy, dynamics_model, noise_generator]
+    # components = [dynamics_generator, estimator, policy, dynamics_model]
     # components = [signal_generator, reference_generator, estimator, policy, dynamics_model]
 
     ##########################################
@@ -524,7 +387,6 @@ if __name__ == '__main__':
 
     if False:
         model.load_state_dict(best_model)
-        # torch.save(model, './test/best_policy_flexy.pth', pickle_module=dill)
         torch.save(model.components[2], './test/best_policy_flexy.pth', pickle_module=dill)
         torch.save(model.components[1], './test/best_estimator_flexy.pth', pickle_module=dill)
         torch.save(model.components[3], './test/best_dynamics_flexy.pth', pickle_module=dill)

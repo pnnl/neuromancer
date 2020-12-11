@@ -217,3 +217,37 @@ class TrainerMPP:
         if self.visualizer is not None:
             plots = self.visualizer.eval(all_output)
             self.logger.log_artifacts(plots)
+
+
+def freeze_weight(problem, module_names=['']):
+    """
+    ['parent->child->child']
+    :param component:
+    :param module_names:
+    :return:
+    """
+    modules = dict(problem.named_modules())
+    for name in module_names:
+        freeze_path = name.split('->')
+        if len(freeze_path) == 1:
+            modules[name].requires_grad_(False)
+        else:
+            parent = modules[freeze_path[0]]
+            freeze_weight(parent, ['->'.join(freeze_path[1:])])
+
+
+def unfreeze_weight(problem, module_names=['']):
+    """
+    ['parent->child->child']
+    :param component:
+    :param module_names:
+    :return:
+    """
+    modules = dict(problem.named_modules())
+    for name in module_names:
+        freeze_path = name.split('->')
+        if len(freeze_path) == 1:
+            modules[name].requires_grad_(True)
+        else:
+            parent = modules[freeze_path[0]]
+            freeze_weight(parent, ['->'.join(freeze_path[1:])])

@@ -10,11 +10,12 @@ import torch
 import torch.nn as nn
 import random
 
-from neuromancer.datasets import normalize, EmulatorDataset, FileDataset, systems
+from neuromancer.datasets import EmulatorDataset, FileDataset, systems
 import psl
 from collections import defaultdict
 import dill
 import itertools
+from neuromancer.data.normalization import normalize_01 as normalize
 
 
 def freeze_weight(model, module_names=['']):
@@ -178,6 +179,20 @@ class PeriodicGenerator(SignalGenerator):
                                                             xmax=self.xmax, xmin=self.xmin)
 
 
+class NoiseGenerator(nn.Module):
+    def __init__(self, ratio=0.05, keys=None, name='noise'):
+        super().__init__()
+        self.name = name
+        self.ratio = ratio
+        self.keys = keys
+
+    def forward(self, data):
+        noisy_data = dict()
+        for key in self.keys:
+            noisy_data[key+self.name] = data[key] + self.ratio*torch.randn(data[key].shape)
+        return noisy_data
+
+
 class WhiteNoiseGenerator(SignalGenerator):
     def __init__(self, nsteps, nx, xmax, xmin, name='period'):
         super().__init__(nsteps, nx, xmax, xmin, name=name)
@@ -191,6 +206,7 @@ class AddGenerator(SignalGenerator):
         assert SG1.nsteps == SG2.nsteps, 'Nsteps must match to compose sequence generators'
         assert SG1.nx == SG2.nx, 'Nx must match to compose sequence generators'
         self.sequence_generator = lambda nsim: SG1.sequence_generator(nsim) + SG2.sequence_generator(nsim)
+
 
 class NonlinearExpansion(nn.Module):
     def __init__(self, keys=None, name='nlin_expand', device='cpu', order=2):

@@ -471,9 +471,7 @@ class EmulatorDataset(Dataset):
         return: (dict, str: 2-d np.array)
         """
         systems = emulators.systems  # list of available emulators
-        model = systems[self.system](nsim=self.nsim, ninit=self.ninit)  # instantiate model class
-        # TODO: seed argument is missing in psl
-        # model = systems[self.system](nsim=self.nsim, ninit=self.ninit, seed=self.simulator_seed)  # instantiate model class
+        model = systems[self.system](nsim=self.nsim, ninit=self.ninit, seed=self.simulator_seed)  # instantiate model class
         sim = model.simulate()  # simulate open loop
         while not _check_data(sim['Y']):
             print('Emulator generated invalid data, resimulating...')

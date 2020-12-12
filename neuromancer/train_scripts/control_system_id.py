@@ -24,7 +24,6 @@ from common_control import (
     get_policy_components,
     get_objective_terms_control,
     get_base_parser_control,
-    get_logger_control,
 )
 
 
@@ -86,11 +85,14 @@ if __name__ == "__main__":
     args_ctrl = get_base_parser_control().parse_args()
     print({k: str(getattr(args_id, k)) for k in vars(args_id) if getattr(args_id, k)})
     device = f"cuda:{args_ctrl.gpu}" if args_ctrl.gpu is not None else "cpu"
-    logger_ctrl = get_logger_control(args_ctrl)
+    logger_ctrl = get_logger(args_ctrl)
+
+    args_ctrl.ny = dynamics_model.fy.out_features
     dataset_ctrl = load_dataset_control(args_ctrl, device)
 
     # Control Problem Definition
-    policy = get_policy_components(args_ctrl, dataset_ctrl, dynamics_model, policy_name="policy")
+    policy, dynamics_model, estimator = get_policy_components(
+        args_ctrl, dataset_ctrl, dynamics_model, estimator, policy_name="policy")
     signal_generator = WhiteNoisePeriodicGenerator(args_ctrl.nsteps, args_ctrl.ny, xmax=(0.8, 0.7), xmin=0.2,
                                                    min_period=1, max_period=20, name='Y_ctrl_')
     noise_generator = NoiseGenerator(ratio=0.05, keys=['Y_pred_dynamics'], name='_noise')
@@ -108,7 +110,7 @@ if __name__ == "__main__":
     visualizer = VisualizerClosedLoop(dataset_ctrl, policy, plot_keys, args_ctrl.verbosity, savedir=args_ctrl.savedir)
     emulator = dynamics_model
 
-    policy.input_keys[0] = 'Yp' # hacky solution for policy input keys compatibility with simulator
+    policy.input_keys[0] = 'Yp'  # hacky solution for policy input keys compatibility with simulator
     simulator = ClosedLoopSimulator(model=model_ctrl, dataset=dataset_ctrl, emulator=emulator, policy=policy)
     trainer = Trainer(model_ctrl, dataset_ctrl, optimizer, logger=logger_ctrl, visualizer=visualizer,
                       simulator=simulator, epochs=args_ctrl.epochs,

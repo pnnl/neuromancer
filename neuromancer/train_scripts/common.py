@@ -20,7 +20,7 @@ def get_base_parser():
 
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument("-epochs", type=int, default=100)
+    opt_group.add_argument("-epochs", type=int, default=5)
     opt_group.add_argument(
         "-lr", type=float, default=0.001, help="Step size for gradient descent."
     )
@@ -418,7 +418,7 @@ def get_logger(args):
                 "best_loop_dev_loss",
                 "nstep_dev_ref_loss",
                 "loop_dev_ref_loss",
-            ),
+            )
         )
 
     else:
@@ -432,6 +432,6 @@ def get_logger(args):
                 "best_loop_dev_loss",
                 "nstep_dev_ref_loss",
                 "loop_dev_ref_loss",
-            ),
+            )
         )
     return logger

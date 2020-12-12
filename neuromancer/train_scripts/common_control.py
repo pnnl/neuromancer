@@ -5,6 +5,8 @@ import torch.nn.functional as F
 from torch import nn
 
 import slim
+import psl
+import numpy as np
 from neuromancer import loggers
 from neuromancer.datasets import EmulatorDataset, FileDataset, systems
 from neuromancer import blocks
@@ -22,7 +24,7 @@ def get_base_parser_control():
     ##################
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=100)
+    opt_group.add_argument('-epochs', type=int, default=5)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            choices=[3e-5, 1e-4, 3e-4, 1e-3, 3e-3, 0.01],
                            help='Step size for gradient descent.')
@@ -47,6 +49,13 @@ def get_base_parser_control():
                                  'None will use a default nsim from the selected dataset or emulator')
     data_group.add_argument('-norm', nargs='+', default=['U', 'D', 'Y'], choices=['U', 'D', 'Y', 'X'],
                             help='List of sequences to max-min normalize')
+    data_group.add_argument(
+        "-data_seed",
+        type=int,
+        default=408,
+        help="Random seed used for simulated data"
+    )
+
 
     # TODO: option with loading trained model
     # mfiles = ['models/best_model_flexy1.pth',
@@ -66,6 +75,7 @@ def get_base_parser_control():
     policy_group.add_argument('-bias', action='store_true', help='Whether to use bias in the neural network models.')
     policy_group.add_argument('-policy_features', nargs='+', default=['Y_ctrl_p', 'Rf'],
                               help='Policy features')  # reference tracking option
+
     # TODO: generate constraints for the rest of datasets from psl
     # policy_group.add_argument('-policy_features', nargs='+', default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'],
     #                           help='Policy features')  # reference tracking with constraints option
@@ -73,6 +83,13 @@ def get_base_parser_control():
     policy_group.add_argument('-activation', choices=['gelu', 'softexp'], default='gelu',
                               help='Activation function for neural networks')
     policy_group.add_argument('-perturbation', choices=['white_noise_sine_wave', 'white_noise'], default='white_noise')
+
+    policy_group.add_argument(
+        "-seed",
+        type=int,
+        default=408,
+        help="Random seed used for weight initialization."
+    )
 
     ##################
     # LINEAR PARAMETERS
@@ -86,6 +103,7 @@ def get_base_parser_control():
     ##################
     # LAYERS
     layers_group = parser.add_argument_group('LAYERS PARAMETERS')
+
     # TODO: generalize freeze unfreeze - we want to unfreeze only policy network
     layers_group.add_argument('-freeze', nargs='+', default=[''], help='sets requires grad to False')
     layers_group.add_argument('-unfreeze', default=['components.2'],
@@ -145,8 +163,16 @@ def get_base_parser_control():
     return parser
 
 
-def get_policy_components(args, dataset, dynamics_model, policy_name="policy"):
+def get_policy_components(args, dataset, dynamics_model, estimator, policy_name="policy"):
     torch.manual_seed(args.seed)
+
+    # update dynamics and estimator keys
+    dynamics_model.input_keys[2] = 'U_pred_policy'
+    estimator.input_keys[0] = 'Y_ctrl_p'
+    estimator.data_dims = dataset.dims
+    estimator.data_dims['Y_ctrl_p'] = dataset.dims['Yp']
+    estimator.nsteps = args.nsteps
+
     # control policy setup
     activation = {'gelu': nn.GELU,
                   'relu': nn.ReLU,
@@ -166,7 +192,8 @@ def get_policy_components(args, dataset, dynamics_model, policy_name="policy"):
                              input_keys=args.policy_features,
                              linargs={'sigma_min': args.sigma_min, 'sigma_max': args.sigma_max},
                              name=policy_name)
-    return policy
+    return policy, dynamics_model, estimator
+
 
 def get_objective_terms_control(args, policy):
     if args.noise:
@@ -215,3 +242,35 @@ def get_objective_terms_control(args, policy):
                    inputs_lower_bound_penalty, inputs_upper_bound_penalty]
 
     return objectives, constraints
+
+
+def load_dataset_control(args, device):
+    if systems[args.system] == 'emulator':
+        dataset = EmulatorDataset(system=args.system, nsim=args.nsim,
+                                  norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir,
+                                  name='closedloop')
+    else:
+        dataset = FileDataset(system=args.system, nsim=args.nsim,
+                              norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir,
+                              name='closedloop')
+        ny = args.ny
+        if not ny == dataset.data['Y'].shape[1]:
+            new_sequences = {'Y': dataset.data['Y'][:, :1]}
+            dataset.add_data(new_sequences, overwrite=True)
+        dataset.min_max_norms['Ymin'] = dataset.min_max_norms['Ymin'][0]
+        dataset.min_max_norms['Ymax'] = dataset.min_max_norms['Ymax'][0]
+
+        nsim = dataset.data['Y'].shape[0]
+        nu = dataset.data['U'].shape[1]
+        new_sequences = {'Y_max': psl.Periodic(nx=1, nsim=nsim, numPeriods=30, xmax=0.9, xmin=0.6),
+                         'Y_min': psl.Periodic(nx=1, nsim=nsim, numPeriods=25, xmax=0.4, xmin=0.1),
+                         'U_max': np.ones([nsim, nu]), 'U_min': np.zeros([nsim, nu]),
+                         'R': psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.8, xmin=0.2)
+                         # 'Y_ctrl_': psl.RandomWalk(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny, sigma=0.05)}
+                         #'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
+                         }
+        dataset.add_data(new_sequences)
+        # dataset.dims['Rf'] = (9000, 1)
+    return dataset
+
+

@@ -50,16 +50,12 @@ if __name__ == "__main__":
     print(dataset.dims)
 
     estimator, dynamics_model = get_model_components(args, dataset)
-    objectives, constraints = get_objective_terms(
-        args, dataset, estimator, dynamics_model
-    )
+    objectives, constraints = get_objective_terms(args, dataset, estimator, dynamics_model)
 
     model = Problem(objectives, constraints, [estimator, dynamics_model])
     model = model.to(device)
 
-    simulator = OpenLoopSimulator(
-        model=model, dataset=dataset, eval_sim=not args.skip_eval_sim
-    )
+    simulator = OpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     trainer = Trainer(
         model,

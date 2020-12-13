@@ -16,7 +16,6 @@ import psl
 from collections import defaultdict
 import dill
 import itertools
-from neuromancer.data.normalization import normalize_01 as normalize
 
 
 def freeze_weight(model, module_names=['']):

@@ -223,15 +223,15 @@ def plot_eigenvalues_compact(model, savedir='./test/'):
 
 if __name__ == '__main__':
 
-    paths = ['ACC_models/best_models_bnl_paper/blocknlin/aero/best_model.pth',
-             'ACC_models/best_models_bnl_paper/blocknlin/cstr/best_model.pth',
-             'ACC_models/best_models_bnl_paper/blocknlin/twotank/best_model.pth',
-             'ACC_models/nonlin_ablation_models/aero_uberablate_best_model.pth',
-             'ACC_models/nonlin_ablation_models/CSTR_uberablate_best_model.pth',
-             'ACC_models/nonlin_ablation_models/TwoTank_uberablate_best_model.pth']
-             # 'ACC_models/best_models_bnl_paper/blackbox/aero/best_model.pth',
-             # 'ACC_models/best_models_bnl_paper/blackbox/cstr/best_model.pth',
-             # 'ACC_models/best_models_bnl_paper/blackbox/twotank/best_model.pth']
+    paths = ['../models/best_models_bnl_paper/blocknlin/aero/best_model.pth',
+             '../models/best_models_bnl_paper/blocknlin/cstr/best_model.pth',
+             '../models/best_models_bnl_paper/blocknlin/twotank/best_model.pth',
+             '../models/nonlin_ablation_models/aero_uberablate_best_model.pth',
+             '../models/nonlin_ablation_models/CSTR_uberablate_best_model.pth',
+             '../models/nonlin_ablation_models/TwoTank_uberablate_best_model.pth']
+             # '../models/best_models_bnl_paper/blackbox/aero/best_model.pth',
+             # '../models/best_models_bnl_paper/blackbox/cstr/best_model.pth',
+             # '../models/best_models_bnl_paper/blackbox/twotank/best_model.pth']
 
     device = torch.device('cpu')
     for path in paths:

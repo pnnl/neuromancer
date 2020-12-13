@@ -568,12 +568,12 @@ class DatasetMPP(Dataset):
             for k, v in dset.items():
                 dset[k] = torch.tensor(v, dtype=torch.float32).to(self.device)
 
+systems = {
+    **{k: "datafile" for k in psl.datasets},
+    **{k: "emulator" for k in psl.systems},
+}
 
 if __name__ == '__main__':
-    systems = {
-        **{k: "datafile" for k in psl.datasets},
-        **{k: "emulator" for k in psl.systems},
-    }
     print("Testing EmulatorDataset with psl.systems...")
     for system in psl.systems:
         print(f"  {system}")

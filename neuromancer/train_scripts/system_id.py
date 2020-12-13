@@ -33,17 +33,15 @@ from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
 from neuromancer.simulators import OpenLoopSimulator
 
-from common import (
-    load_dataset,
+from common import load_dataset, get_logger
+from common.system_id import (
     get_model_components,
     get_objective_terms,
-    get_base_parser,
-    get_logger,
+    get_parser
 )
 
-
 if __name__ == "__main__":
-    args = get_base_parser().parse_args()
+    args = get_parser().parse_args()
     print({k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)})
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
 

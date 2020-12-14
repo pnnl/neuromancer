@@ -212,3 +212,29 @@ def plot_model_phase_portrait(
         plt.close()
 
     return [ax]
+
+
+def gen_model_visuals(
+    model,
+    system,
+    eigval_plot_fname="eigvals.svg",
+    anim_fname="state_trajectory.mp4",
+):
+    fx = model.components[1].fx
+    fu = model.components[1].fu
+    estim = model.components[0]
+
+    data = EmulatorDataset(system, nsim=1200, seed=50)
+    loop_data = data.dev_loop
+
+    A_stars = []
+    eigvals = []
+    x = estim(loop_data)["x0_estim"]
+    for u in loop_data["Up"]:
+        _, A_star_b, _, _, _, _, _ = lpv(fx, x)
+        x = fx(x) + fu(u)  # torch.matmul(x, A_star) + fu(u)
+        A_stars += [A_star_b.detach().cpu().numpy()]
+
+    eigvals = compute_eigenvalues(A_stars)
+    plot_eigenvalues(eigvals, fname=eigval_plot_fname)
+    plot_matrix_eigval_anim(A_stars, eigvals, fname=anim_fname)

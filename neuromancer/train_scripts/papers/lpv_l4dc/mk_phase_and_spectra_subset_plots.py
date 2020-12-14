@@ -7,7 +7,7 @@ import slim
 from neuromancer import blocks
 import matplotlib.pyplot as plt
 
-from tutorial_system import LPV_net
+from lpv import lpv
 from phase_plots import plot_astar_phase_portrait
 from eigen_plots import compute_eigenvalues, plot_eigenvalues, plot_matrix_eigval_anim
 
@@ -88,7 +88,7 @@ if __name__ == "__main__":
             nx,
             nx,
             nonlin=nn.Identity,
-            Linear=slim.linear.maps[linmap],
+            linear_map=slim.linear.maps[linmap],
             hsizes=[nx] * nlayers,
             bias=True,
             linargs={
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
             Astars = []
             for x in X:
-                Astar, Astar_b, _ = LPV_net(fx, x)
+                Astar, Astar_b, *_ = lpv(fx, x)
                 Astars += [Astar_b.detach().cpu().numpy() if bias else Astar.detach().cpu().numpy()]
             eigvals = compute_eigenvalues(Astars)
 

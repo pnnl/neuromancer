@@ -1,14 +1,3 @@
-"""
-HW in the loop setup
-
-for k in range(nsim):
-    y, r, xmin, xmax = measurements()
-    x0 = estimator(y)
-    u = policy(x0,r,d,xmin,xmax)
-    send_control(u[0])
-
-"""
-
 # python base imports
 import argparse
 import dill

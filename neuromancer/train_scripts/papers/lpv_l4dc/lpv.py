@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import slim
 from neuromancer import blocks
 
-def lpv(fx, x):
+def lpv_batched(fx, x):
     x_layer = x
 
     Aprime_mats = []
@@ -22,13 +22,12 @@ def lpv(fx, x):
 
         zeros = Ax == 0
         lambda_h = nlin(Ax) / Ax  # activation scaling
-        lambda_h[zeros] = 0.  # TODO(lltt): use activation gradients instead of zeros
+        lambda_h[zeros] = 0.  # TODO: use activation gradients instead of zeros
 
         lambda_h_mats = [torch.diag(v) for v in lambda_h]
         activation_mats += lambda_h_mats
         lambda_h_mats = torch.stack(lambda_h_mats)
 
-        # x_layer = torch.bmm(Ax.unsqueeze(-2), lambda_h_mats).squeeze(-2)
         x_layer = Ax * lambda_h
 
         Aprime = torch.matmul(A, lambda_h_mats)
@@ -49,14 +48,12 @@ def lpv(fx, x):
     return Astar, bstar, Aprime_mats, bprimes, activation_mats
 
 
-def lpv_seq(fx, x):
+def lpv(fx, x):
     """pared-down version of LPV_net"""
 
     x_layer = x
     x_layer_b = x
     x_layer_orig = x
-    x_layer_Aprime = x
-    x_layer_Aprime_b = x
     Aprime_mats = []
     Aprime_b_mats = []
     activation_mats = []
@@ -122,33 +119,10 @@ if __name__ == "__main__":
     torch.manual_seed(2)
     np.random.seed(2)
     nx = 3
-
     test_bias = True
-    activations = [nn.ReLU6, nn.ReLU, nn.PReLU, nn.GELU, nn.CELU, nn.ELU,
-                nn.LogSigmoid, nn.Sigmoid, nn.Tanh]
-    for act in activations:
-        print(f'current activation {act}')
-        batch = torch.randn(2, nx)
-        fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx]*8, Linear=slim.PerronFrobeniusLinear, bias=test_bias)
 
-        t = time.time()
-        Astar, _, _, _, _ = lpv(fx_a, batch)
-        print("batched:   ", time.time() - t)
-        print(Astar)
-        t = time.time()
-        for x in batch:
-            Astar, Astar_b, _, _, _, _ = lpv_seq(fx_a, x)
-            print(Astar_b)
-        print("sequential:", time.time() - t)
-"""
-if __name__ == "__main__":
-    torch.manual_seed(2)
-    np.random.seed(2)
-    nx = 3
     # random feature point
-    x_z = torch.randn(1,nx)
-    # x_z = torch.tensor([[-1.0, 1.0, 3.0]], requires_grad=True)
-    test_bias = True
+    x_z = torch.randn(1, nx)
 
     # define single layer square neural net
     fx_layer = blocks.MLP(nx, nx, nonlin=nn.ReLU, hsizes=[], bias=test_bias)
@@ -174,4 +148,16 @@ if __name__ == "__main__":
         fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx, nx, nx], bias=test_bias)
         lpv(fx_a, torch.randn(1, nx))
 
-"""
+    # perf testing for batched vs. sequential LPV implementations
+    for act in activations:
+        print(f'current activation {act}')
+        batch = torch.randn(2, nx)
+        fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx]*8, linear_map=slim.PerronFrobeniusLinear, bias=test_bias)
+
+        t = time.time()
+        Astar, _, _, _, _ = lpv_batched(fx_a, batch)
+        print("batched:   ", time.time() - t)
+        t = time.time()
+        for x in batch:
+            Astar, Astar_b, _, _, _, _ = lpv(fx_a, x)
+        print("sequential:", time.time() - t)

@@ -16,8 +16,7 @@ from neuromancer import blocks
 from neuromancer.datasets import EmulatorDataset
 
 os.sys.path.append("neuromancer/train_scripts")
-os.sys.path.append("neuromancer/train_scripts/L4DC_paper")
-from autonomous_system import AutonomousSystem
+os.sys.path.append("neuromancer/train_scripts/lpv_l4dc")
 from lpv import lpv
 
 DENSITY_PALETTE = sns.color_palette("crest_r", as_cmap=True)
@@ -157,90 +156,9 @@ def despine_axis(ax):
 
 
 if __name__ == "__main__":
-    nx = 2
-    square_maps = [
-        ("gershgorin", -1.5, -1.1),
-        ("gershgorin", 0.0, 1.0),
-        ("gershgorin", 0.99, 1.1),
-        ("gershgorin", 1.1, 1.5),
-        # ("pf", 1.0, 1.0),
-        # ("linear", 1.0, 1.0),
-    ]
-
-    activations = [
-        ("relu", torch.nn.ReLU),
-        ("selu", torch.nn.SELU),
-        ("tanh", torch.nn.Tanh),
-        ("sigmoid", torch.nn.Sigmoid),
-    ]
-
-    for nlayers in [1, 8]:
-        for linmap, sigmin, sigmax in square_maps:
-            for real in [True, False]:
-                for bias in [True, False]:
-                    for act_name, act in activations:
-                        fx = blocks.MLP(
-                            nx,
-                            nx,
-                            nonlin=act,
-                            Linear=slim.linear.maps[linmap],
-                            hsizes=[nx] * nlayers,
-                            bias=bias,
-                            linargs={
-                                "sigma_min": sigmin,
-                                "sigma_max": sigmax,
-                                "real": real,
-                            },
-                        )
-
-                        Astars = []
-                        grid_x, grid_y = torch.meshgrid(
-                            torch.arange(-6, 6, 0.5),
-                            torch.arange(-6, 6, 0.5),
-                        )
-                        X = torch.stack((grid_x.flatten(), grid_y.flatten())).T
-                        for x in X:
-                            Astar, Astar_b, _, _, _, _, _ = lpv(fx, x)
-                            Astars += [Astar_b.detach().cpu().numpy()]
-                        eigvals = compute_eigenvalues(Astars)
-                        plot_eigenvalues(eigvals, fname=f"spectrum_{linmap}_({sigmin},{sigmax})_{act_name}_{nlayers}l_{'real' if real else 'complex'}{'_bias' if bias else ''}.png")
-                        plot_matrix_eigval_anim(Astars, eigvals, fname=f"spectrum_{linmap}_({sigmin},{sigmax})_{act_name}_{nlayers}l_{'real' if real else 'complex'}{'_bias' if bias else ''}.mp4")
-
-
-    # NOTE: this prints a lot of stuff; use `lpv` for less printing
-    # tut_system = AutonomousSystem(2, [2] * 4, nn.ReLU, linmap, 0.9, 1.0)
-
-    fx = blocks.MLP(
-        2,
-        2,
-        bias=False,
-        Linear=linmap,
-        nonlin=nn.Sigmoid,
-        hsizes=[2] * 4,
-        linargs=dict(sigma_min=0.9, sigma_max=1.0, real=True),
-    )
-    exit()
-
-    # TODO: dead code follows
-    PATH = "neuromancer/train_scripts/test/twotank_test.pth"
-    SYSTEM = "TwoTank"
-    PRNG = np.random.default_rng()
-
-    model = torch.load(PATH, pickle_module=dill, map_location="cpu")
-    fx = model.components[1].fx
-    fu = model.components[1].fu
-
     print("Testing visualizations on random matrices...")
-    random_matrices = [PRNG.random(size=(3, 3)) / 2.0 for _ in range(100)]
+    random_matrices = [np.random.random(size=(3, 3)) / 2.0 for _ in range(100)]
     eigvals = compute_eigenvalues(random_matrices)
 
     plot_eigenvalues(eigvals, fname="random_matrices.svg")
     plot_matrix_eigval_anim(random_matrices, eigvals, fname="random_matrices.mp4")
-
-    print("Testing visualizations on model...")
-    gen_model_visuals(
-        model,
-        SYSTEM,
-        eigval_plot_fname="test_model_eigvals.svg",
-        anim_fname="test_model.mp4",
-    )

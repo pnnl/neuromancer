@@ -7,7 +7,7 @@ import slim
 from neuromancer import blocks
 import matplotlib.pyplot as plt
 
-from tutorial_system import LPV_net
+from lpv import lpv
 from phase_plots import plot_astar_phase_portrait
 from eigen_plots import compute_eigenvalues, plot_eigenvalues, plot_matrix_eigval_anim
 
@@ -21,7 +21,7 @@ def phase_and_spectra_plot_loop(nx, layers, maps, activations, outdir="plots_202
                 nx,
                 nx,
                 nonlin=nn.Identity,
-                Linear=slim.linear.maps[linmap],
+                linear_map=slim.linear.maps[linmap],
                 hsizes=[nx] * nlayers,
                 bias=True,
                 linargs={
@@ -47,6 +47,8 @@ def phase_and_spectra_plot_loop(nx, layers, maps, activations, outdir="plots_202
                                 fname=os.path.join(outdir, f"phase_{combo_string}.pdf"),
                             )
 
+                    if not os.path.exists(os.path.join(outdir, f"spectrum_{combo_string}.pdf")):
+                        if nx == 2:
                             grid_x, grid_y = torch.meshgrid(
                                 torch.arange(-6, 6, 0.5),
                                 torch.arange(-6, 6, 0.5),
@@ -55,10 +57,9 @@ def phase_and_spectra_plot_loop(nx, layers, maps, activations, outdir="plots_202
                         else:
                             X = torch.arange(-6, 6, 0.5).unsqueeze(-1).expand(-1, nx)
 
-                    if not os.path.exists(os.path.join(outdir, f"spectrum_{combo_string}.pdf")):
                         Astars = []
                         for x in X:
-                            Astar, Astar_b, _ = LPV_net(fx, x)
+                            Astar, Astar_b, *_ = lpv(fx, x)
                             Astars += [Astar_b.detach().cpu().numpy() if bias else Astar.detach().cpu().numpy()]
                         eigvals = compute_eigenvalues(Astars)
 

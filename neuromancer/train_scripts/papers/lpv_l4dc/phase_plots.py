@@ -5,7 +5,6 @@ import dill
 import slim
 from neuromancer import blocks
 from neuromancer.datasets import EmulatorDataset
-from psl.nonautonomous import TwoTank, CSTR
 from sklearn.decomposition import PCA
 import seaborn as sns
 
@@ -13,7 +12,7 @@ PALETTE = sns.color_palette(
     "light:#55f", as_cmap=True
 )  # sns.color_palette("crest_r", as_cmap=True)
 
-from tutorial_system import LPV_net
+from lpv import lpv
 
 
 def plot_ode_phase_portrait(
@@ -188,7 +187,7 @@ def plot_astar_phase_portrait(
 
     Xplus = torch.empty_like(grid)
     for i, sample in enumerate(grid):
-        Astar, Astar_b, bstar = LPV_net(model, sample)
+        Astar, Astar_b, bstar, *_ = lpv(model, sample)
         if use_bias:
             Xplus[i, ...] = torch.matmul(sample, Astar_b) + bstar
         else:
@@ -224,7 +223,7 @@ def plot_astar_phase_portrait(
 
     Xplus = torch.empty_like(grid)
     for i, sample in enumerate(grid):
-        Astar, Astar_b, bstar, _, _, _, _ = lpv(model, sample)
+        Astar, Astar_b, bstar, *_ = lpv(model, sample)
         if use_bias:
             Xplus[i, ...] = torch.matmul(sample, Astar_b) + bstar
         else:
@@ -256,7 +255,7 @@ def plot_astar_phase_portrait(
         for i in range(t):
             for k in range(initial_states.shape[0]):
                 sample = states[i, k, :]
-                Astar, Astar_b, bstar = LPV_net(model, sample)
+                Astar, Astar_b, bstar, *_ = lpv(model, sample)
                 if use_bias:
                     states[i + 1, k, :] = torch.matmul(sample, Astar_b) + bstar
                 else:
@@ -301,6 +300,8 @@ def plot_phase_portrait_hidim(fx, limits=(-1, 1), nsamples=10000, fname=None):
 
 
 if __name__ == "__main__":
+    from psl.nonautonomous import TwoTank, CSTR
+
     class SsmModel:
         def __init__(self, model, use_input=False):
             self.estim = model.components[0]
@@ -322,8 +323,9 @@ if __name__ == "__main__":
     plot_ode_phase_portrait(TwoTank(nsim=1, seed=81))
     plt.show()
 
-    CSTR_PATH = "neuromancer/train_scripts/L4DC_paper/models/cstr_model.pth"
-    TANK_PATH = "neuromancer/train_scripts/L4DC_paper/models/tank_model.pth"
+    """
+    CSTR_PATH = "neuromancer/train_scripts/lpv_l4dc/models/cstr_model.pth"
+    TANK_PATH = "neuromancer/train_scripts/lpv_l4dc/models/tank_model.pth"
 
     cstr_model = torch.load(CSTR_PATH, pickle_module=dill, map_location="cpu")
     cstr_data = EmulatorDataset("CSTR", nsim=10000, seed=50, device="cpu")
@@ -333,11 +335,7 @@ if __name__ == "__main__":
 
     initial_states = torch.from_numpy(
         np.array(
-            [
-                [0.5, 0.25],
-                [0.5, 0.5],
-                [0.5, 0.75],
-            ]
+            [[0.5, 0.25], [0.5, 0.5], [0.5, 0.75]]
         )
     )
 
@@ -356,13 +354,14 @@ if __name__ == "__main__":
         initial_states=initial_states,
     )
     plt.show()
+    """
 
     linmap = slim.linear.maps["gershgorin"]
     fx = blocks.MLP(
         2,
         2,
         bias=False,
-        Linear=linmap,
+        linear_map=linmap,
         nonlin=torch.nn.GELU,
         hsizes=[2] * 10,
         linargs=dict(sigma_min=0.9, sigma_max=1.0, real=False),
@@ -371,10 +370,7 @@ if __name__ == "__main__":
     plot_model_phase_portrait(fx, x_lims=(-5, 5), y_lims=(-5, 5), step=0.5)
     plt.show()
 
-    initial_states = [
-        np.array([-2, 0]),
-        np.array([0.5, -1]),
-    ]
+    initial_states = torch.tensor([[-2, 0], [0.5, -1]], dtype=torch.float)
     spiral_A = torch.tensor([[0, 0.8], [-0.05, -0.0135]], dtype=torch.float).T
     plot_model_phase_portrait(
         lambda x: torch.matmul(x, spiral_A),

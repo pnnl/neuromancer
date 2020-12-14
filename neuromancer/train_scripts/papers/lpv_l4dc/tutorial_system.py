@@ -163,20 +163,17 @@ def LPV_net(fx, x):
         # original nonlinear map
         x_layer_orig = nlin(lin(x_layer_orig))
 
-        ####################
-            # BIAS NO
-        ####################
-        # layer-wise parameter vayring linear map no bias
         A = lin.effective_W()                       # layer weight
         Ax = torch.matmul(x_layer, A)               # linear transform
+
         if sum(Ax.squeeze()) == 0:
             lambda_h = torch.zeros(Ax.shape)
             # TODO: division by zero elementwise not replacing whole vector
             # TODO: replace zero values with derivatives of activations
         else:
             lambda_h = nlin(Ax)/Ax     # activation scaling
+
         lambda_h_matrix = torch.diag(lambda_h.squeeze())
-        # x = lambda_h*Ax
         x_layer = torch.matmul(Ax, lambda_h_matrix)
         # layer-wise parameter vayring linear map: A' = Lambda A
         A_prime = torch.matmul(A, lambda_h_matrix)
@@ -189,7 +186,7 @@ def LPV_net(fx, x):
         #  for reconstruction we need to use lin.linear.weight.T and lin.linear.bias, not lin.weight and lin.bias
         # layer-wise parameter vayring linear map WITH bias
         A = lin.effective_W()                       # layer weight
-        b = lin.linear.bias if  lin.linear.bias is not None else torch.zeros(x_layer_b.shape)
+        b = lin.bias if  lin.bias is not None else torch.zeros(x_layer_b.shape)
         Ax_b = torch.matmul(x_layer_b, A) + b  # affine transform
         # Ax_b = lin(x_layer_b)
 
@@ -225,54 +222,42 @@ def LPV_net(fx, x):
             b_star = torch.matmul(b_star, A_prime_b) + b_prime
 
         i+=1
-        # layer eigenvalues
-        w_weight, v = LA.eig(lin.weight.detach().cpu().numpy().T)
-        w_activation, v = LA.eig(lambda_h_matrix.detach().cpu().numpy().T)
-        w_layer, v = LA.eig(A_prime.detach().cpu().numpy().T)
-        W_weight.append(w_weight)
-        W_activation.append(w_activation)
-        W_layer.append(w_layer)
-        # print(f'eigenvalues of {i}-th layer weights {w_weight}')
-        # print(f'eigenvalues of {i}-th layer activations {w_activation}')
+    print(A_star)
+    print(A_star_b)
 
-    # network-wise eigenvalues
-    w_net, v = LA.eig(A_prime.detach().cpu().numpy().T)
-    print(f'point-wise eigenvalues of network {w_net}')
-    print(f'network forward pass vs LPV')
-    print(f'{fx(x)} - network f(x)')
-    print(f'{torch.matmul(x, A_star_b)+b_star} - A* with bias')
-    # print(f'{torch.matmul(x, A_star_b)} - A* with bias')
-    print(f'{torch.matmul(x, A_star)} - A* without bias')
-    return A_star, W_weight, W_activation, W_layer, w_net
+    return A_star, A_star_b, b_star
 
-nx = 3
-# random feature point
-x_z = torch.randn(1,nx)
-# x_z = torch.tensor([[-1.0, 1.0, 3.0]], requires_grad=True)
-test_bias = True
+if __name__ == "__main__":
+    torch.manual_seed(2)
+    np.random.seed(2)
+    nx = 3 
+    # random feature point
+    x_z = torch.randn(1,nx)
+    # x_z = torch.tensor([[-1.0, 1.0, 3.0]], requires_grad=True)
+    test_bias = True
 
-# define single layer square neural net
-fx_layer = MLP_layer(nx, nx, nonlin=nn.ReLU, hsizes=[], bias=test_bias)
-# verify linear operations on MLP layers
-fx_layer.linear[0](x_z)
-torch.matmul(x_z, fx_layer.linear[0].effective_W()) + fx_layer.linear[0].bias
-# verify single layer linear parameter varying form
-LPV_layer(fx_layer,torch.randn(1,3))
+    # define single layer square neural net
+    fx_layer = MLP_layer(nx, nx, nonlin=nn.ReLU, hsizes=[], bias=test_bias)
+    # verify linear operations on MLP layers
+    fx_layer.linear[0](x_z)
+    torch.matmul(x_z, fx_layer.linear[0].effective_W()) + fx_layer.linear[0].bias
+    # verify single layer linear parameter varying form
+    LPV_layer(fx_layer,torch.randn(1,3))
 
-# define square neural net
-fx = MLP(nx, nx, nonlin=nn.ReLU, hsizes=[nx, nx, nx], bias=test_bias)
-if test_bias:
-    for i in range(nx):
-        fx.linear[i].bias.data = torch.randn(1,3)
-# verify multi-layer linear parameter varying form
-A_star, W_weight, W_activation, W_layer, w_net = LPV_net(fx,torch.randn(1,3))
+    # define square neural net
+    fx = MLP(nx, nx, nonlin=nn.ReLU, hsizes=[nx, nx, nx], bias=test_bias)
+    if test_bias:
+        for i in range(nx):
+            fx.linear[i].bias.data = torch.randn(1,3)
+    # verify multi-layer linear parameter varying form
+    LPV_net(fx,torch.randn(1,3))
 
 
-# verify different activations
-activations = [nn.ReLU6, nn.ReLU, nn.PReLU, nn.GELU, nn.CELU, nn.ELU,
-              nn.LogSigmoid, nn.Sigmoid, nn.Tanh]
-for act in activations:
-    print(f'current activation {act}')
-    fx_a = MLP(nx, nx, nonlin=act, hsizes=[nx, nx, nx], bias=test_bias)
-    A_star, W_weight, W_activation, W_layer, w_net = LPV_net(fx_a, torch.randn(1, 3))
+    # verify different activations
+    activations = [nn.ReLU6, nn.ReLU, nn.PReLU, nn.GELU, nn.CELU, nn.ELU,
+                nn.LogSigmoid, nn.Sigmoid, nn.Tanh]
+    for act in activations:
+        print(f'current activation {act}')
+        fx_a = MLP(nx, nx, nonlin=act, hsizes=[nx, nx, nx], bias=test_bias)
+        LPV_net(fx_a, torch.randn(1, 3))
 

@@ -7,6 +7,13 @@ from neuromancer import blocks
 from neuromancer.datasets import EmulatorDataset
 from psl.nonautonomous import TwoTank, CSTR
 from sklearn.decomposition import PCA
+import seaborn as sns
+
+PALETTE = sns.color_palette(
+    "light:#55f", as_cmap=True
+)  # sns.color_palette("crest_r", as_cmap=True)
+
+from tutorial_system import LPV_net
 
 
 def plot_ode_phase_portrait(
@@ -152,6 +159,122 @@ def plot_model_phase_portrait(
     return [ax]
 
 
+def plot_astar_phase_portrait(
+    model,
+    x_lims=(0, 1),
+    y_lims=(0, 1),
+    step=0.05,
+    use_bias=True,
+    data=None,
+    initial_states=[],
+    t=20,
+    regions=True,
+    fname=None,
+):
+    """
+    generate phase portrait using a model function.
+
+    accepts a function will be evaluated for one step using a grid of initial
+    conditions determined by `x_lims`, `y_lims`, and `step`.
+
+    if `initial_states` is specified, trajectories over `t` steps will
+    be plotted over portrait.
+    """
+    X, Y = torch.meshgrid(
+        torch.arange(x_lims[0], x_lims[1] + step, step),
+        torch.arange(y_lims[0], y_lims[1] + step, step),
+    )
+    grid = torch.stack((X.flatten(), Y.flatten())).T
+
+    Xplus = torch.empty_like(grid)
+    for i, sample in enumerate(grid):
+        Astar, Astar_b, bstar = LPV_net(model, sample)
+        if use_bias:
+            Xplus[i, ...] = torch.matmul(sample, Astar_b) + bstar
+        else:
+            Xplus[i, ...] = torch.matmul(sample, Astar)
+
+    U, V = Xplus.T.reshape(2, *X.shape).detach().cpu().numpy()
+
+    U = -X + U
+    V = -Y + V
+
+    _, ax = plt.subplots()
+    if regions:
+        magnitudes = np.stack((U, V), axis=-1)
+        magnitudes = np.linalg.norm(magnitudes, ord=2, axis=-1).T[::-1, :]
+        ax.imshow(
+            magnitudes,
+            extent=[
+                x_lims[0] - step / 2,
+                x_lims[1] + step / 2,
+                y_lims[0] - step / 2,
+                y_lims[1] + step / 2,
+            ],
+            interpolation="bicubic",
+            cmap=PALETTE,
+        )
+
+    """
+    X, Y = torch.meshgrid(
+        torch.arange(x_lims[0], x_lims[1] + step, step),
+        torch.arange(y_lims[0], y_lims[1] + step, step),
+    )
+    grid = torch.stack((X.flatten(), Y.flatten())).T
+
+    Xplus = torch.empty_like(grid)
+    for i, sample in enumerate(grid):
+        Astar, Astar_b, bstar, _, _, _, _ = lpv(model, sample)
+        if use_bias:
+            Xplus[i, ...] = torch.matmul(sample, Astar_b) + bstar
+        else:
+            Xplus[i, ...] = torch.matmul(sample, Astar)
+
+    U, V = Xplus.T.reshape(2, *X.shape).detach().cpu().numpy()
+
+    U = -X + U
+    V = -Y + V
+    """
+
+    ax.plot([0., 0.], (y_lims[0] - step / 2, y_lims[1] + step / 2), c="black", lw=0.5)
+    ax.plot((x_lims[0] - step / 2, x_lims[1] + step / 2), [0., 0.], c="black", lw=0.5)
+
+    # plot vector field
+    ax.quiver(
+        X, Y, U, V, angles="uv", pivot="mid", width=0.002, headwidth=4, headlength=5
+    )
+
+    # plot data over phase portrait
+    if data is not None:
+        data_states = data["Yp"].squeeze(1).cpu().numpy()
+        ax.scatter(data_states[:, 0], data_states[:, 1], s=2, alpha=0.7, c="red")
+
+    # plot state trajectories over phase space if initial states given
+    if len(initial_states) > 0:
+        states = torch.empty(t + 1, *initial_states.shape, requires_grad=False)
+        states[0, :, :] = initial_states
+        for i in range(t):
+            for k in range(initial_states.shape[0]):
+                sample = states[i, k, :]
+                Astar, Astar_b, bstar = LPV_net(model, sample)
+                if use_bias:
+                    states[i + 1, k, :] = torch.matmul(sample, Astar_b) + bstar
+                else:
+                    states[i + 1, k, :] = torch.matmul(sample, Astar)
+        states = states.transpose(1, 2).detach().cpu().numpy()
+        ax.plot(states[:, 0], states[:, 1], marker="o", ms=3)
+
+    ax.set_xlim((x_lims[0] - step / 2, x_lims[1] + step / 2))
+    ax.set_ylim((y_lims[0] - step / 2, y_lims[1] + step / 2))
+    ax.set_aspect(1)
+
+    if fname is not None:
+        plt.savefig(fname)
+        plt.close()
+
+    return [ax]
+
+
 def plot_phase_portrait_hidim(fx, limits=(-1, 1), nsamples=10000, fname=None):
     """
     NOTE:
@@ -208,11 +331,15 @@ if __name__ == "__main__":
     tank_model = torch.load(TANK_PATH, pickle_module=dill, map_location="cpu")
     tank_data = EmulatorDataset("TwoTank", nsim=10000, seed=81, device="cpu")
 
-    initial_states = [
-        np.array([0.5, 0.25]),
-        np.array([0.5, 0.5]),
-        np.array([0.5, 0.75]),
-    ]
+    initial_states = torch.from_numpy(
+        np.array(
+            [
+                [0.5, 0.25],
+                [0.5, 0.5],
+                [0.5, 0.75],
+            ]
+        )
+    )
 
     print("Testing model phase portrait...")
 

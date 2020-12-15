@@ -1,6 +1,5 @@
 """
 Script for training block dynamics models for system identification.
-Current block structure supported are black_box, hammerstein, hammerstein-weiner, and general block non-linear
 
 Basic model options are:
     + prior on the linear maps of the neural network

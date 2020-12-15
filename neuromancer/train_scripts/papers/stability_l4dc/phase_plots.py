@@ -274,31 +274,6 @@ def plot_astar_phase_portrait(
     return [ax]
 
 
-def plot_phase_portrait_hidim(fx, limits=(-1, 1), nsamples=10000, fname=None):
-    """
-    NOTE:
-    this isn't very useful, just an initial attempt at plotting portraits in
-    high-dimensional space using PCA before settling on processing state
-    samples with state estimator and SSM.
-    """
-    x = torch.rand(nsamples, nx, dtype=torch.float)
-    z = fx(x)
-    z = z.detach().cpu().numpy()
-
-    xfm = PCA(n_components=2)
-    x = xfm.fit_transform(x)
-    x, z = xz[:nsamples], xz[nsamples:]
-
-    X, Y = x.T
-    U, V = z.T
-
-    # plot vector field
-    fig, ax = plt.subplots()
-    ax.quiver(X, Y, -U, -V, angles="xy")
-
-    return [ax]
-
-
 if __name__ == "__main__":
     from psl.nonautonomous import TwoTank, CSTR
 

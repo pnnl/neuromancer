@@ -31,7 +31,6 @@ def lpv_batched(fx, x):
         x_layer = Ax * lambda_h
 
         Aprime = torch.matmul(A, lambda_h_mats)
-        print(Aprime.shape)
         # Aprime = A * lambda_h
         Aprime_mats += [Aprime]
 

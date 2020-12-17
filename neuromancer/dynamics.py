@@ -111,7 +111,6 @@ class BlockSSM(nn.Module):
         x_in, y_out, u_in, d_in = self.input_keys
         nsteps = data[y_out].shape[0]
         X, Y, FD, FU, FE = [], [], [], [], []
-
         x = data[x_in]
         for i in range(nsteps):
             x_prev = x

@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
     # Load Dataset System ID
     logger_id = get_logger(args_id)
-    dataset_id = load_dataset(args_id, device)
+    dataset_id = load_dataset(args_id, device, name='openloop')
     print(dataset_id.dims)
 
     # System ID Model
@@ -90,16 +90,12 @@ if __name__ == "__main__":
     print({k: str(getattr(args_id, k)) for k in vars(args_id) if getattr(args_id, k)})
     device = f"cuda:{args_ctrl.gpu}" if args_ctrl.gpu is not None else "cpu"
     logger_ctrl = get_logger(args_ctrl)
-    dataset_ctrl = load_dataset(args_ctrl, device)
+    dataset_ctrl = load_dataset(args_ctrl, device, name='closedloop')
     dataset_ctrl = ctrl.add_reference_features(dataset_ctrl, dynamics_model)
 
     # Control Problem Definition
-    estimator, dynamics_model = ctrl.update_system_id_inputs(
-        args_ctrl, dataset_ctrl, estimator, dynamics_model
-    )
-    policy = ctrl.get_policy_components(
-        args_ctrl, dataset_ctrl, dynamics_model, policy_name="policy"
-    )
+    estimator, dynamics_model = ctrl.update_system_id_inputs(args_ctrl, dataset_ctrl, estimator, dynamics_model)
+    policy = ctrl.get_policy_components(args_ctrl, dataset_ctrl, dynamics_model, policy_name="policy")
     signal_generator = WhiteNoisePeriodicGenerator(
         args_ctrl.nsteps,
         dynamics_model.fy.out_features,
@@ -109,16 +105,12 @@ if __name__ == "__main__":
         max_period=20,
         name="Y_ctrl_",
     )
-    noise_generator = NoiseGenerator(
-        ratio=0.05, keys=["Y_pred_dynamics"], name="_noise"
-    )
+    noise_generator = NoiseGenerator(ratio=0.05, keys=["Y_pred_dynamics"], name="_noise")
 
     objectives, constraints = ctrl.get_objective_terms(args_ctrl, policy)
-    model_ctrl = Problem(
-        objectives,
-        constraints,
-        [signal_generator, estimator, policy, dynamics_model, noise_generator],
-    )
+    components = [signal_generator, estimator, policy, dynamics_model, noise_generator]
+
+    model_ctrl = Problem(objectives, constraints, components)
     model_ctrl = model_ctrl.to(device)
 
     # train only policy component
@@ -127,14 +119,12 @@ if __name__ == "__main__":
     optimizer = torch.optim.AdamW(model_ctrl.parameters(), lr=args_ctrl.lr)
 
     plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
-    visualizer = VisualizerClosedLoop(
-        dataset_ctrl, policy, plot_keys, args_ctrl.verbosity, savedir=args_ctrl.savedir
-    )
+    visualizer = VisualizerClosedLoop(dataset_ctrl, policy, plot_keys,
+                                      args_ctrl.verbosity, savedir=args_ctrl.savedir)
 
     policy.input_keys[0] = "Yp"  # hack for policy input key compatibility w/ simulator
-    simulator = ClosedLoopSimulator(
-        model=model_ctrl, dataset=dataset_ctrl, emulator=dynamics_model, policy=policy
-    )
+    simulator = ClosedLoopSimulator(model=model_ctrl, dataset=dataset_ctrl,
+                                    emulator=dynamics_model, policy=policy)
     trainer = Trainer(
         model_ctrl,
         dataset_ctrl,

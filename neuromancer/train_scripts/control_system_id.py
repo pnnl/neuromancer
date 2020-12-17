@@ -22,9 +22,13 @@ from neuromancer.signals import (
 
 from common import load_dataset, get_logger
 import common.system_id as sys_id
-import common.control as ctl
+import common.control as ctrl
 
 if __name__ == "__main__":
+    ###################
+    #### System ID ####
+    ###################
+
     args_id = sys_id.get_parser().parse_args()
     print({k: str(getattr(args_id, k)) for k in vars(args_id) if getattr(args_id, k)})
     device = f"cuda:{args_id.gpu}" if args_id.gpu is not None else "cpu"
@@ -77,19 +81,23 @@ if __name__ == "__main__":
     logger_id.log_artifacts(plots_id)
     logger_id.clean_up()
 
+    ###################
+    #### Control   ####
+    ###################
+
     # Control Dataset
-    args_ctrl = ctl.get_parser().parse_args()
+    args_ctrl = ctrl.get_parser().parse_args()
     print({k: str(getattr(args_id, k)) for k in vars(args_id) if getattr(args_id, k)})
     device = f"cuda:{args_ctrl.gpu}" if args_ctrl.gpu is not None else "cpu"
     logger_ctrl = get_logger(args_ctrl)
     dataset_ctrl = load_dataset(args_ctrl, device)
-    dataset_ctrl = ctl.add_reference_features(dataset_ctrl, dynamics_model)
+    dataset_ctrl = ctrl.add_reference_features(dataset_ctrl, dynamics_model)
 
     # Control Problem Definition
-    estimator, dynamics_model = ctl.update_system_id_inputs(
+    estimator, dynamics_model = ctrl.update_system_id_inputs(
         args_ctrl, dataset_ctrl, estimator, dynamics_model
     )
-    policy = ctl.get_policy_components(
+    policy = ctrl.get_policy_components(
         args_ctrl, dataset_ctrl, dynamics_model, policy_name="policy"
     )
     signal_generator = WhiteNoisePeriodicGenerator(
@@ -105,7 +113,7 @@ if __name__ == "__main__":
         ratio=0.05, keys=["Y_pred_dynamics"], name="_noise"
     )
 
-    objectives, constraints = ctl.get_objective_terms(args_ctrl, policy)
+    objectives, constraints = ctrl.get_objective_terms(args_ctrl, policy)
     model_ctrl = Problem(
         objectives,
         constraints,

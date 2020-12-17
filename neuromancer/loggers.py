@@ -147,6 +147,7 @@ class MLFlowLogger(BasicLogger):
         """
         Remove temporary files from file system
         """
+        # TODO: this creates problems on windoes
         os.system(f'rm -rf {self.savedir}')
         mlflow.end_run()
 

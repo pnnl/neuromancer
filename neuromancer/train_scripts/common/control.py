@@ -220,14 +220,14 @@ def get_parser(parser=None):
 
 
 def update_system_id_inputs(args, dataset, estimator, dynamics_model):
-    # TODO: generalize this
-    dynamics_model.input_keys[2] = 'U_pred_policy'
+    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_policy'
     dynamics_model.fe = None
     dynamics_model.fyu = None
 
     estimator.input_keys[0] = 'Y_ctrl_p'
     estimator.data_dims = dataset.dims
     estimator.data_dims['Y_ctrl_p'] = dataset.dims['Yp']
+    # estimator.data_dims = {**dataset.dims, 'Y_ctrl_p': estimator.data_dims['Yp']}
     estimator.nsteps = args.nsteps
 
     return estimator, dynamics_model
@@ -381,8 +381,6 @@ def add_reference_features(dataset, dynamics_model):
         "U_max": np.ones([nsim, nu]),
         "U_min": np.zeros([nsim, nu]),
         "R": psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.8, xmin=0.2)
-        # 'Y_ctrl_': psl.RandomWalk(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny, sigma=0.05)}
-        # 'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)}
+        # 'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)
     })
-
     return dataset

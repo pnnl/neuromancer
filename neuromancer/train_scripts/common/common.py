@@ -60,7 +60,7 @@ def get_base_parser():
     return parser
 
 
-def load_dataset(args, device):
+def load_dataset(args, device, name):
     if systems[args.system] == "emulator":
         dataset = EmulatorDataset(
             system=args.system,
@@ -69,7 +69,8 @@ def load_dataset(args, device):
             nsteps=args.nsteps,
             device=device,
             savedir=args.savedir,
-            seed=args.data_seed
+            seed=args.data_seed,
+            name=name,
         )
     else:
         dataset = FileDataset(
@@ -79,6 +80,7 @@ def load_dataset(args, device):
             nsteps=args.nsteps,
             device=device,
             savedir=args.savedir,
+            name=name,
         )
     return dataset
 

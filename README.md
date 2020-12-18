@@ -60,6 +60,13 @@ user@machine:~$ source activate neuromancer
     [ ] (Aaron) Create docs
 
 ### TODO
+    [1] User experience updates
+        new attributes for our component models: 
+            out_keys - to have a full info about the connectivity
+        new attributes for models and objectives:
+            form or equation - a string representing the underlying mathematical expression e.g. "y = x + f(x)"
+        pre-defined constraints in a separate file with brief documentation
+        
     
     [2] datasets
         refactor datasets.py - get rid of unnecessary dependencies

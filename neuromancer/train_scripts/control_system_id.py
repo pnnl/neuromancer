@@ -23,11 +23,11 @@ from neuromancer.signals import (
 
 from common import load_dataset, get_logger
 import common.system_id as sys_id
-import common.control as ctl
+import common.control as ctrl
 
 if __name__ == "__main__":
     parser = sys_id.get_parser()
-    parser = ctl.get_parser(parser=parser, add_prefix=True)
+    parser = ctrl.get_parser(parser=parser, add_prefix=True)
     args = parser.parse_args()
 
     print({k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)})
@@ -93,16 +93,20 @@ if __name__ == "__main__":
         }
     )
 
+    ###################
+    #### Control   ####
+    ###################
+
     # Control Dataset
     logger = get_logger(ctrl_args)
-    dataset = load_dataset(ctrl_args, device)
-    dataset = ctl.add_reference_features(dataset, dynamics_model)
+    dataset = load_dataset(ctrl_args, device, name="closedloop")
+    dataset = ctrl.add_reference_features(dataset, dynamics_model)
 
     # Control Problem Definition
-    estimator, dynamics_model = ctl.update_system_id_inputs(
+    estimator, dynamics_model = ctrl.update_system_id_inputs(
         ctrl_args, dataset, estimator, dynamics_model
     )
-    policy = ctl.get_policy_components(
+    policy = ctrl.get_policy_components(
         ctrl_args, dataset, dynamics_model, policy_name="policy"
     )
     signal_generator = WhiteNoisePeriodicGenerator(
@@ -114,11 +118,9 @@ if __name__ == "__main__":
         max_period=20,
         name="Y_ctrl_",
     )
-    noise_generator = NoiseGenerator(
-        ratio=0.05, keys=["Y_pred_dynamics"], name="_noise"
-    )
+    noise_generator = NoiseGenerator(ratio=0.05, keys=["Y_pred_dynamics"], name="_noise")
 
-    objectives, constraints = ctl.get_objective_terms(ctrl_args, policy)
+    objectives, constraints = ctrl.get_objective_terms(ctrl_args, policy)
     model = Problem(
         objectives,
         constraints,

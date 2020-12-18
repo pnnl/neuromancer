@@ -59,7 +59,7 @@ def parse():
     ##################
     # OPTIMIZATION PARAMETERS
     opt_group = parser.add_argument_group('OPTIMIZATION PARAMETERS')
-    opt_group.add_argument('-epochs', type=int, default=100)
+    opt_group.add_argument('-epochs', type=int, default=5)
     opt_group.add_argument('-lr', type=float, default=0.001,
                            choices=[3e-5, 1e-4, 3e-4, 1e-3, 3e-3, 0.01],
                            help='Step size for gradient descent.')
@@ -383,7 +383,7 @@ if __name__ == '__main__':
     best_model = trainer.train()
     trainer.evaluate(best_model)
     logger.log_metrics({'alive': 0.0})
-    logger.clean_up()
+    # logger.clean_up()
 
     if False:
         model.load_state_dict(best_model)

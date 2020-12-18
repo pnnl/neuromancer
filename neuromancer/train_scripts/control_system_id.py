@@ -91,7 +91,7 @@ if __name__ == "__main__":
     device = f"cuda:{args_ctrl.gpu}" if args_ctrl.gpu is not None else "cpu"
     logger_ctrl = get_logger(args_ctrl)
     dataset_ctrl = load_dataset(args_ctrl, device, name='closedloop')
-    dataset_ctrl = ctrl.add_reference_features(dataset_ctrl, dynamics_model)
+    dataset_ctrl = ctrl.add_reference_features(args_ctrl, dataset_ctrl, dynamics_model)
 
     # Control Problem Definition
     estimator, dynamics_model = ctrl.update_system_id_inputs(args_ctrl, dataset_ctrl, estimator, dynamics_model)
@@ -140,9 +140,7 @@ if __name__ == "__main__":
     # Train control policy
     best_model = trainer.train()
     best_outputs = trainer.evaluate(best_model)
-    plots_ctrl = visualizer.eval(best_outputs)
 
     # Logger
-    logger_ctrl.log_artifacts(plots_ctrl)
     logger_ctrl.log_metrics({"alive": 0.0})
     logger_ctrl.clean_up()

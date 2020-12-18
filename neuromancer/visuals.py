@@ -274,8 +274,11 @@ class VisualizerClosedLoop(Visualizer):
         Ymax = outputs['Ymax'] if 'Ymax' in outputs.keys() else None
         Umin = outputs['Umin'] if 'Umin' in outputs.keys() else None
         Umax = outputs['Umax'] if 'Umax' in outputs.keys() else None
+
         plot.pltCL(Y=outputs['Y'], U=outputs['U'], D=D, R=R,
-                   Ymin=Ymin, Ymax=Ymax, Umin=Umin, Umax=Umax, figname=os.path.join(self.savedir, 'CL_control.png'))
+                   Ymin=Ymin, Ymax=Ymax, Umin=Umin, Umax=Umax,
+                   ctrl_outputs=self.dataset.ctrl_outputs,
+                   figname=os.path.join(self.savedir, 'CL_control.png'))
         self.plot_matrix()
         return dict()
 

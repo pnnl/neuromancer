@@ -19,30 +19,33 @@ from neuromancer import policies
 from .common import get_base_parser
 
 
-def get_parser(parser=None):
+def get_parser(parser=None, add_prefix=False):
     if parser is None:
         parser = get_base_parser()
 
+    # maybe prefix arg with "ctrl_"
+    pfx = (lambda x: f"-ctrl_{x.strip('-')}") if add_prefix else (lambda x: x)
+
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument("-epochs", type=int, default=100)
+    opt_group.add_argument(pfx("-epochs"), type=int, default=100)
     opt_group.add_argument(
-        "-lr", type=float, default=0.001, help="Step size for gradient descent."
+        pfx("-lr"), type=float, default=0.001, help="Step size for gradient descent."
     )
     opt_group.add_argument(
-        "-patience",
+        pfx("-patience"),
         type=int,
         default=100,
         help="How many epochs to allow for no improvement in eval metric before early stopping.",
     )
     opt_group.add_argument(
-        "-warmup",
+        pfx("-warmup"),
         type=int,
         default=100,
         help="Number of epochs to wait before enacting early stopping policy.",
     )
     opt_group.add_argument(
-        "-skip_eval_sim",
+        pfx("-skip_eval_sim"),
         action="store_true",
         help="Whether to run simulator during evaluation phase of training.",
     )
@@ -50,21 +53,21 @@ def get_parser(parser=None):
     # data parameters
     data_group = parser.add_argument_group("DATA PARAMETERS")
     data_group.add_argument(
-        "-nsteps",
+        pfx("-nsteps"),
         type=int,
         default=32,
         help="Number of steps for open loop during training.",
     )
     data_group.add_argument(
-        "-system",
+        pfx("-system"),
         type=str,
         default="flexy_air",
         help="select particular dataset with keyword",
     )
     data_group.add_argument(
-        "-nsim",
+        pfx("-nsim"),
         type=int,
-        default=100000,
+        default=10000,
         help="Number of time steps for full dataset. (ntrain + ndev + ntest)"
         "train, dev, and test will be split evenly from contiguous, sequential, "
         "non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,"
@@ -72,14 +75,14 @@ def get_parser(parser=None):
         "None will use a default nsim from the selected dataset or emulator",
     )
     data_group.add_argument(
-        "-norm",
+        pfx("-norm"),
         nargs="+",
         default=["U", "D", "Y"],
         choices=["U", "D", "Y", "X"],
         help="List of sequences to max-min normalize",
     )
     data_group.add_argument(
-        "-data_seed", type=int, default=408, help="Random seed used for simulated data"
+        pfx("-data_seed"), type=int, default=408, help="Random seed used for simulated data"
     )
 
     # TODO: option with loading trained model
@@ -92,45 +95,46 @@ def get_parser(parser=None):
     # POLICY PARAMETERS
     policy_group = parser.add_argument_group("POLICY PARAMETERS")
     policy_group.add_argument(
-        "-policy", type=str, choices=["mlp", "linear"], default="mlp"
+        pfx("-policy"), type=str, choices=["mlp", "linear"], default="mlp"
     )
     policy_group.add_argument(
-        "-n_hidden", type=int, default=20, help="Number of hidden states"
+        pfx("-n_hidden"), type=int, default=20, help="Number of hidden states"
     )
     policy_group.add_argument(
-        "-n_layers",
+        pfx("-n_layers"),
         type=int,
         default=3,
         help="Number of hidden layers of single time-step state transition",
     )
     policy_group.add_argument(
-        "-bias",
+        pfx("-bias"),
         action="store_true",
         help="Whether to use bias in the neural network models.",
     )
     policy_group.add_argument(
-        "-policy_features",
+        pfx("-policy_features"),
         nargs="+",
         default=["Y_ctrl_p", "Rf"],
         help="Policy features",
     )  # reference tracking option
+
     # TODO: generate constraints for the rest of datasets from psl
     # policy_group.add_argument('-policy_features', nargs='+', default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'],
     #                           help='Policy features')  # reference tracking with constraints option
 
     policy_group.add_argument(
-        "-activation",
+        pfx("-activation"),
         choices=["gelu", "softexp"],
         default="gelu",
         help="Activation function for neural networks",
     )
     policy_group.add_argument(
-        "-perturbation",
+        pfx("-perturbation"),
         choices=["white_noise_sine_wave", "white_noise"],
         default="white_noise",
     )
     policy_group.add_argument(
-        "-seed",
+        pfx("-seed"),
         type=int,
         default=408,
         help="Random seed used for weight initialization.",
@@ -139,10 +143,10 @@ def get_parser(parser=None):
     # linear parameters
     linear_group = parser.add_argument_group("LINEAR PARAMETERS")
     linear_group.add_argument(
-        "-linear_map", type=str, choices=["linear", "softSVD", "pf"], default="linear"
+        pfx("-linear_map"), type=str, choices=["linear", "softSVD", "pf"], default="linear"
     )
-    linear_group.add_argument("-sigma_min", type=float, default=0.1)
-    linear_group.add_argument("-sigma_max", type=float, default=1.0)
+    linear_group.add_argument(pfx("-sigma_min"), type=float, default=0.1)
+    linear_group.add_argument(pfx("-sigma_max"), type=float, default=1.0)
 
     # layers
     layers_group = parser.add_argument_group("LAYERS PARAMETERS")
@@ -157,64 +161,64 @@ def get_parser(parser=None):
     # weight parameters
     weight_group = parser.add_argument_group("WEIGHT PARAMETERS")
     weight_group.add_argument(
-        "-Q_con_x",
+        pfx("-Q_con_x"),
         type=float,
         default=1.0,
         help="Hidden state constraints penalty weight.",
     )
     weight_group.add_argument(
-        "-Q_con_y",
+        pfx("-Q_con_y"),
         type=float,
         default=2.0,
         help="Observable constraints penalty weight.",
     )
     weight_group.add_argument(
-        "-Q_dx",
+        pfx("-Q_dx"),
         type=float,
         default=0.1,
         help="Penalty weight on hidden state difference in one time step.",
     )
     weight_group.add_argument(
-        "-Q_sub", type=float, default=0.1, help="Linear maps regularization weight."
+        pfx("-Q_sub"), type=float, default=0.1, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
-        "-Q_y", type=float, default=1.0, help="Output tracking penalty weight"
+        pfx("-Q_y"), type=float, default=1.0, help="Output tracking penalty weight"
     )
     weight_group.add_argument(
-        "-Q_e",
+        pfx("-Q_e"),
         type=float,
         default=1.0,
         help="State estimator hidden prediction penalty weight",
     )
     weight_group.add_argument(
-        "-Q_con_fdu",
+        pfx("-Q_con_fdu"),
         type=float,
         default=0.0,
         help="Penalty weight on control actions and disturbances.",
     )
     weight_group.add_argument(
-        "-Q_con_u", type=float, default=10.0, help="Input constraints penalty weight."
+        pfx("-Q_con_u"), type=float, default=10.0, help="Input constraints penalty weight."
     )
     weight_group.add_argument(
-        "-Q_r", type=float, default=1.0, help="Reference tracking penalty weight"
+        pfx("-Q_r"), type=float, default=1.0, help="Reference tracking penalty weight"
     )
     weight_group.add_argument(
-        "-Q_du",
+        pfx("-Q_du"),
         type=float,
         default=0.1,
         help="control action difference penalty weight",
     )
 
     # objective and constraints variations
-    weight_group.add_argument("-con_tighten", action="store_true")
+    weight_group.add_argument(pfx("-con_tighten"), action="store_true")
     weight_group.add_argument(
-        "-tighten",
+        pfx("-tighten"),
         type=float,
         default=0.05,
         help="control action difference penalty weight",
     )
-    weight_group.add_argument("-loss_clip", action="store_true")
-    weight_group.add_argument("-noise", action="store_true")
+    weight_group.add_argument(pfx("-loss_clip"), action="store_true")
+    weight_group.add_argument(pfx("-noise"), action="store_true")
 
     return parser
 

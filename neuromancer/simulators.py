@@ -299,15 +299,6 @@ class ClosedLoopSimulator(Simulator):
                 'Ymax': np.concatenate(Ymax, 0) if Ymax is not None else None,
                 'Umin': np.concatenate(Umin, 0) if Umin is not None else None,
                 'Umax': np.concatenate(Umax, 0) if Umax is not None else None}
-        # return {'X_pred': torch.cat(X_pred, dim=1), 'Y_pred': torch.cat(Y_pred, dim=1),
-        #         'U_pred': torch.cat(U_pred, dim=1), 'U_opt': torch.cat(U_opt, dim=0),
-        #         'Y': np.concatenate(Y, 0), 'X': np.concatenate(X, 0), 'U': np.concatenate(U, 0),
-        #         'D': np.concatenate(D, 0) if D is not None else None,
-        #         'R': np.concatenate(R, 0) if R is not None else None,
-        #         'Ymin': np.concatenate(Ymin, 0) if Ymin is not None else None,
-        #         'Ymax': np.concatenate(Ymax, 0) if Ymax is not None else None,
-        #         'Umin': np.concatenate(Umin, 0) if Umin is not None else None,
-        #         'Umax': np.concatenate(Umax, 0) if Umax is not None else None}
 
 
 if __name__ == '__main__':

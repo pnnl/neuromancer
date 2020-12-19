@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
     # Load Dataset System ID
     logger = get_logger(args)
-    dataset = load_dataset(args, device)
+    dataset = load_dataset(args, device, "openloop")
     print(dataset.dims)
 
     # System ID Model
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     # Control Dataset
     logger = get_logger(ctrl_args)
     dataset = load_dataset(ctrl_args, device, name="closedloop")
-    dataset = ctrl.add_reference_features(dataset, dynamics_model)
+    dataset = ctrl.add_reference_features(ctrl_args, dataset, dynamics_model)
 
     # Control Problem Definition
     estimator, dynamics_model = ctrl.update_system_id_inputs(
@@ -157,7 +157,6 @@ if __name__ == "__main__":
     # Train control policy
     best_model = trainer.train()
     best_outputs = trainer.evaluate(best_model)
-    plots = visualizer.eval(best_outputs)
 
     logger.log_artifacts(plots)
     logger.clean_up()

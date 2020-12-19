@@ -98,6 +98,10 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-policy"), type=str, choices=["mlp", "linear"], default="mlp"
     )
     policy_group.add_argument(
+        "-controlled_outputs", nargs='+', default=[0],
+        help="list of indices of controlled outputs len(default)<=ny"
+    )
+    policy_group.add_argument(
         pfx("-n_hidden"), type=int, default=20, help="Number of hidden states"
     )
     policy_group.add_argument(
@@ -114,14 +118,9 @@ def get_parser(parser=None, add_prefix=False):
     policy_group.add_argument(
         pfx("-policy_features"),
         nargs="+",
-        default=["Y_ctrl_p", "Rf"],
+        default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'],
         help="Policy features",
     )  # reference tracking option
-
-    # TODO: generate constraints for the rest of datasets from psl
-    # policy_group.add_argument('-policy_features', nargs='+', default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'],
-    #                           help='Policy features')  # reference tracking with constraints option
-
     policy_group.add_argument(
         pfx("-activation"),
         choices=["gelu", "softexp"],
@@ -278,12 +277,12 @@ def get_objective_terms(args, policy):
 
     reference_loss = Objective(
         [output_key, "Rf"],
-        lambda pred, ref: F.mse_loss(pred[:, :, :1], ref),
+        lambda pred, ref: F.mse_loss(pred[:, :, args.controlled_outputs], ref),
         weight=args.Q_r,
         name="ref_loss",
     )
     regularization = Objective(
-        [f"reg_error_{policy.name}"], lambda reg: reg, weight=args.Q_sub
+        [f"reg_error_{policy.name}"], lambda reg: reg, weight=args.Q_sub, name="reg_loss",
     )
     control_smoothing = Objective(
         [f"U_pred_{policy.name}"],
@@ -293,13 +292,13 @@ def get_objective_terms(args, policy):
     )
     observation_lower_bound_penalty = Objective(
         [output_key, "Y_minf"],
-        lambda x, xmin: torch.mean(F.relu(-x[:, :, :1] + xmin)),
+        lambda x, xmin: torch.mean(F.relu(-x[:, :, args.controlled_outputs] + xmin)),
         weight=args.Q_con_y,
         name="observation_lower_bound",
     )
     observation_upper_bound_penalty = Objective(
         [output_key, "Y_maxf"],
-        lambda x, xmax: torch.mean(F.relu(x[:, :, :1] - xmax)),
+        lambda x, xmax: torch.mean(F.relu(x[:, :, args.controlled_outputs] - xmax)),
         weight=args.Q_con_y,
         name="observation_upper_bound",
     )
@@ -320,13 +319,13 @@ def get_objective_terms(args, policy):
     if args.con_tighten:
         observation_lower_bound_penalty = Objective(
             [output_key, "Y_minf"],
-            lambda x, xmin: torch.mean(F.relu(-x[:, :, :1] + xmin + args.tighten)),
+            lambda x, xmin: torch.mean(F.relu(-x[:, :, args.controlled_outputs] + xmin + args.tighten)),
             weight=args.Q_con_y,
             name="observation_lower_bound",
         )
         observation_upper_bound_penalty = Objective(
             [output_key, "Y_maxf"],
-            lambda x, xmax: torch.mean(F.relu(x[:, :, :1] - xmax + args.tighten)),
+            lambda x, xmax: torch.mean(F.relu(x[:, :, args.controlled_outputs] - xmax + args.tighten)),
             weight=args.Q_con_y,
             name="observation_upper_bound",
         )
@@ -348,7 +347,7 @@ def get_objective_terms(args, policy):
         reference_loss = Objective(
             [output_key, "Rf", "Y_minf", "Y_maxf"],
             lambda pred, ref, xmin, xmax: F.mse_loss(
-                pred[:, :, :1] * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),
+                pred[:, :, args.controlled_outputs] * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),
                 ref * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),
             ),
             weight=args.Q_r,
@@ -366,9 +365,8 @@ def get_objective_terms(args, policy):
     return objectives, constraints
 
 
-def add_reference_features(dataset, dynamics_model):
+def add_reference_features(args, dataset, dynamics_model):
     """
-    TODO: this isn't general to all control problems.
     """
     ny = dynamics_model.fy.out_features
     if ny != dataset.data["Y"].shape[1]:
@@ -387,4 +385,6 @@ def add_reference_features(dataset, dynamics_model):
         "R": psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.8, xmin=0.2)
         # 'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)
     })
+    # indices of controlled states, e.g. [0, 1, 3] out of 5 outputs
+    dataset.ctrl_outputs = args.controlled_outputs
     return dataset

@@ -23,7 +23,6 @@ def compute_norms(matrices):
         m_norms += [m_norm]
     return m_norms
 
-
 def lin_regions(nx, layers, maps, activations, outdir="./plots"):
     for nlayers in layers:
         for (linmap, sigmin, sigmax, real) in maps:
@@ -33,7 +32,7 @@ def lin_regions(nx, layers, maps, activations, outdir="./plots"):
                 nx,
                 nx,
                 nonlin=nn.Identity,
-                Linear=slim.linear.maps[linmap],
+                linear_map=slim.linear.maps[linmap],
                 hsizes=[nx] * nlayers,
                 bias=True,
                 linargs={
@@ -69,7 +68,7 @@ def lin_regions(nx, layers, maps, activations, outdir="./plots"):
 
                     Astars = []
                     for x in X:
-                        Astar, Astar_b, _, _, _, _, _ = lpv(fx, x)
+                        Astar, Astar_b, _, _, _, _ = lpv(fx, x)
                         Astars += [Astar_b.detach().cpu().numpy() if bias else Astar.detach().cpu().numpy()]
 
                     # plot Anorms
@@ -129,6 +128,8 @@ def lin_regions(nx, layers, maps, activations, outdir="./plots"):
 if __name__ == "__main__":
     plt.rcParams["figure.dpi"] = 100
     nx = 2
+
+    os.mkdir("./plots")
 
     # initial states used for plotting trajectories in phase portraits
     initial_states = torch.from_numpy(

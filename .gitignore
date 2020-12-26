@@ -8,6 +8,9 @@
 *test
 *mlruns
 *.idea
-**/build
-*.vscode
-**/dist
+*.png
+*.eps
+*.pdf
+*.jpg
+*.jpeg
+*.gif

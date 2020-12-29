@@ -6,10 +6,18 @@ sys.path.append(
 
 import torch
 import numpy as np
-from neuromancer.analysis import compute_eigenvalues, plot_matrix_and_eigvals
 from lpv import lpv_batched, lpv
+from eigen_plots import compute_eigenvalues, plot_eigenvalues
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+
+def plot_eigenvalues_set(fx, nx, limits=(-6, 6), nsamples=1000, fname=None):
+    x = torch.rand(nsamples, nx, dtype=torch.float) * (limits[1] - limits[0]) + limits[0]
+    Astars, *_ = lpv_batched(fx, x)
+    Astars = Astars.detach().numpy()
+    eigvals = compute_eigenvalues(Astars)
+    plot_eigenvalues(eigvals, fname=fname)
 
 
 def plot_phase_portrait_hidim(fx, nx, limits=(-6, 6), nsamples=1000, fname=None):
@@ -103,7 +111,7 @@ if __name__ == "__main__":
     import slim
     from neuromancer import blocks
 
-    outdir = "plots_20201224"
+    outdir = "plots_20201228_paper"
     os.makedirs(outdir, exist_ok=True)
     SEED = 410
     nx = 64
@@ -126,20 +134,26 @@ if __name__ == "__main__":
     plot_Jacobian_norms(fx, nx, limits=(-6, 6))
 
 
-    linmaps = ["gershgorin", "pf", "softSVD"]
-    sigma_min_max = [(0.0, 0.5),  (0.0, 1.0), (0.5, 1.0), (0.99, 1.0),
-                    (1.0, 1.0),  (0.99, 1.1), (0.8, 1.2), (1.0, 1.5),
-                    (-1.5, -1.1), (-1.0, -0.5), (-1.0, 1.0), (-2.0, 2.0)]
+    linmaps = ['spectral', "damp_skew_symmetric", "skew_symetric", "symplectic",
+               'linear', "gershgorin", "pf", "softSVD"]
+    # sigma_min_max = [(0.0, 0.5),  (0.5, 1.0), (0.8, 1.2), (-1.5, -1.1)]
+    sigma_min_max = [(0.9, 1.0)]
 
-    activations = {
-        "relu": torch.nn.ReLU,
-        "selu": torch.nn.SELU,
-        "gelu": torch.nn.GELU,
-        "tanh": torch.nn.Tanh,
-        "sigmoid": torch.nn.Sigmoid,
-        "softplus": torch.nn.Softplus,
-        "identity": torch.nn.Identity
-    }
+    # sigma_min_max = [(0.0, 0.5),  (0.0, 1.0), (0.5, 1.0), (0.99, 1.0),
+    #                 (1.0, 1.0),  (0.99, 1.1), (0.8, 1.2), (1.0, 1.5),
+    #                 (-1.5, -1.1), (-1.0, -0.5), (-1.0, 1.0), (-2.0, 2.0)]
+
+    activations = {"relu": torch.nn.ReLU}
+
+    # activations = {
+    #     "relu": torch.nn.ReLU,
+    #     "selu": torch.nn.SELU,
+    #     "gelu": torch.nn.GELU,
+    #     "tanh": torch.nn.Tanh,
+    #     "sigmoid": torch.nn.Sigmoid,
+    #     "softplus": torch.nn.Softplus,
+    #     "identity": torch.nn.Identity
+    # }
 
     combos = [
         (("softSVD", 0.5, 1.0, False), 8, [("identity", False)]),
@@ -220,28 +234,28 @@ if __name__ == "__main__":
     #     for act_name, bias in params:
     nlayers = 4
     real = False
+    bias = False
     for linmap in linmaps:
         for (sigmin, sigmax) in sigma_min_max:
             for act_name in activations.keys():
-                for bias in [True, False]:
-                    combo_string = f"{linmap}_x{nx}_({sigmin},{sigmax})_{act_name}_{nlayers}l_{'real' if real else 'complex'}"
-                    torch.manual_seed(SEED)
-                    np.random.seed(SEED)
-                    fx = blocks.MLP(
-                        nx,
-                        nx,
-                        nonlin=activations[act_name],
-                        linear_map=slim.linear.maps[linmap],
-                        hsizes=[nx] * nlayers,
-                        bias=True,
-                        linargs={
-                            "sigma_min": sigmin,
-                            "sigma_max": sigmax,
-                            "real": real,
-                        },
-                    )
+                combo_string = f"{linmap}_x{nx}_({sigmin},{sigmax})_{act_name}_{nlayers}l_{'real' if real else 'complex'}"
+                torch.manual_seed(SEED)
+                np.random.seed(SEED)
+                fx = blocks.MLP(
+                    nx,
+                    nx,
+                    nonlin=activations[act_name],
+                    linear_map=slim.linear.maps[linmap],
+                    hsizes=[nx] * nlayers,
+                    bias=True,
+                    linargs={
+                        "sigma_min": sigmin,
+                        "sigma_max": sigmax,
+                        "real": real,
+                    },
+                )
 
-                    plot_singular_values(fx, nx, fname=os.path.join(outdir, f"S_values_{combo_string}.png"))
-                    plt.show()
-                    plot_phase_portrait_hidim(fx, nx, limits=(-6, 6), fname=os.path.join(outdir, f"phase_plot_{combo_string}.png"))
-                    plot_Jacobian_norms(fx, nx, limits=(-6, 6), fname=os.path.join(outdir, f"Jacob_plot_{combo_string}.png"))
+                plot_eigenvalues_set(fx, nx, nsamples=1000,  fname=os.path.join(outdir, f"Eig_values_{combo_string}.png"))
+                plot_singular_values(fx, nx, nsamples=1000, fname=os.path.join(outdir, f"S_values_{combo_string}.png"))
+                plot_phase_portrait_hidim(fx, nx, limits=(-6, 6), nsamples=1000, fname=os.path.join(outdir, f"phase_plot_{combo_string}.png"))
+                plot_Jacobian_norms(fx, nx, limits=(-6, 6), nsamples=1000, fname=os.path.join(outdir, f"Jacob_plot_{combo_string}.png"))

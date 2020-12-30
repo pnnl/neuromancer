@@ -10,6 +10,8 @@ from lpv import lpv_batched, lpv
 from eigen_plots import compute_eigenvalues, plot_eigenvalues
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from numpy import linalg as LA
+import neuromancer.activations as nact
 
 
 def plot_eigenvalues_set(fx, nx, limits=(-6, 6), nsamples=1000, fname=None):
@@ -106,12 +108,15 @@ def plot_Jacobian_norms(fx, nx, limits=(-6, 6), nsamples=10, fname=None):
         plt.savefig(fname)
         plt.close()
 
+    return Astars_mean, Astars_var, Astars_min, Astars_max
+
+
 if __name__ == "__main__":
     # TODO(lltt): plot singular values
     import slim
     from neuromancer import blocks
 
-    outdir = "plots_20201228_paper"
+    outdir = "plots_20201228_activations_paper"
     os.makedirs(outdir, exist_ok=True)
     SEED = 410
     nx = 64
@@ -131,11 +136,11 @@ if __name__ == "__main__":
     plot_singular_values(fx, nx)
     plt.show()
     plot_phase_portrait_hidim(fx, nx, limits=(-6, 6))
-    plot_Jacobian_norms(fx, nx, limits=(-6, 6))
+    _, _, _, _ = plot_Jacobian_norms(fx, nx, limits=(-6, 6))
 
-
-    linmaps = ['spectral', "damp_skew_symmetric", "skew_symetric", "symplectic",
-               'linear', "gershgorin", "pf", "softSVD"]
+    linmaps = ['linear']
+    # linmaps = ['spectral', "damp_skew_symmetric", "skew_symetric", "symplectic",
+    #            'linear', "gershgorin", "pf", "softSVD"]
     # sigma_min_max = [(0.0, 0.5),  (0.5, 1.0), (0.8, 1.2), (-1.5, -1.1)]
     sigma_min_max = [(0.9, 1.0)]
 
@@ -143,17 +148,32 @@ if __name__ == "__main__":
     #                 (1.0, 1.0),  (0.99, 1.1), (0.8, 1.2), (1.0, 1.5),
     #                 (-1.5, -1.1), (-1.0, -0.5), (-1.0, 1.0), (-2.0, 2.0)]
 
-    activations = {"relu": torch.nn.ReLU}
+    # activations = {"relu": torch.nn.ReLU}
 
-    # activations = {
-    #     "relu": torch.nn.ReLU,
-    #     "selu": torch.nn.SELU,
-    #     "gelu": torch.nn.GELU,
-    #     "tanh": torch.nn.Tanh,
-    #     "sigmoid": torch.nn.Sigmoid,
-    #     "softplus": torch.nn.Softplus,
-    #     "identity": torch.nn.Identity
-    # }
+    activations = {
+        "relu": torch.nn.ReLU,
+        "selu": torch.nn.SELU,
+        "gelu": torch.nn.GELU,
+        "tanh": torch.nn.Tanh,
+        "Tanhshrink": torch.nn.Tanhshrink,
+        "sigmoid": torch.nn.Sigmoid,
+        "softplus": torch.nn.Softplus,
+        "Softshrink": torch.nn.Softshrink,
+        "Softsign": torch.nn.Softsign,
+        "identity": torch.nn.Identity,
+        "PReLU": torch.nn.PReLU,
+        "RReLU": torch.nn.RReLU,
+        "Hardtanh": torch.nn.Hardtanh,
+        "hardswish": torch.nn.Hardswish,
+        "Hardshrink": torch.nn.Hardshrink,
+        "Hardsigmoid": torch.nn.Hardsigmoid,
+        "ELU": torch.nn.ELU,
+        "CELU": torch.nn.CELU,
+        "LeakyReLU": torch.nn.LeakyReLU,
+        "LogSigmoid": torch.nn.LogSigmoid,
+        "APLU": nact.activations['aplu'],
+        "PELU": nact.activations['pelu']
+        }
 
     combos = [
         (("softSVD", 0.5, 1.0, False), 8, [("identity", False)]),
@@ -235,16 +255,19 @@ if __name__ == "__main__":
     nlayers = 4
     real = False
     bias = False
+    J_vars = []
+    M_norms = {}
+    M_norms_nlin = {}
     for linmap in linmaps:
         for (sigmin, sigmax) in sigma_min_max:
-            for act_name in activations.keys():
+            for act_name, act in activations.items():
                 combo_string = f"{linmap}_x{nx}_({sigmin},{sigmax})_{act_name}_{nlayers}l_{'real' if real else 'complex'}"
                 torch.manual_seed(SEED)
                 np.random.seed(SEED)
                 fx = blocks.MLP(
                     nx,
                     nx,
-                    nonlin=activations[act_name],
+                    nonlin=act,
                     linear_map=slim.linear.maps[linmap],
                     hsizes=[nx] * nlayers,
                     bias=True,
@@ -258,4 +281,8 @@ if __name__ == "__main__":
                 plot_eigenvalues_set(fx, nx, nsamples=1000,  fname=os.path.join(outdir, f"Eig_values_{combo_string}.png"))
                 plot_singular_values(fx, nx, nsamples=1000, fname=os.path.join(outdir, f"S_values_{combo_string}.png"))
                 plot_phase_portrait_hidim(fx, nx, limits=(-6, 6), nsamples=1000, fname=os.path.join(outdir, f"phase_plot_{combo_string}.png"))
-                plot_Jacobian_norms(fx, nx, limits=(-6, 6), nsamples=1000, fname=os.path.join(outdir, f"Jacob_plot_{combo_string}.png"))
+                Astars_mean, Astars_var, Astars_min, Astars_max = plot_Jacobian_norms(fx, nx, limits=(-6, 6), nsamples=1000, fname=os.path.join(outdir, f"Jacob_plot_{combo_string}.png"))
+                J_vars.append(Astars_var)
+                M_norms[linmap+" "+act_name] = LA.norm(Astars_var, 1)
+                M_norms_nlin[linmap+" "+act_name] = LA.norm(Astars_var, 1)/(nx*nx)
+

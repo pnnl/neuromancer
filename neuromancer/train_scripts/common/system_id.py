@@ -54,7 +54,7 @@ def get_parser(parser=None):
     data_group.add_argument(
         "-system",
         type=str,
-        default="flexy_air",
+        default="TwoTank",
         choices=list(systems.keys()),
         help="select particular dataset with keyword",
     )

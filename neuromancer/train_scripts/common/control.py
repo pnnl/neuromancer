@@ -61,7 +61,7 @@ def get_parser(parser=None, add_prefix=False):
     data_group.add_argument(
         pfx("-system"),
         type=str,
-        default="flexy_air",
+        default="TwoTank",
         help="select particular dataset with keyword",
     )
     data_group.add_argument(

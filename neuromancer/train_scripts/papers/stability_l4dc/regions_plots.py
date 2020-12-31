@@ -15,6 +15,7 @@ from lpv import lpv
 from phase_plots import plot_astar_phase_portrait
 from eigen_plots import compute_eigenvalues
 
+
 def compute_norms(matrices):
     m_norms = []
     for m in matrices:
@@ -22,6 +23,7 @@ def compute_norms(matrices):
         m_norm= np.linalg.norm(m.T)
         m_norms += [m_norm]
     return m_norms
+
 
 def lin_regions(nx, layers, maps, activations, outdir="./plots"):
     for nlayers in layers:
@@ -129,7 +131,9 @@ if __name__ == "__main__":
     plt.rcParams["figure.dpi"] = 100
     nx = 2
 
-    os.mkdir("./plots")
+    outdir = "plots_regions_20201230"
+    os.makedirs(outdir, exist_ok=True)
+
 
     # initial states used for plotting trajectories in phase portraits
     initial_states = torch.from_numpy(
@@ -175,7 +179,8 @@ if __name__ == "__main__":
         ("sigmoid", torch.nn.Sigmoid),
         ("softplus", torch.nn.Softplus)
     ]
+
     layers = [1, 2, 3, 4]
 
     # phase_and_spectra_plot_loop(10, layers, maps, activations)
-    lin_regions(2, layers, maps, activations)
+    lin_regions(2, layers, maps, activations, outdir=outdir)

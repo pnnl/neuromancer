@@ -21,7 +21,7 @@ def get_parser(parser=None):
 
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument("-epochs", type=int, default=5)
+    opt_group.add_argument("-epochs", type=int, default=100)
     opt_group.add_argument(
         "-lr", type=float, default=0.001, help="Step size for gradient descent."
     )
@@ -34,13 +34,13 @@ def get_parser(parser=None):
     opt_group.add_argument(
         "-patience",
         type=int,
-        default=5,
+        default=20,
         help="How many epochs to allow for no improvement in eval metric before early stopping.",
     )
     opt_group.add_argument(
         "-warmup",
         type=int,
-        default=0,
+        default=100,
         help="Number of epochs to wait before enacting early stopping policy.",
     )
     opt_group.add_argument(

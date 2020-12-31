@@ -28,14 +28,14 @@ def get_parser(parser=None, add_prefix=False):
 
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument(pfx("-epochs"), type=int, default=100)
+    opt_group.add_argument(pfx("-epochs"), type=int, default=500)
     opt_group.add_argument(
         pfx("-lr"), type=float, default=0.001, help="Step size for gradient descent."
     )
     opt_group.add_argument(
         pfx("-patience"),
         type=int,
-        default=100,
+        default=20,
         help="How many epochs to allow for no improvement in eval metric before early stopping.",
     )
     opt_group.add_argument(

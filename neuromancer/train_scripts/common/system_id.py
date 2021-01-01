@@ -21,7 +21,7 @@ def get_parser(parser=None):
 
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument("-epochs", type=int, default=100)
+    opt_group.add_argument("-epochs", type=int, default=20)
     opt_group.add_argument(
         "-lr", type=float, default=0.001, help="Step size for gradient descent."
     )

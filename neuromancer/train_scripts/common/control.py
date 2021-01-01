@@ -28,7 +28,7 @@ def get_parser(parser=None, add_prefix=False):
 
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument(pfx("-epochs"), type=int, default=500)
+    opt_group.add_argument(pfx("-epochs"), type=int, default=20)
     opt_group.add_argument(
         pfx("-lr"), type=float, default=0.001, help="Step size for gradient descent."
     )
@@ -41,7 +41,7 @@ def get_parser(parser=None, add_prefix=False):
     opt_group.add_argument(
         pfx("-warmup"),
         type=int,
-        default=100,
+        default=10,
         help="Number of epochs to wait before enacting early stopping policy.",
     )
     opt_group.add_argument(
@@ -61,7 +61,7 @@ def get_parser(parser=None, add_prefix=False):
     data_group.add_argument(
         pfx("-system"),
         type=str,
-        default="TwoTank",
+        default="Reno_full",
         help="select particular dataset with keyword",
     )
     data_group.add_argument(
@@ -375,14 +375,15 @@ def add_reference_features(args, dataset, dynamics_model):
     dataset.min_max_norms["Ymin"] = dataset.min_max_norms["Ymin"][0]
     dataset.min_max_norms["Ymax"] = dataset.min_max_norms["Ymax"][0]
 
-    nsim = dataset.data["Y"].shape[0]
+    # nsim = dataset.data["Y"].shape[0]
+    nsim = dataset.dims['nsim']
     nu = dataset.data["U"].shape[1]
     dataset.add_data({
-        "Y_max": psl.Periodic(nx=1, nsim=nsim, numPeriods=30, xmax=0.9, xmin=0.6),
-        "Y_min": psl.Periodic(nx=1, nsim=nsim, numPeriods=25, xmax=0.4, xmin=0.1),
+        "Y_max": psl.Periodic(nx=1, nsim=nsim, numPeriods=30, xmax=0.9, xmin=0.6)[:nsim,:],
+        "Y_min": psl.Periodic(nx=1, nsim=nsim, numPeriods=24, xmax=0.4, xmin=0.1)[:nsim,:],
         "U_max": np.ones([nsim, nu]),
         "U_min": np.zeros([nsim, nu]),
-        "R": psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.8, xmin=0.2)
+        "R": psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.8, xmin=0.2)[:nsim,:]
         # 'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)
     })
     # indices of controlled states, e.g. [0, 1, 3] out of 5 outputs

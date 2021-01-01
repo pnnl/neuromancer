@@ -82,6 +82,9 @@ class VisualizerOpen(Visualizer):
                     Mat.append(linear.weight.detach().cpu().numpy())
             else:
                 rows = 0
+        else:
+            rows = 0
+
         plt.style.use('dark_background')
         if rows == 1:
             fig, (eigax, matax) = plt.subplots(rows, 2)

@@ -45,7 +45,7 @@ if __name__ == "__main__":
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
 
     logger = get_logger(args)
-    dataset = load_dataset(args, device)
+    dataset = load_dataset(args, device, "openloop")
     print(dataset.dims)
 
     estimator, dynamics_model = get_model_components(args, dataset)

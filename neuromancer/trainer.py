@@ -139,7 +139,6 @@ class Trainer:
         self.all_output = all_output
         self.logger.log_metrics({f"best_{k}": v for k, v in all_output.items()})
         if self.visualizer is not None:
-            print(all_output.keys())
             plots = self.visualizer.eval(all_output)
             self.logger.log_artifacts(plots)
         return all_output

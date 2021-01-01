@@ -140,6 +140,9 @@ class FullyObservable(TimeDelayEstimator):
     def features(self, data):
         return data['Yp'][self.nsteps-1]
 
+    def reg_error(self):
+        return 0.
+
 
 class LinearEstimator(TimeDelayEstimator):
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,

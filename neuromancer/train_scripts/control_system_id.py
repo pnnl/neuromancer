@@ -25,10 +25,12 @@ from common import load_dataset, get_logger
 import common.system_id as sys_id
 import common.control as ctrl
 
+
 if __name__ == "__main__":
     parser = sys_id.get_parser()
     parser = ctrl.get_parser(parser=parser, add_prefix=True)
     args = parser.parse_args()
+    # TODO: fix issues with two different arguments for system ID and control
 
     print({k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)})
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"

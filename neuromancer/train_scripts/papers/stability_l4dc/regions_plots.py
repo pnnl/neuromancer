@@ -181,7 +181,8 @@ if __name__ == "__main__":
         ("sigmoid", torch.nn.Sigmoid),
         ("softplus", torch.nn.Softplus)
     ]
+
     layers = [1, 2, 3, 4]
 
     # phase_and_spectra_plot_loop(10, layers, maps, activations)
-    lin_regions(2, layers, maps, activations)
+    lin_regions(2, layers, maps, activations, outdir=outdir)

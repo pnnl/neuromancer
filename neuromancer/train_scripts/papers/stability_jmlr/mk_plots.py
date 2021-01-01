@@ -124,63 +124,6 @@ if __name__ == "__main__":
     SEED = 410
     nx = 64
 
-
-    # TODO: issues when multiplying symplectic weights with odd number of layers
-    #  transpose the shape
-    linmap = slim.linear.maps["symplectic"]
-    # nonlin = torch.nn.ReLU
-    nonlin = torch.nn.Identity
-    fx = blocks.MLP(
-        nx,
-        nx,
-        bias=False,
-        linear_map=linmap,
-        nonlin=nonlin,
-        hsizes=[nx] * 4,
-        linargs=dict(sigma_min=0.5, sigma_max=1.0, real=False),
-    )
-    plot_singular_values(fx, nx)
-    plot_eigenvalues_set(fx, nx)
-    # plot_phase_portrait_hidim(fx, nx, limits=(-6, 6))
-    _, _, _, _ = plot_Jacobian_norms(fx, nx, limits=(-6, 6))
-    plt.show()
-
-    # test weight
-    Astars_np_1 = fx.linear[0].effective_W().detach().numpy()
-    Astars_np_2 = fx.linear[1].effective_W().detach().numpy()
-    # Astars_np = np.dot(Astars_np_1, Astars_np_2)
-    Astars_np = np.matmul(Astars_np_1, Astars_np_2)
-
-    eigvals = compute_eigenvalues([Astars_np_1])
-    plot_eigenvalues(eigvals)
-    fig, ax = plt.subplots(1, 1)
-    im1 = ax.imshow(Astars_np_1, vmin=abs(Astars_np_1).min(), vmax=abs(Astars_np_1).max(), cmap=plt.cm.CMRmap)
-    ax.set_title('mean($A^{\star}}$)')
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    fig.colorbar(im1, cax=cax)
-
-    eigvals = compute_eigenvalues([Astars_np_2])
-    plot_eigenvalues(eigvals)
-    fig, ax = plt.subplots(1, 1)
-    im1 = ax.imshow(Astars_np_2, vmin=abs(Astars_np_2).min(), vmax=abs(Astars_np_2).max(), cmap=plt.cm.CMRmap)
-    ax.set_title('mean($A^{\star}}$)')
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    fig.colorbar(im1, cax=cax)
-
-    eigvals = compute_eigenvalues([Astars_np])
-    plot_eigenvalues(eigvals)
-    fig, ax = plt.subplots(1, 1)
-    im1 = ax.imshow(Astars_np, vmin=abs(Astars_np).min(), vmax=abs(Astars_np).max(), cmap=plt.cm.CMRmap)
-    ax.set_title('mean($A^{\star}}$)')
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    fig.colorbar(im1, cax=cax)
-
-    # TODO: verify that A* = fx for hamiltonian and sigmoid nets
-
-
     # linmaps = ['linear']
     linmaps = ['spectral', "damp_skew_symmetric", "skew_symetric", "symplectic",
                'linear', "gershgorin", "pf", "softSVD"]

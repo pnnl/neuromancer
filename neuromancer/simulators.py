@@ -211,12 +211,12 @@ class ClosedLoopSimulator(Simulator):
             x = self.x0 if i == 0 else x
             if i > 0:
                 # select current step disturbance, reference and constraints
-                d = step_data['Df'][0].cpu().detach().numpy() if step_data['Df'] is not None else None
-                r = step_data['Rf'][0].cpu().detach().numpy() if step_data['Rf'] is not None else None
-                ymin = step_data['Y_minf'][0].cpu().detach().numpy() if step_data['Y_minf'] is not None else None
-                ymax = step_data['Y_maxf'][0].cpu().detach().numpy() if step_data['Y_maxf'] is not None else None
-                umin = step_data['U_minf'][0].cpu().detach().numpy() if step_data['U_minf'] is not None else None
-                umax = step_data['U_maxf'][0].cpu().detach().numpy() if step_data['U_maxf'] is not None else None
+                d = step_data['Df'][0].cpu().detach().numpy() if 'Df' in step_data else None
+                r = step_data['Rf'][0].cpu().detach().numpy() if 'Rf' in step_data else None
+                ymin = step_data['Y_minf'][0].cpu().detach().numpy() if 'Y_minf' in step_data else None
+                ymax = step_data['Y_maxf'][0].cpu().detach().numpy() if 'Y_maxf' in step_data else None
+                umin = step_data['U_minf'][0].cpu().detach().numpy() if 'U_minf' in step_data else None
+                umax = step_data['U_maxf'][0].cpu().detach().numpy() if 'U_maxf' in step_data else None
                 if 'Y' in self.dataset.norm:
                     r = min_max_denorm(r, self.dataset.min_max_norms['Ymin'],
                                        self.dataset.min_max_norms['Ymax']) if r is not None else None

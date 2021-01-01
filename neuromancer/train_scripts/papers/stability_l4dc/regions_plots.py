@@ -7,13 +7,18 @@ import numpy as np
 import slim
 from neuromancer import blocks
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 os.sys.path.append("neuromancer/train_scripts")
 os.sys.path.append("neuromancer/train_scripts/stability_l4dc")
 
-from lpv import lpv
+from lpv import lpv_batched
 from phase_plots import plot_astar_phase_portrait
 from eigen_plots import compute_eigenvalues
+
+PALETTE = sns.color_palette(
+    "vlag", as_cmap=True
+)  # sns.color_palette("crest_r", as_cmap=True)
 
 def compute_norms(matrices):
     m_norms = []
@@ -23,7 +28,7 @@ def compute_norms(matrices):
         m_norms += [m_norm]
     return m_norms
 
-def lin_regions(nx, layers, maps, activations, outdir="./plots"):
+def lin_regions(nx, layers, maps, activations, outdir="./plots_region"):
     for nlayers in layers:
         for (linmap, sigmin, sigmax, real) in maps:
             torch.manual_seed(408)
@@ -34,7 +39,7 @@ def lin_regions(nx, layers, maps, activations, outdir="./plots"):
                 nonlin=nn.Identity,
                 linear_map=slim.linear.maps[linmap],
                 hsizes=[nx] * nlayers,
-                bias=True,
+                bias=False,
                 linargs={
                     "sigma_min": sigmin,
                     "sigma_max": sigmax,
@@ -59,17 +64,15 @@ def lin_regions(nx, layers, maps, activations, outdir="./plots"):
                         )
 
                         grid_x, grid_y = torch.meshgrid(
-                            torch.arange(-6, 6, 0.5),
-                            torch.arange(-6, 6, 0.5),
+                            torch.arange(-6, 6.1, 0.1),
+                            torch.arange(-6, 6.1, 0.1),
                         )
                         X = torch.stack((grid_x.flatten(), grid_y.flatten())).T
                     else:
-                        X = torch.arange(-6, 6, 0.5).unsqueeze(-1).expand(-1, nx)
+                        X = torch.arange(-6, 6.1, 0.1).unsqueeze(-1).expand(-1, nx)
 
-                    Astars = []
-                    for x in X:
-                        Astar, Astar_b, _, _, _, _ = lpv(fx, x)
-                        Astars += [Astar_b.detach().cpu().numpy() if bias else Astar.detach().cpu().numpy()]
+                    Astars, Astar_b, _, _, _ = lpv_batched(fx, X)
+                    Astars = Astars.detach().numpy()
 
                     # plot Anorms
                     Anorms = compute_norms(Astars)
@@ -77,9 +80,10 @@ def lin_regions(nx, layers, maps, activations, outdir="./plots"):
 
                     fig1, ax1 = plt.subplots()
 
-                    im1 = ax1.imshow(Anorm_mat, vmin=abs(Anorm_mat).min(), vmax=abs(Anorm_mat).max(), cmap=plt.cm.CMRmap, origin='lower',
+                    im1 = ax1.imshow(Anorm_mat, vmin=abs(Anorm_mat).min(), vmax=abs(Anorm_mat).max(), cmap=PALETTE, origin='lower',
                                extent=[X.min(), X.max(), X.min(), X.max()], interpolation="bilinear")
                     fig1.colorbar(im1, ax=ax1)
+                    im1.set_clim(0., 2.)
 
                     ax1.set_title('Metric: 'r'$\Vert A^* \Vert$')
 
@@ -97,9 +101,10 @@ def lin_regions(nx, layers, maps, activations, outdir="./plots"):
                     vmax = abs(dom_eigs_mat).max()
 
                     im2 = ax2.imshow(dom_eigs_mat, vmin=0, vmax=2,
-                                     cmap=plt.cm.CMRmap, origin='lower',
+                                     cmap=PALETTE, origin='lower',
                                      extent=[X.min(), X.max(), X.min(), X.max()], interpolation="bilinear")
                     fig2.colorbar(im2, ax=ax2)
+                    im2.set_clim(0., 2.)
 
                     ax2.set_title('Metric: 'r'$\| \lambda_1 \|$')
 
@@ -112,12 +117,13 @@ def lin_regions(nx, layers, maps, activations, outdir="./plots"):
 
                     fig3, ax3 = plt.subplots()
 
-                    im3 = ax3.imshow(sum_eigs_mat, vmin=abs(sum_eigs_mat).min(), vmax=abs(sum_eigs_mat).max(), cmap=plt.cm.CMRmap, origin='lower',
+                    im3 = ax3.imshow(sum_eigs_mat, vmin=abs(sum_eigs_mat).min(), vmax=abs(sum_eigs_mat).max(), cmap=PALETTE, origin='lower',
                                      extent=[X.min(), X.max(), X.min(), X.max()], interpolation="bilinear")
                     # im3 = ax3.imshow(sum_eigs_mat, vmin=0, vmax=0.3,
                     #                  cmap=plt.cm.CMRmap, origin='lower',
                     #                  extent=[X.min(), X.max(), X.min(), X.max()], interpolation="bilinear")
                     fig3.colorbar(im3, ax=ax3)
+                    im3.set_clim(0., 2.)
 
                     ax3.set_title('Metric: 'r'$\sum_{i=1}^n{\| \lambda_i \|}$')
 
@@ -129,7 +135,7 @@ if __name__ == "__main__":
     plt.rcParams["figure.dpi"] = 100
     nx = 2
 
-    os.mkdir("./plots")
+    os.makedirs("./plots_region", exist_ok=True)
 
     # initial states used for plotting trajectories in phase portraits
     initial_states = torch.from_numpy(

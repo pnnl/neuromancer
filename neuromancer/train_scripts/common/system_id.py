@@ -10,6 +10,7 @@ from neuromancer.datasets import EmulatorDataset, FileDataset, systems
 from neuromancer import blocks
 from neuromancer import dynamics
 from neuromancer import estimators
+from neuromancer.activations import activations
 from neuromancer.problem import Problem, Objective
 from neuromancer.activations import BLU, SoftExponential
 
@@ -108,7 +109,7 @@ def get_parser(parser=None):
     model_group.add_argument(
         "-state_estimator",
         type=str,
-        choices=["rnn", "mlp", "linear", "residual_mlp"],
+        choices=["rnn", "mlp", "linear", "residual_mlp", "fully_observable"],
         default="mlp",
     )
     model_group.add_argument(
@@ -130,7 +131,7 @@ def get_parser(parser=None):
     )
     model_group.add_argument(
         "-activation",
-        choices=["relu", "gelu", "blu", "softexp"],
+        choices=activations.keys(),
         default="gelu",
         help="Activation function for neural networks",
     )
@@ -188,12 +189,7 @@ def get_parser(parser=None):
 def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynamics"):
     torch.manual_seed(args.seed)
     nx = dataset.dims["Y"][-1] * args.nx_hidden
-    activation = {
-        "gelu": nn.GELU,
-        "relu": nn.ReLU,
-        "blu": BLU,
-        "softexp": SoftExponential,
-    }[args.activation]
+    activation = activations[args.activation]
 
     linmap = slim.maps[args.linear_map]
     linargs = {"sigma_min": args.sigma_min, "sigma_max": args.sigma_max}
@@ -211,6 +207,7 @@ def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynam
         "mlp": estimators.MLPEstimator,
         "rnn": estimators.RNNEstimator,
         "residual_mlp": estimators.ResMLPEstimator,
+        "fully_observable": estimators.FullyObservable,
     }[args.state_estimator](
         {**dataset.dims, "x0": (nx,)},
         nsteps=args.nsteps,

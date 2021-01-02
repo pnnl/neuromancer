@@ -59,7 +59,7 @@ def lpv(fx, x):
     activation_bias_mats = []
     bprimes = []
 
-    for i, (nlin, lin) in enumerate(zip(fx.nonlin, fx.linear)):
+    for nlin, lin in zip(fx.nonlin, fx.linear):
         x_layer_orig = nlin(lin(x_layer_orig))
 
         A = lin.effective_W()  # layer weight
@@ -144,18 +144,23 @@ if __name__ == "__main__":
                 nn.LogSigmoid, nn.Sigmoid, nn.Tanh]
     for act in activations:
         print(f'current activation {act}')
-        fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx, nx, nx], bias=test_bias)
-        lpv(fx_a, torch.randn(1, nx))
+        fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx, nx, nx], linear_map=slim.Linear, bias=test_bias)
+        print(fx_a(x_z))
+        Astar, Astar_b, *_ = lpv(fx_a, x_z)
+        print(torch.matmul(x_z, Astar_b if test_bias else Astar))
+        Astar, *_ = lpv_batched(fx_a, x_z)
+        print(torch.matmul(x_z, Astar))
 
     # perf testing for batched vs. sequential LPV implementations
     for act in activations:
         print(f'current activation {act}')
         batch = torch.randn(2, nx)
-        fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx]*8, linear_map=slim.PerronFrobeniusLinear, bias=test_bias)
+        fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx]*8, linear_map=slim.Linear, bias=test_bias)
 
         t = time.time()
         Astar, _, _, _, _ = lpv_batched(fx_a, batch)
         print("batched:   ", time.time() - t)
+
         t = time.time()
         for x in batch:
             Astar, Astar_b, _, _, _, _ = lpv(fx_a, x)

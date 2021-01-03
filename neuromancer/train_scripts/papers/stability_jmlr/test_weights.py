@@ -100,12 +100,6 @@ if __name__ == "__main__":
                 hsizes=[nx] * 4,
                 linargs=dict(sigma_min=0.5, sigma_max=1.0, real=False),
             )
-            plot_singular_values(fx, nx)
-            plot_eigenvalues_set(fx, nx)
-            # plot_phase_portrait_hidim(fx, nx, limits=(-6, 6))
-            _, _, _, _ = plot_Jacobian_norms(fx, nx, limits=(-6, 6))
-            plt.show()
-
             Y = []
             Y_astar = []
             Errors = []
@@ -116,6 +110,6 @@ if __name__ == "__main__":
                 Y_astar.append(torch.matmul(x, Astar_b) + bstar)
             y_astar = torch.stack(Y_astar)
             y_fx = torch.stack(Y)
-            lin_error = torch.sum(y_fx - y_astar)
+            lin_error = torch.mean(y_fx - y_astar)
             Errors.append(lin_error)
             print(f"linearization error for {linmap} {act_name} is:{lin_error}")

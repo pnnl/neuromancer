@@ -129,13 +129,15 @@ def lin_regions(nx, layers, maps, activations, outdir="./plots_region"):
 
                     fname3 = os.path.join(outdir, f"sum_eig_region_{combo_string}.pdf")
                     plt.savefig(fname3)
+                    plt.close('all')
 
 
 if __name__ == "__main__":
     plt.rcParams["figure.dpi"] = 100
     nx = 2
 
-    os.makedirs("./plots_region", exist_ok=True)
+    outdir = "./plots_all_20210106"
+    os.makedirs(outdir, exist_ok=True)
 
     # initial states used for plotting trajectories in phase portraits
     initial_states = torch.from_numpy(

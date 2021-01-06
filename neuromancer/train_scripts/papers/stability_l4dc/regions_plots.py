@@ -81,13 +81,13 @@ def lin_regions(nx, layers, maps, activations, outdir="./plots_region"):
                     fig1, ax1 = plt.subplots()
 
                     im1 = ax1.imshow(Anorm_mat, vmin=abs(Anorm_mat).min(), vmax=abs(Anorm_mat).max(), cmap=PALETTE, origin='lower',
-                               extent=[X.min(), X.max(), X.min(), X.max()], interpolation="bilinear")
+                               extent=[X.min(), X.max(), X.min(), X.max()])#, interpolation="bilinear")
                     fig1.colorbar(im1, ax=ax1)
                     im1.set_clim(0., 2.)
 
-                    ax1.set_title('Metric: 'r'$\Vert A^* \Vert$')
+                    # ax1.set_title('Metric: 'r'$\Vert A^* \Vert$')
 
-                    fname1 = os.path.join(outdir, f"norm_region_{combo_string}.png")
+                    fname1 = os.path.join(outdir, f"norm_region_{combo_string}.pdf")
                     plt.savefig(fname1)
 
                     # plot dominant eigenvalues
@@ -102,13 +102,13 @@ def lin_regions(nx, layers, maps, activations, outdir="./plots_region"):
 
                     im2 = ax2.imshow(dom_eigs_mat, vmin=0, vmax=2,
                                      cmap=PALETTE, origin='lower',
-                                     extent=[X.min(), X.max(), X.min(), X.max()], interpolation="bilinear")
+                                     extent=[X.min(), X.max(), X.min(), X.max()])#, interpolation="bilinear")
                     fig2.colorbar(im2, ax=ax2)
                     im2.set_clim(0., 2.)
 
-                    ax2.set_title('Metric: 'r'$\| \lambda_1 \|$')
+                    #ax2.set_title('Metric: 'r'$\| \lambda_1 \|$')
 
-                    fname2 = os.path.join(outdir, f"dom_eig_region_{combo_string}.png")
+                    fname2 = os.path.join(outdir, f"dom_eig_region_{combo_string}.pdf")
                     plt.savefig(fname2)
 
                     # plot sum of absolute eigenvalues
@@ -118,16 +118,16 @@ def lin_regions(nx, layers, maps, activations, outdir="./plots_region"):
                     fig3, ax3 = plt.subplots()
 
                     im3 = ax3.imshow(sum_eigs_mat, vmin=abs(sum_eigs_mat).min(), vmax=abs(sum_eigs_mat).max(), cmap=PALETTE, origin='lower',
-                                     extent=[X.min(), X.max(), X.min(), X.max()], interpolation="bilinear")
+                                     extent=[X.min(), X.max(), X.min(), X.max()])#, interpolation="bilinear")
                     # im3 = ax3.imshow(sum_eigs_mat, vmin=0, vmax=0.3,
                     #                  cmap=plt.cm.CMRmap, origin='lower',
                     #                  extent=[X.min(), X.max(), X.min(), X.max()], interpolation="bilinear")
                     fig3.colorbar(im3, ax=ax3)
                     im3.set_clim(0., 2.)
 
-                    ax3.set_title('Metric: 'r'$\sum_{i=1}^n{\| \lambda_i \|}$')
+                    # ax3.set_title('Metric: 'r'$\sum_{i=1}^n{\| \lambda_i \|}$')
 
-                    fname3 = os.path.join(outdir, f"sum_eig_region_{combo_string}.png")
+                    fname3 = os.path.join(outdir, f"sum_eig_region_{combo_string}.pdf")
                     plt.savefig(fname3)
 
 
@@ -185,4 +185,4 @@ if __name__ == "__main__":
     layers = [1, 2, 3, 4]
 
     # phase_and_spectra_plot_loop(10, layers, maps, activations)
-    lin_regions(2, layers, maps, activations, outdir=outdir)
+    lin_regions(2, layers, maps, activations, outdir="./plots_region")

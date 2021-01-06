@@ -35,7 +35,7 @@ def phase_and_spectra_plot_loop(nx, layers, maps, activations, outdir="plots_202
                 for bias in [True, False]:
                     combo_string = f"{linmap}_x{nx}_({sigmin},{sigmax})_{act_name}_{nlayers}l_{'real' if real else 'complex'}{'_bias' if bias else ''}"
                     print(combo_string)
-                    if not os.path.exists(os.path.join(outdir, f"phase_{combo_string}.pdf")):
+                    if not os.path.exists(os.path.join(outdir, f"phase_{combo_string}.png")):
                         if nx == 2:
                             plot_astar_phase_portrait(
                                 fx,
@@ -44,10 +44,10 @@ def phase_and_spectra_plot_loop(nx, layers, maps, activations, outdir="plots_202
                                 step=0.5,
                                 use_bias=bias,
                                 initial_states=initial_states,
-                                fname=os.path.join(outdir, f"phase_{combo_string}.pdf"),
+                                fname=os.path.join(outdir, f"phase_{combo_string}.png"),
                             )
 
-                    if not os.path.exists(os.path.join(outdir, f"spectrum_{combo_string}.pdf")):
+                    if not os.path.exists(os.path.join(outdir, f"spectrum_{combo_string}.png")):
                         if nx == 2:
                             grid_x, grid_y = torch.meshgrid(
                                 torch.arange(-6, 6, 0.5),
@@ -63,8 +63,9 @@ def phase_and_spectra_plot_loop(nx, layers, maps, activations, outdir="plots_202
                             Astars += [Astar_b.detach().cpu().numpy() if bias else Astar.detach().cpu().numpy()]
                         eigvals = compute_eigenvalues(Astars)
 
-                        plot_eigenvalues(eigvals, fname=os.path.join(outdir, f"spectrum_{combo_string}.pdf"))
+                        plot_eigenvalues(eigvals, fname=os.path.join(outdir, f"spectrum_{combo_string}.png"))
                     # plot_matrix_eigval_anim(Astars, eigvals, fname=os.path.join(outdir, f"spectrum_{combo_string}.mp4"))
+                        plt.close('all')
 
 
 if __name__ == "__main__":

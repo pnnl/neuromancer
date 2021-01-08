@@ -9,15 +9,11 @@ from neuromancer.visuals import VisualizerClosedLoop
 import common.control as ctrl
 from common import load_dataset, get_logger
 
-def add_experiment_specific_args(parser):
-    parser.add_argument("-model_file", type=str, help="Pre-trained system ID model.")
-    return parser
 
 if __name__ == "__main__":
     parser = ctrl.get_parser()
-    parser = add_experiment_specific_args(parser)
     args = parser.parse_args()
-
+    args.savedir = 'test_control'
     logger = get_logger(args)
 
     print({k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)})
@@ -27,8 +23,8 @@ if __name__ == "__main__":
     dynamics_model = sysid_model.components[1]
     estimator = sysid_model.components[0]
 
-    dataset = load_dataset(args, device)
-    dataset = ctrl.add_reference_features(dataset, dynamics_model)
+    dataset = load_dataset(args, device, 'closedloop')
+    dataset = ctrl.add_reference_features(args, dataset, dynamics_model)
 
     # Control Problem Definition
     estimator, dynamics_model = ctrl.update_system_id_inputs(

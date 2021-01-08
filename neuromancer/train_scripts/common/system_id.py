@@ -22,7 +22,7 @@ def get_parser(parser=None):
 
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument("-epochs", type=int, default=20)
+    opt_group.add_argument("-epochs", type=int, default=100)
     opt_group.add_argument(
         "-lr", type=float, default=0.001, help="Step size for gradient descent."
     )
@@ -55,7 +55,7 @@ def get_parser(parser=None):
     data_group.add_argument(
         "-system",
         type=str,
-        default="TwoTank",
+        default="flexy_air",
         choices=list(systems.keys()),
         help="select particular dataset with keyword",
     )
@@ -72,7 +72,7 @@ def get_parser(parser=None):
     data_group.add_argument(
         "-nsteps",
         type=int,
-        default=32,
+        default=8,
         help="Number of steps for open loop during training.",
     )
     data_group.add_argument(
@@ -95,10 +95,10 @@ def get_parser(parser=None):
         "-ssm_type",
         type=str,
         choices=["blackbox", "hw", "hammerstein", "blocknlin", "linear"],
-        default="blocknlin",
+        default="hammerstein",
     )
     model_group.add_argument(
-        "-nx_hidden", type=int, default=20, help="Number of hidden states per output"
+        "-nx_hidden", type=int, default=32, help="Number of hidden states per output"
     )
     model_group.add_argument(
         "-n_layers",
@@ -115,13 +115,13 @@ def get_parser(parser=None):
     model_group.add_argument(
         "-estimator_input_window",
         type=int,
-        default=1,
+        default=8,
         help="Number of previous time steps measurements to include in state estimator input",
     )
     model_group.add_argument(
         "-nonlinear_map",
         type=str,
-        default="residual_mlp",
+        default="mlp",
         choices=["mlp", "rnn", "pytorch_rnn", "linear", "residual_mlp"],
     )
     model_group.add_argument(
@@ -155,17 +155,17 @@ def get_parser(parser=None):
     weight_group.add_argument(
         "-Q_con_x",
         type=float,
-        default=1.0,
+        default=0.0,
         help="Hidden state constraints penalty weight.",
     )
     weight_group.add_argument(
         "-Q_dx",
         type=float,
-        default=0.2,
+        default=1.0,
         help="Penalty weight on hidden state difference in one time step.",
     )
     weight_group.add_argument(
-        "-Q_sub", type=float, default=0.2, help="Linear maps regularization weight."
+        "-Q_sub", type=float, default=0.1, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
         "-Q_y", type=float, default=1.0, help="Output tracking penalty weight"
@@ -173,13 +173,13 @@ def get_parser(parser=None):
     weight_group.add_argument(
         "-Q_e",
         type=float,
-        default=1.0,
+        default=10.0,
         help="State estimator hidden prediction penalty weight",
     )
     weight_group.add_argument(
         "-Q_con_fdu",
         type=float,
-        default=0.0,
+        default=1.0,
         help="Penalty weight on control actions and disturbances.",
     )
 

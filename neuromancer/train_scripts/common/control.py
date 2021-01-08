@@ -61,7 +61,7 @@ def get_parser(parser=None, add_prefix=False):
     data_group.add_argument(
         pfx("-system"),
         type=str,
-        default="Reno_full",
+        default="flexy_air",
         help="select particular dataset with keyword",
     )
     data_group.add_argument(
@@ -85,11 +85,12 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-data_seed"), type=int, default=408, help="Random seed used for simulated data"
     )
 
-    # TODO: option with loading trained model
-    # mfiles = ['models/best_model_flexy1.pth',
-    #           'models/best_model_flexy2.pth',
-    #           'ape_models/best_model_blocknlin.pth']
+    # mfiles = ['papers/flexy/models/best_model_flexy1.pth',
+    #           'papers/flexy/models/best_model_flexy2.pth',
+    #           'papers/flexy/ape_models/best_model_blocknlin.pth']
     # data_group.add_argument('-model_file', type=str, default=mfiles[0])
+    path = f"./test/flexy_air_best_model.pth"
+    data_group.add_argument('-model_file', type=str, default=path)
 
     ##################
     # POLICY PARAMETERS
@@ -98,7 +99,7 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-policy"), type=str, choices=["mlp", "linear"], default="mlp"
     )
     policy_group.add_argument(
-        "-controlled_outputs", nargs='+', default=[0],
+        "-controlled_outputs", nargs='+', default=[0, 1],
         help="list of indices of controlled outputs len(default)<=ny"
     )
     policy_group.add_argument(
@@ -378,12 +379,13 @@ def add_reference_features(args, dataset, dynamics_model):
     # nsim = dataset.data["Y"].shape[0]
     nsim = dataset.dims['nsim']
     nu = dataset.data["U"].shape[1]
+    ny = len(args.controlled_outputs)
     dataset.add_data({
-        "Y_max": psl.Periodic(nx=1, nsim=nsim, numPeriods=30, xmax=0.9, xmin=0.6)[:nsim,:],
-        "Y_min": psl.Periodic(nx=1, nsim=nsim, numPeriods=24, xmax=0.4, xmin=0.1)[:nsim,:],
+        "Y_max": psl.Periodic(nx=ny, nsim=nsim, numPeriods=30, xmax=0.9, xmin=0.6)[:nsim,:],
+        "Y_min": psl.Periodic(nx=ny, nsim=nsim, numPeriods=24, xmax=0.4, xmin=0.1)[:nsim,:],
         "U_max": np.ones([nsim, nu]),
         "U_min": np.zeros([nsim, nu]),
-        "R": psl.Periodic(nx=1, nsim=nsim, numPeriods=20, xmax=0.8, xmin=0.2)[:nsim,:]
+        "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=20, xmax=0.8, xmin=0.2)[:nsim,:]
         # 'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)
     })
     # indices of controlled states, e.g. [0, 1, 3] out of 5 outputs

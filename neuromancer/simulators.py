@@ -237,11 +237,11 @@ class ClosedLoopSimulator(Simulator):
                     x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d, x0=x.flatten())
                 elif isinstance(self.emulator, nn.Module):
                     step_data_0 = dict()
-                    step_data_0['U_pred_policy'] = uopt.reshape(uopt.shape[0], uopt.shape[1], 1).float().to(self.device)
-                    step_data_0['x0_estim'] = x.float().to(self.device)
+                    step_data_0['U_pred_policy'] = uopt.unsqueeze(0)
+                    step_data_0['x0_estim'] = x
                     for k, v in step_data.items():
-                        dat = v[0].to(self.device)
-                        step_data_0[k] = dat.reshape(dat.shape[0], dat.shape[1], 1).float().to(self.device)
+                        step_data_0[k] = v[0:1]
+
                     emulator_output = self.emulator(step_data_0)
                     x = emulator_output['X_pred_dynamics'][0]
                     y = emulator_output['Y_pred_dynamics'][0].cpu().detach().numpy()
@@ -250,7 +250,6 @@ class ClosedLoopSimulator(Simulator):
                                            self.dataset.min_max_norms['Ymax']) if y is not None else None
                 # update u and y trajectory history
                 if len(Y) > self.nsteps:
-                    # if 'Y' in self.dataset.norm and isinstance(self.emulator, EmulatorBase):
                     if 'Y' in self.dataset.norm:
                         Yp_np, _, _ = normalize(np.concatenate(Y[-self.nsteps:]),
                                                              Mmin=self.dataset.min_max_norms['Ymin'],
@@ -293,12 +292,12 @@ class ClosedLoopSimulator(Simulator):
                 Umax.append(umax) if umax is not None else None
 
         return {'Y': np.concatenate(Y, 0), 'X': np.concatenate(X, 0), 'U': np.concatenate(U, 0),
-                'D': np.concatenate(D, 0) if D is not None else None,
-                'R': np.concatenate(R, 0) if R is not None else None,
-                'Ymin': np.concatenate(Ymin, 0) if Ymin is not None else None,
-                'Ymax': np.concatenate(Ymax, 0) if Ymax is not None else None,
-                'Umin': np.concatenate(Umin, 0) if Umin is not None else None,
-                'Umax': np.concatenate(Umax, 0) if Umax is not None else None}
+                'D': np.concatenate(D, 0) if D else None,
+                'R': np.concatenate(R, 0) if R else None,
+                'Ymin': np.concatenate(Ymin, 0) if Ymin else None,
+                'Ymax': np.concatenate(Ymax, 0) if Ymax else None,
+                'Umin': np.concatenate(Umin, 0) if Umin else None,
+                'Umax': np.concatenate(Umax, 0) if Umax else None}
 
 
 if __name__ == '__main__':

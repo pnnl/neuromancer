@@ -292,7 +292,7 @@ class MultiExperimentDataset(FileDataset):
     # TODO: This will break if nsim is small enough to exclude some experiments
     def __init__(self, system='fsw_phase_2', nsim=10000000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
-                 savedir='test', split=[.5, .25], norm_type='zero-one'):
+                 savedir='test', split={'train': [0], 'dev': [0], 'test': [0]}, norm_type='zero-one'):
         """
         :param split: (2-tuple of float) First index is proportion of experiments from train, second is proportion from dev,
                        leftover are for test set.

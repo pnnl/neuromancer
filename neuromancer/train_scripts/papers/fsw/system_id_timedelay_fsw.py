@@ -224,6 +224,12 @@ def logging(args):
 
 
 def dataset_load(args, device, split):
+    """
+    :param args:
+    :param device: (str) device (cuda:N or cpu) to place data on.
+    :param split: (list or set) set of integers for selecting the welds in the dataset
+    :return:
+    """
     dataset = MultiExperimentDataset(system=args.system, nsim=args.nsim,
                                      norm=args.norm, nsteps=args.nsteps, device=device, savedir=args.savedir,
                                      split=split)

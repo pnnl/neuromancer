@@ -103,8 +103,8 @@ class Trainer:
         plots = self.visualizer.train_output() if self.visualizer is not None else {}
         self.logger.log_artifacts(
             {
-                "best_model_state_dict.pth": best_model,
-                "best_model.pth": self.model,
+                f"{self.logger.args.system}_best_model_state_dict.pth": best_model,
+                f"{self.logger.args.system}_best_model.pth": self.model,
                 **plots,
             }
         )

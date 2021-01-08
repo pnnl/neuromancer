@@ -134,7 +134,7 @@ class MLFlowLogger(BasicLogger):
             except:
                 pass
 
-    def log_artifacts(self, artifacts):
+    def log_artifacts(self, artifacts=dict()):
         """
         Stores artifacts created in training to mlflow.
 

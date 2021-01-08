@@ -6,6 +6,7 @@
 *.circleci
 *test_control
 *test
+tests/test
 *mlruns
 *.idea
 **/build

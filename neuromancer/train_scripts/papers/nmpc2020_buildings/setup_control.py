@@ -54,7 +54,7 @@ def get_parser(parser=None, add_prefix=False):
     data_group.add_argument(
         pfx("-nsteps"),
         type=int,
-        default=16,
+        default=64,
         help="Number of steps for open loop during training.",
     )
     # TODO: update emulator model
@@ -166,7 +166,7 @@ def get_parser(parser=None, add_prefix=False):
     weight_group.add_argument(
         pfx("-Q_con_y"),
         type=float,
-        default=2.0,
+        default=10.0,
         help="Observable constraints penalty weight.",
     )
     weight_group.add_argument(
@@ -176,7 +176,7 @@ def get_parser(parser=None, add_prefix=False):
         help="Penalty weight on hidden state difference in one time step.",
     )
     weight_group.add_argument(
-        pfx("-Q_sub"), type=float, default=0.0, help="Linear maps regularization weight."
+        pfx("-Q_sub"), type=float, default=1.0, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
         pfx("-Q_con_fdu"),

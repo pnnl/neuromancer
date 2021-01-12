@@ -15,7 +15,7 @@ from neuromancer import estimators
 from neuromancer.problem import Problem, Objective
 from neuromancer.activations import BLU, SoftExponential
 from neuromancer import policies
-from common.common import get_base_parser
+from neuromancer.train_scripts.common.common import get_base_parser
 
 
 def get_parser(parser=None, add_prefix=False):
@@ -27,7 +27,7 @@ def get_parser(parser=None, add_prefix=False):
 
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument(pfx("-epochs"), type=int, default=1000)
+    opt_group.add_argument(pfx("-epochs"), type=int, default=200)
     opt_group.add_argument(
         pfx("-lr"), type=float, default=0.001, help="Step size for gradient descent."
     )
@@ -100,7 +100,7 @@ def get_parser(parser=None, add_prefix=False):
         help="list of indices of controlled outputs len(default)<=ny"
     )
     policy_group.add_argument(
-        pfx("-n_hidden"), type=int, default=20, help="Number of hidden states"
+        pfx("-n_hidden"), type=int, default=60, help="Number of hidden states"
     )
     policy_group.add_argument(
         pfx("-n_layers"),
@@ -116,7 +116,7 @@ def get_parser(parser=None, add_prefix=False):
     policy_group.add_argument(
         pfx("-policy_features"),
         nargs="+",
-        default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'],
+        default=['Y_ctrl_p', 'Rf', 'Df', 'Y_maxf', 'Y_minf'],
         help="Policy features",
     )  # reference tracking option
     policy_group.add_argument(
@@ -140,7 +140,7 @@ def get_parser(parser=None, add_prefix=False):
     # linear parameters
     linear_group = parser.add_argument_group("LINEAR PARAMETERS")
     linear_group.add_argument(
-        pfx("-linear_map"), type=str, choices=["linear", "softSVD", "pf"], default="linear"
+        pfx("-linear_map"), type=str, choices=["linear", "softSVD", "pf"], default="softSVD"
     )
     linear_group.add_argument(pfx("-sigma_min"), type=float, default=0.1)
     linear_group.add_argument(pfx("-sigma_max"), type=float, default=1.0)
@@ -176,16 +176,7 @@ def get_parser(parser=None, add_prefix=False):
         help="Penalty weight on hidden state difference in one time step.",
     )
     weight_group.add_argument(
-        pfx("-Q_sub"), type=float, default=0.1, help="Linear maps regularization weight."
-    )
-    weight_group.add_argument(
-        pfx("-Q_y"), type=float, default=1.0, help="Output tracking penalty weight"
-    )
-    weight_group.add_argument(
-        pfx("-Q_e"),
-        type=float,
-        default=0.0,
-        help="State estimator hidden prediction penalty weight",
+        pfx("-Q_sub"), type=float, default=0.0, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
         pfx("-Q_con_fdu"),
@@ -194,15 +185,15 @@ def get_parser(parser=None, add_prefix=False):
         help="Penalty weight on control actions and disturbances.",
     )
     weight_group.add_argument(
-        pfx("-Q_con_u"), type=float, default=0.0, help="Input constraints penalty weight."
+        pfx("-Q_con_u"), type=float, default=2.0, help="Input constraints penalty weight."
     )
     weight_group.add_argument(
-        pfx("-Q_r"), type=float, default=10.0, help="Reference tracking penalty weight"
+        pfx("-Q_r"), type=float, default=1.0, help="Reference tracking penalty weight"
     )
     weight_group.add_argument(
         pfx("-Q_du"),
         type=float,
-        default=0.0,
+        default=0.1,
         help="control action difference penalty weight",
     )
 
@@ -211,7 +202,7 @@ def get_parser(parser=None, add_prefix=False):
     weight_group.add_argument(
         pfx("-tighten"),
         type=float,
-        default=0.05,
+        default=0.0,
         help="control action difference penalty weight",
     )
     weight_group.add_argument(pfx("-loss_clip"), action="store_true")

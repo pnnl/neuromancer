@@ -5,7 +5,7 @@ from neuromancer.signals import WhiteNoisePeriodicGenerator, NoiseGenerator
 from neuromancer.simulators import ClosedLoopSimulator
 from neuromancer.trainer import Trainer, freeze_weight, unfreeze_weight
 from neuromancer.visuals import VisualizerClosedLoop
-from common.common import load_dataset, get_logger
+from neuromancer.train_scripts.common.common import load_dataset, get_logger
 import setup_control as ctrl
 
 

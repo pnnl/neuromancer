@@ -54,7 +54,7 @@ def get_parser(parser=None, add_prefix=False):
     data_group.add_argument(
         pfx("-nsteps"),
         type=int,
-        default=32,
+        default=16,
         help="Number of steps for open loop during training.",
     )
     # TODO: update emulator model
@@ -116,7 +116,7 @@ def get_parser(parser=None, add_prefix=False):
     policy_group.add_argument(
         pfx("-policy_features"),
         nargs="+",
-        default=['Y_ctrl_p', 'Rf', 'Df', 'Y_maxf', 'Y_minf'],
+        default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'],
         help="Policy features",
     )  # reference tracking option
     policy_group.add_argument(

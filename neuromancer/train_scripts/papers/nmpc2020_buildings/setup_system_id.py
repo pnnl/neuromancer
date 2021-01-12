@@ -13,7 +13,7 @@ from neuromancer import estimators
 from neuromancer.activations import activations
 from neuromancer.problem import Problem, Objective
 from neuromancer.activations import BLU, SoftExponential
-from common.common import get_base_parser
+from neuromancer.train_scripts.common.common import get_base_parser
 
 
 def get_parser(parser=None):
@@ -35,7 +35,7 @@ def get_parser(parser=None):
     opt_group.add_argument(
         "-patience",
         type=int,
-        default=20,
+        default=30,
         help="How many epochs to allow for no improvement in eval metric before early stopping.",
     )
     opt_group.add_argument(
@@ -62,7 +62,7 @@ def get_parser(parser=None):
     data_group.add_argument(
         "-nsim",
         type=int,
-        default=10000,
+        default=18000,
         help="Number of time steps for full dataset. (ntrain + ndev + ntest) "
         "train, dev, and test will be split evenly from contiguous, sequential, "
         "non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train, "
@@ -98,7 +98,7 @@ def get_parser(parser=None):
         default="hammerstein",
     )
     model_group.add_argument(
-        "-nx_hidden", type=int, default=32, help="Number of hidden states per output"
+        "-nx_hidden", type=int, default=6, help="Number of hidden states per output"
     )
     model_group.add_argument(
         "-n_layers",
@@ -147,15 +147,15 @@ def get_parser(parser=None):
     linear_group.add_argument(
         "-linear_map", type=str, choices=list(slim.maps.keys()), default="linear"
     )
-    linear_group.add_argument("-sigma_min", type=float, default=0.1)
-    linear_group.add_argument("-sigma_max", type=float, default=1.1)
+    linear_group.add_argument("-sigma_min", type=float, default=0.9)
+    linear_group.add_argument("-sigma_max", type=float, default=1.0)
 
     # weight parameters
     weight_group = parser.add_argument_group("WEIGHT PARAMETERS")
     weight_group.add_argument(
         "-Q_con_x",
         type=float,
-        default=0.0,
+        default=1.0,
         help="Hidden state constraints penalty weight.",
     )
     weight_group.add_argument(
@@ -173,13 +173,13 @@ def get_parser(parser=None):
     weight_group.add_argument(
         "-Q_e",
         type=float,
-        default=10.0,
+        default=1.0,
         help="State estimator hidden prediction penalty weight",
     )
     weight_group.add_argument(
         "-Q_con_fdu",
         type=float,
-        default=1.0,
+        default=0.0,
         help="Penalty weight on control actions and disturbances.",
     )
 

@@ -6,8 +6,15 @@
 *.circleci
 *test_control
 *test
+tests/test
 *mlruns
 *.idea
 **/build
 *.vscode
 **/dist
+*.png
+*.eps
+*.pdf
+*.jpg
+*.jpeg
+*.gif

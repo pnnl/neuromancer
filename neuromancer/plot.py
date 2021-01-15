@@ -193,16 +193,21 @@ def plot_traj(data, figname=None):
         plt.savefig(figname)
 
 
-def pltCL(Y, R=None, U=None, D=None, X=None,
+def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
           Ymin=None, Ymax=None, Umin=None, Umax=None, figname=None):
     """
     plot input output closed loop dataset
+
+    dim(R) == dim(Y)
     """
     plot_setup = [(name, notation, array) for
                   name, notation, array in
                   zip(['Outputs', 'States', 'Inputs', 'Disturbances'],
                       ['Y', 'X', 'U', 'D'], [Y, X, U, D]) if
                   array is not None]
+
+    controlled_y_idx = np.zeros([Y.shape[1], 1])
+    controlled_y_idx[ctrl_outputs] = 1
 
     fig, ax = plt.subplots(nrows=len(plot_setup), ncols=1, figsize=(20, 16), squeeze=False)
     custom_lines = [Line2D([0], [0], color='gray', lw=4, linestyle='--'),
@@ -211,11 +216,13 @@ def pltCL(Y, R=None, U=None, D=None, X=None,
         if notation == 'Y' and R is not None:
             colors = get_colors(array.shape[1])
             for k in range(array.shape[1]):
-                ax[j, 0].plot(R[:, k], '--', linewidth=3, c=colors[k])
-                ax[j, 0].plot(array[:, k], '-', linewidth=3, c=colors[k])
+                rk = ctrl_outputs.index(k) if ctrl_outputs is not None and k in ctrl_outputs else None
+                ax[j, 0].plot(array[:, k], '-', linewidth=3, c=colors[k]) if array[:, k] is not None else None
+                if rk is not None:
+                    ax[j, 0].plot(R[:, rk], '--', linewidth=3, c=colors[rk]) if R[:, rk] is not None else None
+                    ax[j, 0].plot(Ymin[:, rk], '--', linewidth=3, c='k') if Ymin[:, rk] is not None else None
+                    ax[j, 0].plot(Ymax[:, rk], '--', linewidth=3, c='k') if Ymax[:, rk] is not None else None
                 ax[j, 0].legend(custom_lines, ['Reference', 'Output'])
-                ax[j, 0].plot(Ymin[:, k], '--', linewidth=3, c='k') if Ymin is not None else None
-                ax[j, 0].plot(Ymax[:, k], '--', linewidth=3, c='k') if Ymax is not None else None
         if notation == 'U':
             for k in range(array.shape[1]):
                 ax[j, 0].plot(array, linewidth=3)

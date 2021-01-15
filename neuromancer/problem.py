@@ -86,6 +86,26 @@ class Problem(nn.Module):
         return input_dict
 
 
+class MSELoss(Objective):
+    def __init__(self, variable_names, weight=1.0, name="ref_loss"):
+        super().__init__(
+            variable_names,
+            nn.functional.mse_loss,
+            weight=weight,
+            name=name
+        )
+
+
+class RegularizationLoss(Objective):
+    def __init__(self, variable_names, weight=1.0, name="reg_loss"):
+        super().__init__(
+            variable_names,
+            lambda *x: torch.sum(*x),
+            weight=weight,
+            name=name
+        )
+
+
 if __name__ == '__main__':
     nx, ny, nu, nd = 15, 7, 5, 3
     Np = 2

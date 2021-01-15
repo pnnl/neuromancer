@@ -1,5 +1,0 @@
-system,ssm_type,state_estimator,linear_map,nonlinear_map,n_layers,nx_hidden,activation,lr,Q_dx,Q_e,Q_sub,Q_con_x,Q_con_fdu,Q_y,sigma_min,sigma_max,nsteps,estimator_input_window
-CSTR,blocknlin,rnn,linear,residual_mlp,5,30,gelu,0.0001,0.2,2,0.1,0.2,0.1,0.5,1.00E-05,1.3,64,1
-aero,blackbox,rnn,spectral,residual_mlp,1,5,blu,0.01,0.2,1,0.2,0.2,0.3,0.5,0.4,0.7,16,2
-TwoTank,hammerstein,mlp,linear,mlp,4,20,gelu,0.0003,0.3,2,0.1,0.3,0.1,0.5,0.1,0.5,64,4
-

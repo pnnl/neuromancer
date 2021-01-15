@@ -10,7 +10,8 @@ import torch
 import torch.nn as nn
 import random
 
-from neuromancer.datasets import normalize, EmulatorDataset, FileDataset, systems
+from neuromancer.datasets import EmulatorDataset, FileDataset
+from neuromancer.data.normalization import normalize_01 as normalize
 import psl
 from collections import defaultdict
 import dill
@@ -178,6 +179,20 @@ class PeriodicGenerator(SignalGenerator):
                                                             xmax=self.xmax, xmin=self.xmin)
 
 
+class NoiseGenerator(nn.Module):
+    def __init__(self, ratio=0.05, keys=None, name='noise'):
+        super().__init__()
+        self.name = name
+        self.ratio = ratio
+        self.keys = keys
+
+    def forward(self, data):
+        noisy_data = dict()
+        for key in self.keys:
+            noisy_data[key+self.name] = data[key] + self.ratio*torch.randn(data[key].shape)
+        return noisy_data
+
+
 class WhiteNoiseGenerator(SignalGenerator):
     def __init__(self, nsteps, nx, xmax, xmin, name='period'):
         super().__init__(nsteps, nx, xmax, xmin, name=name)
@@ -191,6 +206,7 @@ class AddGenerator(SignalGenerator):
         assert SG1.nsteps == SG2.nsteps, 'Nsteps must match to compose sequence generators'
         assert SG1.nx == SG2.nx, 'Nx must match to compose sequence generators'
         self.sequence_generator = lambda nsim: SG1.sequence_generator(nsim) + SG2.sequence_generator(nsim)
+
 
 class NonlinearExpansion(nn.Module):
     def __init__(self, keys=None, name='nlin_expand', device='cpu', order=2):
@@ -218,8 +234,10 @@ class NonlinearExpansion(nn.Module):
 
 
 if __name__ == '__main__':
-
-    model_file = './datasets/Flexy_air/best_model_flexy1.pth'
+    import psl
+    import os
+    # TODO: don't use psl.resource_path
+    model_file = os.path.join(psl.resource_path, "Flexy_air/best_model_flexy1.pth")
     load_model = torch.load(model_file, pickle_module=dill, map_location=torch.device('cpu'))
     estimator = load_model.components[0]
     dynamics = load_model.components[1]

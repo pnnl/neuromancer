@@ -5,16 +5,14 @@ TODO: overwrite past after n-steps, continuously in first n steps
 
 """
 
-# machine learning/data science imports
 import torch
 import torch.nn as nn
 import numpy as np
 
-# ecosystem imports
 from psl import EmulatorBase
 
-# lcoal imports
-from neuromancer.datasets import EmulatorDataset, FileDataset, min_max_denorm, normalize
+from neuromancer.datasets import EmulatorDataset, FileDataset
+from neuromancer.data.normalization import normalize_01 as normalize, denormalize_01 as min_max_denorm
 from neuromancer.problem import Problem
 from neuromancer.datasets import Dataset, DataDict
 
@@ -213,12 +211,12 @@ class ClosedLoopSimulator(Simulator):
             x = self.x0 if i == 0 else x
             if i > 0:
                 # select current step disturbance, reference and constraints
-                d = step_data['Df'][0].cpu().detach().numpy() if step_data['Df'] is not None else None
-                r = step_data['Rf'][0].cpu().detach().numpy() if step_data['Rf'] is not None else None
-                ymin = step_data['Y_minf'][0].cpu().detach().numpy() if step_data['Y_minf'] is not None else None
-                ymax = step_data['Y_maxf'][0].cpu().detach().numpy() if step_data['Y_maxf'] is not None else None
-                umin = step_data['U_minf'][0].cpu().detach().numpy() if step_data['U_minf'] is not None else None
-                umax = step_data['U_maxf'][0].cpu().detach().numpy() if step_data['U_maxf'] is not None else None
+                d = step_data['Df'][0].cpu().detach().numpy() if 'Df' in step_data else None
+                r = step_data['Rf'][0].cpu().detach().numpy() if 'Rf' in step_data else None
+                ymin = step_data['Y_minf'][0].cpu().detach().numpy() if 'Y_minf' in step_data else None
+                ymax = step_data['Y_maxf'][0].cpu().detach().numpy() if 'Y_maxf' in step_data else None
+                umin = step_data['U_minf'][0].cpu().detach().numpy() if 'U_minf' in step_data else None
+                umax = step_data['U_maxf'][0].cpu().detach().numpy() if 'U_maxf' in step_data else None
                 if 'Y' in self.dataset.norm:
                     r = min_max_denorm(r, self.dataset.min_max_norms['Ymin'],
                                        self.dataset.min_max_norms['Ymax']) if r is not None else None
@@ -239,11 +237,11 @@ class ClosedLoopSimulator(Simulator):
                     x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d, x0=x.flatten())
                 elif isinstance(self.emulator, nn.Module):
                     step_data_0 = dict()
-                    step_data_0['U_pred_policy'] = uopt.reshape(uopt.shape[0], uopt.shape[1], 1).float().to(self.device)
-                    step_data_0['x0_estim'] = x.float().to(self.device)
+                    step_data_0['U_pred_policy'] = uopt.unsqueeze(0)
+                    step_data_0['x0_estim'] = x
                     for k, v in step_data.items():
-                        dat = v[0].to(self.device)
-                        step_data_0[k] = dat.reshape(dat.shape[0], dat.shape[1], 1).float().to(self.device)
+                        step_data_0[k] = v[0:1]
+
                     emulator_output = self.emulator(step_data_0)
                     x = emulator_output['X_pred_dynamics'][0]
                     y = emulator_output['Y_pred_dynamics'][0].cpu().detach().numpy()
@@ -252,7 +250,6 @@ class ClosedLoopSimulator(Simulator):
                                            self.dataset.min_max_norms['Ymax']) if y is not None else None
                 # update u and y trajectory history
                 if len(Y) > self.nsteps:
-                    # if 'Y' in self.dataset.norm and isinstance(self.emulator, EmulatorBase):
                     if 'Y' in self.dataset.norm:
                         Yp_np, _, _ = normalize(np.concatenate(Y[-self.nsteps:]),
                                                              Mmin=self.dataset.min_max_norms['Ymin'],
@@ -295,21 +292,12 @@ class ClosedLoopSimulator(Simulator):
                 Umax.append(umax) if umax is not None else None
 
         return {'Y': np.concatenate(Y, 0), 'X': np.concatenate(X, 0), 'U': np.concatenate(U, 0),
-                'D': np.concatenate(D, 0) if D is not None else None,
-                'R': np.concatenate(R, 0) if R is not None else None,
-                'Ymin': np.concatenate(Ymin, 0) if Ymin is not None else None,
-                'Ymax': np.concatenate(Ymax, 0) if Ymax is not None else None,
-                'Umin': np.concatenate(Umin, 0) if Umin is not None else None,
-                'Umax': np.concatenate(Umax, 0) if Umax is not None else None}
-        # return {'X_pred': torch.cat(X_pred, dim=1), 'Y_pred': torch.cat(Y_pred, dim=1),
-        #         'U_pred': torch.cat(U_pred, dim=1), 'U_opt': torch.cat(U_opt, dim=0),
-        #         'Y': np.concatenate(Y, 0), 'X': np.concatenate(X, 0), 'U': np.concatenate(U, 0),
-        #         'D': np.concatenate(D, 0) if D is not None else None,
-        #         'R': np.concatenate(R, 0) if R is not None else None,
-        #         'Ymin': np.concatenate(Ymin, 0) if Ymin is not None else None,
-        #         'Ymax': np.concatenate(Ymax, 0) if Ymax is not None else None,
-        #         'Umin': np.concatenate(Umin, 0) if Umin is not None else None,
-        #         'Umax': np.concatenate(Umax, 0) if Umax is not None else None}
+                'D': np.concatenate(D, 0) if D else None,
+                'R': np.concatenate(R, 0) if R else None,
+                'Ymin': np.concatenate(Ymin, 0) if Ymin else None,
+                'Ymax': np.concatenate(Ymax, 0) if Ymax else None,
+                'Umin': np.concatenate(Umin, 0) if Umin else None,
+                'Umax': np.concatenate(Umax, 0) if Umax else None}
 
 
 if __name__ == '__main__':

@@ -28,7 +28,7 @@ def check_keys(k1, k2):
 
 class SolutionMap(nn.Module):
     def __init__(self, data_dims, input_keys=['x'], bias=False,
-                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64], linargs=dict(), name='sol_map'):
+                 linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64], linargs=dict(), name='sol_map'):
         """
         Solution map for multiparametric programming problems
 
@@ -49,7 +49,7 @@ class SolutionMap(nn.Module):
         self.input_size = sum(v[-1] for k, v in data_dims_in.items())
         self.output_size = data_dims['z'][-1]
         self.net = blocks.MLP(insize=self.input_size, outsize=self.output_size, bias=bias,
-                              Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
+                              linear_map=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
     def reg_error(self):
         """
@@ -141,7 +141,7 @@ class Policy(nn.Module):
 
 class LinearPolicy(Policy):
     def __init__(self, data_dims, nsteps=1, bias=False,
-                 Linear=slim.Linear, nonlin=None, hsizes=None,
+                 linear_map=slim.Linear, nonlin=None, hsizes=None,
                  input_keys=['x0'], linargs=dict(), name='linear_policy'):
         """
         :param data_dims: dict {str: tuple of ints) Data structure describing dimensions of input variables
@@ -160,7 +160,7 @@ class LinearPolicy(Policy):
 
 class MLPPolicy(Policy):
     def __init__(self, data_dims, nsteps=1, bias=False,
-                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64],
+                 linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64],
                  input_keys=['x0'], linargs=dict(), name='MLP_policy'):
         """
 
@@ -168,12 +168,12 @@ class MLPPolicy(Policy):
         """
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
         self.net = blocks.MLP(insize=self.in_features, outsize=self.out_features, bias=bias,
-                              Linear=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
+                              linear_map=linear_map, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
 class RNNPolicy(Policy):
     def __init__(self, data_dims, nsteps=1, bias=False,
-                 Linear=slim.Linear, nonlin=nn.GELU, hsizes=[64],
+                 linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64],
                  input_keys=['x0'], linargs=dict(), name='RNN_policy'):
         """
         See LinearPolicy for arguments
@@ -181,7 +181,7 @@ class RNNPolicy(Policy):
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
         self.in_features = self.sequence_dims_sum + self.static_dims_sum
         self.net = blocks.RNN(self.in_features, self.out_features, hsizes=hsizes,
-                              bias=bias, nonlin=nonlin, Linear=Linear, linargs=linargs)
+                              bias=bias, nonlin=nonlin, linear_map=linear_map, linargs=linargs)
 
     def forward(self, data):
         """

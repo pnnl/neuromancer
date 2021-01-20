@@ -1,7 +1,7 @@
 """
 TODO: eval_metric - evaluate closed loop metric based on the simulation results
-use the same interface for objectives as for the problem via _calculate_loss
-TODO: overwrite past after n-steps, continuously in first n steps
+# use the same interface for objectives as for the problem via _calculate_loss. if code is changed in problem possible mismatch
+TODO: overwrite past after n-steps, continuously in first n steps. In initial simulation period first n-steps are treated as 0s when only first needs to be a 0 vector
 
 """
 
@@ -69,14 +69,12 @@ class MHOpenLoopSimulator(Simulator):
         step_data = DataDict()
         for k, v in data.items():
             step_data[k] = v[i:self.dataset.nsteps+i, :, :]
-            # step_data[k] = v[i:self.dataset.nsteps+i, :, :].reshape(self.dataset.nsteps, v.shape[1], v.shape[2])
         step_data.name = data.name
         return step_data
 
     def simulate(self, data):
         Y, X, L = [], [], []
         Yp, Yf, Xp, Xf = [], [], [], []
-        # yN = torch.zeros(self.dataset.nsteps, data['Yp'].shape[1], self.dataset.dims['Yp'])
         yN = data['Yp'][:self.dataset.nsteps, :, :]
         nsim = data['Yp'].shape[0]
         for i in range(nsim-self.dataset.nsteps):
@@ -115,7 +113,6 @@ class MHOpenLoopSimulator(Simulator):
             if tensor_list:
                 output[name] = torch.stack(tensor_list)
         return {**data, **output}
-
 
 
 class MultiSequenceOpenLoopSimulator(Simulator):

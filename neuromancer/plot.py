@@ -1,15 +1,12 @@
 """
-
+Various helper functions for plotting.
 """
-
-# machine learning/data science imports
 import numpy as np
 import scipy.linalg as LA
 from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.lines import Line2D
-from matplotlib.gridspec import GridSpec
 import pyts.image as pytsimg
 import pyts.multivariate.image as pytsmvimg
 
@@ -18,11 +15,9 @@ def get_colors(k):
     """
     Returns k colors evenly spaced across the color wheel.
     :param k: (int) Number of colors you want.
-    :return:
+    :return: (np.array, shape=[k, 3])
     """
     phi = np.linspace(0, 2 * np.pi, k)
-    x = np.sin(phi)
-    y = np.cos(phi)
     rgb_cycle = np.vstack((  # Three sinusoids
         .5 * (1. + np.cos(phi)),  # scaled to [0,1]
         .5 * (1. + np.cos(phi + 2 * np.pi / 3)),  # 120° phase shifted.
@@ -31,6 +26,21 @@ def get_colors(k):
 
 
 def plot_matrices(matrices, labels, figname):
+    """
+    Plots and saves figure of a grid of matrices.
+    Useful for inspecting layers of weights of neural networks.
+
+    :param matrices: (list of lists of 2-way np.arrays) Grid of matrices to plot
+    :param labels: (list of lists of str) Labels for plotted matrices
+    :param figname: (str) Figure name ending with file extension of filetype to save as.
+
+    .. doctest::
+
+        >>> import neuromancer.plot as plot
+        >>> color_matrices = [[plot.get_colors(k*j) for k in range(2, 4)] for j in range(8, 11)]
+        >>> labels = [[f'{k*j} X 3 matrix' for k in range(2, 4)] for j in range(8, 11)]
+        >>> plot.plot_matrices(color_matrices, labels, 'matrix_grid.png')
+    """
     rows = len(matrices)
     cols = len(matrices[0])
     fig, axes = plt.subplots(nrows=rows, ncols=cols, squeeze=False)
@@ -45,13 +55,26 @@ def plot_matrices(matrices, labels, figname):
 
 def pltPhase(X, figname=None):
     """
+    :param X: (np.array, shape=[numpoints, {2,3}])
+    :param figname: (str) Filename for plot with extension for file type.
+
     plot phase space for 2D and 3D state spaces
 
-    https://matplotlib.org/3.2.1/gallery/images_contours_and_fields/plot_streamplot.html
-    https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.streamplot.html
-    https://matplotlib.org/3.2.1/api/_as_gen/matplotlib.pyplot.quiver.html
-    http://kitchingroup.cheme.cmu.edu/blog/2013/02/21/Phase-portraits-of-a-system-of-ODEs/
-    http://systems-sciences.uni-graz.at/etextbook/sw2/phpl_python.html
+    + https://matplotlib.org/3.2.1/gallery/images_contours_and_fields/plot_streamplot.html
+    + https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.streamplot.html
+    + https://matplotlib.org/3.2.1/api/_as_gen/matplotlib.pyplot.quiver.html
+    + http://kitchingroup.cheme.cmu.edu/blog/2013/02/21/Phase-portraits-of-a-system-of-ODEs/
+    + http://systems-sciences.uni-graz.at/etextbook/sw2/phpl_python.html
+
+    .. doctest::
+
+        >> import numpy as np
+        >> import neuromancer.plot as plot
+        >> x = np.stack([np.linspace(-10, 10, 100)]*100)
+        >> y = np.stack([np.linspace(-10, 10, 100)]*100).T
+        >> z = x**2 + y**2
+        >> xyz = np.stack([x.flatten(), y.flatten(), z.flatten()])
+        >> plot.pltPhase(xyz, figname='phase.png')
     """
     fig = plt.figure()
     if X.shape[1] >= 3:
@@ -74,7 +97,8 @@ def pltPhase(X, figname=None):
 def pltCorrelate(X, figname=None):
     """
     plot correlation matrices of time series data
-    https://realpython.com/numpy-scipy-pandas-correlation-python/
+
+    + https://realpython.com/numpy-scipy-pandas-correlation-python/
     """
     #  Pearson product-moment correlation coefficients.
     fig, axes = plt.subplots(nrows=1, ncols=3, squeeze=False)
@@ -105,11 +129,12 @@ def pltCorrelate(X, figname=None):
 def pltRecurrence(X, figname=None):
     """
     plot recurrence of time series data
-    https://pyts.readthedocs.io/en/stable/auto_examples/image/plot_rp.html
-    https://pyts.readthedocs.io/en/stable/auto_examples/multivariate/plot_joint_rp.html#sphx-glr-auto-examples-multivariate-plot-joint-rp-py
-    https://pyts.readthedocs.io/en/stable/auto_examples/image/plot_mtf.html
-    https://arxiv.org/pdf/1610.07273.pdf
-    https://pyts.readthedocs.io/en/stable/auto_examples/image/plot_gaf.html#sphx-glr-auto-examples-image-plot-gaf-py
+
+    + https://pyts.readthedocs.io/en/stable/auto_examples/image/plot_rp.html
+    + https://pyts.readthedocs.io/en/stable/auto_examples/multivariate/plot_joint_rp.html#sphx-glr-auto-examples-multivariate-plot-joint-rp-py
+    + https://pyts.readthedocs.io/en/stable/auto_examples/image/plot_mtf.html
+    + https://arxiv.org/pdf/1610.07273.pdf
+    + https://pyts.readthedocs.io/en/stable/auto_examples/image/plot_gaf.html#sphx-glr-auto-examples-image-plot-gaf-py
     """
     size = np.ceil(np.sqrt(X.shape[1])).astype(int)
     row_off = size-np.ceil(X.shape[1]/size).astype(int)
@@ -174,9 +199,8 @@ def pltRecurrence(X, figname=None):
 def plot_traj(data, figname=None):
     """
 
-    :param data: dictionary
-    :param figname: string
-    :return:
+    :param data: (dict {str: np.array}) Dictionary of labels and time series
+    :param figname: (str)
     """
     plot_setup = [(notation, array) for
                   notation, array in data.items()]
@@ -198,7 +222,6 @@ def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
     """
     plot input output closed loop dataset
 
-    dim(R) == dim(Y)
     """
     plot_setup = [(name, notation, array) for
                   name, notation, array in
@@ -244,8 +267,6 @@ def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
 def pltOL(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
     """
     plot trained open loop dataset
-    Ytrue: ground truth training signal
-    Ytrain: trained model response
     """
 
     plot_setup = [(name, notation, array) for

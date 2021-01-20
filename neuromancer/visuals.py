@@ -13,7 +13,6 @@ import matplotlib.patches as mpatches
 # local imports
 from neuromancer.datasets import unbatch_data
 import neuromancer.plot as plot
-import slim
 
 
 class Visualizer:
@@ -253,8 +252,6 @@ class VisualizerClosedLoop(Visualizer):
             axes[0, 1].set_title('State Transition Weights')
             count = 0
             for k in range(rows):
-                # axes[k, 0].set_ylim(-1.1, 1.1)
-                # axes[k, 0].set_xlim(-1.1, 1.1)
                 axes[k, 0].set_aspect(1)
                 axes[k, 1].axis('off')
                 axes[k, 1].imshow(Mat[k].T)

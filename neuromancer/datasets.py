@@ -3,7 +3,6 @@
 """
 import os
 from typing import Dict
-import warnings
 import random
 
 from scipy.io import loadmat
@@ -17,7 +16,7 @@ import psl
 import neuromancer.plot as plot
 from neuromancer.data.normalization import norm_fns
 from neuromancer.data.batch import (
-    batch_data, batch_mh_data, batch_data_exp_idx,
+    batch_data, batch_mh_data,
     unbatch_data, unbatch_mh_data
 )
 
@@ -30,6 +29,9 @@ class DataDict(dict):
 
 
 class Dataset:
+    """
+    Base class for sequence datasets for sequence modeling, control policy learning, systems modeling, and system identification
+    """
     def __init__(self, system=None, nsim=10000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
                  savedir='test', norm_type='zero-one'):
@@ -45,6 +47,7 @@ class Dataset:
         :param sequences: (dict str: np.array) Dictionary of supplemental data
         :param name: (str) String identifier of dataset type, must be ['static', 'openloop', 'closedloop']
         :param savedir: (str) Where to save plots of dataset time sequences.
+        :param norm_type: (str) Specify type of data normalization, options are ['zscore', 'zero-one', 'one-one']
 
          returns: Dataset Object with public properties:
                     train_data: dict(str: Tensor)
@@ -81,7 +84,7 @@ class Dataset:
         Min-max normalize some variables in the dataset.
         :param data: (dict {str: np.array})
         :param norm: List of variable names to normalize.
-        :return:
+        :return: (dict {str: np.array}) Normalized data
         """
         for k in norm:
             if k not in data:
@@ -169,7 +172,6 @@ class Dataset:
         :param sequences: dict {'str': 2-way np.array} Dictionary of nsim X dim sequences.
         :param norm: Sequences to normalize.
         :param overwrite: Whether to allow overwriting a portion of the dataset.
-        :return:
         """
         for k, v in sequences.items():
             assert v.shape[0] == self.dims['nsim']
@@ -183,10 +185,9 @@ class Dataset:
 
     def del_data(self, keys):
         """
-        Delete a sequence from the dataset.
+        Delete a sequence from the dataset via specified keys.
 
         :param keys: Key for sequence to delete
-        :return:
         """
         for k in keys:
             del self.data[k]
@@ -203,7 +204,7 @@ class Dataset:
         """
         Manually delete dataset dimensions from the dataset
 
-        :param keys:
+        :param keys: (list of str)
         """
         for k in keys:
             del self.dims[k]
@@ -259,7 +260,7 @@ class Dataset:
 class FileDataset(Dataset):
     def load_data(self):
         """
-        Load data from files. system argument to init should be the name of a registered dataset in systems_datapaths
+        Load data from files. system argument to init should be the name of a registered dataset in psl.datasets
         :return: (dict, str: 2-d np.array)
         """
         if self.system in psl.datasets.keys():
@@ -289,13 +290,18 @@ class FileDataset(Dataset):
 
 
 class MultiExperimentDataset(FileDataset):
-    # TODO: This will break if nsim is small enough to exclude some experiments
+    """
+    .. todo::
+        + This will break if nsim is small enough to exclude some experiments.
+        + Fix indexing hack for more general indexing outside of FSW context
+    """
     def __init__(self, system='fsw_phase_2', nsim=10000000, ninit=0, norm=['Y'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
                  savedir='test', split={'train': [0], 'dev': [0], 'test': [0]}, norm_type='zero-one'):
         """
         :param split: (2-tuple of float) First index is proportion of experiments from train, second is proportion from dev,
                        leftover are for test set.
+                       or (dict {str:list}) with keys 'train', 'dev', 'test' and values indicating experiment numbers to be included in each split
 
          returns: Dataset Object with public properties:
                     train_data: dict(str: Tensor)
@@ -335,7 +341,7 @@ class MultiExperimentDataset(FileDataset):
 
     def split_train_test_dev(self, split):
         if type(split) is dict:
-            # TODO fix this indexing hack for more general indexing outside of FSW context
+
             self.train_data = np.array(self.nstep_data)[np.array(split['train']) - 1]
             self.train_loop = np.array(self.loop_data)[np.array(split['train']) - 1]
 
@@ -363,7 +369,7 @@ class MultiExperimentDataset(FileDataset):
 
         else:
             raise ValueError('Split must be a list of two floating point values summing to 1, or a dictionary with keys'
-                             'train, val, test and values integer experiment ids.')
+                             'train, dev, test and values integer experiment ids.')
 
     def get_dims(self):
         self.dims = dict()
@@ -486,6 +492,10 @@ class EmulatorDataset(Dataset):
 
 
 class MultiExperimentEmulatorDataset(MultiExperimentDataset):
+    """
+    .. todo::
+        + This class fails for UAV3D_kin and UAV2D_kin datasets
+    """
     def __init__(self, system='LorenzSystem', nsim=20, ninit=0, norm=['Y', 'X'], batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
                  savedir='test', split=[.5, .25], nexp=5):
@@ -590,7 +600,7 @@ if __name__ == '__main__':
     dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
 
     print("\nTesting MultiExperimentEmulatorDataset...")
-    # FIXME: this fails for UAV3D_kin and UAV2D_kin
+
     for system in [k for k, v in systems.items() if v == 'emulator'
                                                     and k not in ['CartPole-v1',
                                                                   'Acrobot-v1',
@@ -602,8 +612,3 @@ if __name__ == '__main__':
             dataset = MultiExperimentEmulatorDataset(system=system)
         except Exception as e:
             print("Error encountered:", e)
-
-    print("\nTesting MultiExperimentDataset on FSW data...")
-    for system in ['fsw_phase_1', 'fsw_phase_2', 'fsw_phase_3', 'fsw_phase_4']:
-        print(f"  {system}")
-        dataset = MultiExperimentDataset(system, split=psl.datasplits['pid'])

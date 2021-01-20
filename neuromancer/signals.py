@@ -10,10 +10,9 @@ import torch
 import torch.nn as nn
 import random
 
-from neuromancer.datasets import EmulatorDataset, FileDataset
+from neuromancer.datasets import FileDataset
 from neuromancer.data.normalization import normalize_01 as normalize
 import psl
-from collections import defaultdict
 import dill
 import itertools
 
@@ -59,7 +58,6 @@ class SignalGeneratorDynamics(nn.Module):
     def forward(self, data):
         with torch.no_grad():
             key = list(data.keys())[0]
-            # nsim = data[key].shape[1]*data[key].shape[0] + self.nsteps
             current_nbatch = data[key].shape[1]
             if self.nbatch is None:
                 self.nbatch = current_nbatch
@@ -76,7 +74,6 @@ class SignalGeneratorDynamics(nn.Module):
             ysignals = []
             dynamics_input = dict()
             x0 = estimator_output[f'x0_{self.estimator.name}']
-            # TODO: this is a hack!!! FIX in FY21
             for i in range(self.nbatch+5):
                 for dim, name in zip([self.ny, self.nu, self.nd], self.dynamics_input_keys):
                     if dim > 0:
@@ -89,21 +86,13 @@ class SignalGeneratorDynamics(nn.Module):
                 ysignals.append(dynamics_output[f'Y_pred_{self.dynamics.name}'])
 
             if self.nbatch == current_nbatch:
-                # TODO: this is a hack!!! FIX in FY21
                 Yp = torch.stack(ysignals[:-5], dim=1).view(self.nsteps, self.nbatch, self.ny)
                 Yf = torch.stack(ysignals[1:-4], dim=1).view(self.nsteps, self.nbatch, self.ny)
             else:
-                # TODO: this is a hack!!! FIX in FY21
-                # print(ysignals[0].shape)
-                # print(len(ysignals))
                 Yp = torch.cat(ysignals[:-1]).squeeze(1)
                 Yf = torch.cat(ysignals[1:]).squeeze(1)
-                # print(Yp.shape)
-                # print(Yf.shape)
                 end_step_Yp = Yp.shape[0] - self.nsteps
                 end_step_Yf = Yf.shape[0] - self.nsteps
-                # print(end_step_Yp)
-                # print(end_step_Yf)
                 Yp = torch.stack([Yp[k:k + self.nsteps, :] for k in range(0, end_step_Yp)]).transpose(1, 0)  # nsteps X nsamples X nfeatures
                 Yf = torch.stack([Yf[k:k + self.nsteps, :] for k in range(0, end_step_Yf)]).transpose(1, 0)  # nsteps X nsamples X nfeatures
                 Yp = Yp[:, :2993, :]
@@ -123,11 +112,6 @@ class SignalGenerator(nn.Module):
 
     def get_xmin(self):
         return self.xmin
-# nstep X nsamples x nfeatures
-#
-#     end_step = data.shape[0] - nsteps
-#     data = np.asarray([data[k:k+nsteps, :] for k in range(0, end_step)])  # nchunks X nsteps X nfeatures
-#     return data.transpose(1, 0, 2)  # nsteps X nsamples X nfeatures
 
     def forward(self, data):
 
@@ -234,13 +218,12 @@ class NonlinearExpansion(nn.Module):
 
 
 if __name__ == '__main__':
-    import psl
     import os
-    # TODO: don't use psl.resource_path
-    model_file = os.path.join(psl.resource_path, "Flexy_air/best_model_flexy1.pth")
+    model_file = os.path.join(psl.resource_path, "Flexy_air/ape_models/best_model.pth")
     load_model = torch.load(model_file, pickle_module=dill, map_location=torch.device('cpu'))
     estimator = load_model.components[0]
     dynamics = load_model.components[1]
+    dynamics.fyu = None
     nsteps = 32
     ny = load_model.components[1].fy.out_features
     dataset = FileDataset(system='flexy_air', nsim=10000,

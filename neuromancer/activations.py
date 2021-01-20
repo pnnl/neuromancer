@@ -1,9 +1,18 @@
+"""
+Elementwise nonlinear tensor operations.
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
 def soft_exp(alpha, x):
+    """
+    Helper function for SoftExponential learnable activation class. Also used in neuromancer.operators.InterpolateAddMultiply
+    :param alpha: (float) Parameter controlling shape of the function.
+    :param x: (torch.Tensor) Arbitrary shaped tensor input
+    :return: (torch.Tensor) Result of the function applied elementwise on the tensor.
+    """
     if alpha == 0.0:
         return x
     elif alpha < 0.0:
@@ -20,12 +29,18 @@ class SoftExponential(nn.Module):
     def __init__(self, alpha=0.0, tune_alpha=True):
         """
 
-        :param alpha:
+        :param alpha: (float) Value to initialize parameter controlling the shape of the function
+        :param tune_alpha: (bool) Whether alpha is a learnable parameter or fixed
         """
         super().__init__()
         self.alpha = nn.Parameter(torch.tensor(alpha), requires_grad=tune_alpha)
 
     def forward(self, x):
+        """
+
+        :param x: (torch.Tensor) Arbitrary shaped tensor
+        :return: (torch.Tensor) Tensor same shape as input after elementwise application of soft exponential function
+        """
         return soft_exp(self.alpha, x)
 
 
@@ -35,6 +50,11 @@ class BLU(nn.Module):
     """
 
     def __init__(self, tune_alpha=False, tune_beta=True):
+        """
+
+        :param tune_alpha: (bool) Whether alpha is learnable parameter or fixed
+        :param tune_beta: (bool) Whether beta is a learnable parameter of fixed
+        """
         super().__init__()
         self.alpha = nn.Parameter(torch.tensor(1.0), requires_grad=tune_alpha)
         self.beta = nn.Parameter(torch.tensor(0.0), requires_grad=True)
@@ -42,6 +62,11 @@ class BLU(nn.Module):
         self.epsilon = nn.Parameter(torch.tensor(self.epsilon), requires_grad=tune_beta)
 
     def forward(self, x):
+        """
+
+        :param x: (torch.Tensor) Arbitrary shaped input tensor
+        :return: (torch.Tensor) Tensor same shape as input after bendable linear unit adaptation
+        """
         return (
             self.beta
             * (torch.sqrt(x * x + self.alpha * self.alpha + 1e-7) - self.alpha)
@@ -62,6 +87,14 @@ class APLU(nn.Module):
         tune_alpha=True,
         tune_beta=True,
     ):
+        """
+
+        :param nsegments: (int) Number of segments in piecewise linear unit activation function
+        :param alpha_reg_weight: (float) Strength of regularization on alpha parameter vector
+        :param beta_reg_weight: (float) Strength of regularization on beta parameter vector
+        :param tune_alpha: (bool) Whether to tune alpha of piecewise linear functions
+        :param tune_beta: (bool) Whether to tune beta of piecewise linear functions
+        """
         super().__init__()
         self.nsegments = nsegments
         self.alpha_reg_weight = alpha_reg_weight
@@ -70,11 +103,20 @@ class APLU(nn.Module):
         self.beta = nn.Parameter(torch.rand(nsegments), requires_grad=tune_beta)
 
     def reg_error(self):
+        """
+        L2 regularization on parameters of piecewise linear activation
+        :return: (float) Regularization penalty
+        """
         return self.alpha_reg_weight * torch.norm(
             self.alpha
         ) + self.beta_reg_weight * torch.norm(self.beta)
 
     def forward(self, x):
+        """
+
+        :param x: (torch.Tensor) Arbitrary shaped tensor
+        :return: (torch.Tensor) Tensor same shape as input after elementwise application of piecewise linear activation
+        """
         y = F.relu(x)
         for i in range(self.nsegments):
             y += self.alpha[i] * F.relu(-x + self.beta[i])
@@ -87,11 +129,21 @@ class PReLU(nn.Module):
     """
 
     def __init__(self, tune_alpha=True, tune_beta=True):
+        """
+
+        :param tune_alpha: (bool) Whether to tune slope on negative range elements
+        :param tune_beta: (bool) Whether to tune slope on positive range elements
+        """
         super().__init__()
         self.alpha = nn.Parameter(torch.tensor(1.0), requires_grad=tune_alpha)
         self.beta = nn.Parameter(torch.tensor(0.0), requires_grad=tune_beta)
 
     def forward(self, x):
+        """
+
+        :param x: (torch.Tensor) Arbitrary shaped input tensor
+        :return: (torch.Tensor) Tensor same shape as input after parametric ReLU activation.
+        """
         neg = self.alpha * -F.relu(-x)
         pos = self.beta * F.relu(x)
         return neg + pos
@@ -103,11 +155,21 @@ class PELU(nn.Module):
     """
 
     def __init__(self, tune_alpha=True, tune_beta=True):
+        """
+
+        :param tune_alpha: (bool) Whether to tune alpha of parametric ELU functions
+        :param tune_beta: (bool) Whether to tune beta of parametric ELU functions
+        """
         super().__init__()
         self.alpha = nn.Parameter(torch.tensor(1.0), requires_grad=tune_alpha)
         self.beta = nn.Parameter(torch.tensor(1.0), requires_grad=tune_beta)
 
     def forward(self, x):
+        """
+
+        :param x: (torch.Tensor) Arbitrary shaped input tensor
+        :return: (torch.Tensor) Tensor same shape as input after parametric ELU activation.
+        """
         posx = F.relu(x)
         negx = F.relu(-x)
         return (self.alpha / self.beta) * posx + self.alpha * (
@@ -122,11 +184,20 @@ class RectifiedSoftExp(nn.Module):
     """
 
     def __init__(self, tune_alpha=True):
+        """
+
+        :param tune_alpha: (bool) Whether alpha is a learnable parameter or fixed
+        """
         super().__init__()
         self.alpha = nn.Parameter(torch.tensor(0.0), requires_grad=tune_alpha)
         self.epsilon = 1e-7
 
     def forward(self, x):
+        """
+
+        :param x: (torch.Tensor) Arbitrary shaped tensor
+        :return: (torch.Tensor) Tensor same shape as input after elementwise application of soft exponential function
+        """
         neg_alpha = F.relu(-torch.clamp(self.alpha, -1, 1)) + self.epsilon()
         pos_alpha = F.relu(torch.clamp(self.alpha, -1, 1)) + self.epsilon()
         pos_x = F.relu(x) + self.epsilon()

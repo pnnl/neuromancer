@@ -89,7 +89,8 @@ def get_parser(parser=None, add_prefix=False):
     #           'papers/flexy/models/best_model_flexy2.pth',
     #           'papers/flexy/ape_models/best_model_blocknlin.pth']
     # data_group.add_argument('-model_file', type=str, default=mfiles[0])
-    path = f"./test/flexy_air_best_model.pth"
+    # path = f"./test/flexy_air_best_model.pth"
+    path = f"../../neuromancer_master/neuromancer/train_scripts/papers/constrained_blockssm_acc/models/best_models/blocknlin/cstr/best_model.pth"
     data_group.add_argument('-model_file', type=str, default=path)
 
     ##################

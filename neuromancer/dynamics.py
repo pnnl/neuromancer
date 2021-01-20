@@ -2,25 +2,29 @@
 State space models (SSMs) for dynamical modeling.
 
 Nomenclature:
-  x: states
-  y: predicted outputs
-  u: control inputs
-  d: uncontrolled inputs (measured disturbances)
+
+    + x: states
+    + y: predicted outputs
+    + u: control inputs
+    + d: uncontrolled inputs (measured disturbances)
 
 Unstructured (blackbox) dynamical models:
-  x+ = f(x,u,d) o fe(x)
-  y =  fy(x)
+    + :math:`x_{t+1} = f(x_t,u_t,d_t) \odot f_e(x_t)`
+    + :math:`y_{t} =  f_y(x_t)`
+    + :math:`odot` is some operator acting on elements, e.g. + or *
 
 Block-structured dynamical models:
-  x+ = fx(x) o fu(u) o fd(d) o fe(x)
-  y =  fy(x)
+    + :math:`x_{t+1} = f_x(x_t) \odot f_u(u_t) \odot f_d(d_t) \odot f_e(x_t)`
+    + :math:`y_t =  f_y(x_t)`
 
-o = operator, e.g. + or *
-
-Additional components:
-  fe = error model
-  fxudy = nominal model
-  any operation perserving dimensions
+Block components:
+    + :math:`f_e` is an error model
+    + :math:`f_{xudy}` is a nominal model
+    + :math:`f_x` is the main state transition dynamics model
+    + :math:`f_y` is the measurement function mapping latent dynamics to observations
+    + :math:`f_u` are input dynamics
+    + :math:`f_d` are disturbance dynamics
+    + :math:`f_{yu}` models more direct effects of input on observations
 """
 
 import torch
@@ -36,9 +40,7 @@ class BlockSSM(nn.Module):
                  xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, residual=False, name='block_ssm',
                  input_keys=dict()):
         """
-        generic structured system dynamics:
-        x_next = fx(x) o fu(u) o fd(d) o fe(x)
-        y =  fy(x) o fyd(u)
+        Block structured system dynamics:
 
         :param fx: (nn.Module) State transition function
         :param fy: (nn.Module) Observation function
@@ -150,9 +152,7 @@ class BlockSSM(nn.Module):
 class BlackSSM(nn.Module):
     def __init__(self, fxud, fy, fe=None, fyu=None, xoe=torch.add, xoyu=torch.add, name='black_ssm', input_keys=dict(), residual=False):
         """
-        black box state space model with unstructured system dynamics:
-        x_next = fxud(x,u,d) o fe(x)
-        y =  fy(x) o fyu(u)
+        Black box state space model with unstructured system dynamics:
 
         :param fxud: (nn.Module) State transition function depending on previous state, inputs and disturbances
         :param fy: (nn.Module) Observation function
@@ -174,7 +174,6 @@ class BlackSSM(nn.Module):
         self.xoyu = xoyu
         self.in_features = self.fxud.out_features
         self.out_features = self.fy.out_features
-        # self.check_features()                     # TODO: this should be included
 
     def forward(self, data):
         """
@@ -494,7 +493,7 @@ def blackbox_model(datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fyu=N
              activation=nn.GELU, residual=False, timedelay=0, linargs=dict(),
              xoyu=torch.add, xoe=torch.add, input_keys=dict(), name='blackbox_model'):
     """
-    black box state space model for training
+    Black box state space model.
     """
     nx, ny, _, _, nx_td, nu_td, nd_td = _extract_dims(datadims, input_keys)
     hsizes = [nx] * n_layers

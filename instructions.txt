@@ -1,0 +1,171 @@
+# To follow this tutorial, run all commands without # in front in a terminal in sequence.
+# You will need a pic account, access to marianas, and preferably access to a gpu machine that isn't on
+# the cluster. The scripts are:
+    # Code and data to run:
+        # system_id.py
+        # disturb.mat
+    # Conda environment yaml file
+        # env.yml
+    # Example dispatch script
+        # exp.slurm
+    # Example to programmatically create a single dispatch script
+        # single_run_marianas.py
+    # Example to programmatically create a set of dispatch scripts for many experimental runs
+
+# A good practice for basic workflow is to:
+    # develop code on a non-cluster gpu machine
+    # keep conda environment minimal (less chance of wierdness when moving to the cluster)
+    # write and experimental script creator on local machine
+    # export conda environment for set up on cluster
+    # push all this stuff to a repo
+    # pull repo on marianas
+    # create conda env on marianas
+    # exit any virtual environments and purge modules
+    # run script creator code (should be written in python2 since this is native cluster python distribution)
+    # dispatch jobs
+    # track jobs via mlflow
+
+
+# email pic if you need help or need to extend a job at
+# pic-support@pnnl.gov
+# rc-support@pnnl.gov
+# Topics covered:
+    # partition (what set of gpus to run on),
+    # allocation (project id to track usage),
+    # squeue (find out what jobs are dispatched or in the queue),
+    # sbatch (dispatch a job),
+    # scancel (cancel a job)
+
+# Get on Marianas:
+
+ssh marianas
+
+# clone the tutorial repo
+
+git clone https://stash.pnnl.gov/scm/~tuor369/pic_tutorial.git
+cd pic_tutorial
+
+# check out jobs that are currently running to find a partition to run on
+
+squeue
+
+# The dl partition gives you 2 gpus w/8gb ram. There are 24 nodes
+# The shared partition gives you 1 gpu w/8gb ram. These are the same nodes used in the dl partition (could dispatch 48 jobs on shared at once).
+# The dlv partition gives you one larger gpu with 16 gb ram
+# More descriptions of the marianas partitions can be found at:
+    # https://confluence.pnnl.gov/confluence/display/RC/Marianas
+    # Don't pay much attention to most of the advice on that page.
+    # The most usable info is the names of the partitions and what nodes (and associated capabilities) are available on them
+
+# load modules for python with anaconda
+
+module purge
+module load  python/anaconda3.2019.3
+
+# build environment
+
+conda env create -f env.yml
+source activate deepmpc
+
+# Now you should shut down the environment so that it can reliably be spun up upon dispatch
+
+source deactivate
+module purge
+
+# This below script is a wrapper to create a bash script to run a single job which then dispatches the job using os.system('sbatch {command}')
+# I'm using python instead of bash as a shell script to dispatch jobs as it is a more intuitive interface for looping over jobs to dispatch
+# as we will see later.
+
+python single_run_marianas.py
+
+# The script exp.slurm was created. This is an example of a bash script that can be used to dispatch a job with a header
+# that the slurm dispatcher knows how to read.
+# Here are the flags and my understanding of them:
+#!/bin/bash
+    # Set allocation for usage tracking: #SBATCH -A deepmpc
+    # Set time limit (if over 4 days contact PIC administration: #SBATCH -t 1:00:00
+    # Number of GPUS requested: #SBATCH --gres=gpu:1
+    # Partition to use: #SBATCH -p dlv
+    # Number of nodes requested: #SBATCH -N 1
+    # Number of cpu cores requested: #SBATCH -n 8
+    # Where to write stdout: #SBATCH -o %j.out
+    # Where to write stderr: #SBATCH -e %j.err
+
+You can dispatch this job directly using
+
+sbatch exp.slurm
+
+# check that your job is running
+
+squeue
+
+# Two output files will be created for each job dispatch: {jobid}.out and {jobid}.err which record standard out and standard error output
+# You can cancel the job with:
+
+scancel {jobid}
+
+# Now let's do an experiment that dispatches a bunch of jobs
+# Run the script that creates a bunch of sbatch files to run:
+
+python experiment_multiple_runs_marianas.py
+
+# This will create a bunch of slurm dispatch scripts in the folder sbatch
+# They are the same form as exp.slurm but ranging over various hyper-parameters and model configurations
+# Now we can dispatch all these jobs:
+
+for f in sbatch/*
+do
+sbatch $f
+done
+
+# You should now check the queue to see what the status of your jobs is:
+
+squeue
+
+# Because the code is instrumented with mlflow and we are writing to the qfs file system we can track progress from
+# a non-cluster machine that has qfs mounted.
+
+ssh ohmahgerd
+source ~/.bashrc # for some reason the default shell on the dgx-1s is not bash
+
+# you need to setup your env with mlflow on this machine too. If this was the machine you did your dev on you are already set.
+# If not you may need an anaconda dist.
+
+wget https://repo.anaconda.com/archive/Anaconda3-2019.10-Linux-x86_64.sh
+bash Anaconda3-2019.10-Linux-x86_64.sh
+conda env create -f env.yml
+source activate mpc2
+
+# Now go to where the experimenatal results are written and start the mlflow server
+
+cd /qfs/projects/deepmpc/mlflow_test
+mlflow ui --port 8157 # pick a port that isn't being used
+
+# now from your local terminal you create an ssh tunnel to view the results in your browser
+ssh -N -L 8157:localhost:8157 ohmahgerd
+
+# from your browser
+localhost:8157
+
+# cleanup the output files
+rm *.err
+rm *.out
+rm *.slurm
+
+# slurm commands
+https://docs.rc.fas.harvard.edu/kb/convenient-slurm-commands/
+https://slurm.schedmd.com/
+
+# cancel all jobs
+scancel -u username
+
+# example cpy files 
+scp drgo694@ohmahgerd:/qfs/projects/deepmpc/mlflow/neurips_exp_2020_5_31/nonlin_sysid_2020_5_31.* ./
+
+
+# check number of files
+ ls -l|wc -l
+
+# export environment
+conda-env export > file.yml
+

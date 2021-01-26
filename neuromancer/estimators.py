@@ -1,14 +1,11 @@
 """
-# TODO: we can have sequence to sequence RNN block for seq2seq estimator
 
-state estimators for SSM models
-x: states (x0 - initial conditions)
-u: control inputs
-ym: measured outputs
-d: uncontrolled inputs (measured disturbances)
+State estimators for SSM models
+    + x: states (x0 - initial conditions)
+    + u: control inputs
+    + y: measured outputs
+    + d: uncontrolled inputs (measured disturbances)
 
-generic mapping:
-x = estim(ym,x0,u,d)
 """
 
 # pytorch imports
@@ -141,7 +138,7 @@ class FullyObservable(TimeDelayEstimator):
         return data['Yp'][self.nsteps-1]
 
     def reg_error(self):
-        return 0.
+        return torch.tensor(0.0)
 
 
 class LinearEstimator(TimeDelayEstimator):
@@ -231,7 +228,6 @@ class seq2seqResMLPEstimator(seq2seqTimeDelayEstimator):
                                  linear_map=linear_map, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
 
-
 class RNNEstimator(TimeDelayEstimator):
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
                  linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64],
@@ -319,7 +315,7 @@ class LinearKalmanFilter(nn.Module):
         return {f'x0_{self.name}': x, f'reg_error_{self.name}': self.reg_error()}
 
 
-estimators = {'fullyObservable': FullyObservable,
+estimators = {'fullobservable': FullyObservable,
               'linear': LinearEstimator,
               'mlp': MLPEstimator,
               'rnn': RNNEstimator,
@@ -384,7 +380,6 @@ if __name__ == '__main__':
                 e_out = e(data)
                 for k, v in e_out.items():
                     print(f'{k}: {v.shape}')
-
 
     for bias in [True, False]:
         for name, est in seq2seq_estimators.items():

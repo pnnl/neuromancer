@@ -1,6 +1,6 @@
 """
-Function approximators of various degrees of generality.
-Sparsity inducing prior can be gotten from the LassoLinear in linear module
+Function approximators of various degrees of generality which implement a consistent block interface.
+Neural network module building blocks for neural state space models, state estimators and control policies.
 """
 import numpy as np
 import torch
@@ -21,28 +21,9 @@ def get_modules(model):
 
 
 class Linear(nn.Module):
-    def __init__(
-        self,
-        insize,
-        outsize,
-        bias=True,
-        linear_map=slim.Linear,
-        nonlin=SoftExponential,
-        hsizes=[64],
-        linargs=dict(),
-    ):
-        super().__init__()
-        self.in_features, self.out_features = insize, outsize
-        self.linear = linear_map(insize, outsize, bias=bias, **linargs)
-
-    def reg_error(self):
-        return self.linear.reg_error()
-
-    def forward(self, x):
-        return self.linear(x)
-
-
-class MLP(nn.Module):
+    """
+    Linear map consistent with block interface
+    """
     def __init__(
         self,
         insize,
@@ -55,13 +36,54 @@ class MLP(nn.Module):
     ):
         """
 
-        :param insize:
-        :param outsize:
-        :param bias:
-        :param Linear:
-        :param nonlin:
-        :param hsizes:
-        :param linargs: (dict) arguments for
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Linear map class from slim.linear
+        :param nonlin: (callable) Not used in this module but included as argument for consistent interface
+        :param hsizes: (list of ints) Not used in this module but included as argument for consistent interface
+        :param linargs: (dict) Arguments for instantiating linear layer
+        """
+
+        super().__init__()
+        self.in_features, self.out_features = insize, outsize
+        self.linear = linear_map(insize, outsize, bias=bias, **linargs)
+
+    def reg_error(self):
+        return self.linear.reg_error()
+
+    def forward(self, x):
+        """
+
+        :param x: (torch.Tensor, shape=[batchsize, insize])
+        :return: (torch.Tensor, shape=[batchsize, outsize])
+        """
+        return self.linear(x)
+
+
+class MLP(nn.Module):
+    """
+    Multi-Layer Perceptron consistent with blocks interface
+    """
+    def __init__(
+        self,
+        insize,
+        outsize,
+        bias=True,
+        linear_map=slim.Linear,
+        nonlin=SoftExponential,
+        hsizes=[64],
+        linargs=dict(),
+    ):
+        """
+
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Linear map class from slim.linear
+        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape
+        :param hsizes: (list of ints) List of hidden layer sizes
+        :param linargs: (dict) Arguments for instantiating linear layer
         """
         super().__init__()
         self.in_features, self.out_features = insize, outsize
@@ -76,17 +98,13 @@ class MLP(nn.Module):
         )
 
     def reg_error(self):
-        """
-
-        :return:
-        """
         return sum([k.reg_error() for k in self.linear if hasattr(k, "reg_error")])
 
     def forward(self, x):
         """
 
-        :param x:
-        :return:
+        :param x: (torch.Tensor, shape=[batchsize, insize])
+        :return: (torch.Tensor, shape=[batchsize, outsize])
         """
         for lin, nlin in zip(self.linear, self.nonlin):
             x = nlin(lin(x))
@@ -94,6 +112,9 @@ class MLP(nn.Module):
 
 
 class ResMLP(MLP):
+    """
+    Residual MLP consistent with the block interface.
+    """
     def __init__(
         self,
         insize,
@@ -107,14 +128,13 @@ class ResMLP(MLP):
     ):
         """
 
-        :param insize:
-        :param outsize:
-        :param bias:
-        :param Linear:
-        :param nonlin:
-        :param hsizes:
-        :param skip:
-        :param linargs:
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Linear map class from slim.linear
+        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape
+        :param hsizes: (list of ints) List of hidden layer sizes
+        :param linargs: (dict) Arguments for instantiating linear layer
         """
 
         super().__init__(
@@ -137,8 +157,8 @@ class ResMLP(MLP):
     def forward(self, x):
         """
 
-        :param x:
-        :return:
+        :param x: (torch.Tensor, shape=[batchsize, insize])
+        :return: (torch.Tensor, shape=[batchsize, outsize])
         """
         px = self.inmap(x)
         for layer, (lin, nlin) in enumerate(zip(self.linear[:-1], self.nonlin[:-1])):
@@ -152,7 +172,8 @@ class ResMLP(MLP):
 class PytorchRNN(nn.Module):
 
     """
-    This wraps the torch.nn.RNN class to give output which is a linear map from final hidden state.
+    This wraps the torch.nn.RNN class consistent with the blocks interface
+    to give output which is a linear map from final hidden state.
     """
 
     def __init__(
@@ -167,13 +188,13 @@ class PytorchRNN(nn.Module):
     ):
         """
 
-        :param insize:
-        :param outsize:
-        :param bias:
-        :param Linear:
-        :param nonlin:
-        :param hsizes:
-        :param linargs:
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Linear map class from slim.linear
+        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape
+        :param hsizes: (list of ints) List of hidden layer sizes
+        :param linargs: (dict) Arguments for instantiating linear layer
         """
         super().__init__()
         assert len(set(hsizes)) == 1
@@ -186,10 +207,9 @@ class PytorchRNN(nn.Module):
 
     def forward(self, x):
         """
-        There is some logic here so that the RNN will still get context from state in open loop simulation.
 
-        :param x: (torch.Tensor, shape=(nsteps, nsamples, dim)) Input sequence is expanded for order 2 tensors
-        :return: (torch.Tensor, shape=(nsamples, outsize)
+        :param x: (torch.Tensor, shape=[nsteps, batchsize, dim]) Input sequence is expanded for order 2 tensors
+        :return: (torch.Tensor, shape=[batchsize, outsize]) Returns linear transform of final hidden state of RNN.
         """
         if len(x.shape) == 2:
             x = x.reshape(1, *x.shape)
@@ -199,7 +219,7 @@ class PytorchRNN(nn.Module):
 
 class RNN(nn.Module):
     """
-    This wraps the rnn.RNN class to give output which is a linear map from final hidden state.
+    This wraps the rnn.RNN class consistent with blocks interface to give output which is a linear map from final hidden state.
     """
 
     def __init__(
@@ -214,13 +234,13 @@ class RNN(nn.Module):
     ):
         """
 
-        :param insize:
-        :param outsize:
-        :param bias:
-        :param Linear:
-        :param nonlin:
-        :param hsizes:
-        :param linargs:
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Linear map class from slim.linear
+        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape
+        :param hsizes: (list of ints) List of hidden layer sizes
+        :param linargs: (dict) Arguments for instantiating linear layer
         """
         super().__init__()
         assert len(set(hsizes)) == 1
@@ -246,8 +266,8 @@ class RNN(nn.Module):
         """
         There is some logic here so that the RNN will still get context from state in open loop simulation.
 
-        :param x: (torch.Tensor, shape=(nsteps, nsamples, dim)) Input sequence is expanded for order 2 tensors
-        :return: (torch.Tensor, shape=(nsamples, outsize)
+        :param x: (torch.Tensor, shape=[nsteps, batchsize, dim]) Input sequence is expanded for order 2 tensors
+        :return: (torch.Tensor, shape=[batchsize, outsize]) Returns linear transform of final hidden state of RNN.
         """
         if len(x.shape) == 2:
             x = x.reshape(1, *x.shape)
@@ -257,6 +277,9 @@ class RNN(nn.Module):
 
 
 class BilinearTorch(nn.Module):
+    """
+    Wraps torch.nn.Bilinear to be consistent with the blocks interface
+    """
     def __init__(
         self,
         insize,
@@ -268,7 +291,14 @@ class BilinearTorch(nn.Module):
         linargs=dict(),
     ):
         """
-        bilinear term from Torch
+
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Not used in this module
+        :param nonlin: (callable) Not used in this module
+        :param hsizes: (list of ints) Not used in this module
+        :param linargs: (dict) Not used in this module
         """
         super().__init__()
         self.in_features, self.out_features = insize, outsize
@@ -284,10 +314,18 @@ class BilinearTorch(nn.Module):
 
 
 class Poly2(nn.Module):
+    """
+    Feature expansion of network to include pairwise multiplications of features.
+    """
     def __init__(self):
         super().__init__()
 
     def forward(self, x):
+        """
+
+        :param x: (torch.Tensor, shape=[batchsize, N]) Input tensor
+        :return: (torch.Tensor, shape=[batchsize, :math:`\frac{N(N+1)}{2} + N`]) Feature expanded tensor
+        """
         row_idxs, col_idxs = np.triu_indices(x.shape[-1])
         expansion = torch.matmul(x.unsqueeze(-1), x.unsqueeze(1))  # outer product
         expansion = expansion[:, row_idxs, col_idxs]  # upper triangular
@@ -295,6 +333,11 @@ class Poly2(nn.Module):
 
 
 class BasisLinear(nn.Module):
+    """
+    For mapping inputs to functional basis feature expansion. This could implement a dictionary of lifting functions.
+    Takes a linear combination of the expanded features.
+
+    """
     def __init__(
         self,
         insize,
@@ -307,7 +350,14 @@ class BasisLinear(nn.Module):
         expand=Poly2(),
     ):
         """
-        For mapping inputs to functional basis feature expansion.
+
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Not used in this module
+        :param nonlin: (callable) Not used in this module
+        :param hsizes: (list of ints) Not used in this module
+        :param linargs: (dict) Not used in this module
         """
         super().__init__()
         self.in_features, self.out_features = insize, outsize
@@ -320,6 +370,11 @@ class BasisLinear(nn.Module):
         return self.linear.reg_error()
 
     def forward(self, x):
+        """
+
+        :param x: (torch.Tensor, shape=[batchsize, insize])
+        :return: (torch.Tensor, shape=[batchsize, outsize])
+        """
         return self.linear(self.expand(x))
 
 

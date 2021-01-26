@@ -1,20 +1,18 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
 import slim
 
 
 class RNNCell(nn.Module):
-    def __init__(self, input_size, hidden_size, bias=False, nonlin=F.gelu, linear_map=slim.Linear, linargs=dict()):
+    def __init__(self, input_size, hidden_size, bias=False, nonlin=nn.GELU, linear_map=slim.Linear, linargs=dict()):
         """
 
-        :param input_size:
-        :param hidden_size:
-        :param bias:
-        :param nonlinearity:
-        :param linear_map:
-        :param linargs:
+        :param input_size: (int) Number of features in time series input
+        :param hidden_size: (int) Number of hidden features
+        :param bias: (bool) Whether to use bias
+        :param nonlinearity: (class) Constructor to instantiate activation function.
+        :param linear_map: (class) Constructor to instantiate linear map
+        :param linargs: (class) Arguments to instantiate linear map
         """
         super().__init__()
         self.input_size, self.hidden_size = input_size, hidden_size
@@ -29,6 +27,12 @@ class RNNCell(nn.Module):
         return (self.lin_in.reg_error() + self.lin_hidden.reg_error())/2.0
 
     def forward(self, input, hidden):
+        """
+
+        :param input: (torch.Tensor, shape=[batchsize, input_size])
+        :param hidden: (torch.Tensor, shape=[batchsize, hidden_size])
+        :return: (torch.Tensor, shape=[batchsize, hidden_size])
+        """
         return self.nonlin(self.lin_hidden(hidden) + self.lin_in(input))
 
 

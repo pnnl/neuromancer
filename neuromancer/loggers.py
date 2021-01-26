@@ -4,10 +4,10 @@
 # python base imports
 import time
 import os
+import shutil
 
 # machine learning/data science imports
 import mlflow
-# import wandb
 import torch
 import dill
 
@@ -17,10 +17,10 @@ class BasicLogger:
                  stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
                          'nstep_dev_ref_loss', 'loop_dev_ref_loss')):
         """
-        :param args: Namespace returned by argparse.ArgumentParser.parse_args()
-        :param savedir: Folder to write results to.
-        :param verbosity: Print to stdout every verbosity epochs
-        :param stdout: Metrics to print to stdout. These should correspond to keys in the output dictionary of the Problem
+        :param args: (Namespace) returned by argparse.ArgumentParser.parse_args()
+        :param savedir: (str) Folder to write results to.
+        :param verbosity: (int) Print to stdout every verbosity epochs
+        :param stdout: (list of str) Metrics to print to stdout. These should correspond to keys in the output dictionary of the Problem
         """
         os.makedirs(savedir, exist_ok=True)
         self.stdout = stdout
@@ -35,14 +35,14 @@ class BasicLogger:
         """
         Pring experiment parameters to stdout
 
-        :param args: Namespace returned by argparse.ArgumentParser.parse_args()
+        :param args: (Namespace) returned by argparse.ArgumentParser.parse_args()
         """
         print(self.args)
 
     def log_weights(self, model):
         """
 
-        :param model: nn.Module
+        :param model: (nn.Module)
         :return: (int) The number of learnable parameters in the model
         """
         nweights = sum([i.numel() for i in list(model.parameters()) if i.requires_grad])
@@ -76,7 +76,7 @@ class BasicLogger:
         """
         Stores artifacts created in training to disc.
 
-        :param artifacts: dict {str: Object}
+        :param artifacts: (dict {str: Object})
         """
         for k, v in artifacts.items():
             savepath = os.path.join(self.savedir, k)
@@ -92,10 +92,11 @@ class MLFlowLogger(BasicLogger):
                          'nstep_dev_ref_loss', 'loop_dev_ref_loss')):
         """
 
-        :param args: Namespace returned by argparse.ArgumentParser.parse_args()
+        :param args: (Namespace) returned by argparse.ArgumentParser.parse_args()
         :param savedir: Unique folder name to temporarily save artifacts
-        :param verbosity: How often to print to stdout
-        :param stdout: What variables to print to stdout
+        :param verbosity: (int) Print to stdout every verbosity steps
+        :param id: (int) Optional unique experiment ID for hyperparameter optimization
+        :param stdout: (list of str) Metrics to print to stdout. These should correspond to keys in the output dictionary of the Problem
         """
         mlflow.set_tracking_uri(args.location)
         mlflow.set_experiment(args.exp)
@@ -104,9 +105,9 @@ class MLFlowLogger(BasicLogger):
 
     def log_parameters(self):
         """
-        Pring experiment parameters to stdout
+        Print experiment parameters to stdout
 
-        :param args: dict
+        :param args: (Namespace) returned by argparse.ArgumentParser.parse_args()
         """
         params = {k: str(getattr(self.args, k)) for k in vars(self.args) if getattr(self.args, k)}
         mlflow.log_params(params)
@@ -114,7 +115,7 @@ class MLFlowLogger(BasicLogger):
     def log_weights(self, model):
         """
 
-        :param model: nn.Module
+        :param model: (nn.Module)
         :return: (int) Number of learnable parameters in the model.
         """
         nweights = super().log_weights(model)
@@ -124,8 +125,8 @@ class MLFlowLogger(BasicLogger):
         """
         Record metrics to mlflow
 
-        :param output: dict {str: tensor} Will only record 0d tensors (scalars)
-        :param step: Epoch of training
+        :param output: (dict {str: tensor}) Will only record 0d torch.Tensors (scalars)
+        :param step: (int) Epoch of training
         """
         super().log_metrics(output, step)
         for k, v in output.items():
@@ -138,7 +139,7 @@ class MLFlowLogger(BasicLogger):
         """
         Stores artifacts created in training to mlflow.
 
-        :param artifacts: dict {str: Object}
+        :param artifacts: (dict {str: Object})
         """
         super().log_artifacts(artifacts)
         mlflow.log_artifacts(self.savedir)
@@ -147,7 +148,6 @@ class MLFlowLogger(BasicLogger):
         """
         Remove temporary files from file system
         """
-        # TODO: rm creates problems in windows
-        # os.system(f'rm -rf {self.savedir}')
+        shutil.rmtree(self.savedir)
         mlflow.end_run()
 

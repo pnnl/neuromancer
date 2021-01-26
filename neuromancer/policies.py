@@ -1,13 +1,15 @@
 """
 
 policies for SSM models
-x: states
-u: control inputs
-d: uncontrolled inputs (measured disturbances)
-r: reference signals
+
+    + x: states
+    + u: control inputs
+    + d: uncontrolled inputs (measured disturbances)
+    + r: reference signals
 
 generic mapping:
-u = policy(x,u,d,r)
+
+    + u = policy(x,u,d,r)
 """
 
 # machine learning/data science imports
@@ -24,52 +26,6 @@ import neuromancer.blocks as blocks
 def check_keys(k1, k2):
     assert set(k1) - set(k2) == set(), \
         f'Missing values in dataset. Input_keys: {set(k1)}, data_keys: {set(k2)}'
-
-
-class SolutionMap(nn.Module):
-    def __init__(self, data_dims, input_keys=['x'], bias=False,
-                 linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64], linargs=dict(), name='sol_map'):
-        """
-        Solution map for multiparametric programming problems
-
-        :param data_dims: dict {str: tuple of ints) Data structure describing dimensions of input variables
-        :param input_keys: (List of str) List of input variable names
-        :param bias: (bool) Whether to use bias in MLP
-        :param Linear: (class) slim.Linear class for subcomponents
-        :param nonlin: (class) Pytorch elementwise activation function class for subcomponents
-        :param hsizes: (List [int]) Sizes of hidden layers in MLP
-        :param linargs: (dict) Arguments for instantiating linear layers.
-        :param name: (str) Name for tracking output of module.
-        """
-        super().__init__()
-        check_keys(set(input_keys), set(data_dims.keys()))
-        self.name = name
-        self.input_keys = input_keys
-        data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
-        self.input_size = sum(v[-1] for k, v in data_dims_in.items())
-        self.output_size = data_dims['z'][-1]
-        self.net = blocks.MLP(insize=self.input_size, outsize=self.output_size, bias=bias,
-                              linear_map=Linear, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
-
-    def reg_error(self):
-        """
-
-        :return: 0-dimensional torch.Tensor
-        """
-        return self.net.reg_error()
-
-    def forward(self, data):
-        """
-
-        :param data: (dict {str: torch.Tensor})
-        :return: (torch.Tensor)
-        """
-        check_keys(self.input_keys, set(data.keys()))
-        features = data[self.input_keys[0]]
-        for k in self.input_keys[1:]:
-            features = torch.cat([features, data[k]], dim=1)
-        Z = self.net(features)
-        return {f'z_{self.name}': Z, f'reg_error_{self.name}': self.net.reg_error()}
 
 
 class Policy(nn.Module):
@@ -155,7 +111,7 @@ class LinearPolicy(Policy):
         :param name: (str) Name for tracking output of module.
         """
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
-        self.net = Linear(self.in_features, self.out_features, bias=bias, **linargs)
+        self.net = linear_map(self.in_features, self.out_features, bias=bias, **linargs)
 
 
 class MLPPolicy(Policy):

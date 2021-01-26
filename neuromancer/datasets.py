@@ -488,7 +488,7 @@ class EmulatorDataset(Dataset):
             sim = model.simulate()
             i += 1
 
-        return sim
+        return sim # {'Y': np.array shape=[nsim, ydim], 'X': np.array shape=[nsim, xdim], 'U': np.array shape=[nsim, udim], 'D': np.array shape=[nsim, ddim]}
 
 
 class MultiExperimentEmulatorDataset(MultiExperimentDataset):
@@ -612,3 +612,29 @@ if __name__ == '__main__':
             dataset = MultiExperimentEmulatorDataset(system=system)
         except Exception as e:
             print("Error encountered:", e)
+
+
+def load_dataset(args, device, name):
+    if systems[args.system] == "emulator":
+        dataset = EmulatorDataset(
+            system=args.system,
+            nsim=args.nsim,
+            norm=args.norm,
+            nsteps=args.nsteps,
+            device=device,
+            savedir=args.savedir,
+            seed=args.data_seed,
+            name=name,
+        )
+    else:
+        dataset = FileDataset(
+            system=args.system,
+            nsim=args.nsim,
+            norm=args.norm,
+            nsteps=args.nsteps,
+            device=device,
+            savedir=args.savedir,
+            name=name,
+        )
+    return dataset
+

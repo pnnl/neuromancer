@@ -138,7 +138,7 @@ class FullyObservable(TimeDelayEstimator):
         return data['Yp'][self.nsteps-1]
 
     def reg_error(self):
-        return 0.
+        return torch.tensor(0.0)
 
 
 class LinearEstimator(TimeDelayEstimator):
@@ -315,7 +315,8 @@ class LinearKalmanFilter(nn.Module):
         return {f'x0_{self.name}': x, f'reg_error_{self.name}': self.reg_error()}
 
 
-estimators = {'linear': LinearEstimator,
+estimators = {'fullobservable': FullyObservable,
+              'linear': LinearEstimator,
               'mlp': MLPEstimator,
               'rnn': RNNEstimator,
               'residual_mlp': ResMLPEstimator}

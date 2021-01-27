@@ -43,9 +43,10 @@ class ArgParser(ArgumentParser):
 
     def check_for_group(self, group_name):
         """
+        This function will return the argument group if it exists
 
-        :param group_name:
-        :return:
+        :param group_name: (str) Name of the argument group
+        :return: (argparse._ArgumentGroup or None)
         """
         for gp in self._action_groups:
             if gp.title == group_name:
@@ -54,10 +55,11 @@ class ArgParser(ArgumentParser):
 
     def group(self, group_name, prefix=None):
         """
-        Monkey patch to abbreviate verbose call to add_argument
+        Monkey patch to abbreviate verbose call to add_argument_group. If an argument group exists by
+        the name group_name it will be returned, otherwise a new argument group will be created and returned.
         
-        :param group_name: 
-        :return: 
+        :param group_name: (str) Name of the argument group
+        :return: argparse._ArgumentGroup
         """
         gp = self.check_for_group(group_name)
         if gp is None:
@@ -67,6 +69,12 @@ class ArgParser(ArgumentParser):
         return gp
 
     def parse_arg_groups(self):
+        """
+        In addition to returning a single Namespace of all arguments returns a dictionary of Namespaces for each argument group
+        :return:
+            + args: (Namespace)
+            + groups: (dict, {str: Namespace})
+        """
         args = self.parse_args()
         print(args)
         arg_groups = {}
@@ -78,6 +86,13 @@ class ArgParser(ArgumentParser):
 
 
 def log(prefix=''):
+    """
+    Command line parser for logging arguments
+
+    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
+                         are bundled as parents.
+    :return: (arg.ArgParse) A command line parser
+    """
     parser = ArgParser(prefix=prefix, add_help=False)
     parser.add("-gpu", type=int, help="GPU to use")
     parser.add("-seed", type=int, default=408, help="Random seed used for weight initialization.")
@@ -106,8 +121,11 @@ def log(prefix=''):
 
 def opt(prefix=''):
     """
-    :param prefix: 
-    :return: 
+    Command line parser for optimization arguments
+
+    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
+                         are bundled as parents.
+    :return: (arg.ArgParse) A command line parser
     """
     parser = ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("OPTIMIZATION")
@@ -132,8 +150,11 @@ def opt(prefix=''):
 
 def data(prefix=''):
     """
-    :param prefix: 
-    :return: 
+    Command line parser for data arguments
+
+    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
+                         are bundled as parents.
+    :return: (arg.ArgParse) A command line parser
     """
     parser = ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("DATA")
@@ -162,8 +183,11 @@ def data(prefix=''):
 
 def lin(prefix=''):
     """
-    :param prefix: 
-    :return: 
+    Command line parser for linear map arguments
+
+    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
+                         are bundled as parents.
+    :return: (arg.ArgParse) A command line parser
     """
     parser = ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("LINEAR")
@@ -182,8 +206,11 @@ def lin(prefix=''):
 
 def loss(prefix=''):
     """
-    :param prefix:
-    :return:
+    Command line parser for loss function arguments
+
+    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
+                         are bundled as parents.
+    :return: (arg.ArgParse) A command line parser
     """
     parser = ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("LOSS")
@@ -210,6 +237,13 @@ def loss(prefix=''):
 
 
 def freeze(prefix=''):
+    """
+    Command line parser for weight freezing arguments
+
+    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
+                         are bundled as parents.
+    :return: (arg.ArgParse) A command line parser
+    """
     parser = ArgParser(prefix=prefix, add_help=False)
     gp = parser.group('FREEZE')
 
@@ -223,6 +257,13 @@ def freeze(prefix=''):
 
 
 def ctrl_loss(prefix=''):
+    """
+    Command line parser for special control loss arguments
+
+    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
+                         are bundled as parents.
+    :return: (arg.ArgParse) A command line parser
+    """
     parser = ArgParser(prefix=prefix, add_help=False)
 
     gp = parser.group('LOSS')
@@ -255,8 +296,11 @@ def ctrl_loss(prefix=''):
 
 def ssm(prefix=''):
     """
-    :param prefix: 
-    :return: 
+    Command line parser for state space model arguments
+
+    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
+                         are bundled as parents.
+    :return: (arg.ArgParse) A command line parser
     """
     parser = ArgParser(prefix=prefix, add_help=False)
     gp = parser.group('SSM')
@@ -290,8 +334,11 @@ def ssm(prefix=''):
 
 def policy(prefix=''):
     """
-    :param prefix:
-    :return:
+    Command line parser for control policy arguments
+
+    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
+                         are bundled as parents.
+    :return: (arg.ArgParse) A command line parser
     """
     parser = ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("POLICY")

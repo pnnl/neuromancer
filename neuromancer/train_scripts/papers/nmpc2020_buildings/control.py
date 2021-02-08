@@ -7,6 +7,7 @@ from neuromancer.trainer import Trainer, freeze_weight, unfreeze_weight
 from neuromancer.visuals import VisualizerClosedLoop
 from common import load_dataset, get_logger
 import setup_control as ctrl
+import psl
 
 
 if __name__ == "__main__":
@@ -56,14 +57,20 @@ if __name__ == "__main__":
     # train only policy component
     freeze_weight(model, module_names=args.freeze)
     unfreeze_weight(model, module_names=args.unfreeze)
+    print(f'train observer {model.components[1].net.linear[0].effective_W().requires_grad}')
+    print(f'train policy {model.components[2].net.linear[0].effective_W().requires_grad}')
+    print(f'train model {model.components[3].fx.linear.weight.requires_grad}')
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
     plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
     visualizer = VisualizerClosedLoop(
         dataset, policy, plot_keys, args.verbosity, savedir=args.savedir
     )
-
     policy.input_keys[0] = "Yp"  # hack for policy input key compatibility w/ simulator
+    # emulator = psl.systems[args.system]
+    # simulator = ClosedLoopSimulator(
+    #     model=model, dataset=dataset, emulator=emulator(), policy=policy
+    # )
     simulator = ClosedLoopSimulator(
         model=model, dataset=dataset, emulator=dynamics_model, policy=policy
     )

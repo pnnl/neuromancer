@@ -34,13 +34,13 @@ def get_parser(parser=None, add_prefix=False):
     opt_group.add_argument(
         pfx("-patience"),
         type=int,
-        default=100,
+        default=50,
         help="How many epochs to allow for no improvement in eval metric before early stopping.",
     )
     opt_group.add_argument(
         pfx("-warmup"),
         type=int,
-        default=10,
+        default=100,
         help="Number of epochs to wait before enacting early stopping policy.",
     )
     opt_group.add_argument(
@@ -49,12 +49,13 @@ def get_parser(parser=None, add_prefix=False):
         help="Whether to run simulator during evaluation phase of training.",
     )
 
+    # TODO: must be larger than nsteps of the sys ID model
     # data parameters
     data_group = parser.add_argument_group("DATA PARAMETERS")
     data_group.add_argument(
         pfx("-nsteps"),
         type=int,
-        default=8,
+        default=32,
         help="Number of steps for open loop during training.",
     )
     # TODO: update emulator model
@@ -96,7 +97,7 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-policy"), type=str, choices=["mlp", "linear"], default="mlp"
     )
     policy_group.add_argument(
-        "-controlled_outputs", nargs='+', default=[0, 1],
+        "-controlled_outputs", nargs='+', default=[0, 1, 2, 3, 4, 5],
         help="list of indices of controlled outputs len(default)<=ny"
     )
     policy_group.add_argument(
@@ -116,7 +117,7 @@ def get_parser(parser=None, add_prefix=False):
     policy_group.add_argument(
         pfx("-policy_features"),
         nargs="+",
-        default=['Y_ctrl_p', 'Rf'],
+        default=['Y_ctrl_p', 'Rf', 'Df'],
         # default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'],
         help="Policy features",
     )  # reference tracking option
@@ -141,10 +142,10 @@ def get_parser(parser=None, add_prefix=False):
     # linear parameters
     linear_group = parser.add_argument_group("LINEAR PARAMETERS")
     linear_group.add_argument(
-        pfx("-linear_map"), type=str, choices=["linear", "softSVD", "pf"], default="softSVD"
+        pfx("-linear_map"), type=str, choices=["linear", "softSVD", "pf"], default="linear"
     )
     linear_group.add_argument(pfx("-sigma_min"), type=float, default=0.1)
-    linear_group.add_argument(pfx("-sigma_max"), type=float, default=0.6)
+    linear_group.add_argument(pfx("-sigma_max"), type=float, default=0.9)
 
     # layers
     layers_group = parser.add_argument_group("LAYERS PARAMETERS")
@@ -186,7 +187,10 @@ def get_parser(parser=None, add_prefix=False):
         help="Penalty weight on control actions and disturbances.",
     )
     weight_group.add_argument(
-        pfx("-Q_con_u"), type=float, default=0.0, help="Input constraints penalty weight."
+        pfx("-Q_umin"), type=float, default=1.0, help="Input minimization weight."
+    )
+    weight_group.add_argument(
+        pfx("-Q_con_u"), type=float, default=1.0, help="Input constraints penalty weight."
         # pfx("-Q_con_u"), type=float, default=2.0, help="Input constraints penalty weight."
     )
     weight_group.add_argument(
@@ -275,6 +279,12 @@ def get_objective_terms(args, policy):
     )
     regularization = Objective(
         [f"reg_error_{policy.name}"], lambda reg: reg, weight=args.Q_sub, name="reg_loss",
+    )
+    control_min = Objective(
+        [f"U_pred_{policy.name}"],
+        lambda x: F.mse_loss(x-0),
+        weight=args.Q_umin,
+        name="control_min",
     )
     control_smoothing = Objective(
         [f"U_pred_{policy.name}"],
@@ -371,9 +381,14 @@ def add_reference_features(args, dataset, dynamics_model):
     nsim = dataset.dims['nsim']
     nu = dataset.data["U"].shape[1]
     ny = len(args.controlled_outputs)
+    
+    ymax = 30*[1.0, 0.8]
+    ymin = 30*[0.4, 0.6]
     dataset.add_data({
-        "Y_max": psl.Periodic(nx=ny, nsim=nsim, numPeriods=30, xmax=1.0, xmin=0.9)[:nsim,:],
-        "Y_min": psl.Periodic(nx=ny, nsim=nsim, numPeriods=24, xmax=0.4, xmin=0.1)[:nsim,:],
+        "Y_max": psl.Steps(nx=ny, nsim=nsim, values=ymax, xmax=1.0, xmin=0.0)[:nsim, :],
+        "Y_min": psl.Steps(nx=ny, nsim=nsim, values=ymin, xmax=1.0, xmin=0.0)[:nsim, :],
+        # "Y_max": psl.Periodic(nx=ny, nsim=nsim, numPeriods=30, xmax=1.0, xmin=0.9)[:nsim,:],
+        # "Y_min": psl.Periodic(nx=ny, nsim=nsim, numPeriods=24, xmax=0.4, xmin=0.3)[:nsim,:],
         "U_max": np.ones([nsim, nu]),
         "U_min": np.zeros([nsim, nu]),
         "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=20, xmax=0.8, xmin=0.6)[:nsim,:]

@@ -41,6 +41,7 @@ from setup_system_id import (
 
 if __name__ == "__main__":
     args = get_parser().parse_args()
+    args.bias = False
     print({k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)})
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
 

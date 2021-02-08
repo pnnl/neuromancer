@@ -13,7 +13,7 @@ from neuromancer import estimators
 from neuromancer.activations import activations
 from neuromancer.problem import Problem, Objective
 from neuromancer.activations import BLU, SoftExponential
-from neuromancer.train_scripts.common.common import get_base_parser
+from common import get_base_parser
 
 
 def get_parser(parser=None):
@@ -22,7 +22,7 @@ def get_parser(parser=None):
 
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument("-epochs", type=int, default=100)
+    opt_group.add_argument("-epochs", type=int, default=300)
     opt_group.add_argument(
         "-lr", type=float, default=0.001, help="Step size for gradient descent."
     )
@@ -35,7 +35,7 @@ def get_parser(parser=None):
     opt_group.add_argument(
         "-patience",
         type=int,
-        default=30,
+        default=100,
         help="How many epochs to allow for no improvement in eval metric before early stopping.",
     )
     opt_group.add_argument(
@@ -72,7 +72,7 @@ def get_parser(parser=None):
     data_group.add_argument(
         "-nsteps",
         type=int,
-        default=8,
+        default=64,
         help="Number of steps for open loop during training.",
     )
     data_group.add_argument(
@@ -115,7 +115,7 @@ def get_parser(parser=None):
     model_group.add_argument(
         "-estimator_input_window",
         type=int,
-        default=8,
+        default=64,
         help="Number of previous time steps measurements to include in state estimator input",
     )
     model_group.add_argument(
@@ -126,7 +126,8 @@ def get_parser(parser=None):
     )
     model_group.add_argument(
         "-bias",
-        action="store_true",
+        # action="store_true",
+        action="store_false",
         help="Whether to use bias in the neural network models.",
     )
     model_group.add_argument(

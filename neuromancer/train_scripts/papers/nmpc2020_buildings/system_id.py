@@ -31,7 +31,7 @@ from neuromancer.visuals import VisualizerOpen, VisualizerTrajectories
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
 from neuromancer.simulators import OpenLoopSimulator
-from neuromancer.train_scripts.common.common import load_dataset, get_logger
+from common import load_dataset, get_logger
 
 from setup_system_id import (
     get_model_components,

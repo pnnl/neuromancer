@@ -15,7 +15,7 @@ from neuromancer import estimators
 from neuromancer.problem import Problem, Objective
 from neuromancer.activations import BLU, SoftExponential
 from neuromancer import policies
-from neuromancer.train_scripts.common.common import get_base_parser
+from common import get_base_parser
 
 
 def get_parser(parser=None, add_prefix=False):
@@ -27,14 +27,14 @@ def get_parser(parser=None, add_prefix=False):
 
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument(pfx("-epochs"), type=int, default=200)
+    opt_group.add_argument(pfx("-epochs"), type=int, default=1000)
     opt_group.add_argument(
         pfx("-lr"), type=float, default=0.001, help="Step size for gradient descent."
     )
     opt_group.add_argument(
         pfx("-patience"),
         type=int,
-        default=20,
+        default=100,
         help="How many epochs to allow for no improvement in eval metric before early stopping.",
     )
     opt_group.add_argument(
@@ -54,7 +54,7 @@ def get_parser(parser=None, add_prefix=False):
     data_group.add_argument(
         pfx("-nsteps"),
         type=int,
-        default=64,
+        default=8,
         help="Number of steps for open loop during training.",
     )
     # TODO: update emulator model
@@ -105,7 +105,7 @@ def get_parser(parser=None, add_prefix=False):
     policy_group.add_argument(
         pfx("-n_layers"),
         type=int,
-        default=3,
+        default=2,
         help="Number of hidden layers of single time-step state transition",
     )
     policy_group.add_argument(
@@ -116,7 +116,8 @@ def get_parser(parser=None, add_prefix=False):
     policy_group.add_argument(
         pfx("-policy_features"),
         nargs="+",
-        default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'],
+        default=['Y_ctrl_p', 'Rf'],
+        # default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'],
         help="Policy features",
     )  # reference tracking option
     policy_group.add_argument(
@@ -143,7 +144,7 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-linear_map"), type=str, choices=["linear", "softSVD", "pf"], default="softSVD"
     )
     linear_group.add_argument(pfx("-sigma_min"), type=float, default=0.1)
-    linear_group.add_argument(pfx("-sigma_max"), type=float, default=1.0)
+    linear_group.add_argument(pfx("-sigma_max"), type=float, default=0.6)
 
     # layers
     layers_group = parser.add_argument_group("LAYERS PARAMETERS")
@@ -160,13 +161,13 @@ def get_parser(parser=None, add_prefix=False):
     weight_group.add_argument(
         pfx("-Q_con_x"),
         type=float,
-        default=1.0,
+        default=0.0,
         help="Hidden state constraints penalty weight.",
     )
     weight_group.add_argument(
         pfx("-Q_con_y"),
         type=float,
-        default=10.0,
+        default=0.0,
         help="Observable constraints penalty weight.",
     )
     weight_group.add_argument(
@@ -176,7 +177,7 @@ def get_parser(parser=None, add_prefix=False):
         help="Penalty weight on hidden state difference in one time step.",
     )
     weight_group.add_argument(
-        pfx("-Q_sub"), type=float, default=1.0, help="Linear maps regularization weight."
+        pfx("-Q_sub"), type=float, default=0.2, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
         pfx("-Q_con_fdu"),
@@ -185,7 +186,8 @@ def get_parser(parser=None, add_prefix=False):
         help="Penalty weight on control actions and disturbances.",
     )
     weight_group.add_argument(
-        pfx("-Q_con_u"), type=float, default=2.0, help="Input constraints penalty weight."
+        pfx("-Q_con_u"), type=float, default=0.0, help="Input constraints penalty weight."
+        # pfx("-Q_con_u"), type=float, default=2.0, help="Input constraints penalty weight."
     )
     weight_group.add_argument(
         pfx("-Q_r"), type=float, default=1.0, help="Reference tracking penalty weight"
@@ -193,7 +195,8 @@ def get_parser(parser=None, add_prefix=False):
     weight_group.add_argument(
         pfx("-Q_du"),
         type=float,
-        default=0.1,
+        # default=0.1,
+        default=0.0,
         help="control action difference penalty weight",
     )
 
@@ -369,11 +372,11 @@ def add_reference_features(args, dataset, dynamics_model):
     nu = dataset.data["U"].shape[1]
     ny = len(args.controlled_outputs)
     dataset.add_data({
-        "Y_max": psl.Periodic(nx=ny, nsim=nsim, numPeriods=30, xmax=0.9, xmin=0.6)[:nsim,:],
+        "Y_max": psl.Periodic(nx=ny, nsim=nsim, numPeriods=30, xmax=1.0, xmin=0.9)[:nsim,:],
         "Y_min": psl.Periodic(nx=ny, nsim=nsim, numPeriods=24, xmax=0.4, xmin=0.1)[:nsim,:],
         "U_max": np.ones([nsim, nu]),
         "U_min": np.zeros([nsim, nu]),
-        "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=20, xmax=0.8, xmin=0.2)[:nsim,:]
+        "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=20, xmax=0.8, xmin=0.6)[:nsim,:]
         # 'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)
     })
     # indices of controlled states, e.g. [0, 1, 3] out of 5 outputs

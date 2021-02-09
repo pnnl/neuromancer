@@ -262,19 +262,19 @@ def get_objective_terms(args, policy):
         [f"reg_error_{policy.name}"], lambda reg: reg, weight=args.Q_sub, name="reg_loss",
     )
     # minimize only temperatures
-    control_min = Objective(
-        [f"U_pred_{policy.name}"],
-        lambda x: F.mse_loss(x[:,:,0:5], torch.zeros(x[:,:,0:5].shape)),
-        weight=args.Q_umin,
-        name="control_min",
-    )
     # control_min = Objective(
     #     [f"U_pred_{policy.name}"],
-    #     lambda x: F.mse_loss(x, torch.zeros(x.shape)),
-    #     # lambda x: torch.mean(x),
+    #     lambda x: F.mse_loss(x[:,:,0:5], torch.zeros(x[:,:,0:5].shape)),
     #     weight=args.Q_umin,
     #     name="control_min",
     # )
+    control_min = Objective(
+        [f"U_pred_{policy.name}"],
+        lambda x: F.mse_loss(x, torch.zeros(x.shape)),
+        # lambda x: torch.mean(x),
+        weight=args.Q_umin,
+        name="control_min",
+    )
     control_smoothing = Objective(
         [f"U_pred_{policy.name}"],
         lambda x: F.mse_loss(x[1:], x[:-1]),

@@ -81,7 +81,7 @@ if __name__ == "__main__":
     # gt_dataset = ctrl.add_reference_features(args, gt_dataset, dynamics_model)
     simulator = CLSimulator(
         model=model, dataset=dataset, emulator=dynamics_model, policy=policy,
-        gt_emulator=psl.emulators[args.system](), diff=True, Ki=0.1,
+        gt_emulator=psl.emulators[args.system](), diff=False, Ki=0.1,
     )
     # eval_metric = 'dev_sim_error',
 

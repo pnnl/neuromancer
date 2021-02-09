@@ -39,6 +39,10 @@ from setup_system_id import (
     get_parser
 )
 
+# TODO: bilinear for fu
+# https://pytorch.org/docs/stable/generated/torch.nn.Bilinear.html
+# TODO: tetrain model
+
 if __name__ == "__main__":
     args = get_parser().parse_args()
     args.bias = False

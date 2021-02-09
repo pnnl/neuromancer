@@ -29,9 +29,7 @@ Block components:
 
 import torch
 import torch.nn as nn
-
 import slim
-
 import neuromancer.blocks as blocks
 
 
@@ -437,36 +435,42 @@ def block_model(kind, datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fy
     lin = lambda ni, no: (
         linmap(ni, no, bias=bias, linargs=linargs)
     )
+    lin_free = lambda ni, no: (
+        slim.maps['linear'](ni, no, bias=bias, linargs=linargs)
+    )
     nlin = lambda ni, no: (
         nonlinmap(ni, no, bias=bias, hsizes=hsizes, linear_map=linmap, nonlin=activation, linargs=linargs)
+    )
+    nlin_free = lambda ni, no: (
+        nonlinmap(ni, no, bias=bias, hsizes=hsizes, linear_map=slim.maps['linear'], nonlin=activation, linargs=linargs)
     )
 
     # define (non)linearity of each component according to given model type
     if kind == "blocknlin":
         fx = nlin(nx_td, nx)
-        fy = lin(nx_td, ny)
-        fu = nlin(nu_td, nx) if nu != 0 else None
-        fd = nlin(nd_td, nx) if nd != 0 else None
+        fy = lin_free(nx_td, ny)
+        fu = nlin_free(nu_td, nx) if nu != 0 else None
+        fd = nlin_free(nd_td, nx) if nd != 0 else None
     elif kind == "linear":
         fx = lin(nx_td, nx)
-        fy = lin(nx_td, ny)
-        fu = lin(nu_td, nx) if nu != 0 else None
-        fd = lin(nd_td, nx) if nd != 0 else None
+        fy = lin_free(nx_td, ny)
+        fu = nlin_free(nu_td, nx) if nu != 0 else None
+        fd = nlin_free(nd_td, nx) if nd != 0 else None
     elif kind == "hammerstein":
         fx = lin(nx_td, nx)
-        fy = lin(nx_td, ny)
-        fu = nlin(nu_td, nx) if nu != 0 else None
-        fd = nlin(nd_td, nx) if nd != 0 else None
+        fy = lin_free(nx_td, ny)
+        fu = nlin_free(nu_td, nx) if nu != 0 else None
+        fd = nlin_free(nd_td, nx) if nd != 0 else None
     elif kind == "weiner":
         fx = lin(nx_td, nx)
         fy = nlin(nx_td, ny)
-        fu = lin(nu_td, nx) if nu != 0 else None
-        fd = lin(nd_td, nx) if nd != 0 else None
+        fu = lin_free(nu_td, nx) if nu != 0 else None
+        fd = lin_free(nd_td, nx) if nd != 0 else None
     else:   # hw
         fx = lin(nx_td, nx)
-        fy = nlin(nx_td, ny)
-        fu = nlin(nu_td, nx) if nu != 0 else None
-        fd = nlin(nd_td, nx) if nd != 0 else None
+        fy = nlin_free(nx_td, ny)
+        fu = nlin_free(nu_td, nx) if nu != 0 else None
+        fd = nlin_free(nd_td, nx) if nd != 0 else None
 
     fe = (
         fe(nx_td, nx, hsizes=hsizes, bias=bias, linear_map=linmap, nonlin=activation, linargs=dict())

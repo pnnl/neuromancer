@@ -34,7 +34,7 @@ def get_parser(parser=None, add_prefix=False):
     opt_group.add_argument(
         pfx("-patience"),
         type=int,
-        default=50,
+        default=100,
         help="How many epochs to allow for no improvement in eval metric before early stopping.",
     )
     opt_group.add_argument(
@@ -117,8 +117,8 @@ def get_parser(parser=None, add_prefix=False):
     policy_group.add_argument(
         pfx("-policy_features"),
         nargs="+",
-        default=['Y_ctrl_p', 'Rf', 'Df'],
-        # default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'],
+        # default=['Y_ctrl_p', 'Rf', 'Df'],
+        default=['Y_ctrl_p', 'Rf', 'Df', 'Y_maxf', 'Y_minf'],
         help="Policy features",
     )  # reference tracking option
     policy_group.add_argument(
@@ -168,26 +168,14 @@ def get_parser(parser=None, add_prefix=False):
     weight_group.add_argument(
         pfx("-Q_con_y"),
         type=float,
-        default=0.0,
+        default=1.0,
         help="Observable constraints penalty weight.",
-    )
-    weight_group.add_argument(
-        pfx("-Q_dx"),
-        type=float,
-        default=0.0,
-        help="Penalty weight on hidden state difference in one time step.",
     )
     weight_group.add_argument(
         pfx("-Q_sub"), type=float, default=0.2, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
-        pfx("-Q_con_fdu"),
-        type=float,
-        default=0.0,
-        help="Penalty weight on control actions and disturbances.",
-    )
-    weight_group.add_argument(
-        pfx("-Q_umin"), type=float, default=1.0, help="Input minimization weight."
+        pfx("-Q_umin"), type=float, default=0.1, help="Input minimization weight."
     )
     weight_group.add_argument(
         pfx("-Q_con_u"), type=float, default=1.0, help="Input constraints penalty weight."
@@ -282,7 +270,8 @@ def get_objective_terms(args, policy):
     )
     control_min = Objective(
         [f"U_pred_{policy.name}"],
-        lambda x: F.mse_loss(x-0),
+        lambda x: F.mse_loss(x, torch.zeros(x.shape)),
+        # lambda x: torch.mean(x),
         weight=args.Q_umin,
         name="control_min",
     )
@@ -356,7 +345,7 @@ def get_objective_terms(args, policy):
             name="ref_loss",
         )
 
-    objectives = [regularization, reference_loss]
+    objectives = [regularization, reference_loss, control_min]
     constraints = [
         observation_lower_bound_penalty,
         observation_upper_bound_penalty,

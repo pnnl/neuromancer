@@ -145,10 +145,10 @@ def get_parser(parser=None):
     # linear parameters
     linear_group = parser.add_argument_group("LINEAR PARAMETERS")
     linear_group.add_argument(
-        "-linear_map", type=str, choices=list(slim.maps.keys()), default="linear"
+        "-linear_map", type=str, choices=list(slim.maps.keys()), default="softSVD"
     )
-    linear_group.add_argument("-sigma_min", type=float, default=0.9)
-    linear_group.add_argument("-sigma_max", type=float, default=1.0)
+    linear_group.add_argument("-sigma_min", type=float, default=0.1)
+    linear_group.add_argument("-sigma_max", type=float, default=0.99)
 
     # weight parameters
     weight_group = parser.add_argument_group("WEIGHT PARAMETERS")
@@ -177,10 +177,16 @@ def get_parser(parser=None):
         help="State estimator hidden prediction penalty weight",
     )
     weight_group.add_argument(
-        "-Q_con_fdu",
+        "-Q_con_fu",
         type=float,
         default=0.2,
-        help="Penalty weight on control actions and disturbances.",
+        help="Penalty weight on control actions.",
+    )
+    weight_group.add_argument(
+        "-Q_con_fd",
+        type=float,
+        default=0.2,
+        help="Penalty weight on disturbances.",
     )
 
     return parser
@@ -213,7 +219,7 @@ def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynam
         nsteps=args.nsteps,
         window_size=args.estimator_input_window,
         bias=args.bias,
-        linear_map=linmap,
+        linear_map=slim.maps['linear'],
         nonlin=activation,
         hsizes=[nx] * args.n_layers,
         input_keys=["Yp"],
@@ -300,13 +306,13 @@ def get_objective_terms(args, dataset, estimator, dynamics_model):
             inputs_max_influence_lb = Objective(
                 [f"fU_{dynamics_model.name}"],
                 lambda x: torch.mean(F.relu(-x + dxudmin)),
-                weight=args.Q_con_fdu,
+                weight=args.Q_con_fu,
                 name="input_influence_lb",
             )
             inputs_max_influence_ub = Objective(
                 [f"fU_{dynamics_model.name}"],
                 lambda x: torch.mean(F.relu(x - dxudmax)),
-                weight=args.Q_con_fdu,
+                weight=args.Q_con_fu,
                 name="input_influence_ub",
             )
             constraints += [inputs_max_influence_lb, inputs_max_influence_ub]
@@ -314,13 +320,13 @@ def get_objective_terms(args, dataset, estimator, dynamics_model):
             disturbances_max_influence_lb = Objective(
                 [f"fD_{dynamics_model.name}"],
                 lambda x: torch.mean(F.relu(-x + dxudmin)),
-                weight=args.Q_con_fdu,
+                weight=args.Q_con_fd,
                 name="dist_influence_lb",
             )
             disturbances_max_influence_ub = Objective(
                 [f"fD_{dynamics_model.name}"],
                 lambda x: torch.mean(F.relu(x - dxudmax)),
-                weight=args.Q_con_fdu,
+                weight=args.Q_con_fd,
                 name="dist_influence_ub",
             )
             constraints += [

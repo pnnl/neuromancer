@@ -27,7 +27,7 @@ def get_parser(parser=None, add_prefix=False):
 
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument(pfx("-epochs"), type=int, default=5)
+    opt_group.add_argument(pfx("-epochs"), type=int, default=1000)
     opt_group.add_argument(
         pfx("-lr"), type=float, default=0.001, help="Step size for gradient descent."
     )
@@ -261,13 +261,20 @@ def get_objective_terms(args, policy):
     regularization = Objective(
         [f"reg_error_{policy.name}"], lambda reg: reg, weight=args.Q_sub, name="reg_loss",
     )
+    # minimize only temperatures
     control_min = Objective(
         [f"U_pred_{policy.name}"],
-        lambda x: F.mse_loss(x, torch.zeros(x.shape)),
-        # lambda x: torch.mean(x),
+        lambda x: F.mse_loss(x[:,:,0:5], torch.zeros(x[:,:,0:5].shape)),
         weight=args.Q_umin,
         name="control_min",
     )
+    # control_min = Objective(
+    #     [f"U_pred_{policy.name}"],
+    #     lambda x: F.mse_loss(x, torch.zeros(x.shape)),
+    #     # lambda x: torch.mean(x),
+    #     weight=args.Q_umin,
+    #     name="control_min",
+    # )
     control_smoothing = Objective(
         [f"U_pred_{policy.name}"],
         lambda x: F.mse_loss(x[1:], x[:-1]),
@@ -324,18 +331,6 @@ def get_objective_terms(args, policy):
             lambda x, xmax: torch.mean(F.relu(x - xmax + args.tighten)),
             weight=args.Q_con_u,
             name="input_upper_bound",
-        )
-
-    # Loss clipping
-    if args.loss_clip:
-        reference_loss = Objective(
-            [output_key, "Rf", "Y_minf", "Y_maxf"],
-            lambda pred, ref, xmin, xmax: F.mse_loss(
-                pred[:, :, args.controlled_outputs] * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),
-                ref * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),
-            ),
-            weight=args.Q_r,
-            name="ref_loss",
         )
 
     objectives = [regularization, reference_loss, control_min, control_smoothing]

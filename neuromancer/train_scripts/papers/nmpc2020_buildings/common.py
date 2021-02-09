@@ -60,7 +60,7 @@ def get_base_parser():
     return parser
 
 
-def load_dataset(args, device, name):
+def load_dataset(args, device, name, reduce_d=True):
     if systems[args.system] == "emulator":
         dataset = EmulatorDataset(
             system=args.system,
@@ -72,33 +72,40 @@ def load_dataset(args, device, name):
             seed=args.data_seed,
             name=name,
         )
+        if reduce_d:
+            # plant disturbances
+            dataset.data['plant_D'] = dataset.data['D']
+            dataset.dims['plant_D'] = dataset.data['D'].shape
+            dataset.min_max_norms['plant_Dmin'] = dataset.min_max_norms['Dmin']
+            dataset.min_max_norms['plant_Dmax'] = dataset.min_max_norms['Dmax']
+
+
+            # picking only ambient temp
+            dataset.data['D'] = dataset.data['D'][:, [40]]
+            dataset.shift_data['Dp'] = dataset.shift_data['Dp'][:, [40]]
+            dataset.shift_data['Df'] = dataset.shift_data['Df'][:, [40]]
+            dataset.dims['D'] = dataset.data['D'].shape
+            dataset.dims['Dp'] = dataset.shift_data['Dp'].shape
+            dataset.dims['Df'] = dataset.shift_data['Df'].shape
+            dataset.min_max_norms['Dmin'] = dataset.min_max_norms['Dmin'][[40]]
+            dataset.min_max_norms['Dmax'] = dataset.min_max_norms['Dmax'][[40]]
+
+            dataset.nstep_data['Dp'] = dataset.nstep_data['Dp'][:, :, [40]]
+            dataset.nstep_data['Df'] = dataset.nstep_data['Df'][:, :, [40]]
+            dataset.train_data['Dp'] = dataset.train_data['Dp'][:, :, [40]]
+            dataset.train_data['Df'] = dataset.train_data['Df'][:, :, [40]]
+            dataset.dev_data['Dp'] = dataset.dev_data['Dp'][:, :, [40]]
+            dataset.dev_data['Df'] = dataset.dev_data['Df'][:, :, [40]]
+            dataset.test_data['Dp'] = dataset.test_data['Dp'][:, :, [40]]
+            dataset.test_data['Df'] = dataset.test_data['Df'][:, :, [40]]
+
+            dataset.train_loop['Dp'] = dataset.train_loop['Dp'][:, :, [40]]
+            dataset.train_loop['Df'] = dataset.train_loop['Df'][:, :, [40]]
+            dataset.dev_loop['Dp'] = dataset.dev_loop['Dp'][:, :, [40]]
+            dataset.dev_loop['Df'] = dataset.dev_loop['Df'][:, :, [40]]
+            dataset.test_loop['Dp'] = dataset.test_loop['Dp'][:, :, [40]]
+            dataset.test_loop['Df'] = dataset.test_loop['Df'][:, :, [40]]
         print(dataset.dims)
-        # picking only ambient temp
-        dataset.data['D'] = dataset.data['D'][:, [40]]
-        dataset.shift_data['Dp'] = dataset.shift_data['Dp'][:, [40]]
-        dataset.shift_data['Df'] = dataset.shift_data['Df'][:, [40]]
-        dataset.dims['D'] = dataset.data['D'].shape
-        dataset.dims['Dp'] = dataset.shift_data['Dp'].shape
-        dataset.dims['Df'] = dataset.shift_data['Df'].shape
-        dataset.min_max_norms['Dmin'] = dataset.min_max_norms['Dmin'][[40]]
-        dataset.min_max_norms['Dmax'] = dataset.min_max_norms['Dmax'][[40]]
-
-        dataset.nstep_data['Dp'] = dataset.nstep_data['Dp'][:, :, [40]]
-        dataset.nstep_data['Df'] = dataset.nstep_data['Df'][:, :, [40]]
-        dataset.train_data['Dp'] = dataset.train_data['Dp'][:, :, [40]]
-        dataset.train_data['Df'] = dataset.train_data['Df'][:, :, [40]]
-        dataset.dev_data['Dp'] = dataset.dev_data['Dp'][:, :, [40]]
-        dataset.dev_data['Df'] = dataset.dev_data['Df'][:, :, [40]]
-        dataset.test_data['Dp'] = dataset.test_data['Dp'][:, :, [40]]
-        dataset.test_data['Df'] = dataset.test_data['Df'][:, :, [40]]
-
-        dataset.train_loop['Dp'] = dataset.train_loop['Dp'][:, :, [40]]
-        dataset.train_loop['Df'] = dataset.train_loop['Df'][:, :, [40]]
-        dataset.dev_loop['Dp'] = dataset.dev_loop['Dp'][:, :, [40]]
-        dataset.dev_loop['Df'] = dataset.dev_loop['Df'][:, :, [40]]
-        dataset.test_loop['Dp'] = dataset.test_loop['Dp'][:, :, [40]]
-        dataset.test_loop['Df'] = dataset.test_loop['Df'][:, :, [40]]
-
     else:
         dataset = FileDataset(
             system=args.system,

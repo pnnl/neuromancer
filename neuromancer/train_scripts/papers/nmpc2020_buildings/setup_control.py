@@ -27,7 +27,7 @@ def get_parser(parser=None, add_prefix=False):
 
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument(pfx("-epochs"), type=int, default=1000)
+    opt_group.add_argument(pfx("-epochs"), type=int, default=2000)
     opt_group.add_argument(
         pfx("-lr"), type=float, default=0.001, help="Step size for gradient descent."
     )
@@ -159,12 +159,6 @@ def get_parser(parser=None, add_prefix=False):
 
     # weight parameters
     weight_group = parser.add_argument_group("WEIGHT PARAMETERS")
-    weight_group.add_argument(
-        pfx("-Q_con_x"),
-        type=float,
-        default=0.0,
-        help="Hidden state constraints penalty weight.",
-    )
     weight_group.add_argument(
         pfx("-Q_con_y"),
         type=float,
@@ -363,8 +357,6 @@ def add_reference_features(args, dataset, dynamics_model):
     if ny != dataset.data["Y"].shape[1]:
         new_sequences = {"Y": dataset.data["Y"][:, :1]}
         dataset.add_data(new_sequences, overwrite=True)
-    dataset.min_max_norms["Ymin"] = dataset.min_max_norms["Ymin"][0]
-    dataset.min_max_norms["Ymax"] = dataset.min_max_norms["Ymax"][0]
 
     # nsim = dataset.data["Y"].shape[0]
     nsim = dataset.dims['nsim']
@@ -385,4 +377,14 @@ def add_reference_features(args, dataset, dynamics_model):
     })
     # indices of controlled states, e.g. [0, 1, 3] out of 5 outputs
     dataset.ctrl_outputs = args.controlled_outputs
+
+    for k in ('Umin', 'Umax'):
+        dataset.min_max_norms[f'{k}min'] = dataset.min_max_norms['Umin']
+        dataset.min_max_norms[f'{k}max'] = dataset.min_max_norms['Umax']
+    for k in ('Ymin', 'Ymax', 'R'):
+        dataset.min_max_norms[f'{k}min'] = dataset.min_max_norms['Ymin'][1]
+        dataset.min_max_norms[f'{k}max'] = dataset.min_max_norms['Ymax'][1]
+    dataset.min_max_norms["Ymin"] = dataset.min_max_norms["Ymin"][0]
+    dataset.min_max_norms["Ymax"] = dataset.min_max_norms["Ymax"][0]
+    dataset.norms = dataset.min_max_norms
     return dataset

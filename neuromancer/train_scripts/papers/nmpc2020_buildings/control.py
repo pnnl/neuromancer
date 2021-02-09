@@ -2,9 +2,10 @@ import torch
 import dill
 from neuromancer.problem import Problem
 from neuromancer.signals import WhiteNoisePeriodicGenerator, NoiseGenerator
-from neuromancer.simulators import ClosedLoopSimulator
+from neuromancer.simulators import ClosedLoopSimulator, CLSimulator
 from neuromancer.trainer import Trainer, freeze_weight, unfreeze_weight
 from neuromancer.visuals import VisualizerClosedLoop
+from neuromancer.nmpc_visuals import VisualizerClosedLoop2
 from common import load_dataset, get_logger
 import setup_control as ctrl
 import psl
@@ -59,17 +60,31 @@ if __name__ == "__main__":
     unfreeze_weight(model, module_names=args.unfreeze)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
+    # plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
+    # visualizer = VisualizerClosedLoop(
+    #     dataset, policy, plot_keys, args.verbosity, savedir=args.savedir
+    # )
+    # policy.input_keys[0] = "Yp"  # hack for policy input key compatibility w/ simulator
+    # simulator = ClosedLoopSimulator(
+    #     model=model, dataset=dataset, emulator=dynamics_model, policy=policy
+    # )
+
     plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
-    visualizer = VisualizerClosedLoop(
+    visualizer = VisualizerClosedLoop2(
         dataset, policy, plot_keys, args.verbosity, savedir=args.savedir
     )
     policy.input_keys[0] = "Yp"  # hack for policy input key compatibility w/ simulator
-    # simulator = ClosedLoopSimulator(
-    #     model=model, dataset=dataset, emulator=psl.systems[args.system](), policy=policy
+    # simulator = CLSimulator(
+    #     model=model, dataset=dataset, emulator=dynamics_model, policy=policy
     # )
-    simulator = ClosedLoopSimulator(
-        model=model, dataset=dataset, emulator=dynamics_model, policy=policy
+    # gt_dataset = load_dataset(args, device, 'closedloop', reduce_d=False)
+    # gt_dataset = ctrl.add_reference_features(args, gt_dataset, dynamics_model)
+    simulator = CLSimulator(
+        model=model, dataset=dataset, emulator=dynamics_model, policy=policy,
+        gt_emulator=psl.emulators[args.system]()
     )
+    # eval_metric = 'dev_sim_error',
+
     trainer = Trainer(
         model,
         dataset,
@@ -80,13 +95,14 @@ if __name__ == "__main__":
         epochs=args.epochs,
         patience=args.patience,
         warmup=args.warmup,
+        eval_metric="loop_dev_loss",
     )
 
     # Train control policy
     best_model = trainer.train()
     best_outputs = trainer.evaluate(best_model)
-    plots = visualizer.eval(best_outputs)
-
-    # Logger
-    logger.log_artifacts(plots)
+    # plots = visualizer.eval(best_outputs)
+    #
+    # # Logger
+    # logger.log_artifacts(plots)
     logger.clean_up()

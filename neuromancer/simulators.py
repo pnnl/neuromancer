@@ -297,6 +297,144 @@ class ClosedLoopSimulator(Simulator):
                 'Umax': np.concatenate(Umax, 0) if Umax else None}
 
 
+class CLSimulator(Simulator):
+    """
+    Closed loop simulation using pytorch nn.Module policy and dynamics models.
+    """
+    def __init__(self, model: Problem, dataset: Dataset, policy: nn.Module, emulator: [EmulatorBase, nn.Module] = None,
+                 gt_emulator=None, eval_sim=True, Ki=0.1, integrator_steps=3, Kd=0.5, clamp_u=True, device='cpu'):
+        super().__init__(model=model, dataset=dataset, emulator=emulator)
+        self.policy = policy
+        self.emulator = emulator
+        self.gt_emulator = gt_emulator
+        self.Ki = Ki
+        self.Kd = Kd
+        self.integrator_steps = integrator_steps
+        self.eval_sim = eval_sim
+        self.device = torch.device(device)
+        self.clamp_u = clamp_u
+
+    def psl_emulator(self, x, u, nstep_data):
+        # print(x.shape)
+        # print(self.gt_emulator.nx)
+
+        # x = min_max_denorm(x.cpu().numpy(), self.dataset.norms['Ymin'], self.dataset.norms['Ymax'])
+        u = min_max_denorm(u.cpu().numpy(), self.dataset.norms['Umin'], self.dataset.norms['Umax'])
+        d = min_max_denorm(nstep_data['plant_Df'][0].cpu().numpy(), self.dataset.norms['plant_Dmin'], self.dataset.norms['plant_Dmax'])
+        dta = self.gt_emulator.simulate(ninit=0, nsim=1, U=u, D=d, x0=x)
+        x, y = dta['X'], dta['Y']
+        # x, _, _ = normalize(x, Mmin=self.dataset.norms['Ymin'], Mmax=self.dataset.norms['Ymax'])
+        y, _, _ = normalize(y, Mmin=self.dataset.norms['Ymin'], Mmax=self.dataset.norms['Ymax'])
+        return (x[0], torch.tensor(y, dtype=torch.float32, device=self.device))
+
+    def torch_emulator(self, x, u, nstep_data):
+        # print(self.emulator.input_keys())
+        one_step_data = {'U_pred_policy': u.unsqueeze(0),
+                         'x0_estim': x,
+                         **{k: v[0:1] for k, v in nstep_data.items()}}
+        emulator_output = self.emulator(one_step_data)
+        return emulator_output['X_pred_dynamics'][0], emulator_output['Y_pred_dynamics'][0]
+
+    def select_step_data(self, data, i):
+        """
+        Creates an nstep snapshot of the data from a moving horizon dataset.
+
+        :param data: (DataDict {str: torch.Tensor) A dictionary containing moving horizon data (nsteps X nbatches X dim) where each batch contains
+                                                   nstep time series shifted 1 forward from the previous batch.
+        :param i: (int) Time index
+        :return: (DataDict {str: torch.Tensor) A moving horizon dataset with a single batch (nsteps X 1 X dim)
+        """
+        step_data = DataDict()
+        for k, v in data.items():
+            step_data[k] = v[:, i:i+1, :]
+        step_data.name = data.name
+        return step_data
+
+    # def dev_eval(self):
+    #     if self.eval_sim:
+    #         dev_loop_output = self.simulate(self.dataset.dev_loop, sim=self.torch_emulator,
+    #                                         name='dev_sim_', nx=self.emulator.nx)
+    #     else:
+    #         dev_loop_output = dict()
+    #     return dev_loop_output
+
+    def test_eval(self):
+        output = {}
+        output = {**output, **self.simulate(self.dataset.test_loop, sim=self.torch_emulator, name='model_', nx=self.emulator.nx)}
+        output = {**output, **self.simulate(self.dataset.test_loop, sim=self.psl_emulator, name='plant_', nx=self.gt_emulator.nx)}
+        return output
+
+    def integrator(self, simulation, nsteps=32):
+        y = torch.stack(simulation['Y'][-nsteps:])[:, :, 1:]
+        r = torch.stack(simulation['R'][-nsteps:])
+        return torch.clamp(self.Ki*torch.sum(r - y, dim=0), -5., 5.)
+
+    def derivative_term(self, simulation):
+        y = torch.stack(simulation['Y'][-2:])[:, :, 1:]
+        r = torch.stack(simulation['R'][-2:])
+        diff = r - y
+        df = diff[1:2] - diff[0:1]
+        return self.Kd*df.squeeze(0)
+
+    def simulate(self, data, sim=None, name='model', nx=2, diff=False, df=False):
+        """
+
+        :param data: (DataDict {str: torch.Tensor) A dictionary containing moving horizon data (nsteps X nbatches X dim) where each batch contains
+                                                   nstep time series shifted 1 forward from the previous batch.
+        :return: (dict {str: np.array} A dictionary containing simulation time series (nsim X dim) with denormalized values
+        """
+        nsteps, nsim = data['Yp'].shape[0], data['Yp'].shape[1]
+        simulation = {k: [] for k in ['Y', 'U', 'R', 'D', 'Ymin', 'Ymax', 'Umin', 'Umax']}
+        with torch.no_grad():
+
+            # Generate initial control action
+            nstep_data = self.select_step_data(data, 0)
+            policy_output = self.policy(nstep_data)
+            u = policy_output['U_pred_policy'][0]
+            simulation['U'].append(u)
+
+            if name == 'plant_':
+                x = self.gt_emulator.x0
+            else:
+                x = torch.zeros([1, nx])
+
+            for i in range(1, nsim):
+                nstep_data = self.select_step_data(data, i)
+
+                # Simulate 1 step of dynamics with generated control input
+                x, y = sim(x, u, nstep_data)
+
+                # Update u and y trajectory history
+                if len(simulation['Y']) > nsteps:
+                    nstep_data['Yp'] = torch.stack(simulation['Y'][-nsteps:])
+                    nstep_data['Up'] = torch.stack(simulation['U'][-nsteps:])
+
+                # Generate sequence of control actions and keep first action
+                policy_output = self.policy(nstep_data)
+                u = policy_output['U_pred_policy'][0]
+
+                if self.clamp_u:
+                    # ad hoc clamping! works correctly only if U_min=0, U_max=1
+                    u = torch.clamp(u, min=0.0, max=1.0)
+
+                # if len(simulation['Y']) > self.integrator_steps and diff:
+                #     u += self.integrator(simulation, nsteps=self.integrator_steps)
+                # if len(simulation['Y']) > 2 and df:
+                #     u += self.derivative_term(simulation)
+
+                # Store simulation results
+                for k, d in zip(['Y', 'U', 'R', 'D', 'Ymin', 'Ymax', 'Umin', 'Umax'],
+                                [y, u, *[nstep_data[k][0] for k in ['Rf', 'Df', 'Y_minf', 'Y_maxf', 'U_minf', 'U_maxf']]]):
+                    simulation[k].append(d)
+
+            # Return completed simulation as dictionary of denormalized numpy arrays
+            simulation = {
+                name+k: min_max_denorm(torch.cat(v).cpu().numpy(), self.dataset.norms[f'{k}min'], self.dataset.norms[f'{k}max'])
+                for k, v in simulation.items()}
+            simulation[f'{name}error'] = np.mean(np.abs(simulation[f'{name}Y'] - simulation[f'{name}R']))
+        return simulation
+
+
 if __name__ == '__main__':
 
     systems = {'Reno_full': 'emulator'}

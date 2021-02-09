@@ -302,7 +302,7 @@ class CLSimulator(Simulator):
     Closed loop simulation using pytorch nn.Module policy and dynamics models.
     """
     def __init__(self, model: Problem, dataset: Dataset, policy: nn.Module, emulator: [EmulatorBase, nn.Module] = None,
-                 gt_emulator=None, eval_sim=True, Ki=0.1, integrator_steps=3, Kd=0.5, clamp_u=True, device='cpu'):
+                 gt_emulator=None, eval_sim=True, Ki=0.1, integrator_steps=3, Kd=0.5, clamp=True, device='cpu'):
         super().__init__(model=model, dataset=dataset, emulator=emulator)
         self.policy = policy
         self.emulator = emulator
@@ -312,12 +312,9 @@ class CLSimulator(Simulator):
         self.integrator_steps = integrator_steps
         self.eval_sim = eval_sim
         self.device = torch.device(device)
-        self.clamp_u = clamp_u
+        self.clamp = clamp
 
     def psl_emulator(self, x, u, nstep_data):
-        # print(x.shape)
-        # print(self.gt_emulator.nx)
-
         # x = min_max_denorm(x.cpu().numpy(), self.dataset.norms['Ymin'], self.dataset.norms['Ymax'])
         u = min_max_denorm(u.cpu().numpy(), self.dataset.norms['Umin'], self.dataset.norms['Umax'])
         d = min_max_denorm(nstep_data['plant_Df'][0].cpu().numpy(), self.dataset.norms['plant_Dmin'], self.dataset.norms['plant_Dmax'])
@@ -328,7 +325,6 @@ class CLSimulator(Simulator):
         return (x[0], torch.tensor(y, dtype=torch.float32, device=self.device))
 
     def torch_emulator(self, x, u, nstep_data):
-        # print(self.emulator.input_keys())
         one_step_data = {'U_pred_policy': u.unsqueeze(0),
                          'x0_estim': x,
                          **{k: v[0:1] for k, v in nstep_data.items()}}
@@ -395,8 +391,10 @@ class CLSimulator(Simulator):
 
             if name == 'plant_':
                 x = self.gt_emulator.x0
+                dkey = 'plant_Df'
             else:
                 x = torch.zeros([1, nx])
+                dkey = 'Df'
 
             for i in range(1, nsim):
                 nstep_data = self.select_step_data(data, i)
@@ -413,9 +411,10 @@ class CLSimulator(Simulator):
                 policy_output = self.policy(nstep_data)
                 u = policy_output['U_pred_policy'][0]
 
-                if self.clamp_u:
+                if self.clamp:
                     # ad hoc clamping! works correctly only if U_min=0, U_max=1
                     u = torch.clamp(u, min=0.0, max=1.0)
+                    # y = torch.clamp(y, min=0.0, max=1.0)
 
                 # if len(simulation['Y']) > self.integrator_steps and diff:
                 #     u += self.integrator(simulation, nsteps=self.integrator_steps)
@@ -424,7 +423,7 @@ class CLSimulator(Simulator):
 
                 # Store simulation results
                 for k, d in zip(['Y', 'U', 'R', 'D', 'Ymin', 'Ymax', 'Umin', 'Umax'],
-                                [y, u, *[nstep_data[k][0] for k in ['Rf', 'Df', 'Y_minf', 'Y_maxf', 'U_minf', 'U_maxf']]]):
+                                [y, u, *[nstep_data[k][0] for k in ['Rf',  dkey, 'Y_minf', 'Y_maxf', 'U_minf', 'U_maxf']]]):
                     simulation[k].append(d)
 
             # Return completed simulation as dictionary of denormalized numpy arrays

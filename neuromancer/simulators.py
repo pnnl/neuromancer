@@ -356,6 +356,8 @@ class CLSimulator(Simulator):
 
     def test_eval(self):
         output = {}
+        output = {**output, **self.simulate(self.dataset.train_loop, sim=self.torch_emulator, name='train_model_', nx=self.emulator.nx)}
+        output = {**output, **self.simulate(self.dataset.train_loop, sim=self.psl_emulator, name='train_plant_', nx=self.gt_emulator.nx)}
         output = {**output, **self.simulate(self.dataset.test_loop, sim=self.torch_emulator, name='model_', nx=self.emulator.nx)}
         output = {**output, **self.simulate(self.dataset.test_loop, sim=self.psl_emulator, name='plant_', nx=self.gt_emulator.nx)}
         return output
@@ -389,7 +391,7 @@ class CLSimulator(Simulator):
             u = policy_output['U_pred_policy'][0]
             simulation['U'].append(u)
 
-            if name == 'plant_':
+            if 'plant' in name:
                 x = self.gt_emulator.x0
                 dkey = 'plant_Df'
             else:

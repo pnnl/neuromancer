@@ -55,7 +55,7 @@ class VisualizerClosedLoop2(Visualizer):
         :param outputs:
         :return:
         """
-        for k in ['model_', 'plant_']:
+        for k in ['train_model_', 'train_plant_', 'model_', 'plant_']:
             if f'{k}Y' in outputs.keys():
                 D = outputs[f'{k}D'] if f'{k}D' in outputs.keys() else None
                 R = outputs[f'{k}R'] if f'{k}R' in outputs.keys() else None

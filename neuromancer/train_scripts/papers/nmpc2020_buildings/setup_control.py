@@ -27,7 +27,7 @@ def get_parser(parser=None, add_prefix=False):
 
     # optimization parameters
     opt_group = parser.add_argument_group("OPTIMIZATION PARAMETERS")
-    opt_group.add_argument(pfx("-epochs"), type=int, default=2000)
+    opt_group.add_argument(pfx("-epochs"), type=int, default=5)
     opt_group.add_argument(
         pfx("-lr"), type=float, default=0.001, help="Step size for gradient descent."
     )
@@ -118,7 +118,8 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-policy_features"),
         nargs="+",
         # default=['Y_ctrl_p', 'Rf', 'Df'],
-        default=['Y_ctrl_p', 'Rf', 'Df', 'Y_maxf', 'Y_minf'],
+        # default=['Y_ctrl_p', 'Rf', 'Df', 'Y_maxf', 'Y_minf'],
+        default=['Y_ctrl_p', 'Df', 'Y_maxf', 'Y_minf'],
         help="Policy features",
     )  # reference tracking option
     policy_group.add_argument(
@@ -169,20 +170,18 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-Q_sub"), type=float, default=0.2, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
-        pfx("-Q_umin"), type=float, default=0.1, help="Input minimization weight."
+        pfx("-Q_umin"), type=float, default=0.6, help="Input minimization weight."
     )
     weight_group.add_argument(
         pfx("-Q_con_u"), type=float, default=1.0, help="Input constraints penalty weight."
-        # pfx("-Q_con_u"), type=float, default=2.0, help="Input constraints penalty weight."
     )
     weight_group.add_argument(
-        pfx("-Q_r"), type=float, default=1.0, help="Reference tracking penalty weight"
+        pfx("-Q_r"), type=float, default=0.0, help="Reference tracking penalty weight"
     )
     weight_group.add_argument(
         pfx("-Q_du"),
         type=float,
-        # default=0.1,
-        default=0.0,
+        default=1.0,
         help="control action difference penalty weight",
     )
 
@@ -339,7 +338,7 @@ def get_objective_terms(args, policy):
             name="ref_loss",
         )
 
-    objectives = [regularization, reference_loss, control_min]
+    objectives = [regularization, reference_loss, control_min, control_smoothing]
     constraints = [
         observation_lower_bound_penalty,
         observation_upper_bound_penalty,

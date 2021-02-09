@@ -8,6 +8,7 @@ TODO: overwrite past after n-steps, continuously in first n steps. In initial si
 import torch
 import torch.nn as nn
 import numpy as np
+import torch.nn.functional as F
 
 from psl import EmulatorBase
 
@@ -302,7 +303,7 @@ class CLSimulator(Simulator):
     Closed loop simulation using pytorch nn.Module policy and dynamics models.
     """
     def __init__(self, model: Problem, dataset: Dataset, policy: nn.Module, emulator: [EmulatorBase, nn.Module] = None,
-                 gt_emulator=None, eval_sim=True, Ki=0.1, integrator_steps=3, Kd=0.5, clamp=True, device='cpu'):
+                 gt_emulator=None, eval_sim=True, diff=False, Ki=0.1, integrator_steps=3, Kd=0.5, clamp=True, device='cpu'):
         super().__init__(model=model, dataset=dataset, emulator=emulator)
         self.policy = policy
         self.emulator = emulator
@@ -313,6 +314,7 @@ class CLSimulator(Simulator):
         self.eval_sim = eval_sim
         self.device = torch.device(device)
         self.clamp = clamp
+        self.diff = diff
 
     def psl_emulator(self, x, u, nstep_data):
         # x = min_max_denorm(x.cpu().numpy(), self.dataset.norms['Ymin'], self.dataset.norms['Ymax'])
@@ -362,10 +364,17 @@ class CLSimulator(Simulator):
         output = {**output, **self.simulate(self.dataset.test_loop, sim=self.psl_emulator, name='plant_', nx=self.gt_emulator.nx)}
         return output
 
-    def integrator(self, simulation, nsteps=32):
-        y = torch.stack(simulation['Y'][-nsteps:])[:, :, 1:]
+    def integrator_ref(self, simulation, nsteps=32):
+        y = torch.stack(simulation['Y'][-nsteps:])
         r = torch.stack(simulation['R'][-nsteps:])
         return torch.clamp(self.Ki*torch.sum(r - y, dim=0), -5., 5.)
+
+    def integrator_con(self, simulation, nsteps=32):
+        y = torch.stack(simulation['Y'][-nsteps:])
+        ymin = torch.stack(simulation['Ymin'][-nsteps:])
+        ymax = torch.stack(simulation['Ymax'][-nsteps:])
+        err = torch.sum(F.relu(-y + ymin), dim=0) - torch.sum(F.relu(y - ymax), dim=0)
+        return torch.clamp(self.Ki*err, -5., 5.)
 
     def derivative_term(self, simulation):
         y = torch.stack(simulation['Y'][-2:])[:, :, 1:]
@@ -374,7 +383,7 @@ class CLSimulator(Simulator):
         df = diff[1:2] - diff[0:1]
         return self.Kd*df.squeeze(0)
 
-    def simulate(self, data, sim=None, name='model', nx=2, diff=False, df=False):
+    def simulate(self, data, sim=None, name='model', nx=2, df=False):
         """
 
         :param data: (DataDict {str: torch.Tensor) A dictionary containing moving horizon data (nsteps X nbatches X dim) where each batch contains
@@ -417,6 +426,9 @@ class CLSimulator(Simulator):
                     # ad hoc clamping! works correctly only if U_min=0, U_max=1
                     u = torch.clamp(u, min=0.0, max=1.0)
                     # y = torch.clamp(y, min=0.0, max=1.0)
+
+                if len(simulation['Y']) > self.integrator_steps and self.diff:
+                    u[:,0:6] += self.integrator_con(simulation, nsteps=self.integrator_steps)
 
                 # if len(simulation['Y']) > self.integrator_steps and diff:
                 #     u += self.integrator(simulation, nsteps=self.integrator_steps)

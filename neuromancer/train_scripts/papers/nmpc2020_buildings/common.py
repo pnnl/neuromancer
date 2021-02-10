@@ -60,12 +60,13 @@ def get_base_parser():
     return parser
 
 
-def load_dataset(args, device, name, reduce_d=True):
+def load_dataset(args, device, name, reduce_d=True, norm_bounds={}):
     if systems[args.system] == "emulator":
         dataset = EmulatorDataset(
             system=args.system,
             nsim=args.nsim,
             norm=args.norm,
+            norm_bounds=norm_bounds,
             nsteps=args.nsteps,
             device=device,
             savedir=args.savedir,
@@ -78,7 +79,6 @@ def load_dataset(args, device, name, reduce_d=True):
             dataset.dims['plant_D'] = dataset.data['D'].shape
             dataset.min_max_norms['plant_Dmin'] = dataset.min_max_norms['Dmin']
             dataset.min_max_norms['plant_Dmax'] = dataset.min_max_norms['Dmax']
-
 
             # picking only ambient temp
             dataset.data['D'] = dataset.data['D'][:, [40]]

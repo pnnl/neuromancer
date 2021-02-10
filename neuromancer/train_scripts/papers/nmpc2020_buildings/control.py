@@ -9,6 +9,15 @@ from neuromancer.nmpc_visuals import VisualizerClosedLoop2
 from common import load_dataset, get_logger
 import setup_control as ctrl
 import psl
+import numpy as np
+
+
+# TODO: online updates based on system ID and control optimization in the closed loop
+# TODO: losses:  control loss based on the model + systemID loss
+# TODO: sequential update
+# 1, systemID
+# 2, policy update
+# 3, iterate until convergence in the closed loop
 
 
 if __name__ == "__main__":
@@ -24,7 +33,12 @@ if __name__ == "__main__":
     dynamics_model = sysid_model.components[1]
     estimator = sysid_model.components[0]
 
-    dataset = load_dataset(args, device, 'closedloop')
+    emul = psl.emulators[args.system]()
+    umin = np.concatenate([emul.mf_min, emul.dT_min[0]])
+    umax = np.concatenate([emul.mf_max, emul.dT_max[0]])
+    norm_bounds = {"U": {'min': umin, 'max': umax}}
+    dataset = load_dataset(args, device, 'closedloop',
+                           reduce_d=True, norm_bounds=norm_bounds)
     dataset = ctrl.add_reference_features(args, dataset, dynamics_model)
 
     # Control Problem Definition
@@ -81,7 +95,7 @@ if __name__ == "__main__":
     # gt_dataset = ctrl.add_reference_features(args, gt_dataset, dynamics_model)
     simulator = CLSimulator(
         model=model, dataset=dataset, emulator=dynamics_model, policy=policy,
-        gt_emulator=psl.emulators[args.system](), diff=False, Ki=0.1,
+        gt_emulator=psl.emulators[args.system](), diff=True, Ki=0.1, integrator_steps=30,
     )
     # eval_metric = 'dev_sim_error',
 

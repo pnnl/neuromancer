@@ -88,7 +88,7 @@ def get_parser(parser=None, add_prefix=False):
 
     # TODO: update trained system ID model path
     # path = f"./test/Reno_full_best_model.pth"
-    path = f"./sys_ID_models/model7/Reno_full_best_model.pth"
+    path = f"./sys_ID_models/model6/Reno_full_best_model.pth"
     data_group.add_argument('-model_file', type=str, default=path)
 
     ##################
@@ -173,7 +173,7 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-Q_sub"), type=float, default=0.2, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
-        pfx("-Q_umin"), type=float, default=0.5, help="Input minimization weight."
+        pfx("-Q_umin"), type=float, default=1.0, help="Input minimization weight."
     )
     weight_group.add_argument(
         pfx("-Q_con_u"), type=float, default=1.0, help="Input constraints penalty weight."

@@ -454,8 +454,8 @@ def block_model(kind, datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fy
     elif kind == "linear":
         fx = lin(nx_td, nx)
         fy = lin_free(nx_td, ny)
-        fu = nlin_free(nu_td, nx) if nu != 0 else None
-        fd = nlin_free(nd_td, nx) if nd != 0 else None
+        fu = lin_free(nu_td, nx) if nu != 0 else None
+        fd = lin_free(nd_td, nx) if nd != 0 else None
     elif kind == "hammerstein":
         fx = lin(nx_td, nx)
         fy = lin_free(nx_td, ny)

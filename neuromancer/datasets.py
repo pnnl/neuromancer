@@ -32,7 +32,7 @@ class Dataset:
     """
     Base class for sequence datasets for sequence modeling, control policy learning, systems modeling, and system identification
     """
-    def __init__(self, system=None, nsim=10000, ninit=0, norm=['Y'], batch_type='batch',
+    def __init__(self, system=None, nsim=10000, ninit=0, norm=['Y'], norm_bounds={}, batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
                  savedir='test', norm_type='zero-one'):
         """
@@ -65,6 +65,7 @@ class Dataset:
         self.savedir = savedir
         os.makedirs(self.savedir, exist_ok=True)
         self.system, self.nsim, self.ninit, self.norm, self.nsteps, self.device = system, nsim, ninit, norm, nsteps, device
+        self.norm_bounds = norm_bounds
         self.batch_type = batch_type
         self.sequences = sequences
         self.data = self.load_data()
@@ -75,15 +76,16 @@ class Dataset:
         assert len(set([k[0] for k in self.dims.values()])) == 1, f'Sequence lengths are not equal: {self.dims}'
         self.dims['nsim'] = v.shape[0]
         self.dims['nsteps'] = self.nsteps
-        self.data = self.norm_data(self.data, self.norm)
+        self.data = self.norm_data(self.data, self.norm, self.norm_bounds)
         self.train_data, self.dev_data, self.test_data = self.make_nstep()
         self.train_loop, self.dev_loop, self.test_loop = self.make_loop()
 
-    def norm_data(self, data, norm):
+    def norm_data(self, data, norm, norm_bounds={}):
         """
         Min-max normalize some variables in the dataset.
         :param data: (dict {str: np.array})
         :param norm: List of variable names to normalize.
+        :param bounds: dictionary of norm bounds {norm_key: {min: min_value, max: max_value}]}.
         :return: (dict {str: np.array}) Normalized data
         """
         for k in norm:
@@ -92,7 +94,11 @@ class Dataset:
         for k, v in data.items():
             v = v.reshape(v.shape[0], -1)
             if k in norm:
-                v, vmin, vmax = self.norm_fn(v)
+                if k in norm_bounds.keys():
+                    v, vmin, vmax = self.norm_fn(v, norm_bounds[k]['min'], norm_bounds[k]['max'])
+                else:
+                    v, vmin, vmax = self.norm_fn(v)
+
                 self.min_max_norms.update({k + 'min': vmin, k + 'max': vmax})
                 data[k] = v
         return data
@@ -466,11 +472,11 @@ def _check_data(data):
 
 
 class EmulatorDataset(Dataset):
-    def __init__(self, system=None, nsim=10000, ninit=0, norm=['Y'], batch_type='batch',
+    def __init__(self, system=None, nsim=10000, ninit=0, norm=['Y'], norm_bounds={}, batch_type='batch',
                  nsteps=1, device='cpu', sequences=dict(), name='openloop',
                  savedir='test', norm_type='zero-one', seed=59):
         self.simulator_seed = seed
-        super().__init__(system, nsim, ninit, norm, batch_type, nsteps, device, sequences, name, savedir, norm_type)
+        super().__init__(system, nsim, ninit, norm, norm_bounds, batch_type, nsteps, device, sequences, name, savedir, norm_type)
 
     def load_data(self):
         """

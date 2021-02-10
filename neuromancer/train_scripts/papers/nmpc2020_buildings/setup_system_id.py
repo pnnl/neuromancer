@@ -132,7 +132,7 @@ def get_parser(parser=None):
     model_group.add_argument(
         "-activation",
         choices=activations.keys(),
-        default="tanh",
+        default="gelu",
         help="Activation function for neural networks",
     )
     model_group.add_argument(

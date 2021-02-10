@@ -32,6 +32,9 @@ from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
 from neuromancer.simulators import OpenLoopSimulator
 from common import load_dataset, get_logger
+import psl
+import numpy as np
+import matplotlib as plt
 
 from setup_system_id import (
     get_model_components,
@@ -39,9 +42,6 @@ from setup_system_id import (
     get_parser
 )
 
-# TODO: bilinear for fu
-# https://pytorch.org/docs/stable/generated/torch.nn.Bilinear.html
-# TODO: tetrain model
 
 if __name__ == "__main__":
     args = get_parser().parse_args()
@@ -50,7 +50,12 @@ if __name__ == "__main__":
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
 
     logger = get_logger(args)
-    dataset = load_dataset(args, device, "openloop")
+
+    emul = psl.emulators[args.system]()
+    umin = np.concatenate([emul.mf_min, emul.dT_min[0]])
+    umax = np.concatenate([emul.mf_max, emul.dT_max[0]])
+    norm_bounds = {"U": {'min': umin, 'max': umax}}
+    dataset = load_dataset(args, device, "openloop", reduce_d=True, norm_bounds=norm_bounds)
     print(dataset.dims)
 
     estimator, dynamics_model = get_model_components(args, dataset)
@@ -88,3 +93,15 @@ if __name__ == "__main__":
 
     logger.log_artifacts(plots)
     logger.clean_up()
+
+
+plt.pyplot.figure()
+CA = np.matmul(dynamics_model.fy.linear.weight.detach().numpy(),
+               dynamics_model.fx.linear.weight.detach().numpy())
+CAB = np.matmul(CA, dynamics_model.fu.linear.effective_W().detach().numpy().T)
+plt.pyplot.imshow(CAB)
+
+plt.pyplot.figure()
+CA = np.matmul(emul.C,emul.A)
+CAB = np.matmul(CA,emul.B)
+plt.pyplot.imshow(CAB)

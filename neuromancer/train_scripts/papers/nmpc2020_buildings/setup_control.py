@@ -87,7 +87,8 @@ def get_parser(parser=None, add_prefix=False):
     )
 
     # TODO: update trained system ID model path
-    path = f"./test/Reno_full_best_model.pth"
+    # path = f"./test/Reno_full_best_model.pth"
+    path = f"./sys_ID_models/model7/Reno_full_best_model.pth"
     data_group.add_argument('-model_file', type=str, default=path)
 
     ##################
@@ -119,7 +120,8 @@ def get_parser(parser=None, add_prefix=False):
         nargs="+",
         # default=['Y_ctrl_p', 'Rf', 'Df'],
         # default=['Y_ctrl_p', 'Rf', 'Df', 'Y_maxf', 'Y_minf'],
-        default=['Y_ctrl_p', 'Df', 'Y_maxf', 'Y_minf'],
+        # default=['Y_ctrl_p', 'Df', 'Y_maxf', 'Y_minf'],
+        default=['Y_ctrl_p', 'Df', 'Y_minf'],
         help="Policy features",
     )  # reference tracking option
     policy_group.add_argument(
@@ -143,7 +145,8 @@ def get_parser(parser=None, add_prefix=False):
     # linear parameters
     linear_group = parser.add_argument_group("LINEAR PARAMETERS")
     linear_group.add_argument(
-        pfx("-linear_map"), type=str, choices=["linear", "softSVD", "pf"], default="linear"
+        pfx("-linear_map"), type=str,
+        choices=["linear", "softSVD", "pf", "nneg"], default="nneg"
     )
     linear_group.add_argument(pfx("-sigma_min"), type=float, default=0.1)
     linear_group.add_argument(pfx("-sigma_max"), type=float, default=0.9)
@@ -170,7 +173,7 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-Q_sub"), type=float, default=0.2, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
-        pfx("-Q_umin"), type=float, default=0.6, help="Input minimization weight."
+        pfx("-Q_umin"), type=float, default=0.5, help="Input minimization weight."
     )
     weight_group.add_argument(
         pfx("-Q_con_u"), type=float, default=1.0, help="Input constraints penalty weight."
@@ -261,10 +264,10 @@ def get_objective_terms(args, policy):
     regularization = Objective(
         [f"reg_error_{policy.name}"], lambda reg: reg, weight=args.Q_sub, name="reg_loss",
     )
-    # minimize only temperatures
+    # # minimize only temperatures
     # control_min = Objective(
     #     [f"U_pred_{policy.name}"],
-    #     lambda x: F.mse_loss(x[:,:,0:5], torch.zeros(x[:,:,0:5].shape)),
+    #     lambda x: F.mse_loss(x[:,:,-1], torch.zeros(x[:,:,-1].shape)),
     #     weight=args.Q_umin,
     #     name="control_min",
     # )

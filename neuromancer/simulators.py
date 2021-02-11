@@ -303,12 +303,14 @@ class CLSimulator(Simulator):
     Closed loop simulation using pytorch nn.Module policy and dynamics models.
     """
     def __init__(self, model: Problem, dataset: Dataset, policy: nn.Module, emulator: [EmulatorBase, nn.Module] = None,
-                 gt_emulator=None, eval_sim=True, diff=False, Ki=0.1, integrator_steps=3, Kd=0.5, clamp=True, device='cpu'):
+                 gt_emulator=None, eval_sim=True, diff=False, K_r=0.1, Ki_r=0.1, Ki_con=0.1, integrator_steps=3, Kd=0.5, clamp=True, device='cpu'):
         super().__init__(model=model, dataset=dataset, emulator=emulator)
         self.policy = policy
         self.emulator = emulator
         self.gt_emulator = gt_emulator
-        self.Ki = Ki
+        self.K_r = K_r
+        self.Ki_r = Ki_r
+        self.Ki_con = Ki_con
         self.Kd = Kd
         self.integrator_steps = integrator_steps
         self.eval_sim = eval_sim
@@ -358,23 +360,27 @@ class CLSimulator(Simulator):
 
     def test_eval(self):
         output = {}
-        output = {**output, **self.simulate(self.dataset.train_loop, sim=self.torch_emulator, name='train_model_', nx=self.emulator.nx)}
-        output = {**output, **self.simulate(self.dataset.train_loop, sim=self.psl_emulator, name='train_plant_', nx=self.gt_emulator.nx)}
+        # output = {**output, **self.simulate(self.dataset.train_loop, sim=self.torch_emulator, name='train_model_', nx=self.emulator.nx)}
+        # output = {**output, **self.simulate(self.dataset.train_loop, sim=self.psl_emulator, name='train_plant_', nx=self.gt_emulator.nx)}
         output = {**output, **self.simulate(self.dataset.test_loop, sim=self.torch_emulator, name='model_', nx=self.emulator.nx)}
         output = {**output, **self.simulate(self.dataset.test_loop, sim=self.psl_emulator, name='plant_', nx=self.gt_emulator.nx)}
         return output
 
     def integrator_ref(self, simulation, nsteps=32):
         y = torch.stack(simulation['Y'][-nsteps:])
-        r = torch.stack(simulation['R'][-nsteps:])
-        return torch.clamp(self.Ki*torch.sum(r - y, dim=0), -5., 5.)
+        r = torch.stack(simulation['Ymin'][-nsteps:])
+        y_1 = torch.stack(simulation['Y'][-1:])
+        r_1 = torch.stack(simulation['Ymin'][-1:])
+        Ki_r = torch.clamp(self.Ki_r * torch.sum(r - y, dim=0), -5., 5.)
+        K_r = torch.clamp(self.K_r * torch.sum(r_1 - y_1, dim=0), -5., 5.)
+        return Ki_r + K_r
 
     def integrator_con(self, simulation, nsteps=32):
         y = torch.stack(simulation['Y'][-nsteps:])
         ymin = torch.stack(simulation['Ymin'][-nsteps:])
         ymax = torch.stack(simulation['Ymax'][-nsteps:])
         err = torch.sum(F.relu(-y + ymin), dim=0) - torch.sum(F.relu(y - ymax), dim=0)
-        return torch.clamp(self.Ki*err, -5., 5.)
+        return torch.clamp(self.Ki_con*err, -5., 5.)
 
     def derivative_term(self, simulation):
         y = torch.stack(simulation['Y'][-2:])[:, :, 1:]
@@ -422,13 +428,16 @@ class CLSimulator(Simulator):
                 policy_output = self.policy(nstep_data)
                 u = policy_output['U_pred_policy'][0]
 
+                if len(simulation['Y']) > self.integrator_steps and self.diff:
+                    u[:, 0:6] += self.integrator_con(simulation, nsteps=self.integrator_steps)
+                    u[:, 0:6] += self.integrator_ref(simulation, nsteps=self.integrator_steps)
+                    # print(self.integrator_con(simulation, nsteps=self.integrator_steps))
+                    # print(self.integrator_ref(simulation, nsteps=self.integrator_steps))
+
                 if self.clamp:
                     # ad hoc clamping! works correctly only if U_min=0, U_max=1
                     u = torch.clamp(u, min=0.0, max=1.0)
                     # y = torch.clamp(y, min=0.0, max=1.0)
-
-                if len(simulation['Y']) > self.integrator_steps and self.diff:
-                    u[:,0:6] += self.integrator_con(simulation, nsteps=self.integrator_steps)
 
                 # if len(simulation['Y']) > self.integrator_steps and diff:
                 #     u += self.integrator(simulation, nsteps=self.integrator_steps)

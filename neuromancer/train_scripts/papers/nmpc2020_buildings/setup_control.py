@@ -88,7 +88,7 @@ def get_parser(parser=None, add_prefix=False):
 
     # TODO: update trained system ID model path
     # path = f"./test/Reno_full_best_model.pth"
-    path = f"./sys_ID_models/model6/Reno_full_best_model.pth"
+    path = f"./sys_ID_models/model3/Reno_full_best_model.pth"
     data_group.add_argument('-model_file', type=str, default=path)
 
     ##################
@@ -102,12 +102,12 @@ def get_parser(parser=None, add_prefix=False):
         help="list of indices of controlled outputs len(default)<=ny"
     )
     policy_group.add_argument(
-        pfx("-n_hidden"), type=int, default=60, help="Number of hidden states"
+        pfx("-n_hidden"), type=int, default=100, help="Number of hidden states"
     )
     policy_group.add_argument(
         pfx("-n_layers"),
         type=int,
-        default=2,
+        default=4,
         help="Number of hidden layers of single time-step state transition",
     )
     policy_group.add_argument(
@@ -146,7 +146,7 @@ def get_parser(parser=None, add_prefix=False):
     linear_group = parser.add_argument_group("LINEAR PARAMETERS")
     linear_group.add_argument(
         pfx("-linear_map"), type=str,
-        choices=["linear", "softSVD", "pf", "nneg"], default="nneg"
+        choices=["linear", "softSVD", "pf", "nneg"], default="linear"
     )
     linear_group.add_argument(pfx("-sigma_min"), type=float, default=0.1)
     linear_group.add_argument(pfx("-sigma_max"), type=float, default=0.9)
@@ -173,7 +173,7 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-Q_sub"), type=float, default=0.2, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
-        pfx("-Q_umin"), type=float, default=1.0, help="Input minimization weight."
+        pfx("-Q_umin"), type=float, default=0.5, help="Input minimization weight."
     )
     weight_group.add_argument(
         pfx("-Q_con_u"), type=float, default=1.0, help="Input constraints penalty weight."
@@ -218,6 +218,8 @@ def update_system_id_inputs(args, dataset, estimator, dynamics_model):
 
 def get_policy_components(args, dataset, dynamics_model, policy_name="policy"):
     torch.manual_seed(args.seed)
+
+    args.bias = False
 
     # control policy setup
     activation = {

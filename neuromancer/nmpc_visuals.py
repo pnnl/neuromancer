@@ -116,7 +116,7 @@ def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
         rk = ctrl_outputs.index(k) if ctrl_outputs is not None and k in ctrl_outputs else None
         ax[k, 0].plot(Y[:, k], '-', linewidth=3, c=colors[k]) if Y[:, k] is not None else None
         ax[k, 0].grid(True)
-        ax[k, 0].set_ylabel(f'$y_{k+1}$', fontsize=14)
+        ax[k, 0].set_ylabel(f'$y_{k+1} [^o C]$', fontsize=14)
         ax[k, 0].tick_params(axis='x', labelsize=12)
         ax[k, 0].tick_params(axis='y', labelsize=12)
         ax[k, 0].plot(Ymin[:, k], '--', linewidth=3, c='k') if Ymin[:, k] is not None else None
@@ -126,7 +126,7 @@ def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
         ax[k, 1].plot(U[:, k], linewidth=3, c=colors[k])
         ax[k, 1].plot(Umin[:, k], '--', linewidth=3, c='k') if Umin is not None else None
         ax[k, 1].plot(Umax[:, k], '--', linewidth=3, c='k') if Umax is not None else None
-        ax[k, 1].set_ylabel(f'$u_{k+1}$', fontsize=14)
+        ax[k, 1].set_ylabel(f'$u_{k+1} [l/h]$', fontsize=14)
         ax[k, 1].tick_params(axis='x', labelsize=12)
         ax[k, 1].tick_params(axis='y', labelsize=12)
         ax[k, 1].set_xlim(0, U.shape[0])

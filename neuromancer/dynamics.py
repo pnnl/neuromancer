@@ -521,14 +521,29 @@ def blackbox_model(datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fyu=N
 
 class DecoupSISO_BlockSSM(nn.Module):
     def __init__(self, kind, datadims, linmap, nonlinmap, bias=False, n_layers=2, timedelay=0,
+                 nu_siso=1, ny_siso=1, nx_siso=10,
                  xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, fe=None, fyu=None,
                  activation=nn.GELU, residual=False, linargs=dict(), name='block_ssm', input_keys=dict()):
         """
-        Decoupled block SSM composet of multiple SISO SSMs:
 
-        :param residual: (bool) Whether to make recurrence in state space model residual
-        :param name: (str) Name for tracking output
-        :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
+        :param kind:
+        :param datadims:
+        :param linmap:
+        :param nonlinmap:
+        :param bias:
+        :param n_layers:
+        :param timedelay:
+        :param xou:
+        :param xod:
+        :param xoe:
+        :param xoyu:
+        :param fe:
+        :param fyu:
+        :param activation:
+        :param residual:
+        :param linargs:
+        :param name:
+        :param input_keys:
         """
         super().__init__()
         self.datadims = datadims
@@ -545,7 +560,10 @@ class DecoupSISO_BlockSSM(nn.Module):
         self.fyu = fyu
         self.nx, self.ny, self.nu, self.nd, self.nx_td, self.nu_td, self.nd_td = \
             _extract_dims(datadims, input_keys, timedelay)
-        self.nx_siso = int(self.nx/self.ny)
+        # self.nx_siso = int(self.nx/self.ny)
+        self.nx_siso = nx_siso
+        self.nu_siso = nu_siso
+        self.ny_siso = ny_siso
         self.hsizes_siso = [self.nx_siso] * self.n_layers
 
         self.in_features = self.nx + self.nu + self.nd
@@ -561,9 +579,6 @@ class DecoupSISO_BlockSSM(nn.Module):
         self.SISO_models = nn.ModuleList([self.construct_SISO(input_keys) for k in range(self.ny)])
 
     def construct_SISO(self, input_keys):
-        # SISO model dims
-        ny = 1
-        nu = 1
         # component blocks constructors
         lin = lambda ni, no: (
             self.linmap(ni, no, bias=self.bias, linargs=self.linargs)
@@ -582,29 +597,29 @@ class DecoupSISO_BlockSSM(nn.Module):
         # define (non)linearity of each component according to given model type
         if self.kind == "blocknlin":
             fx = nlin(self.nx_siso, self.nx_siso)
-            fy = lin_free(self.nx_siso, ny)
-            fu = nlin_free(nu, self.nx_siso) if nu != 0 else None
+            fy = lin_free(self.nx_siso, self.ny_siso)
+            fu = nlin_free(self.nu_siso, self.nx_siso) if self.nu_siso != 0 else None
             fd = nlin_free(self.nd, self.nx_siso) if self.nd != 0 else None
         elif self.kind == "linear":
             fx = lin(nx_td, self.nx_siso)
-            fy = lin_free(self.nx_siso, ny)
-            fu = lin_free(nu, self.nx_siso) if nu != 0 else None
+            fy = lin_free(self.nx_siso, self.ny_siso)
+            fu = lin_free(self.nu_siso, self.nx_siso) if self.nu_siso != 0 else None
             fd = lin_free(self.nd, self.nx_siso) if self.nd != 0 else None
         elif self.kind == "hammerstein":
             fx = lin(self.nx_siso, self.nx_siso)
-            fy = lin_free(self.nx_siso, ny)
+            fy = lin_free(self.nx_siso, self.ny_siso)
             # torch.nn.init.eye_(fy.linear.weight)
-            fu = nlin_free(nu, self.nx_siso) if nu != 0 else None
+            fu = nlin_free(self.nu_siso, self.nx_siso) if self.nu_siso != 0 else None
             fd = nlin_free(self.nd, self.nx_siso) if self.nd != 0 else None
         elif self.kind == "weiner":
             fx = lin(self.nx_siso, self.nx_siso)
-            fy = nlin_free(self.nx_siso, ny)
-            fu = nlin_free(nu, self.nx_siso) if nu != 0 else None
+            fy = nlin_free(self.nx_siso, self.ny_siso)
+            fu = nlin_free(self.nu_siso, self.nx_siso) if self.nu_siso != 0 else None
             fd = lin_free(self.nd, self.nx_siso) if self.nd != 0 else None
         else:  # hw
             fx = lin(self.nx_siso, self.nx_siso)
-            fy = nlin_free(self.nx_siso, ny)
-            fu = nlin_free(nu, self.nx_siso) if nu != 0 else None
+            fy = nlin_free(self.nx_siso, self.ny_siso)
+            fu = nlin_free(self.nu_siso, self.nx_siso) if self.nu_siso != 0 else None
             fd = nlin_free(self.nd, self.nx_siso) if self.nd != 0 else None
         fe = (
             self.fe(nx_td, nx, hsizes=self.hsizes, bias=self.bias, linear_map=self.linmap,
@@ -671,6 +686,71 @@ class DecoupSISO_BlockSSM(nn.Module):
         return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
 
 
+class DecoupSISO_BlockSSM_building(DecoupSISO_BlockSSM):
+    def __init__(self, kind, datadims, linmap, nonlinmap, bias=False, n_layers=2, timedelay=0,
+                 nu_siso=1, ny_siso=1, nx_siso=10,
+                 xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, fe=None, fyu=None,
+                 activation=nn.GELU, residual=False, linargs=dict(), name='block_ssm', input_keys=dict()):
+        """
+
+        :param kind:
+        :param datadims:
+        :param linmap:
+        :param nonlinmap:
+        :param bias:
+        :param n_layers:
+        :param timedelay:
+        :param xou:
+        :param xod:
+        :param xoe:
+        :param xoyu:
+        :param fe:
+        :param fyu:
+        :param activation:
+        :param residual:
+        :param linargs:
+        :param name:
+        :param input_keys:
+        """
+        super().__init__(kind, datadims, linmap, nonlinmap, bias=bias, n_layers=n_layers, timedelay=timedelay,
+                         nu_siso=nu_siso, ny_siso=ny_siso, nx_siso=nx_siso,
+                         xou=xou, xod=xod, xoe=xoe, xoyu=xoyu, fe=fe, fyu=fyu,
+                         activation=activation, residual=residual, linargs=linargs, name=name, input_keys=input_keys)
+
+    def forward(self, data):
+        """
+
+        :param data: (dict: {str: Tensor})
+        :return: output (dict: {str: Tensor})
+        """
+        x_in, y_out, u_in, d_in = self.input_keys
+        X, Y, FD, FU, FE = [], [], [], [], []
+
+        data_siso = {y_out: data[y_out], d_in: data[d_in]}
+        for i, siso in enumerate(self.SISO_models):
+            data_siso[x_in] = data[x_in][:, i * self.nx_siso:(1 + i) * self.nx_siso]
+            # specific input manipulation for building emulator models
+            data_siso[u_in] = torch.cat([data[u_in][:, :, i:i + 1], data[u_in][:, :, [-1]]], dim=2)
+            siso_out = siso(data_siso)
+            y_siso = siso_out['Y_pred_' + siso.name]
+            x_siso = siso_out['X_pred_' + siso.name]
+            fu_siso = siso_out['fU_' + siso.name]
+            fd_siso = siso_out['fD_' + siso.name]
+            X.append(x_siso)
+            Y.append(y_siso)
+            FU.append(fu_siso)
+            FD.append(fd_siso)
+
+        output = dict()
+        for tensor_list, name in zip([X, Y, FU, FD, FE],
+                                     ['X_pred', 'Y_pred', 'fU', 'fD', 'fE']):
+            if tensor_list:
+                output[f'{name}_{self.name}'] = torch.cat(tensor_list, dim=2)
+        output[f'reg_error_{self.name}'] = self.reg_error()
+        return output
+
+    def reg_error(self):
+        return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
 
 
 ssm_models_atoms = [BlockSSM, BlackSSM, TimeDelayBlockSSM, TimeDelayBlackSSM, DecoupSISO_BlockSSM]

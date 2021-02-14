@@ -445,12 +445,21 @@ def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynam
 
     if args.SISO_decoupling:
         dynamics_model = \
-            dynamics.DecoupSISO_BlockSSM(args.ssm_type,
+            dynamics.DecoupSISO_BlockSSM_building(args.ssm_type,
                                          {**dataset.dims, "x0_estim": (nx,)},
                                         linmap, nonlinmap, bias=args.bias,
+                                        nu_siso=2, ny_siso=1, nx_siso=args.nx_hidden,
                                         n_layers=args.n_layers, activation=activation,
                                         linargs=linargs, name=dynamics_name,
                                         input_keys={'x0': f'x0_{estimator.name}'})
+        # dynamics_model = \
+        #     dynamics.DecoupSISO_BlockSSM(args.ssm_type,
+        #                                  {**dataset.dims, "x0_estim": (nx,)},
+        #                                 linmap, nonlinmap, bias=args.bias,
+        #                                 nu_siso=1, ny_siso=1, nx_siso=args.nx_hidden,
+        #                                 n_layers=args.n_layers, activation=activation,
+        #                                 linargs=linargs, name=dynamics_name,
+        #                                 input_keys={'x0': f'x0_{estimator.name}'})
     else:
         dynamics_model = (
             dynamics.blackbox_model(

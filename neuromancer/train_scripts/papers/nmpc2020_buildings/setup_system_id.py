@@ -94,11 +94,18 @@ def get_parser(parser=None):
     model_group.add_argument(
         "-ssm_type",
         type=str,
-        choices=["blackbox", "hw", "hammerstein", "blocknlin", "linear"],
-        default="hammerstein",
+        choices=["blackbox", "hw", "hammerstein", "blocknlin",
+                 "linear"],
+        default="blocknlin",
     )
     model_group.add_argument(
-        "-nx_hidden", type=int, default=5, help="Number of hidden states per output"
+        "-SISO_decoupling",
+        type=str,
+        choices=[True, False],
+        default=True,
+    )
+    model_group.add_argument(
+        "-nx_hidden", type=int, default=4, help="Number of hidden states per output"
     )
     model_group.add_argument(
         "-n_layers",
@@ -435,31 +442,41 @@ def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynam
         name=estim_name,
     )
     # dynamics.block_model
-    dynamics_model = (
-        dynamics.blackbox_model(
-            {**dataset.dims, "x0_estim": (nx,)},
-            linmap,
-            nonlinmap,
-            bias=args.bias,
-            n_layers=args.n_layers,
-            activation=activation,
-            name=dynamics_name,
-            input_keys={'x0': f'x0_{estimator.name}'},
-            linargs=linargs
-        ) if args.ssm_type == "blackbox"
-        else building_model(
-            args.ssm_type,
-            {**dataset.dims, "x0_estim": (nx,)},
-            linmap_x,
-            nonlinmap,
-            bias=args.bias,
-            n_layers=args.n_layers,
-            activation=activation,
-            name=dynamics_name,
-            input_keys={'x0': f'x0_{estimator.name}'},
-            linargs=linargs
+
+    if args.SISO_decoupling:
+        dynamics_model = \
+            dynamics.DecoupSISO_BlockSSM(args.ssm_type,
+                                         {**dataset.dims, "x0_estim": (nx,)},
+                                        linmap, nonlinmap, bias=args.bias,
+                                        n_layers=args.n_layers, activation=activation,
+                                        linargs=linargs, name=dynamics_name,
+                                        input_keys={'x0': f'x0_{estimator.name}'})
+    else:
+        dynamics_model = (
+            dynamics.blackbox_model(
+                {**dataset.dims, "x0_estim": (nx,)},
+                linmap,
+                nonlinmap,
+                bias=args.bias,
+                n_layers=args.n_layers,
+                activation=activation,
+                name=dynamics_name,
+                input_keys={'x0': f'x0_{estimator.name}'},
+                linargs=linargs
+            ) if args.ssm_type == "blackbox"
+            else building_model(
+                args.ssm_type,
+                {**dataset.dims, "x0_estim": (nx,)},
+                linmap_x,
+                nonlinmap,
+                bias=args.bias,
+                n_layers=args.n_layers,
+                activation=activation,
+                name=dynamics_name,
+                input_keys={'x0': f'x0_{estimator.name}'},
+                linargs=linargs
+            )
         )
-    )
     return estimator, dynamics_model
 
 

@@ -95,13 +95,13 @@ if __name__ == "__main__":
     logger.clean_up()
 
 
-plt.pyplot.figure()
-CA = np.matmul(dynamics_model.fy.linear.weight.detach().numpy(),
-               dynamics_model.fx.linear.weight.detach().numpy())
-CAB = np.matmul(CA, dynamics_model.fu.linear.effective_W().detach().numpy().T)
-plt.pyplot.imshow(CAB)
-
-plt.pyplot.figure()
-CA = np.matmul(emul.C,emul.A)
-CAB = np.matmul(CA,emul.B)
-plt.pyplot.imshow(CAB)
+# plt.pyplot.figure()
+# CA = np.matmul(dynamics_model.fy.linear.weight.detach().numpy(),
+#                dynamics_model.fx.linear.weight.detach().numpy())
+# CAB = np.matmul(CA, dynamics_model.fu.linear.effective_W().detach().numpy().T)
+# plt.pyplot.imshow(CAB)
+#
+# plt.pyplot.figure()
+# CA = np.matmul(emul.C,emul.A)
+# CAB = np.matmul(CA,emul.B)
+# plt.pyplot.imshow(CAB)

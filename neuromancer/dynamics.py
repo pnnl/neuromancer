@@ -109,6 +109,7 @@ class BlockSSM(nn.Module):
         :return: output (dict: {str: Tensor})
         """
         x_in, y_out, u_in, d_in = self.input_keys
+
         nsteps = data[y_out].shape[0]
         X, Y, FD, FU, FE = [], [], [], [], []
         x = data[x_in]
@@ -725,7 +726,6 @@ class DecoupSISO_BlockSSM_building(DecoupSISO_BlockSSM):
         """
         x_in, y_out, u_in, d_in = self.input_keys
         X, Y, FD, FU, FE = [], [], [], [], []
-
         data_siso = {y_out: data[y_out], d_in: data[d_in]}
         for i, siso in enumerate(self.SISO_models):
             data_siso[x_in] = data[x_in][:, i * self.nx_siso:(1 + i) * self.nx_siso]

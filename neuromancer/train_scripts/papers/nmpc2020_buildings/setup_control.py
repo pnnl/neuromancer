@@ -17,7 +17,6 @@ from neuromancer.activations import BLU, SoftExponential
 from neuromancer import policies
 from common import get_base_parser
 
-
 def get_parser(parser=None, add_prefix=False):
     if parser is None:
         parser = get_base_parser()
@@ -88,7 +87,9 @@ def get_parser(parser=None, add_prefix=False):
 
     # TODO: update trained system ID model path
     # path = f"./test/Reno_full_best_model.pth"
-    path = f"./sys_ID_models/model3/Reno_full_best_model.pth"
+    # path = f"./sys_ID_models/model3/Reno_full_best_model.pth"
+    path = f"./sys_ID_models/model8/Reno_full_best_model.pth"
+
     data_group.add_argument('-model_file', type=str, default=path)
 
     ##################
@@ -166,17 +167,17 @@ def get_parser(parser=None, add_prefix=False):
     weight_group.add_argument(
         pfx("-Q_con_y"),
         type=float,
-        default=1.0,
+        default=1.5,
         help="Observable constraints penalty weight.",
     )
     weight_group.add_argument(
         pfx("-Q_sub"), type=float, default=0.2, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
-        pfx("-Q_umin"), type=float, default=0.5, help="Input minimization weight."
+        pfx("-Q_umin"), type=float, default=2.0, help="Input minimization weight."
     )
     weight_group.add_argument(
-        pfx("-Q_con_u"), type=float, default=1.0, help="Input constraints penalty weight."
+        pfx("-Q_con_u"), type=float, default=2.0, help="Input constraints penalty weight."
     )
     weight_group.add_argument(
         pfx("-Q_r"), type=float, default=0.0, help="Reference tracking penalty weight"
@@ -184,9 +185,33 @@ def get_parser(parser=None, add_prefix=False):
     weight_group.add_argument(
         pfx("-Q_du"),
         type=float,
-        default=1.0,
+        default=0.0,
         help="control action difference penalty weight",
     )
+    # weight_group.add_argument(
+    #     pfx("-Q_con_y"),
+    #     type=float,
+    #     default=1.0,
+    #     help="Observable constraints penalty weight.",
+    # )
+    # weight_group.add_argument(
+    #     pfx("-Q_sub"), type=float, default=0.2, help="Linear maps regularization weight."
+    # )
+    # weight_group.add_argument(
+    #     pfx("-Q_umin"), type=float, default=0.5, help="Input minimization weight."
+    # )
+    # weight_group.add_argument(
+    #     pfx("-Q_con_u"), type=float, default=1.0, help="Input constraints penalty weight."
+    # )
+    # weight_group.add_argument(
+    #     pfx("-Q_r"), type=float, default=0.0, help="Reference tracking penalty weight"
+    # )
+    # weight_group.add_argument(
+    #     pfx("-Q_du"),
+    #     type=float,
+    #     default=1.0,
+    #     help="control action difference penalty weight",
+    # )
 
     # objective and constraints variations
     weight_group.add_argument(pfx("-con_tighten"), action="store_true")
@@ -204,8 +229,15 @@ def get_parser(parser=None, add_prefix=False):
 
 def update_system_id_inputs(args, dataset, estimator, dynamics_model):
     dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_policy'
-    dynamics_model.fe = None
-    dynamics_model.fyu = None
+    if isinstance(dynamics_model, dynamics.DecoupSISO_BlockSSM_building):
+        for k in range(len(dynamics_model.SISO_models)):
+            dynamics_model.SISO_models[k].input_keys[
+                dynamics_model.SISO_models[k].input_keys.index('Uf')] = 'U_pred_policy'
+            dynamics_model.SISO_models[k].fe = None
+            dynamics_model.SISO_models[k].fyu = None
+    else:
+        dynamics_model.fe = None
+        dynamics_model.fyu = None
 
     estimator.input_keys[0] = 'Y_ctrl_p'
     estimator.data_dims = dataset.dims
@@ -239,6 +271,8 @@ def get_policy_components(args, dataset, dynamics_model, policy_name="policy"):
         "rnn": policies.RNNPolicy,
     }[args.policy](
         {"x0_estim": (dynamics_model.nx,), **dataset.dims},
+        # {"x0_estim": (dynamics_model.nx,),
+        #  'Y_ctrl_minf': (dynamics_model.ny,), **dataset.dims},
         nsteps=args.nsteps,
         bias=args.bias,
         linear_map=linmap,
@@ -248,6 +282,7 @@ def get_policy_components(args, dataset, dynamics_model, policy_name="policy"):
         linargs=linargs,
         name=policy_name,
     )
+    # policy.data_dims['Y_ctrl_minf'] = dataset.dims['Y_minf']
     return policy
 
 
@@ -286,6 +321,18 @@ def get_objective_terms(args, policy):
         weight=args.Q_du,
         name="control_smoothing",
     )
+    # observation_lower_bound_penalty = Objective(
+    #     [output_key, "Y_ctrl_minf"],
+    #     lambda x, xmin: torch.mean(F.relu(-x[:, :, args.controlled_outputs] + xmin)),
+    #     weight=args.Q_con_y,
+    #     name="observation_lower_bound",
+    # )
+    # observation_upper_bound_penalty = Objective(
+    #     [output_key, "Y_ctrl_maxf"],
+    #     lambda x, xmax: torch.mean(F.relu(x[:, :, args.controlled_outputs] - xmax)),
+    #     weight=args.Q_con_y,
+    #     name="observation_upper_bound",
+    # )
     observation_lower_bound_penalty = Objective(
         [output_key, "Y_minf"],
         lambda x, xmin: torch.mean(F.relu(-x[:, :, args.controlled_outputs] + xmin)),
@@ -352,7 +399,12 @@ def get_objective_terms(args, policy):
 def add_reference_features(args, dataset, dynamics_model):
     """
     """
-    ny = dynamics_model.fy.out_features
+
+    if isinstance(dynamics_model, dynamics.DecoupSISO_BlockSSM_building):
+        ny = dynamics_model.out_features
+    else:
+        ny = dynamics_model.fy.out_features
+
     if ny != dataset.data["Y"].shape[1]:
         new_sequences = {"Y": dataset.data["Y"][:, :1]}
         dataset.add_data(new_sequences, overwrite=True)

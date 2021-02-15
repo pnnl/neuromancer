@@ -35,7 +35,7 @@ def get_parser(parser=None):
     opt_group.add_argument(
         "-patience",
         type=int,
-        default=50,
+        default=100,
         help="How many epochs to allow for no improvement in eval metric before early stopping.",
     )
     opt_group.add_argument(
@@ -96,7 +96,7 @@ def get_parser(parser=None):
         type=str,
         choices=["blackbox", "hw", "hammerstein", "blocknlin",
                  "linear"],
-        default="blocknlin",
+        default="hammerstein",
     )
     model_group.add_argument(
         "-SISO_decoupling",
@@ -105,7 +105,7 @@ def get_parser(parser=None):
         default=True,
     )
     model_group.add_argument(
-        "-nx_hidden", type=int, default=4, help="Number of hidden states per output"
+        "-nx_hidden", type=int, default=20, help="Number of hidden states per output"
     )
     model_group.add_argument(
         "-n_layers",
@@ -200,9 +200,6 @@ def get_parser(parser=None):
     return parser
 
 
-
-# TODO: build custom SSM for building
-# linear_map=slim.NonNegativeLinear,
 class BilinearHeatFlow(nn.Module):
     """
     bilinear heat flow block  B*dT*m_f

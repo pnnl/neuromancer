@@ -41,6 +41,14 @@ if __name__ == "__main__":
                            reduce_d=True, norm_bounds=norm_bounds)
     dataset = ctrl.add_reference_features(args, dataset, dynamics_model)
 
+    dataset.dims['Y_ctrl_minf'] = dataset.dims['Y_minf']
+    dataset.dims['Y_ctrl_maxf'] = dataset.dims['Y_maxf']
+
+    # TODO: for standard BlockSSM
+    # ny = dynamics_model.fy.out_features
+    # TODO: for DecoupSISO_BlockSSM_building
+    ny = dynamics_model.out_features
+
     # Control Problem Definition
     estimator, dynamics_model = ctrl.update_system_id_inputs(
         args, dataset, estimator, dynamics_model
@@ -50,12 +58,30 @@ if __name__ == "__main__":
     )
     signal_generator = WhiteNoisePeriodicGenerator(
         args.nsteps,
-        dynamics_model.fy.out_features,
+        ny,
         xmax=(0.8, 0.7),
         xmin=0.2,
         min_period=1,
         max_period=20,
         name="Y_ctrl_",
+    )
+    ymin_generator = WhiteNoisePeriodicGenerator(
+        args.nsteps,
+        ny,
+        xmax=(1.0, 0.8),
+        xmin=0.7,
+        min_period=1,
+        max_period=20,
+        name="Y_ctrl_min",
+    )
+    ymax_generator = WhiteNoisePeriodicGenerator(
+        args.nsteps,
+        ny,
+        xmax=(0.6, 0.3),
+        xmin=0.2,
+        min_period=1,
+        max_period=20,
+        name="Y_ctrl_max",
     )
     noise_generator = NoiseGenerator(
         ratio=0.05, keys=["Y_pred_dynamics"], name="_noise"
@@ -67,6 +93,12 @@ if __name__ == "__main__":
         constraints,
         [signal_generator, estimator, policy, dynamics_model, noise_generator],
     )
+    # model = Problem(
+    #     objectives,
+    #     constraints,
+    #     [signal_generator, ymin_generator, ymax_generator,
+    #      estimator, policy, dynamics_model, noise_generator],
+    # )
     model = model.to(device)
 
     # train only policy component
@@ -74,29 +106,15 @@ if __name__ == "__main__":
     unfreeze_weight(model, module_names=args.unfreeze)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
-    # plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
-    # visualizer = VisualizerClosedLoop(
-    #     dataset, policy, plot_keys, args.verbosity, savedir=args.savedir
-    # )
-    # policy.input_keys[0] = "Yp"  # hack for policy input key compatibility w/ simulator
-    # simulator = ClosedLoopSimulator(
-    #     model=model, dataset=dataset, emulator=dynamics_model, policy=policy
-    # )
-
     plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
     visualizer = VisualizerClosedLoop2(
         dataset, policy, plot_keys, args.verbosity, savedir=args.savedir
     )
     policy.input_keys[0] = "Yp"  # hack for policy input key compatibility w/ simulator
-    # simulator = CLSimulator(
-    #     model=model, dataset=dataset, emulator=dynamics_model, policy=policy
-    # )
-    # gt_dataset = load_dataset(args, device, 'closedloop', reduce_d=False)
-    # gt_dataset = ctrl.add_reference_features(args, gt_dataset, dynamics_model)
     simulator = CLSimulator(
         model=model, dataset=dataset, emulator=dynamics_model, policy=policy,
         gt_emulator=psl.emulators[args.system](),
-        diff=True, K_r=5.0, Ki_r=0.1, Ki_con=0.1, integrator_steps=30,
+        diff=False, K_r=5.0, Ki_r=0.1, Ki_con=0.1, integrator_steps=30,
     )
     # eval_metric = 'dev_sim_error',
 
@@ -121,5 +139,3 @@ if __name__ == "__main__":
     # # Logger
     # logger.log_artifacts(plots)
     logger.clean_up()
-
-    # TODO: learn control with nominal mass flow

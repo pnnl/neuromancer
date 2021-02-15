@@ -65,6 +65,15 @@ if __name__ == "__main__":
         max_period=20,
         name="Y_ctrl_",
     )
+    disturb_generator = WhiteNoisePeriodicGenerator(
+        args.nsteps,
+        ny,
+        xmax=(0.9, 0.7),
+        xmin=0.2,
+        min_period=1,
+        max_period=20,
+        name="D_ctrl_",
+    )
     ymin_generator = WhiteNoisePeriodicGenerator(
         args.nsteps,
         ny,
@@ -96,7 +105,7 @@ if __name__ == "__main__":
     # model = Problem(
     #     objectives,
     #     constraints,
-    #     [signal_generator, ymin_generator, ymax_generator,
+    #     [signal_generator, disturb_generator,
     #      estimator, policy, dynamics_model, noise_generator],
     # )
     model = model.to(device)

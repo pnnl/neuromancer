@@ -174,13 +174,13 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-Q_sub"), type=float, default=0.2, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
-        pfx("-Q_umin"), type=float, default=1.0, help="Input minimization weight."
+        pfx("-Q_umin"), type=float, default=2.0, help="Input minimization weight."
     )
     weight_group.add_argument(
         pfx("-Q_dT_ref"), type=float, default=1.0, help="dT static reference weight."
     )
     weight_group.add_argument(
-        pfx("-Q_con_u"), type=float, default=2.0, help="Input constraints penalty weight."
+        pfx("-Q_con_u"), type=float, default=1.0, help="Input constraints penalty weight."
     )
     weight_group.add_argument(
         pfx("-Q_r"), type=float, default=0.0, help="Reference tracking penalty weight"
@@ -241,6 +241,9 @@ def update_system_id_inputs(args, dataset, estimator, dynamics_model):
     else:
         dynamics_model.fe = None
         dynamics_model.fyu = None
+
+    # dynamics_model.input_keys[3] = 'D_ctrl_f'
+    # dynamics_model.data_dims['D_ctrl_f'] = dataset.dims['Df']
 
     estimator.input_keys[0] = 'Y_ctrl_p'
     estimator.data_dims = dataset.dims
@@ -324,10 +327,10 @@ def get_objective_terms(args, policy):
         weight=args.Q_du,
         name="control_smoothing",
     )
-    # dT spt = 50% power
+    # dT spt fixed ref
     control_dT_ref = Objective(
         [f"U_pred_{policy.name}"],
-        lambda x: F.mse_loss(x[:,:,-1], 0.5*torch.ones(x[:,:,-1].shape)),
+        lambda x: F.mse_loss(x[:,:,-1], 1.0*torch.ones(x[:,:,-1].shape)),
         # lambda x: torch.mean(x),
         weight=args.Q_dT_ref,
         name="control_dT_ref",

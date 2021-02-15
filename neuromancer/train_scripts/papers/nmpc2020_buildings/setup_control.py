@@ -167,14 +167,17 @@ def get_parser(parser=None, add_prefix=False):
     weight_group.add_argument(
         pfx("-Q_con_y"),
         type=float,
-        default=1.5,
+        default=1.0,
         help="Observable constraints penalty weight.",
     )
     weight_group.add_argument(
         pfx("-Q_sub"), type=float, default=0.2, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
-        pfx("-Q_umin"), type=float, default=2.0, help="Input minimization weight."
+        pfx("-Q_umin"), type=float, default=1.0, help="Input minimization weight."
+    )
+    weight_group.add_argument(
+        pfx("-Q_dT_ref"), type=float, default=1.0, help="dT static reference weight."
     )
     weight_group.add_argument(
         pfx("-Q_con_u"), type=float, default=2.0, help="Input constraints penalty weight."
@@ -321,6 +324,14 @@ def get_objective_terms(args, policy):
         weight=args.Q_du,
         name="control_smoothing",
     )
+    # dT spt = 50% power
+    control_dT_ref = Objective(
+        [f"U_pred_{policy.name}"],
+        lambda x: F.mse_loss(x[:,:,-1], 0.5*torch.ones(x[:,:,-1].shape)),
+        # lambda x: torch.mean(x),
+        weight=args.Q_dT_ref,
+        name="control_dT_ref",
+    )
     # observation_lower_bound_penalty = Objective(
     #     [output_key, "Y_ctrl_minf"],
     #     lambda x, xmin: torch.mean(F.relu(-x[:, :, args.controlled_outputs] + xmin)),
@@ -385,7 +396,8 @@ def get_objective_terms(args, policy):
             name="input_upper_bound",
         )
 
-    objectives = [regularization, reference_loss, control_min, control_smoothing]
+    objectives = [regularization, reference_loss, control_dT_ref,
+                  control_min, control_smoothing]
     constraints = [
         observation_lower_bound_penalty,
         observation_upper_bound_penalty,

@@ -189,10 +189,9 @@ def get_objective_terms(args, dataset, estimator, dynamics_model):
 
 if __name__ == "__main__":
 
-    print(psl.systems.keys())  # available systems in PSL library
-    print(psl.datasets.keys())  # available datasets in PSL library
+    # for available systems in PSL library check: psl.systems.keys()
+    # for available datasets in PSL library check: psl.datasets.keys()
     system = 'aero'         # keyword of selected system
-
     parser = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.data(system=system), arg.loss(), arg.lin(), arg.ssm()])
 
     grp = parser.group('OPTIMIZATION')

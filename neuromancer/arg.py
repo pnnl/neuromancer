@@ -148,7 +148,7 @@ def opt(prefix=''):
     return parser
 
 
-def data(prefix=''):
+def data(prefix='', system='CSTR'):
     """
     Command line parser for data arguments
 
@@ -162,7 +162,7 @@ def data(prefix=''):
     gp.add("-nsteps", type=int, default=32,
            help="Number of steps for open loop during training.")
 
-    gp.add("-system", type=str, required=True,
+    gp.add("-system", type=str, default=system,
            help="select particular dataset with keyword")
 
     gp.add("-nsim", type=int, default=10000,

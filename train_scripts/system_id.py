@@ -26,6 +26,7 @@ More detailed description of options in the `get_base_parser()` function in comm
 import torch
 import torch.nn.functional as F
 import slim
+import psl
 
 from neuromancer import blocks, estimators, dynamics, arg
 from neuromancer.activations import activations
@@ -187,7 +188,12 @@ def get_objective_terms(args, dataset, estimator, dynamics_model):
 
 
 if __name__ == "__main__":
-    parser = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.data(), arg.loss(), arg.lin(), arg.ssm()])
+
+    print(psl.systems.keys())  # available systems in PSL library
+    print(psl.datasets.keys())  # available datasets in PSL library
+    system = 'aero'         # keyword of selected system
+
+    parser = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.data(system=system), arg.loss(), arg.lin(), arg.ssm()])
 
     grp = parser.group('OPTIMIZATION')
     grp.add("-eval_metric", type=str, default="loop_dev_ref_loss",

@@ -192,7 +192,8 @@ if __name__ == "__main__":
     # for available systems in PSL library check: psl.systems.keys()
     # for available datasets in PSL library check: psl.datasets.keys()
     system = 'aero'         # keyword of selected system
-    parser = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.data(system=system), arg.loss(), arg.lin(), arg.ssm()])
+    parser = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.data(system=system),
+                                    arg.loss(), arg.lin(), arg.ssm()])
 
     grp = parser.group('OPTIMIZATION')
     grp.add("-eval_metric", type=str, default="loop_dev_ref_loss",
@@ -207,6 +208,9 @@ if __name__ == "__main__":
                "nstep_dev_ref_loss", "loop_dev_ref_loss"]
     logger = log_constructor(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
 
+    # # CUSTOM time series file following PSL dataset column naming convention # #
+    # path = psl.datasets[system]
+    # dataset = load_dataset(args, device, 'openloop', file_path=path, split_ratio=[40, 30, 30])
     dataset = load_dataset(args, device, 'openloop')
     print(dataset.dims)
 

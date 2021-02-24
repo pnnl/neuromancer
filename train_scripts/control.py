@@ -191,10 +191,14 @@ def add_reference_features(args, dataset, dynamics_model):
 
 
 if __name__ == "__main__":
-    parser = arg.ArgParser(parents=[arg.log(prefix='crtl_'), arg.log(prefix='sysid_'), arg.opt(), arg.data(),
+    # for available systems in PSL library check: psl.systems.keys()
+    system = 'CSTR'         # keyword of selected system
+    parser = arg.ArgParser(parents=[arg.log(), arg.log(prefix='sysid_'),
+                                    arg.opt(), arg.data(system=system),
                                     arg.loss(), arg.lin(), arg.policy(),
                                     arg.ctrl_loss(), arg.freeze()])
-    parser.add('-model_file', type=str, required=True,
+    path = './test/CSTR_best_model.pth'
+    parser.add('-model_file', type=str, default=path,
                help='Path to pytorch pickled model.')
 
     args = parser.parse_args()

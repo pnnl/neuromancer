@@ -58,7 +58,7 @@ class Dataset:
                     test_loop: dict(str: Tensor)
                     dims: dict(str: tuple)
         """
-        assert not (system is None and len(sequences) == 0), 'Trying to instantiate an empty dataset.'
+        # assert not (system is None and len(sequences) == 0), 'Trying to instantiate an empty dataset.'
         self.name = name
         self.norm_type = norm_type
         self.norm_fn = norm_fns[self.norm_type]
@@ -226,8 +226,14 @@ class Dataset:
         :return: (3-tuple) Dictionarys for train, dev, and test sets
         """
         train_data, dev_data, test_data = DataDict(), DataDict(), DataDict()
-        train_idx = (list(data.values())[0].shape[1] // 3)
-        dev_idx = train_idx * 2
+        if hasattr(self, 'split_ratio'):
+            split_ratio = self.split_ratio
+            steps = list(data.values())[0].shape[1]
+            train_idx = int(split_ratio[0]/100*steps)
+            dev_idx = train_idx+int(split_ratio[1]/100*steps)
+        else:
+            train_idx = (list(data.values())[0].shape[1] // 3)
+            dev_idx = train_idx * 2
         for k, v in data.items():
             train_data[k] = v[:, :train_idx, :]
             dev_data[k] = v[:, train_idx:dev_idx, :]
@@ -255,6 +261,70 @@ class Dataset:
         for k, v in data.items():
             unbatched_data[k] = unbatch_mh_data(v)
         return unbatched_data
+
+
+# TODO: OPTION 1: 3 files for train, dev, test set  => LATER
+class FileDatasetCustom(Dataset):
+    def __init__(self, file_path, split_ratio=[40, 30, 30], system=None, nsim=10000, ninit=0, norm=['Y'], batch_type='batch',
+                 nsteps=1, device='cpu', sequences=dict(), name='openloop',
+                 savedir='test', norm_type='zero-one'):
+        """
+
+        :param file_path:
+        :param system:
+        :param nsim:
+        :param ninit:
+        :param norm:
+        :param batch_type:
+        :param nsteps:
+        :param device:
+        :param sequences:
+        :param name:
+        :param savedir:
+        :param norm_type:
+        """
+        self.file_path = file_path
+        self.split_ratio = split_ratio
+        super().__init__(system=None, nsim=nsim, ninit=ninit, norm=norm, batch_type=batch_type,
+                 nsteps=nsteps, device=device, sequences=sequences, name=name,
+                 savedir=savedir, norm_type=norm_type)
+
+    def load_data(self):
+        """
+        Load data from files. system argument to init should be the name of a registered dataset in psl.datasets
+        :return: (dict, str: 2-d np.array)
+        """
+        if type(self.file_path) == str:
+            Y, U, D, exp_id = load_data_file(self.file_path)
+            data = dict()
+            for d, k in zip([Y, U, D, exp_id], ['Y', 'U', 'D', 'exp_id']):
+                if d is not None:
+                    data[k] = d[self.ninit:self.nsim + self.ninit, :]
+
+        elif type(self.file_path) == dict:
+            # TODO: to finish later
+            self.file_path['train']
+            self.file_path['dev']
+            self.file_path['test']
+
+        return data
+
+
+def load_data_file(file_path):
+    file_type = file_path.split(".")[-1].lower()
+    if file_type == 'mat':
+        file = loadmat(file_path)
+        Y = file.get("y", None)  # outputs
+        U = file.get("u", None)  # inputs
+        D = file.get("d", None)  # disturbances
+        exp_id = file.get("exp_id", None)  # experiment run id
+    elif file_type == 'csv':
+        data = pd.read_csv(file_path)
+        Y = data.filter(regex='y').values if data.filter(regex='y').values.size != 0 else None
+        U = data.filter(regex='u').values if data.filter(regex='u').values.size != 0 else None
+        D = data.filter(regex='d').values if data.filter(regex='d').values.size != 0 else None
+        exp_id = data.filter(regex='exp_id').values if data.filter(regex='exp_id').values.size != 0 else None
+    return Y, U, D, exp_id
 
 
 class FileDataset(Dataset):
@@ -614,27 +684,40 @@ if __name__ == '__main__':
             print("Error encountered:", e)
 
 
-def load_dataset(args, device, name):
-    if systems[args.system] == "emulator":
-        dataset = EmulatorDataset(
-            system=args.system,
-            nsim=args.nsim,
-            norm=args.norm,
-            nsteps=args.nsteps,
-            device=device,
-            savedir=args.savedir,
-            seed=args.data_seed,
-            name=name,
-        )
+def load_dataset(args, device, name, file_path=None, split_ratio=[40, 30, 30]):
+    if file_path is not None:
+        dataset = FileDatasetCustom(
+                file_path=file_path,
+                split_ratio=split_ratio,
+                system=args.system,
+                nsim=args.nsim,
+                norm=args.norm,
+                nsteps=args.nsteps,
+                device=device,
+                savedir=args.savedir,
+                name=name,
+            )
     else:
-        dataset = FileDataset(
-            system=args.system,
-            nsim=args.nsim,
-            norm=args.norm,
-            nsteps=args.nsteps,
-            device=device,
-            savedir=args.savedir,
-            name=name,
-        )
+        if systems[args.system] == "emulator":
+            dataset = EmulatorDataset(
+                system=args.system,
+                nsim=args.nsim,
+                norm=args.norm,
+                nsteps=args.nsteps,
+                device=device,
+                savedir=args.savedir,
+                seed=args.data_seed,
+                name=name,
+            )
+        else:
+            dataset = FileDataset(
+                system=args.system,
+                nsim=args.nsim,
+                norm=args.norm,
+                nsteps=args.nsteps,
+                device=device,
+                savedir=args.savedir,
+                name=name,
+            )
     return dataset
 

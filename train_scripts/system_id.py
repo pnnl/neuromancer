@@ -26,7 +26,6 @@ More detailed description of options in the `get_base_parser()` function in comm
 import torch
 import torch.nn.functional as F
 import slim
-import psl
 
 from neuromancer import blocks, estimators, dynamics, arg
 from neuromancer.activations import activations
@@ -35,6 +34,7 @@ from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem, Objective
 from neuromancer.simulators import OpenLoopSimulator
 from neuromancer.datasets import load_dataset
+from neuromancer.callbacks import SysIDCallback
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 
 
@@ -208,9 +208,6 @@ if __name__ == "__main__":
                "nstep_dev_ref_loss", "loop_dev_ref_loss"]
     logger = log_constructor(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
 
-    # # CUSTOM time series file following PSL dataset column naming convention # #
-    # path = psl.datasets[system]
-    # dataset = load_dataset(args, device, 'openloop', file_path=path, split_ratio=[40, 30, 30])
     dataset = load_dataset(args, device, 'openloop')
     print(dataset.dims)
 
@@ -222,20 +219,6 @@ if __name__ == "__main__":
 
     simulator = OpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    trainer = Trainer(
-        model,
-        dataset,
-        optimizer,
-        logger=logger,
-        simulator=simulator,
-        epochs=args.epochs,
-        eval_metric=args.eval_metric,
-        patience=args.patience,
-        warmup=args.warmup,
-    )
-
-    best_model = trainer.train()
-    best_outputs = trainer.evaluate(best_model)
 
     visualizer = VisualizerOpen(
         dataset,
@@ -245,7 +228,19 @@ if __name__ == "__main__":
         training_visuals=False,
         trace_movie=False,
     )
-    plots = visualizer.eval(best_outputs)
 
-    logger.log_artifacts(plots)
+    trainer = Trainer(
+        model,
+        dataset,
+        optimizer,
+        logger=logger,
+        callback=SysIDCallback(simulator, visualizer),
+        epochs=args.epochs,
+        eval_metric=args.eval_metric,
+        patience=args.patience,
+        warmup=args.warmup,
+    )
+
+    best_model = trainer.train()
+    best_outputs = trainer.test(best_model)
     logger.clean_up()

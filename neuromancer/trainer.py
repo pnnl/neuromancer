@@ -8,11 +8,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 
 from neuromancer.loggers import BasicLogger
-from neuromancer.visuals import Visualizer
 from neuromancer.problem import Problem
 from neuromancer.datasets import Dataset
-from neuromancer.simulators import Simulator
-from neuromancer.callbacks import SysIDCallback
+from neuromancer.callbacks import Callback
 
 
 class Trainer:
@@ -27,7 +25,7 @@ class Trainer:
         dataset: Dataset,
         optimizer: torch.optim.Optimizer,
         logger: BasicLogger = None,
-        callback=SysIDCallback(),
+        callback=Callback(),
         lr_scheduler=False,
         epochs=1000,
         patience=5,
@@ -54,6 +52,7 @@ class Trainer:
         self.callback = callback
         self.logger = logger
         self.epochs = epochs
+        self.current_epoch = 0
         self.logger.log_weights(self.model)
         self.train_metric = train_metric
         self.eval_metric = eval_metric
@@ -75,12 +74,15 @@ class Trainer:
         Optimize model according to train_metric and validate per-epoch according to eval_metric.
         Trains for self.epochs and terminates early if self.patience threshold is exceeded.
         """
+        self.callback.begin_train(self)
+
         for i in range(self.epochs):
-            output = {}
+            self.current_epoch = i
+            self.model.train()
+            output = self.model(self.dataset.train_data)
+
             self.callback.begin_epoch(self, output)
 
-            self.model.train()
-            output = {**output, **self.model(self.dataset.train_data)}
             self.optimizer.zero_grad()
             output[self.train_metric].backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
@@ -89,18 +91,16 @@ class Trainer:
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step(output[self.train_metric])
 
-            self.callback.pre_eval(self, output)
-
             with torch.no_grad():
                 self.model.eval()
                 output = {**output, **self.model(self.dataset.dev_data)}
 
                 self.callback.begin_eval(self, output) # potential simulator
 
-                if (self._eval_min and output[self.eval_metric] < best_devloss)
-                        or (not self._eval_min and output[self.eval_metric] > best_devloss):
+                if (self._eval_min and output[self.eval_metric] < self.best_devloss)\
+                        or (not self._eval_min and output[self.eval_metric] > self.best_devloss):
                     best_model = deepcopy(self.model.state_dict())
-                    best_devloss = output[self.eval_metric]
+                    self.best_devloss = output[self.eval_metric]
                     self.badcount = 0
                 else:
                     if i > self.warmup:
@@ -108,6 +108,8 @@ class Trainer:
                 self.logger.log_metrics(output, step=i)
 
                 self.callback.end_eval(self, output) # visualizations
+
+            self.callback.end_epoch(self, output)
 
             if self.badcount > self.patience:
                 break
@@ -120,7 +122,7 @@ class Trainer:
         })
         return best_model
 
-    def evaluate(self, best_model):
+    def test(self, best_model):
         """
         Evaluate the model on all data splits.
         """
@@ -145,6 +147,12 @@ class Trainer:
         self.logger.log_metrics({f"best_{k}": v for k, v in all_output.items()})
 
         return all_output
+
+    def evaluate(self, best_model):
+        """
+        This method is deprecated. Use self.test instead.
+        """
+        return self.test(best_model)
 
 
 def freeze_weight(problem, module_names=['']):

@@ -5,6 +5,7 @@ from neuromancer.trainer import Trainer, freeze_weight, unfreeze_weight
 from neuromancer.visuals import VisualizerClosedLoop
 from neuromancer.datasets import load_dataset
 from neuromancer.loggers import BasicLogger, MLFlowLogger
+from neuromancer.callbacks import SysIDCallback
 
 import torch
 import torch.nn.functional as F
@@ -202,7 +203,6 @@ if __name__ == "__main__":
                help='Path to pytorch pickled model.')
 
     args = parser.parse_args()
-    args.savedir = 'test_control'
 
     log_constructor = MLFlowLogger if args.logger == 'mlflow' else BasicLogger
     metrics = ["nstep_dev_loss", "loop_dev_loss", "best_loop_dev_loss",
@@ -266,8 +266,7 @@ if __name__ == "__main__":
         dataset,
         optimizer,
         logger=logger,
-        visualizer=visualizer,
-        simulator=simulator,
+        callback=SysIDCallback(simulator, visualizer),
         epochs=args.epochs,
         patience=args.patience,
         warmup=args.warmup,
@@ -275,9 +274,6 @@ if __name__ == "__main__":
 
     # Train control policy
     best_model = trainer.train()
-    best_outputs = trainer.evaluate(best_model)
-    plots = visualizer.eval(best_outputs)
+    best_outputs = trainer.test(best_model)
 
-    # Logger
-    logger.log_artifacts(plots)
     logger.clean_up()

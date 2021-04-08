@@ -58,7 +58,7 @@ class Trainer:
         self.eval_metric = eval_metric
         self._eval_min = eval_mode == "min"
         self.lr_scheduler = (
-            ReduceLROnPlateau(self.optimizer, mode="min", factor=0.5)
+            ReduceLROnPlateau(self.optimizer, mode="min", factor=0.5, patience=100)
             if lr_scheduler
             else None
         )

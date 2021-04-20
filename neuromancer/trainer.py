@@ -31,6 +31,8 @@ class Trainer:
         patience=5,
         warmup=0,
         train_metric="nstep_train_loss",
+        dev_metric="nstep_dev_loss",
+        test_metric="nstep_test_loss",
         eval_metric="loop_dev_loss",
         eval_mode="min",
         clip=100.0,
@@ -55,10 +57,12 @@ class Trainer:
         self.current_epoch = 0
         self.logger.log_weights(self.model)
         self.train_metric = train_metric
+        self.dev_metric = dev_metric
+        self.test_metric = test_metric
         self.eval_metric = eval_metric
         self._eval_min = eval_mode == "min"
         self.lr_scheduler = (
-            ReduceLROnPlateau(self.optimizer, mode="min", factor=0.5)
+            ReduceLROnPlateau(self.optimizer, mode="min", factor=0.5, patience=100)
             if lr_scheduler
             else None
         )
@@ -79,23 +83,30 @@ class Trainer:
         for i in range(self.epochs):
             self.current_epoch = i
             self.model.train()
-            output = self.model(self.dataset.train_data)
+            losses = []
+            for t_batch in self.dataset.train_data:
+                output = self.model(t_batch)
+                self.optimizer.zero_grad()
+                output[self.train_metric].backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
+                self.optimizer.step()
+                losses.append(output[self.train_metric])
 
+            output[f'mean_{self.train_metric}'] = torch.mean(torch.stack(losses))
             self.callback.begin_epoch(self, output)
 
-            self.optimizer.zero_grad()
-            output[self.train_metric].backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
-            self.optimizer.step()
-
             if self.lr_scheduler is not None:
-                self.lr_scheduler.step(output[self.train_metric])
+                self.lr_scheduler.step(output[f'mean_{self.train_metric}'])
 
             with torch.no_grad():
                 self.model.eval()
-                output = {**output, **self.model(self.dataset.dev_data)}
-
-                self.callback.begin_eval(self, output) # potential simulator
+                losses = []
+                for d_batch in self.dataset.dev_data:
+                    eval_output = self.model(d_batch)
+                    losses.append(eval_output[self.dev_metric])
+                eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
+                output = {**output, **eval_output}
+                self.callback.begin_eval(self, output)  # potential simulator
 
                 if (self._eval_min and output[self.eval_metric] < self.best_devloss)\
                         or (not self._eval_min and output[self.eval_metric] > self.best_devloss):
@@ -107,18 +118,18 @@ class Trainer:
                         self.badcount += 1
                 self.logger.log_metrics(output, step=i)
 
-                self.callback.end_eval(self, output) # visualizations
+                self.callback.end_eval(self, output)  # visualizations
 
             self.callback.end_epoch(self, output)
 
             if self.badcount > self.patience:
                 break
 
-        self.callback.end_train(self, output) # write training visualizations
+        self.callback.end_train(self, output)  # write training visualizations
 
         self.logger.log_artifacts({
-            f"{self.logger.args.system}_best_model_state_dict.pth": best_model,
-            f"{self.logger.args.system}_best_model.pth": self.model,
+            "best_model_state_dict.pth": best_model,
+            "best_model.pth": self.model,
         })
         return best_model
 
@@ -129,24 +140,23 @@ class Trainer:
         self.model.load_state_dict(best_model)
         self.model.eval()
 
-        all_output = {}
-
         with torch.no_grad():
-            self.callback.begin_test(self, all_output)  # setup simulator
+            self.callback.begin_test(self)  # setup simulator
+            output = {}
+            for dset, metric in zip([self.dataset.train_data, self.dataset.dev_data, self.dataset.test_data],
+                                    [self.train_metric, self.dev_metric, self.test_metric]):
+                losses = []
+                for batch in dset:
+                    batch_output = self.model(batch)
+                    losses.append(batch_output[metric])
+                output[f'mean_{metric}'] = torch.mean(torch.stack(losses))
+                output = {**output, **batch_output}
 
-            splits = [
-                self.dataset.train_data,
-                self.dataset.dev_data,
-                self.dataset.test_data,
-            ]
-            for dset, dname in zip(splits, ["train", "dev", "test"]):
-                all_output = {**all_output, **self.model(dset)}
+            self.callback.end_test(self, output)    # simulator/visualizations/output concat
 
-            self.callback.end_test(self, all_output)    # simulator/visualizations/output concat
+        self.logger.log_metrics({f"best_{k}": v for k, v in output.items()})
 
-        self.logger.log_metrics({f"best_{k}": v for k, v in all_output.items()})
-
-        return all_output
+        return output
 
     def evaluate(self, best_model):
         """

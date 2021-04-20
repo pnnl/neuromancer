@@ -23,9 +23,11 @@ from neuromancer.data.batch import (
 
 class DataDict(dict):
     """
-    So we can add a name property to the dataset dictionaries
+    So we can add a name property to the dataset dictionaries. Also making these iterable returning self
+    as a hack so that the full batch datasets work in a minibatch loop.
     """
-    pass
+    def __iter__(self):
+        yield self
 
 
 class Dataset:

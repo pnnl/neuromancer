@@ -28,7 +28,7 @@ class Callback:
     def end_train(self, trainer, output):
         pass
 
-    def begin_test(self, trainer, output):
+    def begin_test(self, trainer):
         pass
 
     def end_test(self, trainer, output):
@@ -55,7 +55,7 @@ class SysIDCallback(Callback):
         plots = self.visualizer.train_output() if self.visualizer is not None else {}
         trainer.logger.log_artifacts(plots)
 
-    def begin_test(self, trainer, output):
+    def begin_test(self, trainer):
         self.simulator.model.load_state_dict(trainer.best_model)
 
     def end_test(self, trainer, output):

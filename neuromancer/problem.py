@@ -54,6 +54,12 @@ class Problem(nn.Module):
         self.objectives = nn.ModuleList(objectives)
         self.constraints = nn.ModuleList(constraints)
         self.components = nn.ModuleList(components)
+        self._check_unique_names()
+
+    def _check_unique_names(self):
+        num_unique = len(set([o.name for o in self.objectives] + [c.name for c in self.constraints]))
+        num_objectives = len(self.objectives) + len(self.constraints)
+        assert num_unique == num_objectives, "All objectives and constraints must have unique names."
 
     def _calculate_loss(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
@@ -72,8 +78,7 @@ class Problem(nn.Module):
     def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
 
         output_dict = self.step(data)
-        loss_dict = self._calculate_loss(output_dict)
-        output_dict = {**loss_dict, **output_dict}
+        output_dict = {**self._calculate_loss(output_dict), **output_dict}
         return {f'{data.name}_{k}': v for k, v in output_dict.items()}
 
     def step(self, input_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:

@@ -39,6 +39,9 @@ if __name__ == "__main__":
                "nstep_dev_ref_loss", "loop_dev_ref_loss"]
     logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
 
+    args.nsteps = 32  # define prediction horizon length
+
+    #  load the dataset
     dataset = load_dataset(args, device, 'openloop')
     print(dataset.dims)
     # nsim = number of time steps in the dataset time series
@@ -69,7 +72,27 @@ if __name__ == "__main__":
     # activations = possibly using learnable activation functions
     """
 
-    # code here
+    activation = activations['relu']
+    linmap = slim.maps['softSVD']
+    linargs = {"sigma_min": 0.5, "sigma_max": 1.0}
+    block = blocks.MLP
+
+    nx = 90  # size of the latend variables
+    estimator = estimators.MLPEstimator(
+        {**dataset.dims, "x0": (nx,)},
+        nsteps=args.nsteps,  # future window Nf
+        window_size=args.nsteps,  # past window Np <= Nf
+        bias=True,
+        linear_map=linmap,
+        nonlin=activation,
+        hsizes=[90, 120, 90],
+        input_keys=["Yp"],
+        linargs=linargs,
+        name='estimator',
+    )
+    # x0 = f_estim(Yp)
+    # x0: initial values of latent variables estimated from time lagged outputs Yp
+
 
 
     """    

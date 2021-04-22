@@ -1,12 +1,22 @@
-import argparse
+"""
+Argument parser script for control.py
 
+File for setting:
+    hyperparameters of the model and optimizer via get_parser()
+    closed-loop system model architecture via get_policy_components()
+    define objective terms and penalty constraints via get_objective_terms()
+    add new synthetic data features in the dataset via add_reference_features()
+"""
+
+
+import argparse
 import torch
 import torch.nn.functional as F
 from torch import nn
 import numpy as np
-
 import psl
 import slim
+
 from neuromancer import loggers
 from neuromancer.datasets import EmulatorDataset, FileDataset, systems
 from neuromancer import blocks
@@ -16,6 +26,7 @@ from neuromancer.problem import Problem, Objective
 from neuromancer.activations import BLU, SoftExponential
 from neuromancer import policies
 from common import get_base_parser
+
 
 def get_parser(parser=None, add_prefix=False):
     if parser is None:
@@ -47,8 +58,6 @@ def get_parser(parser=None, add_prefix=False):
         action="store_true",
         help="Whether to run simulator during evaluation phase of training.",
     )
-
-    # TODO: must be larger than nsteps of the sys ID model
     # data parameters
     data_group = parser.add_argument_group("DATA PARAMETERS")
     data_group.add_argument(
@@ -57,7 +66,6 @@ def get_parser(parser=None, add_prefix=False):
         default=32,
         help="Number of steps for open loop during training.",
     )
-    # TODO: update emulator model
     data_group.add_argument(
         pfx("-system"),
         type=str,
@@ -85,7 +93,7 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-data_seed"), type=int, default=408, help="Random seed used for simulated data"
     )
 
-    # TODO: update trained system ID model path
+    # TODO:update path after training a new model using system_id.py
     # path = f"./test/Reno_full_best_model.pth"
     # path = f"./sys_ID_models/model3/Reno_full_best_model.pth"
     path = f"./sys_ID_models/model8/Reno_full_best_model.pth"
@@ -124,7 +132,7 @@ def get_parser(parser=None, add_prefix=False):
         # default=['Y_ctrl_p', 'Df', 'Y_maxf', 'Y_minf'],
         default=['Y_ctrl_p', 'Df', 'Y_minf'],
         help="Policy features",
-    )  # reference tracking option
+    )
     policy_group.add_argument(
         pfx("-activation"),
         choices=["gelu", "softexp"],
@@ -154,7 +162,6 @@ def get_parser(parser=None, add_prefix=False):
 
     # layers
     layers_group = parser.add_argument_group("LAYERS PARAMETERS")
-    # TODO: generalize freeze unfreeze - we want to unfreeze only policy network
     layers_group.add_argument(
         "-freeze", nargs="+", default=[""], help="sets requires grad to False"
     )
@@ -191,30 +198,6 @@ def get_parser(parser=None, add_prefix=False):
         default=0.0,
         help="control action difference penalty weight",
     )
-    # weight_group.add_argument(
-    #     pfx("-Q_con_y"),
-    #     type=float,
-    #     default=1.0,
-    #     help="Observable constraints penalty weight.",
-    # )
-    # weight_group.add_argument(
-    #     pfx("-Q_sub"), type=float, default=0.2, help="Linear maps regularization weight."
-    # )
-    # weight_group.add_argument(
-    #     pfx("-Q_umin"), type=float, default=0.5, help="Input minimization weight."
-    # )
-    # weight_group.add_argument(
-    #     pfx("-Q_con_u"), type=float, default=1.0, help="Input constraints penalty weight."
-    # )
-    # weight_group.add_argument(
-    #     pfx("-Q_r"), type=float, default=0.0, help="Reference tracking penalty weight"
-    # )
-    # weight_group.add_argument(
-    #     pfx("-Q_du"),
-    #     type=float,
-    #     default=1.0,
-    #     help="control action difference penalty weight",
-    # )
 
     # objective and constraints variations
     weight_group.add_argument(pfx("-con_tighten"), action="store_true")
@@ -242,13 +225,9 @@ def update_system_id_inputs(args, dataset, estimator, dynamics_model):
         dynamics_model.fe = None
         dynamics_model.fyu = None
 
-    # dynamics_model.input_keys[3] = 'D_ctrl_f'
-    # dynamics_model.data_dims['D_ctrl_f'] = dataset.dims['Df']
-
     estimator.input_keys[0] = 'Y_ctrl_p'
     estimator.data_dims = dataset.dims
     estimator.data_dims['Y_ctrl_p'] = dataset.dims['Yp']
-    # estimator.data_dims = {**dataset.dims, 'Y_ctrl_p': estimator.data_dims['Yp']}
     estimator.nsteps = args.nsteps
 
     return estimator, dynamics_model
@@ -277,8 +256,6 @@ def get_policy_components(args, dataset, dynamics_model, policy_name="policy"):
         "rnn": policies.RNNPolicy,
     }[args.policy](
         {"x0_estim": (dynamics_model.nx,), **dataset.dims},
-        # {"x0_estim": (dynamics_model.nx,),
-        #  'Y_ctrl_minf': (dynamics_model.ny,), **dataset.dims},
         nsteps=args.nsteps,
         bias=args.bias,
         linear_map=linmap,
@@ -288,7 +265,6 @@ def get_policy_components(args, dataset, dynamics_model, policy_name="policy"):
         linargs=linargs,
         name=policy_name,
     )
-    # policy.data_dims['Y_ctrl_minf'] = dataset.dims['Y_minf']
     return policy
 
 
@@ -317,7 +293,6 @@ def get_objective_terms(args, policy):
     control_min = Objective(
         [f"U_pred_{policy.name}"],
         lambda x: F.mse_loss(x, torch.zeros(x.shape)),
-        # lambda x: torch.mean(x),
         weight=args.Q_umin,
         name="control_min",
     )
@@ -331,22 +306,9 @@ def get_objective_terms(args, policy):
     control_dT_ref = Objective(
         [f"U_pred_{policy.name}"],
         lambda x: F.mse_loss(x[:,:,-1], 1.0*torch.ones(x[:,:,-1].shape)),
-        # lambda x: torch.mean(x),
         weight=args.Q_dT_ref,
         name="control_dT_ref",
     )
-    # observation_lower_bound_penalty = Objective(
-    #     [output_key, "Y_ctrl_minf"],
-    #     lambda x, xmin: torch.mean(F.relu(-x[:, :, args.controlled_outputs] + xmin)),
-    #     weight=args.Q_con_y,
-    #     name="observation_lower_bound",
-    # )
-    # observation_upper_bound_penalty = Objective(
-    #     [output_key, "Y_ctrl_maxf"],
-    #     lambda x, xmax: torch.mean(F.relu(x[:, :, args.controlled_outputs] - xmax)),
-    #     weight=args.Q_con_y,
-    #     name="observation_upper_bound",
-    # )
     observation_lower_bound_penalty = Objective(
         [output_key, "Y_minf"],
         lambda x, xmin: torch.mean(F.relu(-x[:, :, args.controlled_outputs] + xmin)),
@@ -424,7 +386,6 @@ def add_reference_features(args, dataset, dynamics_model):
         new_sequences = {"Y": dataset.data["Y"][:, :1]}
         dataset.add_data(new_sequences, overwrite=True)
 
-    # nsim = dataset.data["Y"].shape[0]
     nsim = dataset.dims['nsim']
     nu = dataset.data["U"].shape[1]
     ny = len(args.controlled_outputs)

@@ -93,6 +93,16 @@ if __name__ == "__main__":
     # x0 = f_estim(Yp)
     # x0: initial values of latent variables estimated from time lagged outputs Yp
 
+    ny = dataset.dims['Y'][1]
+    nu = dataset.dims['U'][1]
+
+    # neural network blocks
+    fx = blocks.RNN(nx, nx)
+    fy = slim.maps['pf'](nx, ny, linargs=linargs)
+    fu = block(nu, nx) if nu != 0 else None
+
+    dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics',
+                                       input_keys={'x0': f'x0_{estimator.name}'})
 
 
     """    
@@ -103,7 +113,54 @@ if __name__ == "__main__":
     # Problem = model components + constraints + objectives
     """
 
-    # code here
+    xmin = -0.2
+    xmax = 1.2
+    dxudmin = -0.05
+    dxudmax = 0.05
+
+    #  L_r = Q_y*|| Y_pred_dynamics - Yf ||_2^2  or L_r = Q_y*mse(Y_pred_dynamics - Yf)
+    reference_loss = Objective(
+        [f"Y_pred_{dynamics_model.name}", "Yf"], F.mse_loss, weight=args.Q_y, name="ref_loss"
+    )
+
+    estimator_loss = Objective(
+        [f"X_pred_{dynamics_model.name}", f"x0_{estimator.name}"],
+        lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
+        weight=args.Q_e,
+        name="arrival_cost",
+    )
+    regularization = Objective(
+        [f"reg_error_{estimator.name}", f"reg_error_{dynamics_model.name}"],
+        lambda reg1, reg2: reg1 + reg2,
+        weight=args.Q_sub,
+        name="reg_error",
+    )
+    state_smoothing = Objective(
+        [f"X_pred_{dynamics_model.name}"],
+        lambda x: F.mse_loss(x[1:], x[:-1]),
+        weight=args.Q_dx,
+        name="state_smoothing",
+    )
+    # inequality constraints
+    observation_lower_bound_penalty = Objective(
+        [f"Y_pred_{dynamics_model.name}"],
+        lambda x: torch.mean(F.relu(-x + xmin)),
+        weight=args.Q_con_x,
+        name="y_low_bound_error",
+    )
+    observation_upper_bound_penalty = Objective(
+        [f"Y_pred_{dynamics_model.name}"],
+        lambda x: torch.mean(F.relu(x - xmax)),
+        weight=args.Q_con_x,
+        name="y_up_bound_error",
+    )
+
+    objectives = [regularization, reference_loss, estimator_loss]
+    constraints = [
+        state_smoothing,
+        observation_lower_bound_penalty,
+        observation_upper_bound_penalty,
+    ]
 
 
     """    
@@ -113,8 +170,10 @@ if __name__ == "__main__":
 
     #  trainer = problem + dataset + optimizer
     """
-
-    # code here
+    # estimator -> dynamics_model
+    components = [estimator, dynamics_model]
+    model = Problem(objectives, constraints, components)
+    model = model.to(device)
 
 
     """    

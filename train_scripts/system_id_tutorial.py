@@ -50,7 +50,7 @@ if __name__ == "__main__":
     # U = inputs
     # D = disturbances
     # Yp = past trajectories generated as Y[0:-nsteps]
-    # Xf = future trajectories generated as Y[nesteps:]
+    # Yf = future trajectories generated as Y[nesteps:]
 
     #  Train, Development, Test sets
     dataset.train_data['Yp'].shape
@@ -165,10 +165,10 @@ if __name__ == "__main__":
 
     """    
     # # # # # # # # # # # # # # # # # # #
-    # # #     OPTIMIZATION      # # # # #
+    # # #   Problem Definition    # # # # 
     # # # # # # # # # # # # # # # # # # #
 
-    #  trainer = problem + dataset + optimizer
+    #  problem = objectives + constraints + components
     """
     # estimator -> dynamics_model
     components = [estimator, dynamics_model]
@@ -178,10 +178,45 @@ if __name__ == "__main__":
 
     """    
     # # # # # # # # # # # # # # # # # # #
+    # # #        Training         # # # # 
+    # # # # # # # # # # # # # # # # # # #
+
+    #  trainer = problem + dataset + optimizer
+    """
+
+    simulator = OpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    trainer = Trainer(
+        model,
+        dataset,
+        optimizer,
+        simulator=simulator,
+        logger=logger,
+        epochs=args.epochs,
+        eval_metric=args.eval_metric,
+        patience=args.patience,
+        warmup=args.warmup,
+    )
+
+    best_model = trainer.train()
+
+    """    
+    # # # # # # # # # # # # # # # # # # #
     # # #        RESULTS        # # # # #
     # # # # # # # # # # # # # # # # # # #
 
     # visualize and log results
     """
+    best_outputs = trainer.evaluate(best_model)
+    visualizer = VisualizerOpen(
+        dataset,
+        dynamics_model,
+        args.verbosity,
+        args.savedir,
+        training_visuals=False,
+        trace_movie=False,
+    )
+    plots = visualizer.eval(best_outputs)
 
-    # code here
+    logger.log_artifacts(plots)
+    logger.clean_up()

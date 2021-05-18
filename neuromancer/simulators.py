@@ -18,22 +18,24 @@ from neuromancer.datasets import Dataset, DataDict
 
 
 class Simulator:
-    def __init__(self, model: Problem, dataset: Dataset, emulator: EmulatorBase = None, eval_sim=True):
+    def __init__(self, model: Problem, train_data: Dataset, dev_data, test_data, emulator: EmulatorBase = None, eval_sim=True):
         self.model = model
-        self.dataset = dataset
+        self.train_data = train_data
+        self.dev_data = dev_data
+        self.test_data = test_data
         self.emulator = emulator
         self.eval_sim = eval_sim
 
     def dev_eval(self):
         if self.eval_sim:
-            dev_loop_output = self.model(self.dataset.dev_loop)
+            dev_loop_output = self.model(self.dev_data)
         else:
             dev_loop_output = dict()
         return dev_loop_output
 
     def test_eval(self):
         all_output = dict()
-        for data, dname in zip([self.dataset.train_loop, self.dataset.dev_loop, self.dataset.test_loop],
+        for data, dname in zip([self.train_data, self.dev_data, self.test_data],
                                ['train', 'dev', 'test']):
             all_output = {**all_output, **self.simulate(data)}
         return all_output
@@ -43,9 +45,9 @@ class Simulator:
 
 
 class OpenLoopSimulator(Simulator):
-    def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None,
+    def __init__(self, model: Problem, train_data: Dataset, dev_data, test_data, emulator: [EmulatorBase, nn.Module] = None,
                  eval_sim=True):
-        super().__init__(model=model, dataset=dataset, emulator=emulator, eval_sim=eval_sim)
+        super().__init__(model=model, train_data=train_data, dev_data=dev_data, test_data=test_data, emulator=emulator, eval_sim=eval_sim)
 
     def simulate(self, data):
         return self.model(data)

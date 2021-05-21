@@ -10,7 +10,7 @@ from neuromancer.data.normalization import norm_fns
 
 def _extract_var(data, regex):
     filtered = data.filter(regex=regex).values
-    return filtered if filtered.values.size != 0 else None
+    return filtered if filtered.size != 0 else None
 
 
 def read_file(file_path):
@@ -22,12 +22,14 @@ def read_file(file_path):
     if file_type == "mat":
         f = loadmat(file_path)
         Y = f.get("y", None)  # outputs
+        X = f.get("x", None)
         U = f.get("u", None)  # inputs
         D = f.get("d", None)  # disturbances
         id_ = f.get("exp_id", None)  # experiment run id
     elif file_type == "csv":
         data = pd.read_csv(file_path)
         Y = _extract_var(data, "y[0-9]*")
+        X = _extract_var(data, "x[0-9]*")
         U = _extract_var(data, "u[0-9]*")
         D = _extract_var(data, "d[0-9]*")
         id_ = _extract_var(data, "exp_id")
@@ -35,7 +37,7 @@ def read_file(file_path):
         print(f"error: unsupported file type: {file_type}")
 
     return {
-        k: v for k, v in zip(["Y", "U", "D", "exp_id"], [Y, U, D, id_]) if v is not None
+        k: v for k, v in zip(["Y", "X", "U", "D", "exp_id"], [Y, X, U, D, id_]) if v is not None
     }
 
 
@@ -60,7 +62,7 @@ class SequenceDataset(Dataset):
         name="data",
     ):
         """Dataset for handling sequential data and transforming it into the dictionary structure
-        used by NeuroMANCER.
+        used by NeuroMANCER models.
 
         :param data: (dict str: np.array) dictionary mapping variable names to tensors of shape
             (T, Dk), where T is number of time steps and Dk is dimensionality of variable k
@@ -162,7 +164,7 @@ def normalize_data(data, norm_type, stats=None):
     """Normalize data, optionally using arbitrary statistics (e.g. computed from train split).
 
     :param data: (dict str: np.array) data dictionary
-    :param norm_type: (str) type of normalization to use; can be "zero-one", "one-one", or "z-score"
+    :param norm_type: (str) type of normalization to use; can be "zero-one", "one-one", or "zscore"
     :param stats: (dict str: np.array) statistics to use for normalization. Default is None, in which
         case stats are inferred by underlying normalization function
     """
@@ -245,18 +247,21 @@ def get_sequence_dataloaders(
     train_data = torch.utils.data.DataLoader(
         train_data,
         batch_size=len(train_data),
+        shuffle=False,
         collate_fn=train_data.collate_fn,
         num_workers=num_workers,
     )
     dev_data = torch.utils.data.DataLoader(
         dev_data,
         batch_size=len(dev_data),
+        shuffle=False,
         collate_fn=dev_data.collate_fn,
         num_workers=num_workers,
     )
     test_data = torch.utils.data.DataLoader(
         test_data,
         batch_size=len(test_data),
+        shuffle=False,
         collate_fn=test_data.collate_fn,
         num_workers=num_workers,
     )
@@ -284,7 +289,7 @@ if __name__ == "__main__":
     # data = emu.simulate()
 
     data = read_file(psl.datasets["aero"])
-    nstep_data, loop_data = get_sequence_dataloaders(data, 32, num_workers=2)
+    nstep_data, loop_data = get_sequence_dataloaders(data, 32, norm_type="zero-one", num_workers=2)
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data
 
@@ -297,23 +302,23 @@ if __name__ == "__main__":
     linmap = slim.maps["linear"]
     linargs = {"sigma_min": 0.1, "sigma_max": 1.0}
 
-    nonlinmap = blocks.MLP
+    nonlinmap = blocks.RNN
 
-    estimator = estimators.MLPEstimator(
-        {**train_data.dataset.dims, "x0": (nx * 32,)},
+    estimator = estimators.RNNEstimator(
+        {**train_data.dataset.dims, "x0": (nx * 64,)},
         nsteps=32,
-        window_size=8,
+        window_size=32,
         bias=False,
         linear_map=linmap,
         nonlin=activation,
-        hsizes=[nx * 32] * 2,
+        hsizes=[nx * 64] * 2,
         input_keys=["Yp"],
         linargs=linargs,
         name="estim",
     )
     dynamics_model = dynamics.block_model(
-        "hammerstein",
-        {**train_data.dataset.dims, "x0_estim": (nx * 32,)},
+        "blocknlin",
+        {**train_data.dataset.dims, "x0_estim": (nx * 64,)},
         linmap,
         nonlinmap,
         bias=False,
@@ -337,7 +342,7 @@ if __name__ == "__main__":
     regularization = problem.Objective(
         [f"reg_error_{estimator.name}", f"reg_error_{dynamics_model.name}"],
         lambda reg1, reg2: reg1 + reg2,
-        weight=0,
+        weight=1.0,
         name="reg_error",
     )
     reference_loss = problem.Objective(
@@ -378,8 +383,8 @@ if __name__ == "__main__":
         state_smoothing,
         observation_lower_bound_penalty,
         observation_upper_bound_penalty,
-        inputs_max_influence_lb,
-        inputs_max_influence_ub,
+        # inputs_max_influence_lb,
+        # inputs_max_influence_ub,
     ]
 
     model = problem.Problem(objectives, constraints, [estimator, dynamics_model])
@@ -396,6 +401,8 @@ if __name__ == "__main__":
             "best_nstep_dev_ref_loss",
             "loop_dev_ref_loss",
             "best_loop_dev_ref_loss",
+            "mean_loop_dev_ref_loss",
+            "mean_nstep_dev_ref_loss",
         ),
     )
 
@@ -403,15 +410,15 @@ if __name__ == "__main__":
         model, train_loop, dev_loop, test_loop, eval_sim=False
     )
     callback = callbacks.SysIDCallback(simulator, None)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=0.002)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.005)
     trainer = trainer.Trainer(
         model,
         train_data,
         dev_data,
         test_data,
         optimizer,
-        epochs=100,
-        patience=100,
+        epochs=500,
+        patience=500,
         logger=logger,
         callback=callback,
         eval_metric="nstep_dev_ref_loss",

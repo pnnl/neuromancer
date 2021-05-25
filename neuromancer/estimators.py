@@ -111,6 +111,7 @@ class seq2seqTimeDelayEstimator(TimeDelayEstimator):
         self.nx = data_dims['x0'][-1]
         self.timedelay = timedelay
         self.nx_td = self.nx * (1+self.timedelay)
+        print('nx_td', self.nx_td)
         self.out_features = self.nx_td
 
     def forward(self, data):
@@ -121,6 +122,9 @@ class seq2seqTimeDelayEstimator(TimeDelayEstimator):
         """
         features = self.features(data)
         Xtd = self.net(features).view(self.timedelay+1, -1, self.nx)
+        print('outfeats', self.out_features)
+        print('netoutfeats', self.net.out_features)
+        print(Xtd.shape)
         return {f'Xtd_{self.name}': Xtd, f'reg_error_{self.name}': self.reg_error()}
 
 
@@ -163,7 +167,9 @@ class seq2seqLinearEstimator(seq2seqTimeDelayEstimator):
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys,
                          timedelay=timedelay, name=name)
+        print('infeats', self.in_features, 'out_feats', self.out_features)
         self.net = linear_map(self.in_features, self.out_features, bias=bias, **linargs)
+        print('netin', self.net.in_features, 'netout', self.net.out_features)
 
 
 class MLPEstimator(TimeDelayEstimator):

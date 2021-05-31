@@ -164,7 +164,7 @@ if __name__ == "__main__":
     simulator = CLSimulator(
         model=model, dataset=dataset, emulator=dynamics_model, policy=policy,
         gt_emulator=psl.emulators[args.system](),
-        diff=False, K_r=5.0, Ki_r=0.1, Ki_con=0.1, integrator_steps=30,
+        diff=True, K_r=5.0, Ki_r=0.1, Ki_con=0.1, integrator_steps=30,
     )
 
     # # # # # # # # # # # #

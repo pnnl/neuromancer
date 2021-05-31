@@ -122,7 +122,7 @@ def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
         ax[k, 0].plot(Ymin[:, k], '--', linewidth=3, c='k') if Ymin[:, k] is not None else None
         ax[k, 0].plot(Ymax[:, k], '--', linewidth=3, c='k') if Ymax[:, k] is not None else None
         ax[k, 0].set_xlim(0, Y.shape[0])
-        ax[k, 0].set_ylim(12, 32)
+        ax[k, 0].set_ylim(15, 32)
 
         ax[k, 1].plot(U[:, k], linewidth=3, c=colors[k])
         ax[k, 1].plot(Umin[:, k], '--', linewidth=3, c='k') if Umin is not None else None

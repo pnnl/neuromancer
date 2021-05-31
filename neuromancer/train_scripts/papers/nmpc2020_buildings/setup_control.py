@@ -95,8 +95,8 @@ def get_parser(parser=None, add_prefix=False):
 
     # TODO:update path after training a new model using system_id.py
     # path = f"./test/Reno_full_best_model.pth"
-    # path = f"./sys_ID_models/model3/Reno_full_best_model.pth"
-    path = f"./sys_ID_models/model8/Reno_full_best_model.pth"
+    path = f"./sys_ID_models/model3/Reno_full_best_model.pth"
+    # path = f"./sys_ID_models/model8/Reno_full_best_model.pth"
 
     data_group.add_argument('-model_file', type=str, default=path)
 
@@ -181,10 +181,7 @@ def get_parser(parser=None, add_prefix=False):
         pfx("-Q_sub"), type=float, default=0.2, help="Linear maps regularization weight."
     )
     weight_group.add_argument(
-        pfx("-Q_umin"), type=float, default=2.0, help="Input minimization weight."
-    )
-    weight_group.add_argument(
-        pfx("-Q_dT_ref"), type=float, default=1.0, help="dT static reference weight."
+        pfx("-Q_umin"), type=float, default=0.5, help="Input minimization weight."
     )
     weight_group.add_argument(
         pfx("-Q_con_u"), type=float, default=1.0, help="Input constraints penalty weight."
@@ -195,9 +192,17 @@ def get_parser(parser=None, add_prefix=False):
     weight_group.add_argument(
         pfx("-Q_du"),
         type=float,
-        default=0.0,
+        default=1.0,
         help="control action difference penalty weight",
     )
+
+    # weight_group.add_argument(
+    #     pfx("-Q_umin"), type=float, default=2.0, help="Input minimization weight."
+    # )
+    # weight_group.add_argument(
+    #     pfx("-Q_dT_ref"), type=float, default=1.0, help="dT static reference weight."
+    # )
+
 
     # objective and constraints variations
     weight_group.add_argument(pfx("-con_tighten"), action="store_true")
@@ -302,13 +307,13 @@ def get_objective_terms(args, policy):
         weight=args.Q_du,
         name="control_smoothing",
     )
-    # dT spt fixed ref
-    control_dT_ref = Objective(
-        [f"U_pred_{policy.name}"],
-        lambda x: F.mse_loss(x[:,:,-1], 1.0*torch.ones(x[:,:,-1].shape)),
-        weight=args.Q_dT_ref,
-        name="control_dT_ref",
-    )
+    # # dT spt fixed ref
+    # control_dT_ref = Objective(
+    #     [f"U_pred_{policy.name}"],
+    #     lambda x: F.mse_loss(x[:,:,-1], 1.0*torch.ones(x[:,:,-1].shape)),
+    #     weight=args.Q_dT_ref,
+    #     name="control_dT_ref",
+    # )
     observation_lower_bound_penalty = Objective(
         [output_key, "Y_minf"],
         lambda x, xmin: torch.mean(F.relu(-x[:, :, args.controlled_outputs] + xmin)),
@@ -361,7 +366,7 @@ def get_objective_terms(args, policy):
             name="input_upper_bound",
         )
 
-    objectives = [regularization, reference_loss, control_dT_ref,
+    objectives = [regularization, reference_loss,
                   control_min, control_smoothing]
     constraints = [
         observation_lower_bound_penalty,

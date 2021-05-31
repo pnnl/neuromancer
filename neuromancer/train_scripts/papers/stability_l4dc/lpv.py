@@ -20,6 +20,10 @@ def lpv_batched(fx, x):
         b = lin.bias if lin.bias is not None else torch.zeros(A.shape[-1])
         Ax = torch.matmul(x_layer, A) + b  # affine transform
 
+        # lin.bias.data = torch.zeros(lin.bias.data.shape)
+        # print(Ax)
+        # print(lin(x_layer))
+
         zeros = Ax == 0
         lambda_h = nlin(Ax) / Ax  # activation scaling
         lambda_h[zeros] = 0.  # TODO: use activation gradients instead of zeros
@@ -143,14 +147,18 @@ if __name__ == "__main__":
     # verify different activations
     activations = [nn.ReLU6, nn.ReLU, nn.PReLU, nn.GELU, nn.CELU, nn.ELU,
                 nn.LogSigmoid, nn.Sigmoid, nn.Tanh]
-    for act in activations:
-        print(f'current activation {act}')
-        fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx, nx, nx], linear_map=slim.Linear, bias=test_bias)
-        print(fx_a(x_z))
-        Astar, Astar_b, *_ = lpv(fx_a, x_z)
-        print(torch.matmul(x_z, Astar_b if test_bias else Astar))
-        Astar, *_ = lpv_batched(fx_a, x_z)
-        print(torch.matmul(x_z, Astar))
+    linears = [slim.Linear, slim.linear.PerronFrobeniusLinear, slim.linear.SVDLinear,
+               slim.linear.GershgorinLinear, slim.linear.SkewSymmetricLinear]
+    for linear in linears:
+        for act in activations:
+            print(f'current activation {act}')
+            fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx, nx, nx],
+                              linear_map=linear, bias=test_bias)
+            print(fx_a(x_z))
+            Astar, Astar_b, bstar, *_ = lpv(fx_a, x_z)
+            print(torch.matmul(x_z, Astar_b if test_bias else Astar)+bstar)
+            Astar, bstar, *_ = lpv_batched(fx_a, x_z)
+            print(torch.matmul(x_z, Astar)+bstar)
 
     # perf testing for batched vs. sequential LPV implementations
     for act in activations:

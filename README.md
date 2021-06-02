@@ -56,7 +56,7 @@ TODO: add arxiv link
 
 
 ![methodology.](figs/methodology.png)
-*Conceptual methodology*
+*Conceptual methodology.*
 
 #### Paper results
 
@@ -76,7 +76,7 @@ In this work we fix this by introducing simple PI feedback to correct the contro
 #### Run experiments
 
 Setup system identification with neural state space models:
-[system_id](neuromancer/train_scripts/papers/nmpc2020_buildings/setup_system_id.py)
+[system_id](neuromancer/train_scripts/papers/nmpc2020_buildings/setup_system_id.py)  
 Run system identification with neural state space models:
 [system_id](neuromancer/train_scripts/papers/nmpc2020_buildings/system_id.py)  
 Setup DPC problem and architecture:

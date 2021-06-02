@@ -139,7 +139,7 @@ def opt(prefix=''):
     gp.add("-patience", type=int, default=20,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
 
-    gp.add("-warmup", type=int, default=10,
+    gp.add("-warmup", type=int, default=100,
            help="Number of epochs to wait before enacting early stopping policy.")
 
     gp.add("-skip_eval_sim", action="store_true",

@@ -63,13 +63,13 @@ TODO: add arxiv link
 Left column: temperature profiles of six zones with corresponding constraints (dashed-black).  
 Right column: Mass flow profiles with with corresponding constraints (dashed-black).
 
-![methodology.](figs/DPC_nominal_model2.png)
+![DPC_nominal.](figs/DPC_nominal_model2.png)
 *Closed-loop control of the nominal model with DPC control policy.*
 
 Due to the unmodeled plant-model mismatch the DPC policy trained using nominal model might get unstable.
 In this work we fix this by introducing simple PI feedback to correct the control errors.
 
-![methodology.](figs/DPC_gt_model2.png)
+![DPC_gt.](figs/DPC_gt_model2.png)
 *Closed-loop control of the emulator model with DPC control policy and PI feedback correctors.*
 
 

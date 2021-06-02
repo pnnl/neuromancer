@@ -12,6 +12,7 @@ tests/test
 **/build
 *.vscode
 **/dist
+*.png
 *.eps
 *.pdf
 *.jpg

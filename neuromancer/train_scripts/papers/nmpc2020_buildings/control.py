@@ -6,6 +6,7 @@ and loss function definitions are defined in file ./setup_control.py
 DPC algorithm
     1, Obtain dataset of observations of the dynamical system
         (in our case from psl library)
+        https://github.com/pnnl/psl
     2, System identification
         2a, setup system identification via ./setup_system_id.py
         2b, perform system identification via ./system_id.py
@@ -30,13 +31,11 @@ import psl      # library for generating training datasets by simulating dynamic
 import numpy as np
 
 
-
-
-
 if __name__ == "__main__":
     # # # # # # # # # # # # # # # # #
     # # # ARGS and DATASET  # # # # #
     # # # # # # # # # # # # # # # # #
+
     parser = ctrl.get_parser()     # for argument choices see ./setup_control.py
     args = parser.parse_args()
     args.savedir = 'test_control'  # directory for saving results
@@ -67,11 +66,7 @@ if __name__ == "__main__":
     dataset.dims['Y_ctrl_minf'] = dataset.dims['Y_minf']
     dataset.dims['Y_ctrl_maxf'] = dataset.dims['Y_maxf']
     # Number of output features, depends on the model architecture type
-        # # USE for standard BlockSSM:
-        # ny = dynamics_model.fy.out_features
-        # # USE for DecoupSISO_BlockSSM_building
     ny = dynamics_model.out_features
-
 
     # # # # # # # # # # # # # # # # # # # # #
     # # #  DPC Architecture components  # # #
@@ -161,10 +156,12 @@ if __name__ == "__main__":
     # Simulator object for performing closed-loop simulation
     # for details see simulators.py in the main package folder
     policy.input_keys[0] = "Yp"  # update policy input key for compatibility with simulator
+
+    # diff = True for evaluation with PI corrective feedback
     simulator = CLSimulator(
         model=model, dataset=dataset, emulator=dynamics_model, policy=policy,
         gt_emulator=psl.emulators[args.system](),
-        diff=True, K_r=5.0, Ki_r=0.1, Ki_con=0.1, integrator_steps=30,
+        diff=False, K_r=5.0, Ki_r=0.1, Ki_con=0.1, integrator_steps=30,
     )
 
     # # # # # # # # # # # #

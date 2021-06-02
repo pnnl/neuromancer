@@ -102,7 +102,8 @@ def get_parser(parser=None):
         "-SISO_decoupling",
         type=str,
         choices=[True, False],
-        default=True,
+        default=False,
+        help="if true learning decoupled SISO models instead of MIMO model",
     )
     model_group.add_argument(
         "-nx_hidden", type=int, default=20, help="Number of hidden states per output"
@@ -449,14 +450,6 @@ def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynam
                                         n_layers=args.n_layers, activation=activation,
                                         linargs=linargs, name=dynamics_name,
                                         input_keys={'x0': f'x0_{estimator.name}'})
-        # dynamics_model = \
-        #     dynamics.DecoupSISO_BlockSSM(args.ssm_type,
-        #                                  {**dataset.dims, "x0_estim": (nx,)},
-        #                                 linmap, nonlinmap, bias=args.bias,
-        #                                 nu_siso=1, ny_siso=1, nx_siso=args.nx_hidden,
-        #                                 n_layers=args.n_layers, activation=activation,
-        #                                 linargs=linargs, name=dynamics_name,
-        #                                 input_keys={'x0': f'x0_{estimator.name}'})
     else:
         dynamics_model = (
             dynamics.blackbox_model(

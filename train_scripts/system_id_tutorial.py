@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     # for available systems in PSL library check: psl.systems.keys()
     # for available datasets in PSL library check: psl.datasets.keys()
-    system = 'new_system'         # keyword of selected system
+    system = 'aero'         # keyword of selected system
 
     # load argument parser
     parser = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.data(system=system),
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     linargs = {"sigma_min": 0.5, "sigma_max": 1.0}
     block = blocks.MLP
 
-    nx = 90  # size of the latend variables
+    nx = 90  # size of the latent variables
     estimator = estimators.MLPEstimator(
         {**dataset.dims, "x0": (nx,)},
         nsteps=args.nsteps,  # future window Nf
@@ -115,8 +115,8 @@ if __name__ == "__main__":
 
     xmin = -0.2
     xmax = 1.2
-    dxudmin = -0.05
-    dxudmax = 0.05
+    dxudmin = -0.5
+    dxudmax = 0.5
 
     #  L_r = Q_y*|| Y_pred_dynamics - Yf ||_2^2  or L_r = Q_y*mse(Y_pred_dynamics - Yf)
     reference_loss = Objective(
@@ -183,7 +183,7 @@ if __name__ == "__main__":
 
     #  trainer = problem + dataset + optimizer
     """
-
+    args.epochs = 1000
     simulator = OpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     trainer = Trainer(

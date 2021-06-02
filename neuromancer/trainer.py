@@ -8,32 +8,33 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 
 from neuromancer.loggers import BasicLogger
-from neuromancer.visuals import Visualizer
 from neuromancer.problem import Problem
 from neuromancer.datasets import Dataset
-from neuromancer.simulators import Simulator
-
-
-def reset(module):
-    for mod in module.modules():
-        if hasattr(mod, "reset") and mod is not module:
-            mod.reset()
+from neuromancer.callbacks import Callback
 
 
 class Trainer:
+    """
+    Class encapsulating boilerplate PyTorch training code. Training procedure is somewhat
+    extensible through methods in Callback objects associated with training and evaluation
+    waypoints.
+    """
     def __init__(
         self,
         problem: Problem,
         dataset: Dataset,
         optimizer: torch.optim.Optimizer,
         logger: BasicLogger = None,
-        visualizer: Visualizer = None,
-        simulator: Simulator = None,
+        callback=Callback(),
         lr_scheduler=False,
         epochs=1000,
-        eval_metric="loop_dev_loss",
         patience=5,
         warmup=0,
+        train_metric="nstep_train_loss",
+        dev_metric="nstep_dev_loss",
+        test_metric="nstep_test_loss",
+        eval_metric="loop_dev_loss",
+        eval_mode="min",
         clip=100.0,
     ):
         """
@@ -42,24 +43,26 @@ class Trainer:
         :param dataset: Batched (over chunks of time if sequence data) dataset for non-stochastic gradient descent
         :param optimizer: Pytorch optimizer
         :param logger: Object for logging results
-        :param visualizer: Object for creating visualizations of the model during and after training
-        :param simulator: Object for simulating learned model for assessing performance
         :param epochs: (int) Number of epochs to train
-        :param eval_metric: (str) Performance metric for model selection and early stopping
         :param patience: (int) Number of epochs to allow no improvement before early stopping
-        :param warmstart: (int) How many epochs to wait before enacting early stopping policy
+        :param warmup: (int) How many epochs to wait before enacting early stopping policy
+        :param eval_metric: (str) Performance metric for model selection and early stopping
         """
         self.model = problem
         self.optimizer = optimizer
         self.dataset = dataset
+        self.callback = callback
         self.logger = logger
-        self.visualizer = visualizer
-        self.simulator = simulator
         self.epochs = epochs
+        self.current_epoch = 0
         self.logger.log_weights(self.model)
+        self.train_metric = train_metric
+        self.dev_metric = dev_metric
+        self.test_metric = test_metric
         self.eval_metric = eval_metric
+        self._eval_min = eval_mode == "min"
         self.lr_scheduler = (
-            ReduceLROnPlateau(self.optimizer, mode="min", factor=0.5)
+            ReduceLROnPlateau(self.optimizer, mode="min", factor=0.5, patience=100)
             if lr_scheduler
             else None
         )
@@ -67,156 +70,99 @@ class Trainer:
         self.warmup = warmup
         self.badcount = 0
         self.clip = clip
+        self.best_devloss = np.finfo(np.float32).max if self._eval_min else 0.
+        self.best_model = deepcopy(self.model.state_dict())
 
     def train(self):
-        best_devloss = np.finfo(np.float32).max
-        best_model = deepcopy(self.model.state_dict())
+        """
+        Optimize model according to train_metric and validate per-epoch according to eval_metric.
+        Trains for self.epochs and terminates early if self.patience threshold is exceeded.
+        """
+        self.callback.begin_train(self)
+
         for i in range(self.epochs):
+            self.current_epoch = i
             self.model.train()
-            output = self.model(self.dataset.train_data)
-            self.optimizer.zero_grad()
-            output["nstep_train_loss"].backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
-            self.optimizer.step()
+            losses = []
+            for t_batch in self.dataset.train_data:
+                output = self.model(t_batch)
+                self.optimizer.zero_grad()
+                output[self.train_metric].backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
+                self.optimizer.step()
+                losses.append(output[self.train_metric])
+
+            output[f'mean_{self.train_metric}'] = torch.mean(torch.stack(losses))
+            self.callback.begin_epoch(self, output)
+
             if self.lr_scheduler is not None:
-                self.lr_scheduler.step(output["nstep_train_loss"])
+                self.lr_scheduler.step(output[f'mean_{self.train_metric}'])
+
             with torch.no_grad():
                 self.model.eval()
-                dev_data_output = self.model(self.dataset.dev_data)
-                dev_sim_output = self.simulator.dev_eval()
-                output = {**output, **dev_data_output, **dev_sim_output}
-                if output[self.eval_metric] < best_devloss:
+                losses = []
+                for d_batch in self.dataset.dev_data:
+                    eval_output = self.model(d_batch)
+                    losses.append(eval_output[self.dev_metric])
+                eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
+                output = {**output, **eval_output}
+                self.callback.begin_eval(self, output)  # potential simulator
+
+                if (self._eval_min and output[self.eval_metric] < self.best_devloss)\
+                        or (not self._eval_min and output[self.eval_metric] > self.best_devloss):
                     best_model = deepcopy(self.model.state_dict())
-                    best_devloss = output[self.eval_metric]
+                    self.best_devloss = output[self.eval_metric]
                     self.badcount = 0
                 else:
                     if i > self.warmup:
                         self.badcount += 1
                 self.logger.log_metrics(output, step=i)
 
-                if self.visualizer is not None:
-                    self.visualizer.train_plot(output, i)
+                self.callback.end_eval(self, output)  # visualizations
+
+            self.callback.end_epoch(self, output)
 
             if self.badcount > self.patience:
                 break
 
-        plots = self.visualizer.train_output() if self.visualizer is not None else {}
-        self.logger.log_artifacts(
-            {
-                f"{self.logger.args.system}_best_model_state_dict.pth": best_model,
-                f"{self.logger.args.system}_best_model.pth": self.model,
-                **plots,
-            }
-        )
+        self.callback.end_train(self, output)  # write training visualizations
+
+        self.logger.log_artifacts({
+            "best_model_state_dict.pth": best_model,
+            "best_model.pth": self.model,
+        })
         return best_model
 
-    ########################################
-    ########## EVALUATE MODEL ##############
-    ########################################
-    def evaluate(self, best_model):
-        self.model.eval()
+    def test(self, best_model):
+        """
+        Evaluate the model on all data splits.
+        """
         self.model.load_state_dict(best_model)
-        self.simulator.model.load_state_dict(best_model)
+        self.model.eval()
 
         with torch.no_grad():
-            ########################################
-            ########### DATASET RESPONSE ###########
-            ########################################
-            all_output = dict()
-            splits = [
-                self.dataset.train_data,
-                self.dataset.dev_data,
-                self.dataset.test_data,
-            ]
-            for dset, dname in zip(splits, ["train", "dev", "test"]):
-                all_output = {**all_output, **self.model(dset)}
-            ########################################
-            ########## SIMULATOR RESPONSE ##########
-            ########################################
-            test_sim_output = self.simulator.test_eval()
-            all_output = {**all_output, **test_sim_output}
+            self.callback.begin_test(self)  # setup simulator
+            output = {}
+            for dset, metric in zip([self.dataset.train_data, self.dataset.dev_data, self.dataset.test_data],
+                                    [self.train_metric, self.dev_metric, self.test_metric]):
+                losses = []
+                for batch in dset:
+                    batch_output = self.model(batch)
+                    losses.append(batch_output[metric])
+                output[f'mean_{metric}'] = torch.mean(torch.stack(losses))
+                output = {**output, **batch_output}
 
-        self.all_output = all_output
-        self.logger.log_metrics({f"best_{k}": v for k, v in all_output.items()})
-        if self.visualizer is not None:
-            plots = self.visualizer.eval(all_output)
-            self.logger.log_artifacts(plots)
-        return all_output
+            self.callback.end_test(self, output)    # simulator/visualizations/output concat
 
+        self.logger.log_metrics({f"best_{k}": v for k, v in output.items()})
 
-class TrainerMPP:
-    def __init__(
-        self,
-        problem: Problem,
-        dataset: Dataset,
-        optimizer: torch.optim.Optimizer,
-        logger: BasicLogger = None,
-        visualizer=Visualizer(),
-        epochs=1000,
-        eval_metric="dev_loss",
-    ):
-        self.model = problem
-        self.optimizer = optimizer
-        self.dataset = dataset
-        self.logger = logger
-        self.visualizer = visualizer
-        self.epochs = epochs
-        self.logger.log_weights(self.model)
-        self.eval_metric = eval_metric
+        return output
 
-    ########################################
-    ############# TRAIN LOOP ###############
-    ########################################
-    def train(self):
-        best_devloss = np.finfo(np.float32).max
-        best_model = deepcopy(self.model.state_dict())
-        best_model_full = self.model
-        for i in range(self.epochs):
-            self.model.train()
-            output = self.model(self.dataset.train_data)
-            self.optimizer.zero_grad()
-            output["train_loss"].backward()
-            self.optimizer.step()
-
-            with torch.no_grad():
-                self.model.eval()
-                dev_data_output = self.model(self.dataset.dev_data)
-                self.logger.log_metrics({**dev_data_output, **output}, step=i)
-                if dev_data_output[self.eval_metric] < best_devloss:
-                    best_model = deepcopy(self.model.state_dict())
-                    best_model_full = self.model
-                    best_devloss = dev_data_output[self.eval_metric]
-                self.visualizer.train_plot(dev_data_output, i)
-
-        plots = self.visualizer.train_output()
-        self.logger.log_artifacts({"best_model_stat_dict.pth": best_model, **plots})
-        return best_model, best_model_full
-
-    ########################################
-    ########## EVALUATE MODEL ##############
-    ########################################
     def evaluate(self, best_model):
-        self.model.eval()
-        self.model.load_state_dict(best_model)
-
-        with torch.no_grad():
-            ########################################
-            ########### DATASET RESPONSE ###########
-            ########################################
-            all_output = dict()
-            splits = [
-                self.dataset.train_data,
-                self.dataset.dev_data,
-                self.dataset.test_data,
-            ]
-            for dset, dname in zip(splits, ["train", "dev", "test"]):
-                all_output = {**all_output, **self.model(dset)}
-
-        self.all_output = all_output
-        self.logger.log_metrics({f"best_{k}": v for k, v in all_output.items()})
-        if self.visualizer is not None:
-            plots = self.visualizer.eval(all_output)
-            self.logger.log_artifacts(plots)
+        """
+        This method is deprecated. Use self.test instead.
+        """
+        return self.test(best_model)
 
 
 def freeze_weight(problem, module_names=['']):

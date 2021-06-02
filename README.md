@@ -1,5 +1,7 @@
 # NeuroMANCER
 ## Neural Modules with Adaptive Nonlinear Constraints and 	Efficient Regularizations
+
+## [Complete Documentation](https://pnnl.github.io/neuromancer/)
 ![UML diagram](figs/class_diagram.png)
 
 ## Setup

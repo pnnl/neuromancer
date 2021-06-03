@@ -161,8 +161,8 @@ class PELU(nn.Module):
         :param tune_beta: (bool) Whether to tune beta of parametric ELU functions
         """
         super().__init__()
-        self.alpha = nn.Parameter(torch.tensor(1.0), requires_grad=tune_alpha)
-        self.beta = nn.Parameter(torch.tensor(1.0), requires_grad=tune_beta)
+        self.alpha = nn.Parameter(torch.tensor(-1.), requires_grad=tune_alpha)
+        self.beta = nn.Parameter(torch.tensor(-1.), requires_grad=tune_beta)
 
     def forward(self, x):
         """

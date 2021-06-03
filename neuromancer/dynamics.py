@@ -359,6 +359,7 @@ class TimeDelayBlackSSM(BlackSSM):
         nsteps = data[y_out].shape[0]
         X, Y, FE = [], [], []
 
+        print(data)
         if u_in_f in data and u_in_p in data:
             Utd = torch.cat([data[u_in_p][-self.timedelay:], data[u_in_f]])  # shape=(T+nsteps, bs, nu)
         if d_in_f in data and d_in_p in data:

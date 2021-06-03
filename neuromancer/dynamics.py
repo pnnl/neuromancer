@@ -33,9 +33,10 @@ import torch.nn as nn
 import slim
 
 import neuromancer.blocks as blocks
+from neuromancer.component import Component
 
 
-class BlockSSM(nn.Module):
+class BlockSSM(Component):
     def __init__(self, fx, fy, fu=None, fd=None, fe=None, fyu=None,
                  xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, residual=False, name='block_ssm',
                  input_keys=dict()):
@@ -56,7 +57,12 @@ class BlockSSM(nn.Module):
         :param name: (str) Name for tracking output
         :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
         """
-        super().__init__()
+        super().__init__(
+            self.keys(input_keys),
+            ["X_pred", "Y_pred", "fU", "fD", "fE", "reg_error"],
+            name,
+        )
+
         self.fx, self.fy, self.fu, self.fd, self.fe, self.fyu = fx, fy, fu, fd, fe, fyu
         self.nx, self.ny, self.nu, self.nd = (
             self.fx.in_features,
@@ -72,8 +78,7 @@ class BlockSSM(nn.Module):
         self.out_features = self.fy.out_features
 
         self.check_features()
-        self.name, self.residual = name, residual
-        self.input_keys = self.keys(input_keys)
+        self.residual = residual
 
         # block operators
         self.xou = xou
@@ -149,7 +154,7 @@ class BlockSSM(nn.Module):
         return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
 
 
-class BlackSSM(nn.Module):
+class BlackSSM(Component):
     def __init__(self, fxud, fy, fe=None, fyu=None, xoe=torch.add, xoyu=torch.add, name='black_ssm', input_keys=dict(), residual=False):
         """
         Black box state space model with unstructured system dynamics:
@@ -165,11 +170,14 @@ class BlackSSM(nn.Module):
         :param residual: (bool) Whether to make recurrence in state space model residual
 
         """
-        super().__init__()
+        super().__init__(
+            BlockSSM.keys(input_keys),
+            ["X_pred", "Y_pred", "fE", "reg_error"],
+            name,
+        )
         self.fxud, self.fy, self.fe, self.fyu = fxud, fy, fe, fyu
         self.nx, self.ny = self.fxud.out_features, self.fy.out_features
-        self.name, self.residual = name, residual
-        self.input_keys = BlockSSM.keys(input_keys)
+        self.residual = residual
         self.xoe = xoe
         self.xoyu = xoyu
         self.in_features = self.fxud.out_features

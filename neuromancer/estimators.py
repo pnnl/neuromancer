@@ -18,6 +18,7 @@ import slim
 # local imports
 import neuromancer.blocks as blocks
 from neuromancer.dynamics import BlockSSM
+from neuromancer.component import Component
 
 
 def check_keys(k1, k2):
@@ -31,7 +32,7 @@ def check_keys(k1, k2):
         f'Missing values in dataset. Input_keys: {set(k1)}, data_keys: {set(k2)}'
 
 
-class TimeDelayEstimator(nn.Module):
+class TimeDelayEstimator(Component):
     def __init__(self, data_dims, nsteps=1, window_size=1, input_keys=['Yp'], name='estimator'):
         """
 
@@ -41,7 +42,11 @@ class TimeDelayEstimator(nn.Module):
         :param input_keys: (List of str) List of input variable names
         :param name: (str) Name for tracking output of module.
         """
-        super().__init__()
+        super().__init__(
+            input_keys,
+            ["x0", "reg_error"],
+            name,
+        )
         assert window_size <= nsteps, f'Window size {window_size} longer than sequence length {nsteps}.'
         check_keys(set(input_keys), set(data_dims.keys()))
         self.name, self.data_dims = name, data_dims
@@ -94,7 +99,10 @@ class TimeDelayEstimator(nn.Module):
         :return: (dict {str: torch.tensor)}
         """
         features = self.features(data)
-        return {f'x0_{self.name}': self.net(features), f'reg_error_{self.name}': self.reg_error()}
+        return {
+            f'x0_{self.name}': self.net(features),
+            f'reg_error_{self.name}': self.reg_error()
+        }
 
 
 class seq2seqTimeDelayEstimator(TimeDelayEstimator):

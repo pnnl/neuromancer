@@ -1,9 +1,6 @@
 """
-DPC Double integrator example
-plots work with N = 1
+DPC Double integrator example with given system dynamics model
 
-    # TODO: generalize terminal penalty for N step ahead policy
-    # TODO: generalize to plot N-step ahead policy
 """
 
 import torch
@@ -43,8 +40,8 @@ def arg_dpc_problem(prefix=''):
     """
     parser = arg.ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("DPC")
-    gp.add("-nsteps", type=int, default=1,
-           help="prediction horizon.")
+    gp.add("-nsteps", type=int, default=2,
+           help="prediction horizon.")          # tuned value: 1
     gp.add("-Qx", type=float, default=1.0,
            help="state weight.")                # tuned value: 1.0
     gp.add("-Qu", type=float, default=1.0,
@@ -98,9 +95,10 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
         for j in range(y.shape[0]):
             # check loss
             X = torch.stack([x[[i]], y[[j]]]).reshape(1,1,-1)
-            dataset_plt.train_data['Yp'] = X
-            step = model(dataset_plt.train_data)
-            Loss[i,j] = step['nstep_train_loss'].detach().numpy()
+            if dataset.nsteps == 1:
+                dataset_plt.train_data['Yp'] = X
+                step = model(dataset_plt.train_data)
+                Loss[i,j] = step['nstep_train_loss'].detach().numpy()
             # check contraction
             x0 = X.view(1, X.shape[-1])
             Astar, bstar, _, _, _ = lpv_batched(policy, x0)
@@ -116,16 +114,18 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
             else:
                 Alpha[i, j] = 0
 
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Loss,
-                           cmap=cm.viridis,
-                           linewidth=0, antialiased=False)
-    ax.set(ylabel='$x_1$')
-    ax.set(xlabel='$x_2$')
-    ax.set(zlabel='$L$')
-    # plt.colorbar(surf)
-    if save_path is not None:
-        plt.savefig(save_path+'/loss.pdf')
+    if dataset.nsteps == 1:
+        fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+        surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Loss,
+                               cmap=cm.viridis,
+                               linewidth=0, antialiased=False)
+        ax.set(ylabel='$x_1$')
+        ax.set(xlabel='$x_2$')
+        ax.set(zlabel='$L$')
+        ax.set(title='Loss landscape')
+        # plt.colorbar(surf)
+        if save_path is not None:
+            plt.savefig(save_path+'/loss.pdf')
 
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
     surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Phi_norm,
@@ -134,6 +134,7 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
     ax.set(ylabel='$x_1$')
     ax.set(xlabel='$x_2$')
     ax.set(zlabel='$Phi$')
+    ax.set(title='CLS 2-norm')
     if save_path is not None:
         plt.savefig(save_path+'/phi_norm.pdf')
 
@@ -144,6 +145,7 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
     ax.set(ylabel='$x_1$')
     ax.set(xlabel='$x_2$')
     ax.set(zlabel='$alpha$')
+    ax.set(title='CLS contraction')
     if save_path is not None:
         plt.savefig(save_path+'/contraction.pdf')
 
@@ -157,6 +159,7 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
     fig1.colorbar(im1, ax=ax1)
     ax1.set(ylabel='$x_1$')
     ax1.set(xlabel='$x_2$')
+    ax1.set(title='CLS contraction regions')
     im1.set_clim(0., 2.)  #  color limit
     if save_path is not None:
         plt.savefig(save_path+'/contraction_regions.pdf')
@@ -177,6 +180,7 @@ def plot_policy(net, xmin=-5, xmax=5, save_path=None):
     ax.set(ylabel='$x_1$')
     ax.set(xlabel='$x_2$')
     ax.set(zlabel='$u$')
+    ax.set(title='Policy landscape')
     if save_path is not None:
         plt.savefig(save_path+'/policy.pdf')
 
@@ -198,7 +202,8 @@ def cl_simulate(A, B, net, nstep=50, x0=np.ones([2, 1]), save_path=None):
     U = []
     for k in range(nstep+1):
         x_torch = torch.tensor(x).float().transpose(0, 1)
-        u = net(x_torch).detach().numpy()
+        # taking a first control action based on RHC principle
+        u = net(x_torch).detach().numpy()[:, [0]]
         # compute feedback gain
         Astar, bstar, _, _, _ = lpv_batched(net, x_torch)
         Kx = torch.mm(B, Astar[:, :, 0])
@@ -303,7 +308,7 @@ if __name__ == "__main__":
     """
     # Fully observable estimator as identity map: x0 = Yp
     estimator = estimators.FullyObservable({**dataset.dims, "x0": (nx,)},
-                                           nsteps=1,  # future window Nf
+                                           nsteps=args.nsteps,  # future window Nf
                                            window_size=1,  # past window Np <= Nf
                                            input_keys=["Yp"],
                                            name='estimator')
@@ -335,13 +340,13 @@ if __name__ == "__main__":
     linmap = slim.maps['linear']
     block = blocks.MLP
     policy = policies.MLPPolicy(
-        {"x0_estim": (dynamics_model.nx,), **dataset.dims},
+        {f'x0_{estimator.name}': (dynamics_model.nx,), **dataset.dims},
         nsteps=args.nsteps,
         bias=args.bias,
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=['Yp'],
+        input_keys=[f'x0_{estimator.name}'],
         name='policy',
     )
 
@@ -353,13 +358,13 @@ if __name__ == "__main__":
         [f'Y_pred_{dynamics_model.name}'],
         lambda x: F.mse_loss(x, x),
         weight=args.Qx,
-        name="x^T*Qx*x loss",
+        name="x^T*Qx*x",
     )
     action_loss = Objective(
         [f"U_pred_{policy.name}"],
         lambda x: F.mse_loss(x, x),
         weight=args.Qu,
-        name="u^T*Qu*u loss",
+        name="u^T*Qu*u",
     )
     # regularization
     regularization = Objective(

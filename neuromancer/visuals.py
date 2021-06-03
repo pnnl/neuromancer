@@ -29,7 +29,7 @@ class Visualizer:
 
 class VisualizerOpen(Visualizer):
 
-    def __init__(self, dataset, model, verbosity, savedir, training_visuals=False, trace_movie=False):
+    def __init__(self, model, verbosity, savedir, training_visuals=False, trace_movie=False):
         """
 
         :param dataset:
@@ -39,7 +39,6 @@ class VisualizerOpen(Visualizer):
         :param training_visuals:
         """
         self.model = model
-        self.dataset = dataset
         self.verbosity = verbosity
         if training_visuals:
             self.anime = plot.Animator(model)
@@ -168,7 +167,7 @@ class VisualizerOpen(Visualizer):
         :return:
         """
         dsets = ['train', 'dev', 'test']
-        ny = self.dataset.dims['Yf'][-1]
+        ny = outputs["nstep_train_Y_pred_dynamics"].shape[-1]
         Ypred = [unbatch_data(outputs[f'nstep_{dset}_Y_pred_dynamics']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
         Ytrue = [unbatch_data(outputs[f'nstep_{dset}_Yf']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
         self.plot_traj(np.concatenate(Ytrue).transpose(1, 0),
@@ -192,9 +191,8 @@ class VisualizerOpen(Visualizer):
 
 class VisualizerTrajectories(Visualizer):
 
-    def __init__(self, dataset, model, plot_keys, verbosity):
+    def __init__(self, model, plot_keys, verbosity):
         self.model = model
-        self.dataset = dataset
         self.verbosity = verbosity
         self.plot_keys = plot_keys
 
@@ -281,4 +279,3 @@ class VisualizerClosedLoop(Visualizer):
                    figname=os.path.join(self.savedir, 'CL_control.png'))
         self.plot_matrix()
         return dict()
-

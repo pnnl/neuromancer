@@ -13,6 +13,10 @@ from neuromancer.datasets import Dataset
 from neuromancer.callbacks import Callback
 
 
+def move_batch_to_device(batch, device="cpu"):
+    return {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+
+
 class Trainer:
     """
     Class encapsulating boilerplate PyTorch training code. Training procedure is somewhat

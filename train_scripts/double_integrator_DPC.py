@@ -40,20 +40,20 @@ def arg_dpc_problem(prefix=''):
     """
     parser = arg.ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("DPC")
-    gp.add("-nsteps", type=int, default=1,
-           help="prediction horizon.")          # tuned value: 1
-    gp.add("-Qx", type=float, default=1.0,
-           help="state weight.")                # tuned value: 1.0
-    gp.add("-Qu", type=float, default=0.1,
+    gp.add("-nsteps", type=int, default=2,
+           help="prediction horizon.")          # tuned values: 1, 2
+    gp.add("-Qx", type=float, default=5.0,
+           help="state weight.")                # tuned value: 5.0
+    gp.add("-Qu", type=float, default=1.0,
            help="control action weight.")       # tuned value: 1.0
     gp.add("-Qn", type=float, default=1.0,
            help="terminal penalty weight.")     # tuned value: 1.0
     gp.add("-Q_sub", type=float, default=0.0,
            help="regularization weight.")
-    gp.add("-Q_con_x", type=float, default=20.0,
-           help="state constraints penalty weight.")  # tuned value: 20.0
-    gp.add("-Q_con_u", type=float, default=200.0,
-           help="Input constraints penalty weight.")  # tuned value: 200.0
+    gp.add("-Q_con_x", type=float, default=10.0,
+           help="state constraints penalty weight.")  # tuned value: 10.0
+    gp.add("-Q_con_u", type=float, default=50.0,
+           help="Input constraints penalty weight.")  # tuned value: 50.0
     gp.add("-nx_hidden", type=int, default=20,
            help="Number of hidden states")
     gp.add("-n_layers", type=int, default=4,
@@ -374,40 +374,46 @@ if __name__ == "__main__":
     # constraints
     state_lower_bound_penalty = Objective(
         [f'Y_pred_{dynamics_model.name}', "Y_minf"],
-        lambda x, xmin: torch.mean(F.relu(-x + xmin)),
+        lambda x, xmin: torch.norm(F.relu(-x + xmin), 1),
         weight=args.Q_con_x,
         name="state_lower_bound",
     )
     state_upper_bound_penalty = Objective(
         [f'Y_pred_{dynamics_model.name}', "Y_maxf"],
-        lambda x, xmax: torch.mean(F.relu(x - xmax)),
+        lambda x, xmax: torch.norm(F.relu(x - xmax), 1),
         weight=args.Q_con_x,
         name="state_upper_bound",
     )
     terminal_lower_bound_penalty = Objective(
         [f'Y_pred_{dynamics_model.name}', "Y_minf"],
-        lambda x, xmin: torch.mean(F.relu(-x + xN_min)),
+        lambda x, xmin: torch.norm(F.relu(-x + xN_min), 1),
         weight=args.Qn,
         name="terminl_lower_bound",
     )
     terminal_upper_bound_penalty = Objective(
         [f'Y_pred_{dynamics_model.name}', "Y_maxf"],
-        lambda x, xmax: torch.mean(F.relu(x - xN_max)),
+        lambda x, xmax: torch.norm(F.relu(x - xN_max), 1),
         weight=args.Qn,
         name="terminl_upper_bound",
     )
+    # alternative definition: args.nsteps*torch.mean(F.relu(-u + umin))
     inputs_lower_bound_penalty = Objective(
         [f"U_pred_{policy.name}", "U_minf"],
-        lambda u, umin: torch.mean(F.relu(-u + umin)),
+        lambda u, umin: torch.norm(F.relu(-u + umin), 1),
         weight=args.Q_con_u,
         name="input_lower_bound",
     )
+    # alternative definition: args.nsteps*torch.mean(F.relu(u - umax))
     inputs_upper_bound_penalty = Objective(
         [f"U_pred_{policy.name}", "U_maxf"],
-        lambda u, umax: torch.mean(F.relu(u - umax)),
+        lambda u, umax: torch.norm(F.relu(u - umax), 1),
         weight=args.Q_con_u,
         name="input_upper_bound",
     )
+    # comment: the choice of the penalties shapes loss landscapes differently
+    # nicer landscapes are obtained with: torch.mean(F.relu(-u + umin)) for all constraints
+    # and affects weight tuning, with torch.mean(F.relu(-u + umin)) we need higher constraints weights
+    # the choice of the penalties does not affect the closed-loop control profiles though
 
     objectives = [regularization, regulation_loss, action_loss]
     constraints = [

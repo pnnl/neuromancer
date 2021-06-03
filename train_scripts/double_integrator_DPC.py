@@ -40,20 +40,20 @@ def arg_dpc_problem(prefix=''):
     """
     parser = arg.ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("DPC")
-    gp.add("-nsteps", type=int, default=2,
+    gp.add("-nsteps", type=int, default=1,
            help="prediction horizon.")          # tuned value: 1
     gp.add("-Qx", type=float, default=1.0,
            help="state weight.")                # tuned value: 1.0
-    gp.add("-Qu", type=float, default=1.0,
-           help="control action weight.")       # tuned value: 1.0,  unstable for paper: 0.5
+    gp.add("-Qu", type=float, default=0.1,
+           help="control action weight.")       # tuned value: 1.0
     gp.add("-Qn", type=float, default=1.0,
-           help="terminal penalty weight.")     # tuned value: 1.0,  unstable for paper: 0.0
+           help="terminal penalty weight.")     # tuned value: 1.0
     gp.add("-Q_sub", type=float, default=0.0,
            help="regularization weight.")
-    gp.add("-Q_con_x", type=float, default=10.0,
-           help="state constraints penalty weight.")  # tuned value: 10.0
-    gp.add("-Q_con_u", type=float, default=20.0,
-           help="Input constraints penalty weight.")  # tuned value: 20.0
+    gp.add("-Q_con_x", type=float, default=20.0,
+           help="state constraints penalty weight.")  # tuned value: 20.0
+    gp.add("-Q_con_u", type=float, default=200.0,
+           help="Input constraints penalty weight.")  # tuned value: 200.0
     gp.add("-nx_hidden", type=int, default=20,
            help="Number of hidden states")
     gp.add("-n_layers", type=int, default=4,
@@ -64,7 +64,7 @@ def arg_dpc_problem(prefix=''):
                help="List of sequences to max-min normalize")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
-    gp.add("-epochs", type=int, default=1000,
+    gp.add("-epochs", type=int, default=400,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
@@ -356,13 +356,13 @@ if __name__ == "__main__":
     # objectives
     regulation_loss = Objective(
         [f'Y_pred_{dynamics_model.name}'],
-        lambda x: F.mse_loss(x, x),
+        lambda x: torch.norm(x, 2),
         weight=args.Qx,
         name="x^T*Qx*x",
     )
     action_loss = Objective(
         [f"U_pred_{policy.name}"],
-        lambda x: F.mse_loss(x, x),
+        lambda x:  torch.norm(x, 2),
         weight=args.Qu,
         name="u^T*Qu*u",
     )

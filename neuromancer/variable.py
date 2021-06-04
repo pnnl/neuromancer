@@ -60,7 +60,7 @@ class Variable:
         elif self.op == 'matmul':
             return self.left(data) @ self.right(data)
         elif self.op == 'neg':
-            return -data[self.key]
+            return -data[self.key.strip('neg_')]
         else:
             return data[self.key]
 

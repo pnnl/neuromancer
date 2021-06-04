@@ -33,6 +33,9 @@ class Objective(nn.Module):
         """
         return self.weight*self.loss(*[variables[k] for k in self.variable_names])
 
+    def __repr__(self):
+        return f"{self.name}({', '.join(self.variable_names)}) -> {self.loss} * {self.weight}"
+
 
 class Problem(nn.Module):
 
@@ -90,6 +93,20 @@ class Problem(nn.Module):
             input_dict = {**input_dict, **output_dict}
         return input_dict
 
+    def __repr__(self):
+        s = "MODEL SUMMARY\n\nCOMPONENTS:\n"
+        for c in self.components:
+            s += f"  {repr(c)}\n"
+
+        s += "\nCONSTRAINTS:\n"
+        for c in self.constraints:
+            s += f"  {repr(c)}\n"
+
+        s += "\nOBJECTIVES:\n"
+        for c in self.objectives:
+            s += f"  {repr(c)}\n"
+
+        return s
 
 class MSELoss(Objective):
     def __init__(self, variable_names, weight=1.0, name="ref_loss"):

@@ -8,11 +8,6 @@ class Component(nn.Module):
         self.input_keys = input_keys
         self.output_keys = [f"{x}_{name}" for x in output_keys]
         self.name = name
-"""
-    def forward(self, data):
-        output = self.module(*[data[k] for k in self.input_keys])
-        #if not isinstance(output, collections.abc.Sequence):
-        #    output = (output, )
-        output = {k: v for k, v in zip(self.output_keys, output)}
-        return output
-"""
+
+    def __repr__(self):
+        return f"{self.name}({', '.join(self.input_keys)}) -> {', '.join(self.output_keys)}"

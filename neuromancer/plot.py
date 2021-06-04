@@ -14,20 +14,38 @@ import pyts.multivariate.image as pytsmvimg
 import pydot
 
 
-def plot_model_graph(model, fname="model_graph.png"):
-    graph = pydot.Dot("model", graph_type="digraph", splines="spline")
+def _add_obj_components(graph, objs, components, data_keys, style="solid"):
+    for obj in objs:
+        graph.add_node(pydot.Node(obj.name, label=obj.name, shape="box", color="red", style=style))
+        common_keys = [
+            (c.name, k) for c in components for k in c.output_keys
+            if k in obj.variable_names
+        ] + [
+            ("in", k) for k in data_keys
+            if k in obj.variable_names
+        ]
+        for n, key in common_keys:
+            graph.add_edge(pydot.Edge(n, obj.name, label=key))
+
+
+def plot_model_graph(model, data_keys, include_objectives=True, fname="model_graph.png"):
+    graph = pydot.Dot("model", graph_type="digraph", splines="spline", rankdir="LR")
 
     graph.add_node(pydot.Node("in", label="", color="white", shape="box"))
 
     for component in model.components:
         graph.add_node(pydot.Node(component.name, label=component.name, shape="box"))
-        for key in set(component.input_keys):
+        for key in set(component.input_keys) & set(data_keys):
             graph.add_edge(pydot.Edge("in", component.name, label=key))
 
     for src, dst in combinations(model.components, 2):
         common_keys = set(src.output_keys) & set(dst.input_keys)
         for key in common_keys:
             graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
+
+    if include_objectives:
+        _add_obj_components(graph, model.objectives, model.components, data_keys)
+        _add_obj_components(graph, model.constraints, model.components, data_keys, style="dashed")
 
     graph.write_png(fname)
 

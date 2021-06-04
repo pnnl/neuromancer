@@ -18,7 +18,15 @@ from neuromancer.datasets import Dataset, DataDict
 
 
 class Simulator:
-    def __init__(self, model: Problem, train_data: Dataset, dev_data, test_data, emulator: EmulatorBase = None, eval_sim=True):
+    def __init__(
+        self,
+        model: Problem,
+        train_data: Dataset,
+        dev_data: Dataset,
+        test_data: Dataset,
+        emulator: EmulatorBase = None,
+        eval_sim=True
+    ):
         self.model = model
         self.train_data = train_data
         self.dev_data = dev_data
@@ -45,9 +53,23 @@ class Simulator:
 
 
 class OpenLoopSimulator(Simulator):
-    def __init__(self, model: Problem, train_data: Dataset, dev_data, test_data, emulator: [EmulatorBase, nn.Module] = None,
-                 eval_sim=True):
-        super().__init__(model=model, train_data=train_data, dev_data=dev_data, test_data=test_data, emulator=emulator, eval_sim=eval_sim)
+    def __init__(
+        self,
+        model: Problem,
+        train_data: Dataset,
+        dev_data: Dataset,
+        test_data: Dataset,
+        emulator: EmulatorBase = None,
+        eval_sim=True
+    ):
+        super().__init__(
+            model=model,
+            train_data=train_data,
+            dev_data=dev_data,
+            test_data=test_data,
+            emulator=emulator,
+            eval_sim=eval_sim
+        )
 
     def simulate(self, data):
         return self.model(data)
@@ -118,19 +140,36 @@ class MHOpenLoopSimulator(Simulator):
 
 
 class MultiSequenceOpenLoopSimulator(Simulator):
-    def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None,
-                 eval_sim=True, stack=False):
-        super().__init__(model=model, dataset=dataset, emulator=emulator, eval_sim=eval_sim)
+    def __init__(
+        self,
+        model: Problem,
+        train_data: Dataset,
+        dev_data: Dataset,
+        test_data: Dataset,
+        emulator: EmulatorBase = None,
+        eval_sim=True,
+        stack=False,
+    ):
+        super().__init__(
+            model=model,
+            train_data=train_data,
+            dev_data=dev_data,
+            test_data=test_data,
+            emulator=emulator,
+            eval_sim=eval_sim
+        )
         self.stack = stack
 
     def agg(self, outputs):
         agg_outputs = dict()
         for k, v in outputs[0].items():
             agg_outputs[k] = []
+
         for data in outputs:
             for k in data:
                 agg_outputs[k].append(data[k])
         for k in agg_outputs:
+            if type(agg_outputs[k][0]) == str: continue
             if len(agg_outputs[k][0].shape) < 2:
                 agg_outputs[k] = torch.mean(torch.stack(agg_outputs[k]))
             else:
@@ -138,6 +177,7 @@ class MultiSequenceOpenLoopSimulator(Simulator):
                     agg_outputs[k] = torch.stack(agg_outputs[k])
                 else:
                     agg_outputs[k] = torch.cat(agg_outputs[k])
+
         return agg_outputs
 
     def simulate(self, data):
@@ -148,7 +188,7 @@ class MultiSequenceOpenLoopSimulator(Simulator):
 
     def dev_eval(self):
         if self.eval_sim:
-            dev_loop_output = self.simulate(self.dataset.dev_loop)
+            dev_loop_output = self.simulate(self.dev_data)
         else:
             dev_loop_output = dict()
         return dev_loop_output

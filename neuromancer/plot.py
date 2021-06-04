@@ -11,8 +11,11 @@ import matplotlib.animation as animation
 from matplotlib.lines import Line2D
 import pyts.image as pytsimg
 import pyts.multivariate.image as pytsmvimg
-import pydot
 
+try:
+    import pydot
+except ImportError:
+    pydot = None
 
 def _add_obj_components(graph, objs, components, data_keys, style="solid"):
     for obj in objs:
@@ -29,6 +32,10 @@ def _add_obj_components(graph, objs, components, data_keys, style="solid"):
 
 
 def plot_model_graph(model, data_keys, include_objectives=True, fname="model_graph.png"):
+    if pydot is None:
+        print("Error: pydot could not be imported, could not plot model graph")
+        return
+
     graph = pydot.Dot("model", graph_type="digraph", splines="spline", rankdir="LR")
 
     graph.add_node(pydot.Node("in", label="", color="white", shape="box"))

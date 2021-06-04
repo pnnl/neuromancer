@@ -1,6 +1,8 @@
 """
 Various helper functions for plotting.
 """
+from itertools import combinations
+
 import numpy as np
 import scipy.linalg as LA
 from scipy import stats
@@ -9,6 +11,25 @@ import matplotlib.animation as animation
 from matplotlib.lines import Line2D
 import pyts.image as pytsimg
 import pyts.multivariate.image as pytsmvimg
+import pydot
+
+
+def plot_model_graph(model, fname="model_graph.png"):
+    graph = pydot.Dot("model", graph_type="digraph", splines="spline")
+
+    graph.add_node(pydot.Node("in", label="", color="white", shape="box"))
+
+    for component in model.components:
+        graph.add_node(pydot.Node(component.name, label=component.name, shape="box"))
+        for key in set(component.input_keys):
+            graph.add_edge(pydot.Edge("in", component.name, label=key))
+
+    for src, dst in combinations(model.components, 2):
+        common_keys = set(src.output_keys) & set(dst.input_keys)
+        for key in common_keys:
+            graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
+
+    graph.write_png(fname)
 
 
 def get_colors(k):

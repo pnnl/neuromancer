@@ -28,6 +28,7 @@ def check_keys(k1, k2):
         f'Missing values in dataset. Input_keys: {set(k1)}, data_keys: {set(k2)}'
 
 
+
 class Policy(nn.Module):
     def __init__(self, data_dims, nsteps=1, input_keys=['x0'], name='policy'):
         """
@@ -49,6 +50,7 @@ class Policy(nn.Module):
         self.in_features = self.static_dims_sum + nsteps * self.sequence_dims_sum
         self.out_features = nsteps * self.nu
         self.input_keys = input_keys
+        self.output_keys = [f'U_pred_{self.name}']
 
     def reg_error(self):
         """
@@ -93,6 +95,57 @@ class Policy(nn.Module):
         Uf = self.net(features)
         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
         return {f'U_pred_{self.name}': Uf, f'reg_error_{self.name}': self.reg_error()}
+
+
+class Compensator(Policy):
+    def __init__(self, data_dims, policy_output_keys, nsteps=1, input_keys=['Ep'], name='compensator'):
+        """
+
+        :param data_dims: dict {str: tuple of ints) Data structure describing dimensions of input variables
+        :param policy_output_keys: output keys of the original policy to add upon
+        :param nsteps: (int) Prediction horizon
+        :param input_keys: (List of str) List of input variable names
+        :param name: (str) Name for tracking output of module.
+        """
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        self.policy_output_keys = policy_output_keys
+        self.input_keys = input_keys
+    #     TODO: self.policy_output_keys as part of input_keys for accurate visuals?
+
+    def forward(self, data):
+        """
+
+        :param data: (dict {str: torch.tensor)}
+        :return: (dict {str: torch.tensor)}
+        """
+        U_nominal = data[self.policy_output_keys]
+        features = self.features(data)
+        U_integrator = self.net(features)
+        U_integrator = torch.cat([u.reshape(self.nsteps, 1, -1) for u in U_integrator], dim=1)
+        # additive compensator for the nominal policy, e.g., integrator of the error signals
+        Uf = U_nominal + U_integrator
+        return {f'U_pred_{self.name}': Uf, f'reg_error_{self.name}': self.reg_error()}
+
+
+class LinearCompensator(Compensator):
+    def __init__(self, data_dims, policy_output_keys, nsteps=1, bias=False,
+                 linear_map=slim.Linear, nonlin=None, hsizes=None,
+                 input_keys=['Ep'], linargs=dict(), name='linear_compensator'):
+        """
+
+        :param data_dims:
+        :param policy_output_keys: output keys of the original policy to add upon
+        :param nsteps:
+        :param bias:
+        :param linear_map:
+        :param nonlin:
+        :param hsizes:
+        :param input_keys:
+        :param linargs:
+        :param name:
+        """
+        super().__init__(data_dims, policy_output_keys, nsteps=nsteps, input_keys=input_keys, name=name)
+        self.net = linear_map(self.in_features, self.out_features, bias=bias, **linargs)
 
 
 class LinearPolicy(Policy):

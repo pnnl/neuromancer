@@ -1,6 +1,7 @@
 """
 DPC Double integrator example with given system dynamics model
 
+TODO: finish for time varying reference case
 """
 
 import torch

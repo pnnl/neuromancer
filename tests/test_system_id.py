@@ -16,5 +16,5 @@ for i, (k, v) in enumerate(options.items()):
     for j, opt in enumerate(v):
         print(k, opt)
         code = os.system(f'python ../train_scripts/system_id.py -norm Y '
-                         f'{k} {opt} -epochs 1 -nsteps 8 -verbosity 1 -nsim 128 -system {systems[(i*j) % len(systems)]}')
+                         f'{k} {opt} -epochs 1 -nsteps 8 -verbosity 1 -nsim 128 -dataset {systems[(i*j) % len(systems)]}')
         assert code == 0, f'Failure on flag {k} with value {opt}.'

@@ -112,7 +112,7 @@ class SequenceDataset(Dataset):
         }
 
         self.batched_data = batch_tensor(self.full_data, nsteps, mh=moving_horizon)
-        self.batched_data = self.batched_data.permute(0, 2, 1).contiguous()
+        self.batched_data = self.batched_data.permute(0, 2, 1)
 
         self.to(device)
 
@@ -169,7 +169,7 @@ class SequenceDataset(Dataset):
         for id_, count in zip(ids, sample_counts):
             sequences.append(self._get_full_sequence_impl(start=i, end=i+count))
             i += count
-        return sequences
+        return {k: torch.cat([d[k] for d in sequences], dim=1) for k in sequences[0]}
 
     def get_full_sequence(self):
         return (
@@ -191,6 +191,17 @@ class SequenceDataset(Dataset):
             **{k: v.transpose(0, 1) for k, v in batch.items()},
             "name": "nstep_" + self.name,
         }
+
+    def __repr__(self):
+        varinfo = "\n    ".join([f"{x}: {d}" for x, d in self.dims.items() if x not in {"nsteps", "nsim"}])
+        return (
+            f"{type(self).__name__}:\n"
+            f"  variables:\n"
+            f"    {varinfo}\n"
+            f"  nsim: {self.nsim}\n"
+            f"  nsteps: {self.nsteps}\n"
+            f"  batches: {len(self)}\n"
+        )
 
 
 def normalize_data(data, norm_type, stats=None):

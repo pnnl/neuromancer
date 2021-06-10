@@ -37,6 +37,9 @@ from neuromancer.component import Component
 
 
 class BlockSSM(Component):
+    INPUT_KEYS = ['x0', 'Yf', 'Uf', 'Df']
+    OUTPUT_KEYS = ["X_pred", "Y_pred", "fU", "fD", "fE", "reg_error"]
+
     def __init__(self, fx, fy, fu=None, fd=None, fe=None, fyu=None,
                  xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, residual=False, name='block_ssm',
                  input_keys=dict()):
@@ -57,9 +60,11 @@ class BlockSSM(Component):
         :param name: (str) Name for tracking output
         :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
         """
+        assert isinstance(input_keys, dict), \
+            f"BlockSSM input_keys must be dict, type is {type(input_keys)}"
         super().__init__(
-            self.keys(input_keys),
-            ["X_pred", "Y_pred", "fU", "fD", "fE", "reg_error"],
+            {**{k: k for k in BlockSSM.INPUT_KEYS}, **input_keys},
+            BlockSSM.OUTPUT_KEYS,
             name,
         )
 
@@ -146,8 +151,8 @@ class BlockSSM(Component):
         for tensor_list, name in zip([X, Y, FU, FD, FE],
                                      ['X_pred', 'Y_pred', 'fU', 'fD', 'fE']):
             if tensor_list:
-                output[f'{name}_{self.name}'] = torch.stack(tensor_list)
-        output[f'reg_error_{self.name}'] = self.reg_error()
+                output[name] = torch.stack(tensor_list)
+        output['reg_error'] = self.reg_error()
         return output
 
     def reg_error(self):
@@ -155,6 +160,9 @@ class BlockSSM(Component):
 
 
 class BlackSSM(Component):
+    INPUT_KEYS = ['x0', 'Yf', 'Uf', 'Df']
+    OUTPUT_KEYS = ["X_pred", "Y_pred", "fE", "reg_error"]
+
     def __init__(self, fxud, fy, fe=None, fyu=None, xoe=torch.add, xoyu=torch.add, name='black_ssm', input_keys=dict(), residual=False):
         """
         Black box state space model with unstructured system dynamics:
@@ -170,6 +178,8 @@ class BlackSSM(Component):
         :param residual: (bool) Whether to make recurrence in state space model residual
 
         """
+        assert isinstance(input_keys, dict), \
+            f"BlackSSM input_keys must be dict, type is {type(input_keys)}"
         super().__init__(
             BlockSSM.keys(input_keys),
             ["X_pred", "Y_pred", "fE", "reg_error"],

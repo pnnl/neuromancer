@@ -18,18 +18,7 @@ import slim
 # local imports
 import neuromancer.blocks as blocks
 from neuromancer.dynamics import BlockSSM
-from neuromancer.component import Component
-
-
-def check_keys(k1, k2):
-    """
-    Check that all elements in k1 are contained in k2
-
-    :param k1: iterable of str
-    :param k2: iterable of str
-    """
-    assert set(k1) - set(k2) == set(), \
-        f'Missing values in dataset. Input_keys: {set(k1)}, data_keys: {set(k2)}'
+from neuromancer.component import Component, check_keys
 
 
 class TimeDelayEstimator(Component):
@@ -57,7 +46,6 @@ class TimeDelayEstimator(Component):
         self.static_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 1)
         self.in_features = self.static_dims_sum + window_size * self.sequence_dims_sum
         self.out_features = self.nx
-        self.input_keys = input_keys
 
     def reg_error(self):
         """
@@ -100,8 +88,8 @@ class TimeDelayEstimator(Component):
         """
         features = self.features(data)
         return {
-            f'x0_{self.name}': self.net(features),
-            f'reg_error_{self.name}': self.reg_error()
+            f'x0': self.net(features),
+            f'reg_error': self.reg_error()
         }
 
 

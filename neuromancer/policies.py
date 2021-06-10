@@ -21,14 +21,10 @@ import slim
 
 # local imports
 import neuromancer.blocks as blocks
+from neuromancer.component import Component, check_keys
 
 
-def check_keys(k1, k2):
-    assert set(k1) - set(k2) == set(), \
-        f'Missing values in dataset. Input_keys: {set(k1)}, data_keys: {set(k2)}'
-
-
-class Policy(nn.Module):
+class Policy(Component):
     def __init__(self, data_dims, nsteps=1, input_keys=['x0'], name='policy'):
         """
 
@@ -37,7 +33,11 @@ class Policy(nn.Module):
         :param input_keys: (List of str) List of input variable names
         :param name: (str) Name for tracking output of module.
         """
-        super().__init__()
+        super().__init__(
+            input_keys,
+            ["U_pred", "reg_error"],
+            name,
+        )
         check_keys(set(input_keys), set(data_dims.keys()))
         self.name, self.data_dims = name, data_dims
         self.nsteps = nsteps

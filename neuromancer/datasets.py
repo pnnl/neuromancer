@@ -650,41 +650,6 @@ class DatasetMPP(Dataset):
             for k, v in dset.items():
                 dset[k] = torch.tensor(v, dtype=torch.float32).to(self.device)
 
-systems = {
-    **{k: "datafile" for k in psl.datasets},
-    **{k: "emulator" for k in psl.systems},
-}
-
-if __name__ == '__main__':
-    print("Testing EmulatorDataset with psl.systems...")
-    for system in psl.systems:
-        print(f"  {system}")
-        dataset = EmulatorDataset(system)
-
-    print("\nTesting FileDataset with psl.datasets...")
-    for system in psl.datasets:
-        print(f"  {system}")
-        dataset = FileDataset(system)
-
-    print("\nTesting adding sequences...")
-    nsim, ny = dataset.data['Y'].shape
-    new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
-    dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
-
-    print("\nTesting MultiExperimentEmulatorDataset...")
-
-    for system in [k for k, v in systems.items() if v == 'emulator'
-                                                    and k not in ['CartPole-v1',
-                                                                  'Acrobot-v1',
-                                                                  'MountainCar-v0',
-                                                                  'Pendulum-v0',
-                                                                  'MountainCarContinuous-v0']]:
-        print(f"  {system}")
-        try:
-            dataset = MultiExperimentEmulatorDataset(system=system)
-        except Exception as e:
-            print("Error encountered:", e)
-
 
 def load_dataset(args, device, name, file_path=None, split_ratio=[40, 30, 30]):
     if file_path is not None:
@@ -722,4 +687,42 @@ def load_dataset(args, device, name, file_path=None, split_ratio=[40, 30, 30]):
                 name=name,
             )
     return dataset
+
+
+
+systems = {
+    **{k: "datafile" for k in psl.datasets},
+    **{k: "emulator" for k in psl.systems if k not in ['UAV3D_kin', 'UAV2D_kin']},
+}
+
+if __name__ == '__main__':
+    print("Testing EmulatorDataset with psl.systems...")
+    for system in psl.systems:
+        print(f"  {system}")
+        dataset = EmulatorDataset(system)
+
+    print("\nTesting FileDataset with psl.datasets...")
+    for system in psl.datasets:
+        print(f"  {system}")
+        dataset = FileDataset(system)
+
+    print("\nTesting adding sequences...")
+    nsim, ny = dataset.data['Y'].shape
+    new_sequences = {'Ymax': 25*np.ones([nsim, ny]), 'Ymin': np.zeros([nsim, ny])}
+    dataset.add_data(new_sequences, norm=['Ymax', 'Ymin'])
+
+    print("\nTesting MultiExperimentEmulatorDataset...")
+
+    for system in [k for k, v in systems.items() if v == 'emulator'
+                                                    and k not in ['CartPole-v1',
+                                                                  'Acrobot-v1',
+                                                                  'MountainCar-v0',
+                                                                  'Pendulum-v0',
+                                                                  'MountainCarContinuous-v0']]:
+        print(f"  {system}")
+        try:
+            dataset = MultiExperimentEmulatorDataset(system=system)
+        except Exception as e:
+            print("Error encountered:", e)
+
 

@@ -40,7 +40,9 @@ class Component(torch.nn.Module):
 
 
 class WrapAni:
-    """This is a wrapper since our Problem expects all data dictionaries handed to it as input to have a name."""
+    """This is a wrapper since our Problem expects all data dictionaries handed to it as input to have a name.
+       Takes an iterable object (assumed to hand back dictionaries during iteration). Overwrites iterable behavior to
+       give the list of dictionaries being iterated over some name chosen by the user. """
     def __init__(self, iterable, name):
         self.iterable = iterable
         self.name = name
@@ -145,7 +147,7 @@ def get_args():
 
     parser = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.loss(), arg.lin()])
     grp = parser.group('DATA')
-    grp.add("-data_path", type=str, default='../../../torchani/dataset/ani1-up_to_gdb4/ani_gdb_s01.h5')
+    grp.add("-data_path", type=str, default='../../../../torchani/dataset/ani1-up_to_gdb4/ani_gdb_s01.h5')
     grp.add("-pickled_data", type=str, default='dataset.pkl')
     grp.add("-batch_size", type=int, default=2560)
     args, grps = parser.parse_arg_groups()

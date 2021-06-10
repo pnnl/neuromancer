@@ -57,7 +57,7 @@ class Component(nn.Module):
 
     @property
     def output_keys(self):
-        return [f"{x}_{self.name}" for x, _ in self.output_keys]
+        return [f"{x}_{self.name}" for x, _ in self._output_keys]
 
     def __repr__(self):
         return f"{self.name}({', '.join(self.input_keys)}) -> {', '.join(self.output_keys)}"

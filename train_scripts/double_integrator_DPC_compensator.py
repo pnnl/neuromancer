@@ -1,6 +1,6 @@
 """
-DPC Double integrator example with given system dynamics model
-
+DPC double integrator example with given system dynamics model
+time varying reference tracking problem
 """
 
 import torch
@@ -40,12 +40,16 @@ def arg_dpc_problem(prefix=''):
     """
     parser = arg.ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("DPC")
+    gp.add("-controlled_outputs", type=int, default=[0],
+           help="Index of the controlled state.")
     gp.add("-nsteps", type=int, default=2,
            help="prediction horizon.")          # tuned values: 1, 2
-    gp.add("-Qx", type=float, default=5.0,
-           help="state weight.")                # tuned value: 5.0
-    gp.add("-Qu", type=float, default=1.0,
-           help="control action weight.")       # tuned value: 1.0
+    gp.add("-Qr", type=float, default=5.0,
+           help="reference tracking weight.")   # tuned value: 5.0
+    gp.add("-Qu", type=float, default=0.0,
+           help="control action weight.")       # tuned value: 0.0
+    gp.add("-Qdu", type=float, default=0.1,
+           help="control action difference weight.")       # tuned value: 0.0
     gp.add("-Qn", type=float, default=1.0,
            help="terminal penalty weight.")     # tuned value: 1.0
     gp.add("-Q_sub", type=float, default=0.0,
@@ -75,117 +79,8 @@ def arg_dpc_problem(prefix=''):
     return parser
 
 
-def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
-    x = torch.arange(xmin, xmax, 0.2)
-    y = torch.arange(xmin, xmax, 0.2)
-    xx, yy = torch.meshgrid(x, y)
-    dataset_plt = copy.deepcopy(dataset)
-    dataset_plt.dims['nsim'] = 1
-    Loss = np.ones([x.shape[0], y.shape[0]])*np.nan
-    # Alpha contraction coefficient: ||x_k+1|| = alpha * ||x_k||
-    Alpha = np.ones([x.shape[0], y.shape[0]])*np.nan
-    # ||A+B*Kx||
-    Phi_norm = np.ones([x.shape[0], y.shape[0]])*np.nan
-    policy = model.components[1].net
-    A = model.components[2].fx.linear.weight
-    B = model.components[2].fu.linear.weight
-    Anp = A.detach().numpy()
-    Bnp = B.detach().numpy()
-    for i in range(x.shape[0]):
-        for j in range(y.shape[0]):
-            # check loss
-            X = torch.stack([x[[i]], y[[j]]]).reshape(1,1,-1)
-            if dataset.nsteps == 1:
-                dataset_plt.train_data['Yp'] = X
-                step = model(dataset_plt.train_data)
-                Loss[i,j] = step['nstep_train_loss'].detach().numpy()
-            # check contraction
-            x0 = X.view(1, X.shape[-1])
-            Astar, bstar, _, _, _ = lpv_batched(policy, x0)
-            BKx = torch.mm(B, Astar[:, :, 0])
-            phi = A + BKx
-            Phi_norm[i,j] = torch.norm(phi, 2).detach().numpy()
-            # print(torch.matmul(Astar[:, :, 0], x0.transpose(0, 1))+bstar)
-            u = policy(x0).detach().numpy()
-            xnp = x0.transpose(0, 1).detach().numpy()
-            xnp_n = np.matmul(Anp, xnp) + np.matmul(Bnp, u)
-            if not np.linalg.norm(xnp) == 0:
-                Alpha[i,j] = np.linalg.norm(xnp_n)/np.linalg.norm(xnp)
-            else:
-                Alpha[i, j] = 0
-
-    if dataset.nsteps == 1:
-        fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-        surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Loss,
-                               cmap=cm.viridis,
-                               linewidth=0, antialiased=False)
-        ax.set(ylabel='$x_1$')
-        ax.set(xlabel='$x_2$')
-        ax.set(zlabel='$L$')
-        ax.set(title='Loss landscape')
-        # plt.colorbar(surf)
-        if save_path is not None:
-            plt.savefig(save_path+'/loss.pdf')
-
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Phi_norm,
-                           cmap=cm.viridis,
-                           linewidth=0, antialiased=False)
-    ax.set(ylabel='$x_1$')
-    ax.set(xlabel='$x_2$')
-    ax.set(zlabel='$Phi$')
-    ax.set(title='CLS 2-norm')
-    if save_path is not None:
-        plt.savefig(save_path+'/phi_norm.pdf')
-
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Alpha,
-                           cmap=cm.viridis,
-                           linewidth=0, antialiased=False)
-    ax.set(ylabel='$x_1$')
-    ax.set(xlabel='$x_2$')
-    ax.set(zlabel='$alpha$')
-    ax.set(title='CLS contraction')
-    if save_path is not None:
-        plt.savefig(save_path+'/contraction.pdf')
-
-    fig1, ax1 = plt.subplots()
-    cm_map = plt.cm.get_cmap('RdBu_r')
-    im1 = ax1.imshow(Alpha, vmin=abs(Alpha).min(), vmax=abs(Alpha).max(),
-                     cmap=cm_map, origin='lower',
-                     extent=[xx.detach().numpy().min(), xx.detach().numpy().max(),
-                             yy.detach().numpy().min(), yy.detach().numpy().max()],
-                     interpolation="bilinear")
-    fig1.colorbar(im1, ax=ax1)
-    ax1.set(ylabel='$x_1$')
-    ax1.set(xlabel='$x_2$')
-    ax1.set(title='CLS contraction regions')
-    im1.set_clim(0., 2.)  #  color limit
-    if save_path is not None:
-        plt.savefig(save_path+'/contraction_regions.pdf')
-
-
-def plot_policy(net, xmin=-5, xmax=5, save_path=None):
-    x = torch.arange(xmin, xmax, 0.1)
-    y = torch.arange(xmin, xmax, 0.1)
-    xx, yy = torch.meshgrid(x, y)
-    features = torch.stack([xx, yy]).transpose(0, 2)
-    uu = net(features)
-    plot_u = uu.detach().numpy()[:,:,0]
-
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), plot_u,
-                           cmap=cm.viridis,
-                           linewidth=0, antialiased=False)
-    ax.set(ylabel='$x_1$')
-    ax.set(xlabel='$x_2$')
-    ax.set(zlabel='$u$')
-    ax.set(title='Policy landscape')
-    if save_path is not None:
-        plt.savefig(save_path+'/policy.pdf')
-
-
-def cl_simulate(A, B, net, nstep=50, x0=np.ones([2, 1]), save_path=None):
+def cl_simulate(A, B, policy, compensator, args,
+                nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
     """
 
     :param A:
@@ -195,26 +90,37 @@ def cl_simulate(A, B, net, nstep=50, x0=np.ones([2, 1]), save_path=None):
     :param x0:
     :return:
     """
+    N = args.nsteps
     Anp = A.detach().numpy()
     Bnp = B.detach().numpy()
     x = x0
-    X = [x]
+    X = N*[x]
     U = []
-    for k in range(nstep+1):
+    if ref is None:
+        ref = np.zeros([nstep+N, 1])
+    for k in range(N, nstep+1-N):
         x_torch = torch.tensor(x).float().transpose(0, 1)
         # taking a first control action based on RHC principle
-        u = net(x_torch).detach().numpy()[:, [0]]
-        # compute feedback gain
-        Astar, bstar, _, _, _ = lpv_batched(net, x_torch)
-        Kx = torch.mm(B, Astar[:, :, 0])
+        Rf = torch.tensor([ref[k:k+N, :]]).float().transpose(0, 1)
+        u_nominal = policy({'x0_estimator': x_torch, 'Rf': Rf})['U_pred_policy']
+        Rp = torch.tensor([ref[k-N:k, :]]).float().transpose(0, 1)
+        Yp_np = np.stack(X[k-N:k])[:, args.controlled_outputs, 0]
+        Yp = torch.tensor([Yp_np]).float().transpose(0, 1)
+        if k == N:
+            Ep = Rp - Yp  # past tracking error signal
+        else:
+            Ep = 0.2*Ep + Rp - Yp  # integrating tracking error signal
+        uout = compensator({f'{policy.output_keys}': u_nominal, 'Ep': Ep})
+        u = uout['U_pred_compensator'][0, :, :].detach().numpy().transpose()
         # closed loop dynamics
         x = np.matmul(Anp, x) + np.matmul(Bnp, u)
         X.append(x)
         U.append(u)
-    Xnp = np.asarray(X)[:, :, 0]
+    Xnp = np.asarray(X[N:])[:, :, 0]
     Unp = np.asarray(U)[:, :, 0]
 
     fig, ax = plt.subplots(2, 1)
+    ax[0].plot(ref[N:], 'k--', label='r', linewidth=2)
     ax[0].plot(Xnp, label='x', linewidth=2)
     ax[0].set(ylabel='$x$')
     ax[0].set(xlabel='time')
@@ -227,7 +133,7 @@ def cl_simulate(A, B, net, nstep=50, x0=np.ones([2, 1]), save_path=None):
     ax[1].set_xlim(0, nstep)
     plt.tight_layout()
     if save_path is not None:
-        plt.savefig(save_path+'/closed_loop_dpc.pdf')
+        plt.savefig(save_path+'/closed_loop_dpc_osf.pdf')
 
 
 def lpv_batched(fx, x):
@@ -270,7 +176,6 @@ if __name__ == "__main__":
     parser = arg.ArgParser(parents=[arg.log(),
                                     arg_dpc_problem()])
     args, grps = parser.parse_arg_groups()
-
     args.bias = True
 
     # problem dimensions
@@ -284,8 +189,12 @@ if __name__ == "__main__":
     umax = 1
     xmin = -10
     xmax = 10
+    # terminal constraints as deviations from desired reference
     xN_min = -0.1
     xN_max = 0.1
+    # reference bounds for the controlled state
+    ref_min = 0.0
+    ref_max = 2.0
 
     """
     # # #  Dataset 
@@ -299,14 +208,17 @@ if __name__ == "__main__":
         "U_min": umin*np.ones([nsim, nu]),
         "Y": 3*np.random.randn(nsim, nx),
         "U": np.random.randn(nsim, nu),
+        "R": np.concatenate([np.random.uniform(low=ref_min, high=ref_max)*np.ones([args.nsteps, 1])
+                             for i in range(int(nsim/args.nsteps))]),
     }
+    sequences['E'] = sequences['R'] - sequences['Y'][:, args.controlled_outputs]
     dataset = Dataset(nsim=nsim, ninit=0, norm=args.norm, nsteps=args.nsteps,
                       device='cpu', sequences=sequences, name='closedloop')
 
     """
     # # #  System model
     """
-    # Fully observable estimator as identity map: x0 = Yp[-1]
+    # Fully observable estimator as identity map:
     # x_0 = Yp
     # Yp = [y_-N, ..., y_0]
     estimator = estimators.FullyObservable({**dataset.dims, "x0": (nx,)},
@@ -337,11 +249,12 @@ if __name__ == "__main__":
     dynamics_model.requires_grad_(False)
 
     """
-    # # #  Control policy
+    # # #  Control policy + offset-free (OSF) feedback compensator
     """
-    # full state feedback control policy
-    # Uf = p(x_0)
-    # Uf = [u_0, ..., u_N]
+    # full state feedback control policy with reference preview Rf
+    # U_policy = p(x_0, Rf)
+    # U_policy = [u_0, ..., u_N]
+    # Rf = [r_0, ..., r_N]
     activation = activations['relu']
     linmap = slim.maps['linear']
     block = blocks.MLP
@@ -352,32 +265,60 @@ if __name__ == "__main__":
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=[f'x0_{estimator.name}'],
+        input_keys=[f'x0_{estimator.name}', 'Rf'],
         name='policy',
     )
+    policy.output_keys = f'U_pred_{policy.name}'
+    # feedback compensator to mitigate offset from past observations: Ep = Rp-Yp
+    # by modulating the policy output (policy.output_keys)
+    # compensator plays similar role than integrator in PID
+    # U_compensator = c(Ep)
+    # Uf = U_policy + U_compensator
+    linmap_c = slim.maps['pf']      # using Perron-Frobenius positive operator
+    # min and max eigenvalues of the compensator: modulate the integrator signal gain in the closed loop
+    linargs = {"sigma_min": 0.0, "sigma_max": 0.5}
+    compensator = policies.LinearCompensator(dataset.dims,
+                                             policy.output_keys,
+                                             nsteps=args.nsteps,
+                                             bias=False,
+                                             linear_map=linmap_c,
+                                             linargs=linargs,
+                                             input_keys=['Ep'],
+                                             name='compensator')
     # link policy with the model through the input keys
-    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_policy'
+    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_compensator'
 
     """
     # # #  DPC objectives and constraints
     """
     # objectives
-    regulation_loss = Objective(
-        [f'Y_pred_{dynamics_model.name}'],
-        lambda x: torch.norm(x, 2),
-        weight=args.Qx,
-        name="x^T*Qx*x",
+    reference_loss = Objective(
+        [f'Y_pred_{dynamics_model.name}', "Rf"],
+        lambda pred, ref: F.mse_loss(pred[:, :, args.controlled_outputs], ref),
+        weight=args.Qr,
+        name="ref_loss",
     )
     action_loss = Objective(
-        [f"U_pred_{policy.name}"],
+        [f"U_pred_{compensator.name}"],
         lambda x:  torch.norm(x, 2),
         weight=args.Qu,
         name="u^T*Qu*u",
     )
+    du_loss = Objective(
+        [f"U_pred_{compensator.name}"],
+        lambda x:  F.mse_loss(x[1:], x[:-1]),
+        weight=args.Qdu,
+        name="control_smoothing",
+    )
     # regularization
-    regularization = Objective(
+    regularization1 = Objective(
         [f"reg_error_{policy.name}"], lambda reg: reg,
-        weight=args.Q_sub, name="reg_loss",
+        weight=args.Q_sub, name="reg_loss1",
+    )
+    # regularization
+    regularization2 = Objective(
+        [f"reg_error_{compensator.name}"], lambda reg: reg,
+        weight=args.Q_sub, name="reg_loss2",
     )
     # constraints
     state_lower_bound_penalty = Objective(
@@ -393,37 +334,33 @@ if __name__ == "__main__":
         name="state_upper_bound",
     )
     terminal_lower_bound_penalty = Objective(
-        [f'Y_pred_{dynamics_model.name}', "Y_minf"],
-        lambda x, xmin: torch.norm(F.relu(-x + xN_min), 1),
+        [f'Y_pred_{dynamics_model.name}', "Rf"],
+        lambda x, ref: torch.norm(F.relu(-x[:, :, args.controlled_outputs] + ref + xN_min), 1),
         weight=args.Qn,
         name="terminl_lower_bound",
     )
     terminal_upper_bound_penalty = Objective(
-        [f'Y_pred_{dynamics_model.name}', "Y_maxf"],
-        lambda x, xmax: torch.norm(F.relu(x - xN_max), 1),
+        [f'Y_pred_{dynamics_model.name}', "Rf"],
+        lambda x, ref: torch.norm(F.relu(x[:, :, args.controlled_outputs] - ref - xN_max), 1),
         weight=args.Qn,
         name="terminl_upper_bound",
     )
     # alternative definition: args.nsteps*torch.mean(F.relu(-u + umin))
     inputs_lower_bound_penalty = Objective(
-        [f"U_pred_{policy.name}", "U_minf"],
+        [f"U_pred_{compensator.name}", "U_minf"],
         lambda u, umin: torch.norm(F.relu(-u + umin), 1),
         weight=args.Q_con_u,
         name="input_lower_bound",
     )
     # alternative definition: args.nsteps*torch.mean(F.relu(u - umax))
     inputs_upper_bound_penalty = Objective(
-        [f"U_pred_{policy.name}", "U_maxf"],
+        [f"U_pred_{compensator.name}", "U_maxf"],
         lambda u, umax: torch.norm(F.relu(u - umax), 1),
         weight=args.Q_con_u,
         name="input_upper_bound",
     )
-    # comment: the choice of the penalties shapes loss landscapes differently
-    # nicer landscapes are obtained with: torch.mean(F.relu(-u + umin)) for all constraints
-    # and affects weight tuning, with torch.mean(F.relu(-u + umin)) we need higher constraints weights
-    # the choice of the penalties does not affect the closed-loop control profiles though
 
-    objectives = [regularization, regulation_loss, action_loss]
+    objectives = [regularization1, regularization2, reference_loss, du_loss]
     constraints = [
         state_lower_bound_penalty,
         state_upper_bound_penalty,
@@ -437,7 +374,7 @@ if __name__ == "__main__":
     # # #  DPC problem = objectives + constraints + trainable components 
     """
     # data (y_k) -> estimator (x_k) -> policy (u_k) -> dynamics (x_k+1, y_k+1)
-    components = [estimator, policy, dynamics_model]
+    components = [estimator, policy, compensator, dynamics_model]
     model = Problem(
         objectives,
         constraints,
@@ -484,11 +421,9 @@ if __name__ == "__main__":
     """
     # # #  Plots and Analysis
     """
-    # plot closed loop trajectories
-    cl_simulate(A, B, policy.net, nstep=40,
-                x0=1.5*np.ones([2, 1]), save_path='test_control')
-    # plot policy surface
-    plot_policy(policy.net, save_path='test_control')
-    # loss landscape and contraction regions
-    plot_loss(model, dataset, xmin=-5, xmax=5, save_path='test_control')
-
+    # plot closed loop trajectories with time varying reference
+    ref_step = 40
+    R = np.concatenate([0.5*np.ones([ref_step, 1]),
+                        1*np.ones([ref_step, 1]), 0*np.ones([ref_step, 1])])
+    cl_simulate(A, B, policy, compensator, args=args, nstep=R.shape[0],
+                x0=1.5*np.ones([2, 1]), ref=R, save_path='test_control')

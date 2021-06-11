@@ -315,7 +315,9 @@ if __name__ == "__main__":
     """
     # # #  System model
     """
-    # Fully observable estimator as identity map: x0 = Yp
+    # Fully observable estimator as identity map: x0 = Yp[-1]
+    # x_0 = Yp
+    # Yp = [y_-N, ..., y_0]
     estimator = estimators.FullyObservable({**dataset.dims, "x0": (nx,)},
                                            nsteps=args.nsteps,  # future window Nf
                                            window_size=1,  # past window Np <= Nf
@@ -326,10 +328,11 @@ if __name__ == "__main__":
     fx = slim.maps['linear'](nx, nx)
     fy = slim.maps['linear'](nx, ny)
     # LTI SSM
+    # x_k+1 = Ax_k + Bu_k
+    # y_k+1 = Cx_k+1
     dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics',
                                        input_keys={'x0': f'x0_{estimator.name}'})
-    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_policy'
-    # model matrices vlues
+    # model matrices values
     A = torch.tensor([[1.2, 1.0],
                       [0.0, 1.0]])
     B = torch.tensor([[1.0],
@@ -345,6 +348,9 @@ if __name__ == "__main__":
     """
     # # #  Control policy
     """
+    # full state feedback control policy
+    # Uf = p(x_0)
+    # Uf = [u_0, ..., u_N]
     activation = activations['relu']
     linmap = slim.maps['linear']
     block = blocks.MLP
@@ -358,6 +364,8 @@ if __name__ == "__main__":
         input_keys=[f'x0_{estimator.name}'],
         name='policy',
     )
+    # link policy with the model through the input keys
+    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_policy'
 
     """
     # # #  DPC objectives and constraints

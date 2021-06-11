@@ -22,6 +22,9 @@ from neuromancer.component import Component, check_keys
 
 
 class TimeDelayEstimator(Component):
+    DEFAULT_INPUT_KEYS = ["Yp"]
+    DEFAULT_OUTPUT_KEYS = ["x0", "reg_error"]
+
     def __init__(self, data_dims, nsteps=1, window_size=1, input_keys=['Yp'], name='estimator'):
         """
 
@@ -33,7 +36,7 @@ class TimeDelayEstimator(Component):
         """
         super().__init__(
             input_keys,
-            ["x0", "reg_error"],
+            TimeDelayEstimator.DEFAULT_OUTPUT_KEYS,
             name,
         )
         assert window_size <= nsteps, f'Window size {window_size} longer than sequence length {nsteps}.'

@@ -37,8 +37,8 @@ from neuromancer.component import Component
 
 
 class BlockSSM(Component):
-    INPUT_KEYS = ['x0', 'Yf', 'Uf', 'Df']
-    OUTPUT_KEYS = ["X_pred", "Y_pred", "fU", "fD", "fE", "reg_error"]
+    DEFAULT_INPUT_KEYS = ['x0', 'Yf', 'Uf', 'Df']
+    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "fU", "fD", "fE", "reg_error"]
 
     def __init__(self, fx, fy, fu=None, fd=None, fe=None, fyu=None,
                  xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, residual=False, name='block_ssm',
@@ -63,8 +63,8 @@ class BlockSSM(Component):
         assert isinstance(input_keys, dict), \
             f"BlockSSM input_keys must be dict, type is {type(input_keys)}"
         super().__init__(
-            {**{k: k for k in BlockSSM.INPUT_KEYS}, **input_keys},
-            BlockSSM.OUTPUT_KEYS,
+            input_keys,
+            BlockSSM.DEFAULT_OUTPUT_KEYS,
             name,
         )
 
@@ -120,6 +120,7 @@ class BlockSSM(Component):
         :param data: (dict: {str: Tensor})
         :return: output (dict: {str: Tensor})
         """
+        print(data.keys())
         x_in, y_out, u_in, d_in = self.input_keys
         nsteps = data[y_out].shape[0]
         X, Y, FD, FU, FE = [], [], [], [], []
@@ -160,8 +161,8 @@ class BlockSSM(Component):
 
 
 class BlackSSM(Component):
-    INPUT_KEYS = ['x0', 'Yf', 'Uf', 'Df']
-    OUTPUT_KEYS = ["X_pred", "Y_pred", "fE", "reg_error"]
+    DEFAULT_INPUT_KEYS = ['x0', 'Yf', 'Uf', 'Df']
+    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "fE", "reg_error"]
 
     def __init__(self, fxud, fy, fe=None, fyu=None, xoe=torch.add, xoyu=torch.add, name='black_ssm', input_keys=dict(), residual=False):
         """
@@ -181,8 +182,8 @@ class BlackSSM(Component):
         assert isinstance(input_keys, dict), \
             f"BlackSSM input_keys must be dict, type is {type(input_keys)}"
         super().__init__(
-            BlockSSM.keys(input_keys),
-            ["X_pred", "Y_pred", "fE", "reg_error"],
+            input_keys,
+            BlackSSM.DEFAULT_OUTPUT_KEYS,
             name,
         )
         self.fxud, self.fy, self.fe, self.fyu = fxud, fy, fe, fyu
@@ -222,8 +223,8 @@ class BlackSSM(Component):
         for tensor_list, name in zip([X, Y, FE],
                                      ['X_pred', 'Y_pred', 'fE']):
             if tensor_list:
-                output[f'{name}_{self.name}'] = torch.stack(tensor_list)
-        output[f'reg_error_{self.name}'] = self.reg_error()
+                output[name] = torch.stack(tensor_list)
+        output['reg_error'] = self.reg_error()
         return output
 
     def reg_error(self):
@@ -323,8 +324,8 @@ class TimeDelayBlockSSM(BlockSSM):
         for tensor_list, name in zip([X, Y, FU, FD, FE],
                                      ['X_pred', 'Y_pred', 'fU', 'fD', 'fE']):
             if tensor_list:
-                output[f'{name}_{self.name}'] = torch.stack(tensor_list)
-        output[f'reg_error_{self.name}'] = self.reg_error()
+                output[name] = torch.stack(tensor_list)
+        output['reg_error'] = self.reg_error()
         return output
 
     @staticmethod
@@ -410,8 +411,8 @@ class TimeDelayBlackSSM(BlackSSM):
         for tensor_list, name in zip([X, Y, FE],
                                      ['X_pred', 'Y_pred', 'fE']):
             if tensor_list:
-                output[f'{name}_{self.name}'] = torch.stack(tensor_list)
-        output[f'reg_error_{self.name}'] = self.reg_error()
+                output[name] = torch.stack(tensor_list)
+        output['reg_error'] = self.reg_error()
         return output
 
     @staticmethod

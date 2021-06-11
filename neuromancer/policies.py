@@ -25,6 +25,9 @@ from neuromancer.component import Component, check_keys
 
 
 class Policy(Component):
+    DEFAULT_INPUT_KEYS = ["x0"]
+    DEFAULT_OUTPUT_KEYS = ["U_pred", "reg_error"]
+
     def __init__(self, data_dims, nsteps=1, input_keys=['x0'], name='policy'):
         """
 
@@ -35,7 +38,7 @@ class Policy(Component):
         """
         super().__init__(
             input_keys,
-            ["U_pred", "reg_error"],
+            Policy.DEFAULT_OUTPUT_KEYS,
             name,
         )
         check_keys(set(input_keys), set(data_dims.keys()))
@@ -92,7 +95,7 @@ class Policy(Component):
         features = self.features(data)
         Uf = self.net(features)
         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
-        return {f'U_pred_{self.name}': Uf, f'reg_error_{self.name}': self.reg_error()}
+        return {'U_pred': Uf, 'reg_error': self.reg_error()}
 
 
 class LinearPolicy(Policy):

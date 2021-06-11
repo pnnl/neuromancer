@@ -109,7 +109,7 @@ def cl_simulate(A, B, policy, compensator, args,
         if k == N:
             Ep = Rp - Yp  # past tracking error signal
         else:
-            Ep = 0.2*Ep + Rp - Yp  # integrating tracking error signal
+            Ep = 0.1*Ep + Rp - Yp  # integrating tracking error signal
         uout = compensator({f'{policy.output_keys}': u_nominal, 'Ep': Ep})
         u = uout['U_pred_compensator'][0, :, :].detach().numpy().transpose()
         # closed loop dynamics

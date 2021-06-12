@@ -91,12 +91,13 @@ class TimeDelayEstimator(Component):
         """
         features = self.features(data)
         return {
-            f'x0': self.net(features),
-            f'reg_error': self.reg_error()
+            'x0': self.net(features),
+            'reg_error': self.reg_error()
         }
 
 
 class seq2seqTimeDelayEstimator(TimeDelayEstimator):
+    DEFAULT_OUTPUT_KEYS = ["Xtd", "reg_error"]
     def __init__(self, data_dims, nsteps=1, window_size=1, input_keys=['Yp'], timedelay=0, name='estimator'):
         """
 
@@ -124,7 +125,7 @@ class seq2seqTimeDelayEstimator(TimeDelayEstimator):
         print('outfeats', self.out_features)
         print('netoutfeats', self.net.out_features)
         print(Xtd.shape)
-        return {f'Xtd_{self.name}': Xtd, f'reg_error_{self.name}': self.reg_error()}
+        return {'Xtd': Xtd, 'reg_error': self.reg_error()}
 
 
 class FullyObservable(TimeDelayEstimator):
@@ -247,7 +248,7 @@ class RNNEstimator(TimeDelayEstimator):
 
     def forward(self, data):
         features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
-        return {f'x0_{self.name}': self.net(features), f'reg_error_{self.name}': self.net.reg_error()}
+        return {'x0': self.net(features), 'reg_error': self.net.reg_error()}
 
 
 class seq2seqRNNEstimator(seq2seqTimeDelayEstimator):
@@ -266,10 +267,12 @@ class seq2seqRNNEstimator(seq2seqTimeDelayEstimator):
     def forward(self, data):
         features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
         Xtd = self.net(features).view(self.timedelay+1, -1, self.nx)
-        return {f'x0_{self.name}': Xtd, f'reg_error_{self.name}': self.net.reg_error()}
+        return {'x0': Xtd, 'reg_error': self.net.reg_error()}
 
 
-class LinearKalmanFilter(nn.Module):
+class LinearKalmanFilter(Component):
+    DEFAULT_INPUT_KEYS = ["Yp", "Up", "Dp"]
+    DEFAULT_OUTPUT_KEYS = ["x0", "reg_error"]
     """
     Time-Varying Linear Kalman Filter
     """
@@ -317,7 +320,7 @@ class LinearKalmanFilter(nn.Module):
                                                         torch.mm(P, self.model.fy.effective_W())))
             L = torch.mm(torch.mm(P, self.model.fy.effective_W()), L_inverse_part)
             P = eye - torch.mm(L, torch.mm(self.model.fy.effective_W().T, P))
-        return {f'x0_{self.name}': x, f'reg_error_{self.name}': self.reg_error()}
+        return {f'x0': x, f'reg_error': self.reg_error()}
 
 
 estimators = {'fullobservable': FullyObservable,

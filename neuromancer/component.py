@@ -14,7 +14,45 @@ def check_keys(k1, k2):
 
 
 class Component(nn.Module):
+    DEFAULT_INPUT_KEYS = []
+    DEFAULT_OUTPUT_KEYS = []
     def __init__(self, input_keys=None, output_keys=None, name=None):
+        """
+        The NeuroMANCER component base class.
+
+        This class is used to manage naming of component input and output variables as they flow
+        through the computational graph, as well as handle potential remapping of input and output keys
+        to different names. It additionally provides a useful reference for users to see how components
+        can be connected together in the overall computational graph.
+
+        Components that inherit from this class should specify the class attributes DEFAULT_INPUT_KEYS
+        and DEFAULT_OUTPUT_KEYS; these are used as the "canonical" names for input and output variables,
+        respectively. These can be used to compare different components' output and input keys to see
+        whether one component can accept another's output by default.
+        
+        By default, components have a `name` argument which is used to tag the output variables they
+        generate; for instance, for a component called "estim", the canonical output "x0" is renamed to
+        "x0_estim". If you wish to connect two components, a dictionary mapping should be specified in
+        the `input_keys` argument to remap the renamed outputs of a component to the canonical keys of
+        the receiving component:
+
+        >>> estim = LinearEstimator(..., name="estim")  # output "x0" remapped to "x0_estim"
+        >>> ssm = BlockSSM(..., input_keys={f"x0_{estim.name}": "x0"})  # input_keys used to remap to canonical name
+
+        Remapping of output variable names can also be done by passing another dictionary to the
+        `output_keys` argument, though note that renamed variables will also be tagged with the
+        component's name.
+
+        :param input_keys: (dict {str: str}) dictionary mapping arbitrary variable names to canonical
+            input keys.
+        :param output_keys: (dict {str: str}) dictionary mapping canonical output keys to arbitrary
+            variable names.
+        :param name: (str) The name of the component, used to tag output variable keys with the name
+            of the component that produced them.
+
+        .. todo:: Handle input and output key validation here rather than in component implementations.
+        .. todo:: Validate that any remapped keys actually exist in a components' defaults.
+        """
         super().__init__()
 
         self.name = name or type(self).__name__
@@ -53,8 +91,6 @@ class Component(nn.Module):
     def _remap_input(self, module, input_data):
         input_data = input_data[0]
         # check_keys({x[1] for x in self._input_keys}, input_data.keys())
-        # print(input_data.keys())
-        # print(self._input_keys)
         return {
             k1: input_data[k2] for k1, k2 in self._input_keys
             if k2 in input_data
@@ -69,6 +105,10 @@ class Component(nn.Module):
 
     @property
     def input_keys(self):
+        """
+        Retrieve component's input variable names. This returns remapped names if `input_keys` was
+        given a mapping; to see a component's canonical input keys, see class attribute `DEFAULT_INPUT_KEYS`.
+        """
         return (
             [x for x, _ in self._input_keys]
             if self._do_input_remap
@@ -77,6 +117,10 @@ class Component(nn.Module):
 
     @property
     def output_keys(self):
+        """
+        Retrieve component's output variable names. This returns remapped names if `output_keys` was
+        given a mapping; to see a component's canonical output keys, see class attribute `DEFAULT_OUTPUT_KEYS`.
+        """
         return [x for _, x in self._output_keys]
 
     def __repr__(self):

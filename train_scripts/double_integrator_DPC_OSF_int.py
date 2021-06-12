@@ -35,9 +35,8 @@ https://arxiv.org/abs/2011.14006
 
     # TODO: recursive policy based on model rollouts
 
-
-
-# TODO: main policy feedback only on Yp and Rf not including disturbances
+# TODO: tracking in error coordinates
+# TODO: stability penalties via contraction towards desired references
 """
 
 import torch
@@ -115,7 +114,7 @@ def arg_dpc_problem(prefix=''):
            help="Step size for gradient descent.")
     gp.add("-patience", type=int, default=100,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
-    gp.add("-warmup", type=int, default=10,
+    gp.add("-warmup", type=int, default=100,
            help="Number of epochs to wait before enacting early stopping policy.")
     return parser
 
@@ -135,14 +134,17 @@ def cl_simulate(A, B, policy, args, K_i=None,
     Anp = A.detach().numpy()
     Bnp = B.detach().numpy()
     x = x0
+    d_int = torch.zeros([1, 1])
     X = N*[x]
     U = []
     if ref is None:
         ref = np.zeros([nstep+N, 1])
     for k in range(N, nstep+1-N):
         x_torch = torch.tensor(x).float().transpose(0, 1)
-        d0 = torch.tensor(ref[k]-x[args.controlled_outputs]).float().transpose(0, 1)
-        x_aug = torch.cat([x_torch, d0], 1)
+        d_k = torch.tensor(ref[k]-x[args.controlled_outputs]).float().transpose(0, 1)
+        d_int = d_k + d_int  # integrating tracking error
+        d_int = torch.clamp(d_int, min=-1.0, max=1.0)
+        x_aug = torch.cat([x_torch, d_int], 1)
         # taking a first control action based on RHC principle
         Rf = torch.tensor([ref[k:k+N, :]]).float().transpose(0, 1)
         u_nominal = policy({'x0_estimator_ctrl': x_torch, 'Rf': Rf})['U_pred_policy'][0, :, :]
@@ -152,6 +154,7 @@ def cl_simulate(A, B, policy, args, K_i=None,
             # pick only the compensator row for controlled states
             u_int = K_i(x_aug)[:, args.controlled_outputs]
             u_nominal = u_nominal + u_int
+            u_nominal = torch.clamp(u_nominal, min=args.umin, max=args.umax)
         u = u_nominal.detach().numpy().transpose()
         # closed loop dynamics
         x = np.matmul(Anp, x) + np.matmul(Bnp, u)
@@ -226,12 +229,14 @@ if __name__ == "__main__":
     nd = 1
     nr = 1
     # number of datapoints
-    nsim = 40000
+    nsim = 10000    # increase sample density for more robust results
     # constraints bounds
     umin = -1
     umax = 1
     xmin = -10
     xmax = 10
+    args.umin = umin
+    args.umax = umax
     # terminal constraints as deviations from desired reference
     xN_min = -0.1
     xN_max = 0.1
@@ -287,7 +292,7 @@ if __name__ == "__main__":
     dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, name='dynamics',
                                        input_keys={'x0': f'x0_{estimator.name}', 'Df': 'Rf'})
     # model matrices values
-    A = torch.tensor([[1.0, 1.0],
+    A = torch.tensor([[1.2, 1.0],
                      [0.0, 1.0]])
     B = torch.tensor([[1.0],
                       [0.5]])
@@ -402,6 +407,11 @@ if __name__ == "__main__":
         weight=args.Qn,
         name="terminl_upper_bound",
     )
+
+    # TODO: bounds on integral control action?
+    # u_int = K_i(x_aug)[:, args.controlled_outputs]
+    # u_nominal = u_nominal + u_int
+
     # alternative definition: args.nsteps*torch.mean(F.relu(-u + umin))
     inputs_lower_bound_penalty = Objective(
         [f"U_pred_{policy.name}", "U_minf"],
@@ -425,6 +435,18 @@ if __name__ == "__main__":
         weight=args.Q_Ki*nsim,
         name="Ki_form_penalty",
     )
+    Ki_min = 0
+    Ki_max = 1.2
+    Ki_upper_boud_penalty = Objective(["Rf"],
+        lambda x: torch.norm(F.relu(dynamics_model.fe.linear.weight - Ki_max), 1),
+        weight=args.Q_Ki*nsim,
+        name="Ki_upper_bound_penalty",
+    )
+    Ki_lower_boud_penalty = Objective(["Rf"],
+        lambda x: torch.norm(F.relu(-dynamics_model.fe.linear.weight + Ki_min), 1),
+        weight=args.Q_Ki*nsim,
+        name="Ki_lower_bound_penalty",
+    )
 
     objectives = [regularization, reference_loss, du_loss, osf_loss]
     constraints = [
@@ -435,6 +457,8 @@ if __name__ == "__main__":
         terminal_lower_bound_penalty,
         terminal_upper_bound_penalty,
         Ki_form_penalty,
+        Ki_upper_boud_penalty,
+        Ki_lower_boud_penalty,
     ]
 
     """

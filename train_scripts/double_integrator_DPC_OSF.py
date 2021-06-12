@@ -130,12 +130,16 @@ def cl_simulate(A, B, policy, args,
     Anp = A.detach().numpy()
     Bnp = B.detach().numpy()
     x = x0
+    d_int = torch.zeros([1, 1])
     X = N*[x]
     U = []
     if ref is None:
         ref = np.zeros([nstep+N, 1])
     for k in range(N, nstep+1-N):
         x_torch = torch.tensor(x).float().transpose(0, 1)
+        # d_k = torch.tensor(ref[k]-x[args.controlled_outputs]).float().transpose(0, 1)
+        # d_int = d_k + d_int  # integrating tracking error
+        # x_aug = torch.cat([x_torch, d_int], 1)
         d0 = torch.tensor(ref[k]-x[args.controlled_outputs]).float().transpose(0, 1)
         x_aug = torch.cat([x_torch, d0], 1)
         # taking a first control action based on RHC principle
@@ -215,7 +219,7 @@ if __name__ == "__main__":
     nd = 1
     nr = 1
     # number of datapoints
-    nsim = 40000
+    nsim = 10000
     # constraints bounds
     umin = -1
     umax = 1

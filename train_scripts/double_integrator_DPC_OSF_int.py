@@ -145,7 +145,8 @@ def cl_simulate(A, B, policy, args, K_i=None,
         x_aug = torch.cat([x_torch, d0], 1)
         # taking a first control action based on RHC principle
         Rf = torch.tensor([ref[k:k+N, :]]).float().transpose(0, 1)
-        u_nominal = policy({'x0_estimator': x_aug, 'Rf': Rf})['U_pred_policy'][0, :, :]
+        u_nominal = policy({'x0_estimator_ctrl': x_torch, 'Rf': Rf})['U_pred_policy'][0, :, :]
+        # u_nominal = policy({'x0_estimator': x_aug, 'Rf': Rf})['U_pred_policy'][0, :, :]
         # integrator gain
         if K_i is not None:
             # pick only the compensator row for controlled states
@@ -225,7 +226,7 @@ if __name__ == "__main__":
     nd = 1
     nr = 1
     # number of datapoints
-    nsim = 10000
+    nsim = 40000
     # constraints bounds
     umin = -1
     umax = 1
@@ -270,6 +271,11 @@ if __name__ == "__main__":
                                            input_keys=["Yp"],
                                            name='estimator')
 
+    estimator_ctrl = estimators.FullyObservable({**dataset.dims, "x0": (nx,)},
+                                           nsteps=args.nsteps,  # future window Nf
+                                           window_size=1,  # past window Np <= Nf
+                                           input_keys=["Yp"],
+                                           name='estimator_ctrl')
     # LTI SSM
     fu = slim.maps['linear'](nu, nx+nd)     #  [B; 0] u_k
     fx = slim.maps['linear'](nx+nd, nx+nd)  #  [x_k+1; e_k+1] = [A, 0; -C, I] [x_k; e_k]
@@ -301,7 +307,7 @@ if __name__ == "__main__":
     # A_aug = torch.tensor([[1.2, 1.0, 0.0],
     #                   [0.0, 1.0, 0.0],
     #                   [-1.0, 0.0, 1.0]])
-    K_i = 0.1        # initial integrator gain initial value
+    K_i = 0.1       # initial integrator gain initial value
     F_aug = torch.zeros(nx+nd, nx+nd)
     F_aug[args.controlled_outputs, nx:] = K_i
     # set of model parameters
@@ -326,13 +332,13 @@ if __name__ == "__main__":
     linmap = slim.maps['linear']
     block = blocks.MLP
     policy = policies.MLPPolicy(
-        {f'x0_{estimator.name}': (dynamics_model.nx,), **dataset.dims},
+        {f'x0_{estimator_ctrl.name}': (nx,), **dataset.dims},
         nsteps=args.nsteps,
         bias=args.bias,
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=[f'x0_{estimator.name}', 'Rf'],
+        input_keys=[f'x0_{estimator_ctrl.name}', 'Rf'],
         name='policy',
     )
     # link policy with the model through the input keys
@@ -435,7 +441,7 @@ if __name__ == "__main__":
     # # #  DPC problem = objectives + constraints + trainable components 
     """
     # data (y_k) -> estimator (x_k) -> policy (u_k) -> dynamics (x_k+1, y_k+1)
-    components = [estimator, policy, dynamics_model]
+    components = [estimator, estimator_ctrl, policy, dynamics_model]
     model = Problem(
         objectives,
         constraints,

@@ -1,6 +1,12 @@
 """
 DPC double integrator example with given system dynamics model
 time varying reference tracking problem
+nominal neural policy augmented with tracking error compensator
+
+    # TODO: predictive compensator on recursively computed Ef = Rf - Y_pred_model
+    # TODO: compensator via variable class Uf = u_policy + u_compensator
+    # TODO: adaptive updates of the compensator
+    # TODO: why is this not working for N=1?
 """
 
 import torch
@@ -209,7 +215,7 @@ if __name__ == "__main__":
         "Y": 3*np.random.randn(nsim, nx),
         "U": np.random.randn(nsim, nu),
         "R": np.concatenate([np.random.uniform(low=ref_min, high=ref_max)*np.ones([args.nsteps, 1])
-                             for i in range(int(nsim/args.nsteps))]),
+                             for i in range(int(np.ceil(nsim/args.nsteps)))])[:nsim, :],
     }
     sequences['E'] = sequences['R'] - sequences['Y'][:, args.controlled_outputs]
     dataset = Dataset(nsim=nsim, ninit=0, norm=args.norm, nsteps=args.nsteps,
@@ -249,7 +255,7 @@ if __name__ == "__main__":
     dynamics_model.requires_grad_(False)
 
     """
-    # # #  Control policy + offset-free (OSF) feedback compensator
+    # # #  Control policy + feedback compensator
     """
     # full state feedback control policy with reference preview Rf
     # U_policy = p(x_0, Rf)
@@ -265,11 +271,12 @@ if __name__ == "__main__":
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
+        # input_keys=['Ep'],         # option with tracking error feedback
         input_keys=[f'x0_{estimator.name}', 'Rf'],
         name='policy',
     )
     policy.output_keys = f'U_pred_{policy.name}'
-    # feedback compensator to mitigate offset from past observations: Ep = Rp-Yp
+    # feedback compensator to mitigate control error from past observations: Ep = Rp-Yp
     # by modulating the policy output (policy.output_keys)
     # compensator plays similar role than integrator in PID
     # U_compensator = c(Ep)
@@ -287,6 +294,7 @@ if __name__ == "__main__":
                                              name='compensator')
     # link policy with the model through the input keys
     dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_compensator'
+
 
     """
     # # #  DPC objectives and constraints

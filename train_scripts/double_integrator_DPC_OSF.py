@@ -1,6 +1,40 @@
 """
 DPC double integrator example with given system dynamics model
 time varying reference tracking problem
+Augmented state space model with offset-free tracking penalty
+
+background theory references:
+https://aiche.onlinelibrary.wiley.com/doi/10.1002/aic.690490213
+https://www.sciencedirect.com/science/article/pii/S0959152401000518
+https://arxiv.org/abs/2011.14006
+
+    MODEL architectre:
+    # U_policy = p(x_k, Rf)
+    # u_k = U_policy[0]
+    # e_k+1 = e_k + r_k - y_k
+    # [x_k+1; e_k+1] = [A, 0; -C, I] [x_k; e_k] + [B; 0] u_k + [0; I] r_k
+    # y_k+1 = [C, 0] [x_k+1; e_k+1]
+    # DPC losses + loss(||e_k||^2)
+
+    # TODO: train with nonzero d0 - inputs as Ep[-1]
+
+    # TODO: test with plant model mismatch and additive noise
+
+    # TODO: augmented disturbance observer with initial conditions as input parameter
+    # TODO: unfreeze and train only disturbance gain in A?
+    # check eq. 1 in: https://arxiv.org/pdf/2011.14006.pdf
+
+    # TODO: integrator via state augmentation:
+    # TODO: 1, new wrapper of the state space models: augmentation
+    # TODO: 2, new class: closed loop?
+    # TODO: 3, new SSM class with augmentation as option
+
+    # TODO: simpler implementation without augmented observer:
+    # C_aug = [C, 0; 0, I]
+    # expand reference R with zero targets for augmeted states
+
+    # TODO: recursive policy based on model rollouts
+
 """
 
 import torch
@@ -46,6 +80,8 @@ def arg_dpc_problem(prefix=''):
            help="prediction horizon.")          # tuned values: 1, 2
     gp.add("-Qr", type=float, default=5.0,
            help="reference tracking weight.")   # tuned value: 5.0
+    gp.add("-Q_osf", type=float, default=5.0,
+           help="offset-free disturbance rejection weight.")   # tuned value: 5.0
     gp.add("-Qu", type=float, default=0.0,
            help="control action weight.")       # tuned value: 0.0
     gp.add("-Qdu", type=float, default=0.1,
@@ -79,7 +115,7 @@ def arg_dpc_problem(prefix=''):
     return parser
 
 
-def cl_simulate(A, B, policy, compensator, args,
+def cl_simulate(A, B, policy, args,
                 nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
     """
 
@@ -100,26 +136,12 @@ def cl_simulate(A, B, policy, compensator, args,
         ref = np.zeros([nstep+N, 1])
     for k in range(N, nstep+1-N):
         x_torch = torch.tensor(x).float().transpose(0, 1)
+        d0 = torch.tensor(ref[k]-x[args.controlled_outputs]).float().transpose(0, 1)
+        x_aug = torch.cat([x_torch, d0], 1)
         # taking a first control action based on RHC principle
         Rf = torch.tensor([ref[k:k+N, :]]).float().transpose(0, 1)
-        u_nominal = policy({'x0_estimator': x_torch, 'Rf': Rf})['U_pred_policy']
-        Rp = torch.tensor([ref[k-N:k, :]]).float().transpose(0, 1)
-        Yp_np = np.stack(X[k-N:k])[:, args.controlled_outputs, 0]
-        Yp = torch.tensor([Yp_np]).float().transpose(0, 1)
-        if k == N:
-            Ep = Rp - Yp  # past tracking error signal
-        else:
-            Ep = 0.2*Ep + Rp - Yp  # integrating tracking error signal
-        uout = compensator({f'{policy.output_keys}': u_nominal, 'Ep': Ep})
-        u = uout['U_pred_compensator'][0, :, :].detach().numpy().transpose()
-        # print(f'Rf: {Rf}')
-        # print(f'x_torch: {x_torch}')
-        # print(f'u_nominal: {u_nominal}')
-        # print(f'Ep: {Ep}')
-        # print(f'u: {u}')
-        # print(f'Bu: {np.matmul(Bnp, u)}')
-        # print(f'x: {x}')
-
+        u_nominal = policy({'x0_estimator': x_aug, 'Rf': Rf})['U_pred_policy']
+        u = u_nominal[0, :, :].detach().numpy().transpose()
         # closed loop dynamics
         x = np.matmul(Anp, x) + np.matmul(Bnp, u)
         X.append(x)
@@ -190,8 +212,10 @@ if __name__ == "__main__":
     nx = 2
     ny = 2
     nu = 1
+    nd = 1
+    nr = 1
     # number of datapoints
-    nsim = 10000
+    nsim = 40000
     # constraints bounds
     umin = -1
     umax = 1
@@ -217,42 +241,58 @@ if __name__ == "__main__":
         "Y": 3*np.random.randn(nsim, nx),
         "U": np.random.randn(nsim, nu),
         "R": np.concatenate([np.random.uniform(low=ref_min, high=ref_max)*np.ones([args.nsteps, 1])
-                             for i in range(int(nsim/args.nsteps))]),
+                             for i in range(int(np.ceil(nsim/args.nsteps)))])[:nsim, :],
     }
     sequences['E'] = sequences['R'] - sequences['Y'][:, args.controlled_outputs]
     dataset = Dataset(nsim=nsim, ninit=0, norm=args.norm, nsteps=args.nsteps,
                       device='cpu', sequences=sequences, name='closedloop')
 
     """
-    # # #  System model
+    # # #  System model augmeted with disturbance model
     """
     # Fully observable estimator as identity map:
-    # x_0 = Yp
+    # x_0 = [Yp[-1], 0]
     # Yp = [y_-N, ..., y_0]
-    estimator = estimators.FullyObservable({**dataset.dims, "x0": (nx,)},
+    estimator = estimators.FullyObservableAugmented({**dataset.dims, "x0": (nx+nd,)},
                                            nsteps=args.nsteps,  # future window Nf
                                            window_size=1,  # past window Np <= Nf
+                                           nd=1, d0=0.0,    # dimensions and initial values of augmented states
                                            input_keys=["Yp"],
                                            name='estimator')
-    # A, B, C linear maps
-    fu = slim.maps['linear'](nu, nx)
-    fx = slim.maps['linear'](nx, nx)
-    fy = slim.maps['linear'](nx, ny)
     # LTI SSM
-    # x_k+1 = Ax_k + Bu_k
+    # x_k+1 = Ax_k + Bu_k + Ee_k
     # y_k+1 = Cx_k+1
-    dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics',
-                                       input_keys={'x0': f'x0_{estimator.name}'})
+    fu = slim.maps['linear'](nu, nx+nd)     #  [B; 0] u_k
+    fx = slim.maps['linear'](nx+nd, nx+nd)  #  [x_k+1; e_k+1] = [A, 0; -C, I] [x_k; e_k]
+    fy = slim.maps['linear'](nx+nd, ny)     #  [C, 0] [x_k+1; e_k+1]
+    fd = slim.maps['linear'](nr, nx + nd)   #  [0; I] r_k   - we treat reference signal as additive disturbance
+    dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, fd=fd, name='dynamics',
+                                       input_keys={'x0': f'x0_{estimator.name}', 'Df': 'Rf'})
     # model matrices values
     A = torch.tensor([[1.2, 1.0],
-                      [0.0, 1.0]])
+                     [0.0, 1.0]])
     B = torch.tensor([[1.0],
                       [0.5]])
     C = torch.tensor([[1.0, 0.0],
                       [0.0, 1.0]])
-    dynamics_model.fx.linear.weight = torch.nn.Parameter(A)
-    dynamics_model.fu.linear.weight = torch.nn.Parameter(B)
-    dynamics_model.fy.linear.weight = torch.nn.Parameter(C)
+    # augmented system matrix with disturbances
+    # [x_k+1; e_k+1] = [A, 0; -C, I] [x_k; e_k] + [B; 0] u_k + [0; I] r_k
+    # y_k+1 = [C, 0] [x_k+1; e_k+1]
+    A_up = torch.cat((A, torch.zeros(nx, nd)), 1)
+    A_low = torch.cat((torch.zeros(nd, nx), torch.eye(nd, nd)), 1)
+    A_low[args.controlled_outputs, args.controlled_outputs] =\
+        -C[args.controlled_outputs, args.controlled_outputs]
+    A_aug = torch.cat((A_up, A_low), 0)
+    B_aug = torch.cat((B, torch.zeros(nd, nu)), 0)
+    C_aug = torch.cat((C, torch.zeros(nx, nd)), 1)
+    E_aug = torch.cat((torch.zeros(nx, nr), torch.eye(nd, nr)), 0)
+    # A_aug = torch.tensor([[1.2, 1.0, 0.0],
+    #                   [0.0, 1.0, 0.0],
+    #                   [-1.0, 0.0, 1.0]])
+    dynamics_model.fx.linear.weight = torch.nn.Parameter(A_aug)
+    dynamics_model.fu.linear.weight = torch.nn.Parameter(B_aug)
+    dynamics_model.fy.linear.weight = torch.nn.Parameter(C_aug)
+    dynamics_model.fd.linear.weight = torch.nn.Parameter(E_aug)
     # fix model parameters
     dynamics_model.requires_grad_(False)
 
@@ -276,27 +316,8 @@ if __name__ == "__main__":
         input_keys=[f'x0_{estimator.name}', 'Rf'],
         name='policy',
     )
-    policy.output_keys = f'U_pred_{policy.name}'
-    # feedback compensator to mitigate offset from past observations: Ep = Rp-Yp
-    # by modulating the policy output (policy.output_keys)
-    # compensator plays similar role than integrator in PID
-    # U_compensator = c(Ep)
-    # Uf = U_policy + U_compensator
-    linmap_c = slim.maps['pf']      # using Perron-Frobenius positive operator
-    # min and max eigenvalues of the compensator: modulate the integrator signal gain in the closed loop
-    linargs = {"sigma_min": 0.0, "sigma_max": 0.5}
-    compensator = policies.LinearCompensator(dataset.dims,
-                                             policy.output_keys,
-                                             nsteps=args.nsteps,
-                                             bias=False,
-                                             linear_map=linmap_c,
-                                             linargs=linargs,
-                                             input_keys=['Ep'],
-                                             name='compensator')
     # link policy with the model through the input keys
-    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_compensator'
-
-    # TODO: integtator via augmented state space
+    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = f'U_pred_{policy.name}'
 
     """
     # # #  DPC objectives and constraints
@@ -308,27 +329,28 @@ if __name__ == "__main__":
         weight=args.Qr,
         name="ref_loss",
     )
+    osf_loss = Objective(
+        [f'X_pred_{dynamics_model.name}'],
+        lambda x: torch.norm(x[:, :, nx:], 2),
+        weight=args.Q_osf,
+        name="osf_loss",  # penalizing augmented states towards zero: loss(||e_k||^2)
+    )
     action_loss = Objective(
-        [f"U_pred_{compensator.name}"],
+        [f"U_pred_{policy.name}"],
         lambda x:  torch.norm(x, 2),
         weight=args.Qu,
         name="u^T*Qu*u",
     )
     du_loss = Objective(
-        [f"U_pred_{compensator.name}"],
+        [f"U_pred_{policy.name}"],
         lambda x:  F.mse_loss(x[1:], x[:-1]),
         weight=args.Qdu,
         name="control_smoothing",
     )
     # regularization
-    regularization1 = Objective(
+    regularization = Objective(
         [f"reg_error_{policy.name}"], lambda reg: reg,
         weight=args.Q_sub, name="reg_loss1",
-    )
-    # regularization
-    regularization2 = Objective(
-        [f"reg_error_{compensator.name}"], lambda reg: reg,
-        weight=args.Q_sub, name="reg_loss2",
     )
     # constraints
     state_lower_bound_penalty = Objective(
@@ -357,20 +379,20 @@ if __name__ == "__main__":
     )
     # alternative definition: args.nsteps*torch.mean(F.relu(-u + umin))
     inputs_lower_bound_penalty = Objective(
-        [f"U_pred_{compensator.name}", "U_minf"],
+        [f"U_pred_{policy.name}", "U_minf"],
         lambda u, umin: torch.norm(F.relu(-u + umin), 1),
         weight=args.Q_con_u,
         name="input_lower_bound",
     )
     # alternative definition: args.nsteps*torch.mean(F.relu(u - umax))
     inputs_upper_bound_penalty = Objective(
-        [f"U_pred_{compensator.name}", "U_maxf"],
+        [f"U_pred_{policy.name}", "U_maxf"],
         lambda u, umax: torch.norm(F.relu(u - umax), 1),
         weight=args.Q_con_u,
         name="input_upper_bound",
     )
 
-    objectives = [regularization1, regularization2, reference_loss, du_loss]
+    objectives = [regularization, reference_loss, du_loss, osf_loss]
     constraints = [
         state_lower_bound_penalty,
         state_upper_bound_penalty,
@@ -384,7 +406,7 @@ if __name__ == "__main__":
     # # #  DPC problem = objectives + constraints + trainable components 
     """
     # data (y_k) -> estimator (x_k) -> policy (u_k) -> dynamics (x_k+1, y_k+1)
-    components = [estimator, policy, compensator, dynamics_model]
+    components = [estimator, policy, dynamics_model]
     model = Problem(
         objectives,
         constraints,
@@ -435,5 +457,5 @@ if __name__ == "__main__":
     ref_step = 40
     R = np.concatenate([0.5*np.ones([ref_step, 1]),
                         1*np.ones([ref_step, 1]), 0*np.ones([ref_step, 1])])
-    cl_simulate(A, B, policy, compensator, args=args, nstep=R.shape[0],
+    cl_simulate(A, B, policy, args=args, nstep=R.shape[0],
                 x0=1.5*np.ones([2, 1]), ref=R, save_path='test_control')

@@ -50,7 +50,6 @@ class Policy(nn.Module):
         self.in_features = self.static_dims_sum + nsteps * self.sequence_dims_sum
         self.out_features = nsteps * self.nu
         self.input_keys = input_keys
-        self.output_keys = [f'U_pred_{self.name}']
 
     def reg_error(self):
         """
@@ -110,7 +109,9 @@ class Compensator(Policy):
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
         self.policy_output_keys = policy_output_keys
         self.input_keys = input_keys
-    #     TODO: self.policy_output_keys as part of input_keys for accurate visuals?
+        assert len(input_keys) == 1, \
+            f'One input key expected but got {len(input_keys)}. ' \
+            f'Required format input_keys=[\'error signal\'].'
 
     def forward(self, data):
         """
@@ -120,10 +121,10 @@ class Compensator(Policy):
         """
         U_nominal = data[self.policy_output_keys]
         features = self.features(data)
-        U_integrator = self.net(features)
-        U_integrator = torch.cat([u.reshape(self.nsteps, 1, -1) for u in U_integrator], dim=1)
-        # additive compensator for the nominal policy, e.g., integrator of the error signals
-        Uf = U_nominal + U_integrator
+        U_compensator = self.net(features)
+        U_compensator = torch.cat([u.reshape(self.nsteps, 1, -1) for u in U_compensator], dim=1)
+        # additive compensator for the nominal policy: e.g. for online updates
+        Uf = U_nominal + U_compensator
         return {f'U_pred_{self.name}': Uf, f'reg_error_{self.name}': self.reg_error()}
 
 

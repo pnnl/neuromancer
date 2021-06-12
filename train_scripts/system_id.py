@@ -79,26 +79,26 @@ def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynam
 
     dynamics_model = (
         dynamics.blackbox_model(
-            {**dataset.dims, "x0_estim": (nx,)},
+            {**dataset.dims, "x0": (nx,)},
             linmap,
             nonlinmap,
             bias=args.bias,
             n_layers=args.n_layers,
             activation=activation,
             name=dynamics_name,
-            input_keys={'x0': f'x0_{estimator.name}'},
+            input_keys={f'x0_{estimator.name}': 'x0'},
             linargs=linargs
         ) if args.ssm_type == "blackbox"
         else dynamics.block_model(
             args.ssm_type,
-            {**dataset.dims, "x0_estim": (nx,)},
+            {**dataset.dims, "x0": (nx,)},
             linmap,
             nonlinmap,
             bias=args.bias,
             n_layers=args.n_layers,
             activation=activation,
             name=dynamics_name,
-            input_keys={'x0': f'x0_{estimator.name}'},
+            input_keys={f'x0_{estimator.name}': 'x0'},
             linargs=linargs
         )
     )
@@ -216,6 +216,8 @@ if __name__ == "__main__":
 
     model = Problem(objectives, constraints, [estimator, dynamics_model])
     model = model.to(device)
+
+    print(model)
 
     simulator = OpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)

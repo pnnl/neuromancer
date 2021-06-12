@@ -79,7 +79,6 @@ class Problem(nn.Module):
         return {'loss': loss, **outputs}
 
     def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-
         output_dict = self.step(data)
         output_dict = {**self._calculate_loss(output_dict), **output_dict}
         return {f'{data.name}_{k}': v for k, v in output_dict.items()}
@@ -94,22 +93,35 @@ class Problem(nn.Module):
         return input_dict
 
     def __repr__(self):
-        s = "MODEL SUMMARY\n\nCOMPONENTS:\n"
-        for c in self.components:
-            s += f"  {repr(c)}\n"
+        s = "### MODEL SUMMARY ###\n\nCOMPONENTS:"
+        if len(self.components) > 0:
+            for c in self.components:
+                s += f"\n  {repr(c)}"
+            s += "\n"
+        else:
+            s += " none\n"
 
-        s += "\nCONSTRAINTS:\n"
-        for c in self.constraints:
-            s += f"  {repr(c)}\n"
+        s += "\nCONSTRAINTS:"
+        if len(self.constraints) > 0:
+            for c in self.constraints:
+                s += f"\n  {repr(c)}"
+            s += "\n"
+        else:
+            s += " none\n"
 
-        s += "\nOBJECTIVES:\n"
-        for c in self.objectives:
-            s += f"  {repr(c)}\n"
+        s += "\nOBJECTIVES:"
+        if len(self.objectives) > 0:
+            for c in self.objectives:
+                s += f"\n  {repr(c)}"
+            s += "\n"
+        else:
+            s += " none\n"
 
         return s
 
+
 class MSELoss(Objective):
-    def __init__(self, variable_names, weight=1.0, name="ref_loss"):
+    def __init__(self, variable_names, weight=1.0, name="mse_loss"):
         super().__init__(
             variable_names,
             nn.functional.mse_loss,

@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 from torch import nn
 
@@ -9,13 +11,21 @@ def check_keys(k1, k2):
     :param k1: iterable of str
     :param k2: iterable of str
     """
-    assert set(k1) - set(k2) == set(), \
-        f'Missing values in dataset. Input_keys: {set(k1)}, data_keys: {set(k2)}'
+    common_keys = set(k1) & set(k2)
+
+    assert len(common_keys) != 0, \
+            f'Missing values in dataset: {common_keys}\n' \
+            f'  input_keys: {set(k1)}\n  data_keys: {set(k2)}'
+
+
+def _validate_key_params(keys):
+    return keys is None or isinstance(keys, dict) or isinstance(keys, list)
 
 
 class Component(nn.Module):
-    DEFAULT_INPUT_KEYS = []
-    DEFAULT_OUTPUT_KEYS = []
+    DEFAULT_INPUT_KEYS: List[str]
+    DEFAULT_OUTPUT_KEYS: List[str]
+
     def __init__(self, input_keys=None, output_keys=None, name=None):
         """
         The NeuroMANCER component base class.
@@ -57,14 +67,23 @@ class Component(nn.Module):
 
         self.name = name or type(self).__name__
 
+        assert _validate_key_params(input_keys), \
+            f"{type(self).__name__} input_keys must be None, list, or dict if remapping; " \
+            f"type is {type(input_keys)}"
+
+        assert _validate_key_params(output_keys), \
+            f"{type(self).__name__} output_keys must be None, list, or dict if remapping; " \
+            f"type is {type(output_keys)}"
+
         if input_keys is None:
             input_keys = self.DEFAULT_INPUT_KEYS
 
         self._do_input_remap = isinstance(input_keys, dict)
 
         if self._do_input_remap:
-            input_keys = {**{k: k for k in self.DEFAULT_INPUT_KEYS}, **input_keys}
+            input_keys = {**{k: k for k in self.DEFAULT_INPUT_KEYS if k not in input_keys.values()}, **input_keys}
 
+        # conversion of dict to list of tuples used because torch handles dicts weirdly in module hooks
         self._input_keys = (
             [(k, v) for k, v in input_keys.items()]
             if self._do_input_remap
@@ -90,10 +109,10 @@ class Component(nn.Module):
 
     def _remap_input(self, module, input_data):
         input_data = input_data[0]
-        # check_keys({x[1] for x in self._input_keys}, input_data.keys())
+        check_keys({x[0] for x in self._input_keys}, input_data.keys())
         return {
-            k1: input_data[k2] for k1, k2 in self._input_keys
-            if k2 in input_data
+            k2: input_data[k1] for k1, k2 in self._input_keys
+            if k1 in input_data
         }
 
     def _remap_output(self, module, input_data, output_data):
@@ -109,11 +128,10 @@ class Component(nn.Module):
         Retrieve component's input variable names. This returns remapped names if `input_keys` was
         given a mapping; to see a component's canonical input keys, see class attribute `DEFAULT_INPUT_KEYS`.
         """
-        return (
-            [x for x, _ in self._input_keys]
-            if self._do_input_remap
-            else self._input_keys
-        )
+        # reverse mapping
+        rvalues, rkeys = zip(*self._input_keys)
+        rkeys = dict(zip(rkeys, rvalues))
+        return [rkeys.get(k, k) for k in self.DEFAULT_INPUT_KEYS]
 
     @property
     def output_keys(self):
@@ -121,7 +139,8 @@ class Component(nn.Module):
         Retrieve component's output variable names. This returns remapped names if `output_keys` was
         given a mapping; to see a component's canonical output keys, see class attribute `DEFAULT_OUTPUT_KEYS`.
         """
-        return [x for _, x in self._output_keys]
+        rkeys = dict(self._output_keys)
+        return [rkeys.get(k, k) for k in self.DEFAULT_OUTPUT_KEYS]
 
     def __repr__(self):
         return f"{self.name}({', '.join(self.input_keys)}) -> {', '.join(self.output_keys)}"

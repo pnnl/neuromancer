@@ -37,7 +37,7 @@ from neuromancer.component import Component
 
 
 class BlockSSM(Component):
-    DEFAULT_INPUT_KEYS = ['x0', 'Yf', 'Uf', 'Df']
+    DEFAULT_INPUT_KEYS = ["x0", "Yf", "Uf", "Df"]
     DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "fU", "fD", "fE", "reg_error"]
 
     def __init__(self, fx, fy, fu=None, fd=None, fe=None, fyu=None,
@@ -60,13 +60,7 @@ class BlockSSM(Component):
         :param name: (str) Name for tracking output
         :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
         """
-        assert isinstance(input_keys, dict), \
-            f"BlockSSM input_keys must be dict, type is {type(input_keys)}"
-        super().__init__(
-            input_keys,
-            BlockSSM.DEFAULT_OUTPUT_KEYS,
-            name,
-        )
+        super().__init__(input_keys=input_keys, name=name)
 
         self.fx, self.fy, self.fu, self.fd, self.fe, self.fyu = fx, fy, fu, fd, fe, fyu
         self.nx, self.ny, self.nu, self.nd = (
@@ -108,7 +102,7 @@ class BlockSSM(Component):
         :param data: (dict: {str: Tensor})
         :return: output (dict: {str: Tensor})
         """
-        x_in, y_out, u_in, d_in = self.input_keys
+        x_in, y_out, u_in, d_in = self.DEFAULT_INPUT_KEYS
         nsteps = data[y_out].shape[0]
         X, Y, FD, FU, FE = [], [], [], [], []
         x = data[x_in]
@@ -184,7 +178,7 @@ class BlackSSM(Component):
     def forward(self, data):
         """
         """
-        x_in, y_out, u_in, d_in = self.input_keys
+        x_in, y_out, u_in, d_in = self.DEFAULT_INPUT_KEYS
         nsteps = data[y_out].shape[0]
         X, Y, FE = [], [], []
 
@@ -274,7 +268,7 @@ class TimeDelayBlockSSM(BlockSSM):
         :param data: (dict: {str: Tensor})
         :return: output (dict: {str: Tensor})
         """
-        x_in, y_out, u_in_f, u_in_p, d_in_f, d_in_p = self.input_keys
+        x_in, y_out, u_in_f, u_in_p, d_in_f, d_in_p = self.DEFAULT_INPUT_KEYS
         nsteps = data[y_out].shape[0]
         X, Y, FD, FU, FE = [], [], [], [], []
 
@@ -352,7 +346,7 @@ class TimeDelayBlackSSM(BlackSSM):
     def forward(self, data):
         """
         """
-        x_in, y_out, u_in_f, u_in_p, d_in_f, d_in_p = self.input_keys
+        x_in, y_out, u_in_f, u_in_p, d_in_f, d_in_p = self.DEFAULT_INPUT_KEYS
         nsteps = data[y_out].shape[0]
         X, Y, FE = [], [], []
 

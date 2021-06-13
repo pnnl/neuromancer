@@ -436,7 +436,7 @@ if __name__ == "__main__":
         name="Ki_form_penalty",
     )
     Ki_min = 0
-    Ki_max = 0.15
+    Ki_max = 1.0
     Ki_upper_boud_penalty = Objective([],
         lambda: torch.norm(F.relu(dynamics_model.fe.linear.weight - Ki_max), 1),
         weight=args.Q_Ki*nsim,

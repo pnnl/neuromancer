@@ -119,7 +119,7 @@ def arg_dpc_problem(prefix=''):
     return parser
 
 
-def cl_simulate(A, B, policy, args, K_i=None,
+def cl_simulate(A, B, policy, args, K_i=None, err_add=0.0, err_param=1.0,
                 nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
     """
 
@@ -157,7 +157,7 @@ def cl_simulate(A, B, policy, args, K_i=None,
             u_nominal = torch.clamp(u_nominal, min=args.umin, max=args.umax)
         u = u_nominal.detach().numpy().transpose()
         # closed loop dynamics
-        x = np.matmul(Anp, x) + np.matmul(Bnp, u)
+        x = err_param*np.matmul(Anp, x) + np.matmul(Bnp, u) + err_add
         X.append(x)
         U.append(u)
     Xnp = np.asarray(X[N:])[:, :, 0]
@@ -436,14 +436,14 @@ if __name__ == "__main__":
         name="Ki_form_penalty",
     )
     Ki_min = 0
-    Ki_max = 1.2
-    Ki_upper_boud_penalty = Objective(["Rf"],
-        lambda x: torch.norm(F.relu(dynamics_model.fe.linear.weight - Ki_max), 1),
+    Ki_max = 0.15
+    Ki_upper_boud_penalty = Objective([],
+        lambda: torch.norm(F.relu(dynamics_model.fe.linear.weight - Ki_max), 1),
         weight=args.Q_Ki*nsim,
         name="Ki_upper_bound_penalty",
     )
-    Ki_lower_boud_penalty = Objective(["Rf"],
-        lambda x: torch.norm(F.relu(-dynamics_model.fe.linear.weight + Ki_min), 1),
+    Ki_lower_boud_penalty = Objective([],
+        lambda: torch.norm(F.relu(-dynamics_model.fe.linear.weight + Ki_min), 1),
         weight=args.Q_Ki*nsim,
         name="Ki_lower_bound_penalty",
     )

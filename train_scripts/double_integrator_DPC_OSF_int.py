@@ -229,7 +229,7 @@ if __name__ == "__main__":
     nd = 1
     nr = 1
     # number of datapoints
-    nsim = 10000    # increase sample density for more robust results
+    nsim = 50000    # increase sample density for more robust results
     # constraints bounds
     umin = -1
     umax = 1

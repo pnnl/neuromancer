@@ -4,7 +4,6 @@ Definition of neuromancer.Constraint class used in conjunction with neuromancer.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from neuromancer.variable import Variable
 
 
 class LT(nn.Module):
@@ -12,6 +11,9 @@ class LT(nn.Module):
     def __init__(self, norm=1):
         super().__init__()
         self.norm = norm
+
+    def __str__(self):
+        return 'lt'
 
     def forward(self, left, right):
         if self.norm == 1:
@@ -27,6 +29,9 @@ class GT(nn.Module):
         super().__init__()
         self.norm = norm
 
+    def __str__(self):
+        return 'gt'
+
     def forward(self, left, right):
         if self.norm == 1:
             return torch.mean(F.relu(right - left))
@@ -39,6 +44,9 @@ class Eq(nn.Module):
     def __init__(self, norm=1):
         super().__init__()
         self.norm = norm
+
+    def __str__(self):
+        return 'eq'
 
     def forward(self, left, right):
         if self.norm == 1:
@@ -60,13 +68,14 @@ class Constraint(nn.Module):
         """
         super().__init__()
         if not type(left) is Variable:
-            left = Variable(str(left), constant=left)
+            left = Variable(str(left), value=left)
         if not type(right) is Variable:
-            right = Variable(str(right), constant=right)
+            right = Variable(str(right), value=right)
         self.left = left
         self.right = right
         self.comparator = comparator
         self.weight = weight
+        self.name = f'{self.left}_{self.comparator}_{self.right}'
 
     @property
     def variable_names(self):
@@ -84,3 +93,182 @@ class Constraint(nn.Module):
 
     def forward(self, variables):
         return self.weight*self.comparator(self.left(variables), self.right(variables))
+
+
+class Variable:
+    """
+    Variable is an abstraction that allows for the definition of constraints and objectives with some nice
+    syntactic sugar. When a Variable object is called given a dictionary a pytorch tensor is returned, and when
+    a Variable object is subjected to a comparison operator a Constraint is returned. Mathematical operators return
+    Variables which will instantiate and perform the sequence of mathematical operations.
+
+    Supported infix operators (variable * variable, variable * numeric): +, -, *, @, **, <, <=, >, >=, ==, ^
+    """
+
+    def __init__(self, key, value=None, left=None, right=None, operator=None):
+        """
+
+        :param key: (str) Unique string identifier which should occur as a key at some point in
+                          the data dictionary which is accumulated through the computational graph.
+        """
+        self.key = key
+        self.left = left
+        self.right = right
+        self.op = operator
+        if value is not None and not isinstance(value, torch.Tensor):
+            value = torch.tensor(value)
+        self.value = value
+        self._check_()
+
+    def _check_(self):
+        """
+        Some things should never happen.
+        """
+        if self.left is not None:
+            assert type(self.left) is Variable
+        if self.right is not None:
+            assert type(self.right) is Variable
+        if self.left is not None or self.right is not None:
+            assert self.op is not None
+        if self.op == 'neg':
+            assert self.left is None and self.right is None
+        if self.left is not None:
+            assert self.right is not None
+        if self.right is not None:
+            assert self.left is not None
+
+    def __call__(self, data):
+        """
+        The call function is going to hand back a pytorch tensor. In the base case the call function will simply look
+        up the tensor in the data dictionary. More complicated cases will involve calling the left and calling the right
+        and then performing a pytorch operation.
+        :param data: (dict: {str: torch.Tensor})
+        :return: torch.Tensor
+        """
+        data_tensors = [v for v in data.values() if isinstance(v, torch.Tensor)]
+        if self.value is not None:
+            if data_tensors:
+                self.value.to(data_tensors[0].device)
+            data[self.key] = self.value
+            return self.value
+        elif self.op == 'add':
+            return self.left(data) + self.right(data)
+        elif self.op == 'sub':
+            return self.left(data) - self.right(data)
+        elif self.op == 'mul':
+            return self.left(data) * self.right(data)
+        elif self.op == 'pow':
+            return self.left(data) ** self.right(data)
+        elif self.op == 'matmul':
+            return self.left(data) @ self.right(data)
+        elif self.op == 'neg':
+            return -data[self.key.strip('neg_')]
+        elif self.op == 'div':
+            return self.left(data) / self.right(data)
+        else:
+            return data[self.key]
+
+    """
+        Numeric operators. Numeric operators return a variable with a special __call__ function which first retrieves instantiated
+        numeric quantities for the left and right hand side and performs the corresponding pytorch operator on the instantiate quantities
+        """
+
+    def __str__(self):
+        if self.value is not None:
+            return f'{self.key}={self.value}'
+        else:
+            return self.key
+
+    def __repr__(self):
+        return f'neuromancer.variable.Variable object, key={self.key}, left={self.left}, right={self.right}, operator={self.op}, value={self.value}'
+
+    def __add__(self, other):
+        if not type(other) is Variable:
+            other = Variable(str(other), value=other)
+        return Variable(f'{self.key}_plus_{other.key}', left=self, right=other, operator='add')
+
+    def __radd__(self, other):
+        if not type(other) is Variable:
+            other = Variable(str(other), value=other)
+        return Variable(f'{self.key}_plus_{other.key}', left=other, right=self, operator='add')
+
+    def __sub__(self, other):
+        if not type(other) is Variable:
+            other = Variable(str(other), value=other)
+        return Variable(f'{self.key}_minus_{other.key}', left=self, right=other, operator='sub')
+
+    def __rsub__(self, other):
+        if not type(other) is Variable:
+            other = Variable(str(other), value=other)
+        return Variable(f'{self.key}_minus_{other.key}', left=other, right=self, operator='sub')
+
+    def __mul__(self, other):
+        if not type(other) is Variable:
+            other = Variable(str(other), value=other)
+        return Variable(f'{self.key}_times_{other.key}', left=self, right=other, operator='mul')
+
+    def __rmul__(self, other):
+        if not type(other) is Variable:
+            other = Variable(str(other), value=other)
+        return Variable(f'{self.key}_times_{other.key}', left=other, right=self, operator='mul')
+
+    def __matmul__(self, other):
+        if not type(other) is Variable:
+            other = Variable(str(other), value=other)
+        return Variable(f'{self.key}_matmul_{other.key}', left=self, right=other, operator='matmul')
+
+    def __rmatmul__(self, other):
+        if not type(other) is Variable:
+            other = Variable(str(other), value=other)
+        return Variable(f'{self.key}_matmul_{other.key}', left=other, right=self, operator='matmul')
+
+    def __pow__(self, other):
+        if not type(other) is Variable:
+            other = Variable(str(other), value=other)
+        return Variable(f'{self.key}_pow_{other.key}', left=self, right=other, operator='pow')
+
+    def __rpow__(self, other):
+        if not type(other) is Variable:
+            other = Variable(str(other), value=other)
+        return Variable(f'{self.key}_pow_{other.key}', left=other, right=self, operator='pow')
+
+    def __truediv__(self, other):
+        if not type(other) is Variable:
+            other = Variable(str(other), value=other)
+        return Variable(f'{self.key}_div_{other.key}', left=self, right=other, operator='div')
+
+    def __rtruediv__(self, other):
+        if not type(other) is Variable:
+            other = Variable(str(other), value=other)
+        return Variable(f'{self.key}_div_{other.key}', left=other, right=self, operator='div')
+
+    def __neg__(self):
+        return Variable(f'neg_{self.key}', operator='neg')
+
+    """
+    Comparison operators. When a variable and numeric value (float, int, Tensor) are compared a constraint is implicitly 
+    defined and a Constraint object is returned. For now <, >, <=, and >= will create an inequality Constraint with 
+    an L1 norm penalty on constraint violations. A Constraint object can be made to use an L2 norm penalty with the ^ operator, 
+    e.g. (x < 1)^2. x == y will return an equality Constraint equivalent to the two inequality constraints x - y <=0, y-x <=0. 
+
+
+    != is not a defined comparison for variables  
+    """
+
+    def __lt__(self, other):
+        return Constraint(self, other, LT())
+
+    def __le__(self, other):
+        return Constraint(self, other, LT())
+
+    def __gt__(self, other):
+        return Constraint(self, other, GT())
+
+    def __ge__(self, other):
+        return Constraint(self, other, GT())
+
+    def __eq__(self, other):
+        return Constraint(self, other, Eq())
+
+
+

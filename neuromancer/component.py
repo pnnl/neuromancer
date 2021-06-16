@@ -6,14 +6,14 @@ from torch import nn
 
 def check_keys(k1, k2):
     """
-    Check that all elements in k1 are contained in k2
+    Check that some elements in k1 are contained in k2
 
     :param k1: iterable of str
     :param k2: iterable of str
     """
-    common_keys = set(k1) & set(k2)
+    common_keys = set(k1) - set(k2)
 
-    assert len(common_keys) != 0, \
+    assert len(common_keys) == 0, \
             f'Missing values in dataset: {common_keys}\n' \
             f'  input_keys: {set(k1)}\n  data_keys: {set(k2)}'
 
@@ -26,7 +26,7 @@ class Component(nn.Module):
     DEFAULT_INPUT_KEYS: List[str]
     DEFAULT_OUTPUT_KEYS: List[str]
 
-    def __init__(self, input_keys=None, output_keys=None, name=None):
+    def __init__(self, input_keys, output_keys, name=None):
         """
         The NeuroMANCER component base class.
 
@@ -62,6 +62,12 @@ class Component(nn.Module):
 
         .. todo:: Handle input and output key validation here rather than in component implementations.
         .. todo:: Validate that any remapped keys actually exist in a components' defaults.
+        .. todo:: Figure out how to handle potentially optional inputs/outputs; e.g. autonomous dynamics
+            won't use `Uf` for input or return `fU` as output.
+
+        .. todo:: Remove `output_keys` as an argument, just tag canonical output variable names by default?
+            This may not be totally doable for components whose outputs are defined by how they are
+            instantiated, e.g. `BlockSSM`.
         """
         super().__init__()
 
@@ -71,40 +77,23 @@ class Component(nn.Module):
             f"{type(self).__name__} input_keys must be None, list, or dict if remapping; " \
             f"type is {type(input_keys)}"
 
-        assert _validate_key_params(output_keys), \
-            f"{type(self).__name__} output_keys must be None, list, or dict if remapping; " \
-            f"type is {type(output_keys)}"
-
         if input_keys is None:
             input_keys = self.DEFAULT_INPUT_KEYS
 
         self._do_input_remap = isinstance(input_keys, dict)
 
         if self._do_input_remap:
-            input_keys = {**{k: k for k in self.DEFAULT_INPUT_KEYS if k not in input_keys.values()}, **input_keys}
-
-        # conversion of dict to list of tuples used because torch handles dicts weirdly in module hooks
-        self._input_keys = (
-            [(k, v) for k, v in input_keys.items()]
-            if self._do_input_remap
-            else input_keys
-        )
-
-        if self._do_input_remap:
+            input_keys = {
+                **{k: k for k in self.DEFAULT_INPUT_KEYS if k not in input_keys.values()},
+                **input_keys
+            }
+            # conversion of dict to list of tuples used because torch handles dicts weirdly in module hooks
+            self._input_keys = [(k, v) for k, v in input_keys.items()]
             self.register_forward_pre_hook(self._remap_input)
+        else:
+            self._input_keys = [(k, k) for k in input_keys]
 
-        if output_keys is None:
-            output_keys = self.DEFAULT_OUTPUT_KEYS
-
-        if isinstance(output_keys, dict):
-            output_keys = {**{k: k for k in self.DEFAULT_OUTPUT_KEYS}, **output_keys}
-
-        self._output_keys = (
-            [(k, f"{v}_{name}") for k, v in output_keys.items()]
-            if isinstance(output_keys, dict)
-            else [(k, f"{k}_{name}") for k in output_keys]
-        )
-
+        self._output_keys = [(k, f"{k}_{name}") for k in output_keys]
         self.register_forward_hook(self._remap_output)
 
     def _remap_input(self, module, input_data):
@@ -130,8 +119,8 @@ class Component(nn.Module):
         """
         # reverse mapping
         rvalues, rkeys = zip(*self._input_keys)
-        rkeys = dict(zip(rkeys, rvalues))
-        return [rkeys.get(k, k) for k in self.DEFAULT_INPUT_KEYS]
+        #rkeys = dict(zip(rkeys, rvalues))
+        return rkeys
 
     @property
     def output_keys(self):
@@ -141,6 +130,26 @@ class Component(nn.Module):
         """
         rkeys = dict(self._output_keys)
         return [rkeys.get(k, k) for k in self.DEFAULT_OUTPUT_KEYS]
+
+    # NOTE: the following two methods may become unnecessary if certain components are broken up into
+    # separate components and composed in a Problem.
+    @classmethod
+    def add_optional_inputs(cls, new_keys, remapping=[]):
+        # assert isinstance(remapping, list) or isinstance(remapping, dict)
+        if isinstance(remapping, dict) and len(remapping) > 0:
+            reverse_map = dict(zip(remapping.values(), remapping.keys()))
+            keys = {
+                **{k: k for k in cls.DEFAULT_INPUT_KEYS},
+                **{k: v for k, v in remapping.items() if v not in new_keys},
+                **{reverse_map[k] if k in reverse_map else k: k for k in new_keys},
+            }
+        else:
+            keys = cls.DEFAULT_INPUT_KEYS + new_keys
+        return keys
+
+    @classmethod
+    def add_optional_outputs(cls, new_keys):
+        return cls.DEFAULT_OUTPUT_KEYS + new_keys
 
     def __repr__(self):
         return f"{self.name}({', '.join(self.input_keys)}) -> {', '.join(self.output_keys)}"

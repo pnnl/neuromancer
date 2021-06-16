@@ -37,8 +37,16 @@ from neuromancer.component import Component
 
 
 class BlockSSM(Component):
-    DEFAULT_INPUT_KEYS = ["x0", "Yf", "Uf", "Df"]
-    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "fU", "fD", "fE", "reg_error"]
+    # TODO: make canonical inputs depend on which components are actually enabled for the SSM
+    # e.g. if fu is not None, add "Uf" as required input key and "fU" as output key.
+    DEFAULT_INPUT_KEYS = ["x0", "Yf"]
+    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "reg_error"]
+
+    OPTIONAL_INPUT_KEYS = ["Uf", "Df"]
+    OPTIONAL_OUTPUT_KEYS = ["fU", "fD", "fE"]
+
+    _ALL_INPUTS = DEFAULT_INPUT_KEYS + OPTIONAL_INPUT_KEYS
+    _ALL_OUTPUTS = DEFAULT_OUTPUT_KEYS + OPTIONAL_OUTPUT_KEYS
 
     def __init__(self, fx, fy, fu=None, fd=None, fe=None, fyu=None,
                  xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, residual=False, name='block_ssm',
@@ -60,8 +68,21 @@ class BlockSSM(Component):
         :param name: (str) Name for tracking output
         :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
         """
-        super().__init__(input_keys=input_keys, name=name)
+        input_keys = BlockSSM.add_optional_inputs(
+            [x for x, c in zip(self.OPTIONAL_INPUT_KEYS, [fu, fd]) if c is not None],
+            remapping=input_keys,
+        )
+        print(input_keys)
+        output_keys = BlockSSM.add_optional_outputs(
+            [x for x, c in zip(self.OPTIONAL_OUTPUT_KEYS, [fu, fd, fe]) if c is not None]
+        )
 
+        super().__init__(
+            input_keys,
+            output_keys,
+            name,
+        )
+        
         self.fx, self.fy, self.fu, self.fd, self.fe, self.fyu = fx, fy, fu, fd, fe, fyu
         self.nx, self.ny, self.nu, self.nd = (
             self.fx.in_features,
@@ -89,12 +110,16 @@ class BlockSSM(Component):
         self.nx, self.ny = self.fx.in_features, self.fy.out_features
         self.nu = self.fu.in_features if self.fu is not None else 0
         self.nd = self.fd.in_features if self.fd is not None else 0
-        assert self.fx.in_features == self.fx.out_features, 'State transition must have same input and output dimensions'
-        assert self.fy.in_features == self.fx.out_features, 'Output map must have same input size as output size of state transition'
+        assert self.fx.in_features == self.fx.out_features, \
+            'State transition must have same input and output dimensions'
+        assert self.fy.in_features == self.fx.out_features, \
+            'Output map must have same input size as output size of state transition'
         if self.fu is not None:
-            assert self.fu.out_features == self.fx.out_features, 'Dimension mismatch between input and state transition'
+            assert self.fu.out_features == self.fx.out_features, \
+                'Dimension mismatch between input and state transition'
         if self.fd is not None:
-            assert self.fd.out_features == self.fx.out_features, 'Dimension mismatch between disturbance and state transition'
+            assert self.fd.out_features == self.fx.out_features, \
+                'Dimension mismatch between disturbance and state transition'
 
     def forward(self, data):
         """
@@ -102,7 +127,7 @@ class BlockSSM(Component):
         :param data: (dict: {str: Tensor})
         :return: output (dict: {str: Tensor})
         """
-        x_in, y_out, u_in, d_in = self.DEFAULT_INPUT_KEYS
+        x_in, y_out, u_in, d_in = self._ALL_INPUTS
         nsteps = data[y_out].shape[0]
         X, Y, FD, FU, FE = [], [], [], [], []
         x = data[x_in]
@@ -142,8 +167,14 @@ class BlockSSM(Component):
 
 
 class BlackSSM(Component):
-    DEFAULT_INPUT_KEYS = ["x0", "Yf", "Uf", "Df"]
-    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "fE", "reg_error"]
+    DEFAULT_INPUT_KEYS = ["x0", "Yf"] 
+    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "reg_error"]
+
+    OPTIONAL_INPUT_KEYS = ["Uf", "Df"]
+    OPTIONAL_OUTPUT_KEYS = ["fE"]
+    
+    _ALL_INPUTS = DEFAULT_INPUT_KEYS + OPTIONAL_INPUT_KEYS
+    _ALL_OUTPUTS = DEFAULT_OUTPUT_KEYS + OPTIONAL_OUTPUT_KEYS
 
     def __init__(self, fxud, fy, fe=None, fyu=None, xoe=torch.add, xoyu=torch.add, name='black_ssm', input_keys=dict(), residual=False):
         """
@@ -160,11 +191,22 @@ class BlackSSM(Component):
         :param residual: (bool) Whether to make recurrence in state space model residual
 
         """
-        assert isinstance(input_keys, dict), \
-            f"BlackSSM input_keys must be dict, type is {type(input_keys)}"
+        input_keys = BlackSSM.add_optional_inputs(
+            [
+                k for k in self.OPTIONAL_INPUT_KEYS
+                if k in input_keys or (isinstance(input_keys, dict) and k in input_keys.values())
+            ],
+            remapping=input_keys,
+        )
+
+        print("uuh", input_keys)
+        output_keys = BlackSSM.add_optional_outputs(
+            [x for x, c in zip(self.OPTIONAL_OUTPUT_KEYS, [fe]) if c is not None]
+        )
+
         super().__init__(
             input_keys,
-            BlackSSM.DEFAULT_OUTPUT_KEYS,
+            output_keys,
             name,
         )
         self.fxud, self.fy, self.fe, self.fyu = fxud, fy, fe, fyu
@@ -178,7 +220,7 @@ class BlackSSM(Component):
     def forward(self, data):
         """
         """
-        x_in, y_out, u_in, d_in = self.DEFAULT_INPUT_KEYS
+        x_in, y_out, u_in, d_in = self._ALL_INPUTS
         nsteps = data[y_out].shape[0]
         X, Y, FE = [], [], []
 
@@ -388,7 +430,7 @@ class TimeDelayBlackSSM(BlackSSM):
 
 
 def _extract_dims(datadims, keys, timedelay=0):
-    xkey, ykey, ukey, dkey = [keys.get(x, x) for x in BlockSSM.DEFAULT_INPUT_KEYS]
+    xkey, ykey, ukey, dkey = ["x0", "Yf", "Uf", "Df"]
     nx = datadims[xkey][-1]
     ny = datadims[ykey][-1]
     nu = datadims[ukey][-1] if ukey in datadims else 0

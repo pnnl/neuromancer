@@ -25,17 +25,10 @@ cd -
 # Run tests
 exit_code=0
 
-test_files=( \
-  "./tests/test_blocks.py" \
-  "./tests/test_activations.py" \
-  "./tests/test_dynamics.py")
-
-for test_file in "${test_files[@]}"; do
-  pytest $test_file
-  if [ $? == 1 ]; then
+pytest tests
+if [ $? == 1 ]; then
     exit_code=1
-  fi
-done
+fi
 
 # All jobs with status 0 are good, while 1 denote failure
 echo BUILD_STATUS:$exit_code

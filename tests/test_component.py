@@ -41,12 +41,11 @@ def test_estimators(kind, x0_dim, y_dim, u_dim, batch_size, nsteps):
     test_data = get_test_data(dims, batch_size, nsteps)
     dims = {k: (nsteps, v.shape[-1]) for k, v in test_data.items()}
     constructor = estimators.estimators[kind]
-    print(kind, dims)
     estim = constructor(
         dims,
         nsteps=nsteps,
         window_size=nsteps,
-        hsizes=[dims["x0"][0]] * 2,
+        hsizes=[dims["x0"][-1]] * 2,
         input_keys=[k for k, v in dims.items() if v[0] != 0 and k != "x0"],
         name=kind,
     )
@@ -104,6 +103,38 @@ def test_black_ssm(x0_dim, y_dim, u_dim, d_dim, batch_size, nsteps):
     output = ssm(test_data)
 
     assert all([k in output for k in ssm.output_keys])
+
+
+@given(
+    st.sampled_from(policies.policies),
+    st.integers(1, 50),
+    st.integers(0, 1),
+    st.integers(1, 5),
+    st.integers(0, 1),
+    st.integers(0, 1),
+    st.integers(1, 100),
+    st.integers(1, 50),
+)
+@settings(max_examples=1000, deadline=None)
+def test_policies(constructor, x0_dim, r_dim, u_dim, past_u, d_dim, batch_size, nsteps):
+    # x0 needs to be sequential for RNNPolicy
+    test_data = {"x0": torch.rand(batch_size, x0_dim)}
+    dims = {"x0": (x0_dim,), "U": (nsteps, u_dim)}
+
+    if d_dim != 0:
+        test_data["D"] = torch.rand(nsteps, batch_size, d_dim)
+        dims["D"] = (nsteps, d_dim)
+    if r_dim != 0:
+        test_data["R"] = torch.rand(nsteps, batch_size, r_dim)
+        dims["R"] = (nsteps, r_dim)
+    if past_u != 0:
+        test_data["Up"] = torch.rand(nsteps, batch_size, u_dim)
+        dims["Up"] = (nsteps, u_dim)
+
+    policy = constructor(dims, nsteps=nsteps, input_keys=[x for x in dims if x != "U"])
+    output = policy(test_data)
+
+    assert all([k in output for k in policy.output_keys])
 
 
 class DummyComponent(Component):

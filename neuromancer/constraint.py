@@ -105,7 +105,7 @@ class Variable:
     Supported infix operators (variable * variable, variable * numeric): +, -, *, @, **, <, <=, >, >=, ==, ^
     """
 
-    def __init__(self, key, value=None, left=None, right=None, operator=None):
+    def __init__(self, key, value=None, left=None, right=None, operator=None, slice=None):
         """
 
         :param key: (str) Unique string identifier which should occur as a key at some point in
@@ -116,8 +116,9 @@ class Variable:
         self.right = right
         self.op = operator
         if value is not None and not isinstance(value, torch.Tensor):
-            value = torch.tensor(value)
+            value = torch.tensor(value, dtype=torch.float32)
         self.value = value
+        self.slice = slice
         self._check_()
 
     def _check_(self):
@@ -149,29 +150,40 @@ class Variable:
         if self.value is not None:
             if data_tensors:
                 self.value.to(data_tensors[0].device)
-            data[self.key] = self.value
-            return self.value
+            value = self.value
         elif self.op == 'add':
-            return self.left(data) + self.right(data)
+            value = self.left(data) + self.right(data)
         elif self.op == 'sub':
-            return self.left(data) - self.right(data)
+            value = self.left(data) - self.right(data)
         elif self.op == 'mul':
-            return self.left(data) * self.right(data)
+            value = self.left(data) * self.right(data)
         elif self.op == 'pow':
-            return self.left(data) ** self.right(data)
+            value = self.left(data) ** self.right(data)
         elif self.op == 'matmul':
-            return self.left(data) @ self.right(data)
+            value = self.left(data) @ self.right(data)
         elif self.op == 'neg':
-            return -data[self.key.strip('neg_')]
+            value = -data[self.key.strip('neg_')]
         elif self.op == 'div':
-            return self.left(data) / self.right(data)
+            value = self.left(data) / self.right(data)
         else:
-            return data[self.key]
+            if self.slice is not None:
+                key = self.key[:-len(str(self.slice))-1]
+            else:
+                key = self.key
+            value = data[key]
+        if self.slice is None:
+            return value
+        else:
+            return value[self.slice]
 
     """
         Numeric operators. Numeric operators return a variable with a special __call__ function which first retrieves instantiated
         numeric quantities for the left and right hand side and performs the corresponding pytorch operator on the instantiate quantities
         """
+
+    def __getitem__(self, slice):
+        return Variable(f'{self.key}_{str(slice)}', value=self.value, left=self.left,
+                        right=self.right, operator=self.op, slice=slice)
 
     def __str__(self):
         if self.value is not None:
@@ -180,7 +192,8 @@ class Variable:
             return self.key
 
     def __repr__(self):
-        return f'neuromancer.variable.Variable object, key={self.key}, left={self.left}, right={self.right}, operator={self.op}, value={self.value}'
+        return f'neuromancer.variable.Variable object, key={self.key}, left={self.left}, ' \
+               f'right={self.right}, operator={self.op}, value={self.value}, slice={self.slice}'
 
     def __add__(self, other):
         if not type(other) is Variable:

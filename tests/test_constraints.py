@@ -614,3 +614,27 @@ def test_nge_mse_number(shape):
     cnstr = (x >= 2.)^2
     data = {'x': torch.rand(shape)}
     assert cnstr(data) != 0.
+
+
+@given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
+@settings(max_examples=10, deadline=None)
+def test_variable_slicing(shape):
+    x = cn.Variable('x')
+    data = {'x': torch.rand(shape)}
+    assert torch.equal(x[0:](data), data['x'][0:])
+
+
+@given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
+@settings(max_examples=10, deadline=None)
+def test_variable_expression_slicing(shape):
+    x = cn.Variable('x')
+    data = {'x': torch.rand(shape)}
+    assert torch.equal((x+x)[0:](data), data['x'][0:] + data['x'][0:])
+
+
+@given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
+@settings(max_examples=10, deadline=None)
+def test_variable_expression_slicing2(shape):
+    x = cn.Variable('x')
+    data = {'x': torch.rand(shape)}
+    assert torch.equal((x[0:] + x[0:])(data), data['x'][0:] + data['x'][0:])

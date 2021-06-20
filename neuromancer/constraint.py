@@ -1,9 +1,37 @@
 """
-Definition of neuromancer.Constraint class used in conjunction with neuromancer.variable class.
+Definition of neuromancer.Constraint class used in conjunction with neuromancer.Variable class. A Constraint has the
+same behavior as an Objective but with intuitive syntax for defining via Variable objects.
 """
+from typing import Dict, List, Callable
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
+class Objective(nn.Module):
+    def __init__(self, variable_names: List[str], loss: Callable[..., torch.Tensor], weight=1.0, name='objective'):
+        """
+
+        :param variable_names: List of str
+        :param loss: (callable) Number of arguments of the callable should equal the number of strings in variable names.
+                                Arguments to callable should be torch.Tensor and return type a 0-dimensional torch.Tensor
+        :param weight: (float) Weight of objective for calculating multi-objective loss function
+        :param name: (str) Name for tracking output
+        """
+        super().__init__()
+        self.variable_names = variable_names
+        self.weight = weight
+        self.loss = loss
+        self.name = name
+
+    def forward(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
+        """
+
+        :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
+        :return: 0-dimensional torch.Tensor that can be cast as a floating point number
+        """
+        return self.weight*self.loss(*[variables[k] for k in self.variable_names])
 
 
 class LT(nn.Module):

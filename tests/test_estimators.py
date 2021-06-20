@@ -90,104 +90,10 @@ def test_seq2seq_estimators_shape(samples, nsteps, nx, ny, nu, nd,
                 linear_map=lin, nonlin=act, window_size=math.ceil(window*nsteps),
                 timedelay=time_delay)
     output = model(data)
-    print(samples, nsteps, nx, ny, nu, nd, hsize, nlayers, est)
+    print(td, samples, nsteps, nx, ny, nu, nd, hsize, nlayers, est)
     print({k: v.shape for k, v in output.items()})
     x0 = [v for k, v in output.items() if len(v.shape) == 3][0]
     print(time_delay)
     assert x0.shape[0] == time_delay + 1
     assert x0.shape[1] == samples
     assert x0.shape[2] == nx
-
-
-# if __name__ == '__main__':
-#     nx, ny, nu, nd = 15, 7, 5, 2
-#     N = 40
-#
-#     samples = 1
-#     # Data format: (N,samples,dim)
-#     Y = torch.rand(N, samples, ny)
-#     U = torch.rand(N, samples, nu)
-#     D = torch.rand(N, samples, nd)
-#     data = {'Yp': Y, 'Up': U, 'Dp': D}
-#     data_dims = {'x0': (nx,), 'Yp': (N, ny), 'Up': (N, nu), 'Dp': (N, nd)}
-#     input_keys = ['Yp']
-#
-#     for bias in [True, False]:
-#         for name, est in estimators.items():
-#             print(name)
-#             e = est(data_dims, input_keys=input_keys)
-#             e_out = e(data)
-#             for k, v in e_out.items():
-#                 print(f'{k}: {v.shape}')
-#             for lin in set(slim.maps.values()) - slim.square_maps:
-#                 print(lin)
-#                 e = est(data_dims, input_keys=input_keys, bias=bias, linear_map=lin)
-#                 e_out = e(data)
-#                 for k, v in e_out.items():
-#                     print(f'{k}: {v.shape}')
-#
-#     for bias in [True, False]:
-#         for name, est in estimators.items():
-#             print(name)
-#             e = est(data_dims, nsteps=N, window_size=N, input_keys=input_keys)
-#             e_out = e(data)
-#             for k, v in e_out.items():
-#                 print(f'{k}: {v.shape}')
-#             for lin in set(slim.maps.values()) - slim.square_maps:
-#                 print(lin)
-#                 e = est(data_dims, nsteps=N, window_size=N, input_keys=input_keys, bias=bias, linear_map=lin)
-#                 e_out = e(data)
-#                 for k, v in e_out.items():
-#                     print(f'{k}: {v.shape}')
-#
-#     for bias in [True, False]:
-#         for name, est in estimators.items():
-#             print(name)
-#             e = est(data_dims, nsteps=N, window_size=N-1, input_keys=input_keys)
-#             e_out = e(data)
-#             for k, v in e_out.items():
-#                 print(f'{k}: {v.shape}')
-#             for lin in set(slim.maps.values()) - slim.square_maps:
-#                 print(lin)
-#                 e = est(data_dims, nsteps=N, window_size=N-1, input_keys=input_keys, bias=bias, linear_map=lin)
-#                 e_out = e(data)
-#                 for k, v in e_out.items():
-#                     print(f'{k}: {v.shape}')
-#
-#     for bias in [True, False]:
-#         for name, est in seq2seq_estimators.items():
-#             print(name)
-#             e = est(data_dims, nsteps=N, window_size=N, timedelay=N-1, input_keys=input_keys)
-#             e_out = e(data)
-#             for k, v in e_out.items():
-#                 print(f'{k}: {v.shape}')
-#             for lin in set(slim.maps.values()) - slim.square_maps:
-#                 print(lin)
-#                 e = est(data_dims, nsteps=N, window_size=N, timedelay=N-1, input_keys=input_keys, bias=bias, linear_map=lin)
-#                 e_out = e(data)
-#                 for k, v in e_out.items():
-#                     print(f'{k}: {v.shape}')
-#
-#     for bias in [True, False]:
-#         for name, est in seq2seq_estimators.items():
-#             print(name)
-#             e = est(data_dims, nsteps=N, window_size=N-1, timedelay=0, input_keys=input_keys)
-#             e_out = e(data)
-#             for k, v in e_out.items():
-#                 print(f'{k}: {v.shape}')
-#             for lin in set(slim.maps.values()) - slim.square_maps:
-#                 print(lin)
-#                 e = est(data_dims, nsteps=N, window_size=N-1, timedelay=0, input_keys=input_keys, bias=bias, linear_map=lin)
-#                 e_out = e(data)
-#                 for k, v in e_out.items():
-#                     print(f'{k}: {v.shape}')
-#
-#
-#     print('Kalman filter')
-#     fx, fu, fd = [slim.Linear(insize, nx) for insize in [nx, nu, nd]]
-#     fy = slim.Linear(nx, ny)
-#     model = BlockSSM(fx, fy, fu, fd)
-#     est = LinearKalmanFilter(model=model)
-#     est_out = est(data)
-#     for k, v in est_out.items():
-#         print(f'{k}: {v.shape}')

@@ -198,7 +198,7 @@ if __name__ == "__main__":
                                     arg.opt(), arg.data(system=system),
                                     arg.loss(), arg.lin(), arg.policy(),
                                     arg.ctrl_loss(), arg.freeze()])
-    path = './test/CSTR_best_model.pth'
+    path = './test/best_model.pth'
     parser.add('-model_file', type=str, default=path,
                help='Path to pytorch pickled model.')
 
@@ -215,7 +215,6 @@ if __name__ == "__main__":
     sysid_model = torch.load(args.model_file, pickle_module=dill, map_location=torch.device(device))
     dynamics_model = sysid_model.components[1]
     estimator = sysid_model.components[0]
-
     dataset = load_dataset(args, device, 'closedloop')
     dataset = add_reference_features(args, dataset, dynamics_model)
 

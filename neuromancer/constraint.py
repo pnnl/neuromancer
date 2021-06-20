@@ -10,6 +10,10 @@ import torch.nn.functional as F
 
 
 class Objective(nn.Module):
+    """
+    Drop in replacement for a Constraint object but relies on a list of dictionary keys and a callable function
+    to instantiate.
+    """
     def __init__(self, variable_names: List[str], loss: Callable[..., torch.Tensor], weight=1.0, name='objective'):
         """
 
@@ -35,7 +39,11 @@ class Objective(nn.Module):
 
 
 class LT(nn.Module):
-    """Less than constraint for upper bounding the left hand side by the right hand side."""
+    """
+    Less than constraint for upper bounding the left hand side by the right hand side.
+    Used for defining infix operator for the Variable class and calculating constraint
+    violation losses for the forward pass of Constraint objects.
+    """
     def __init__(self, norm=1):
         super().__init__()
         self.norm = norm
@@ -44,6 +52,12 @@ class LT(nn.Module):
         return 'lt'
 
     def forward(self, left, right):
+        """
+
+        :param left: torch.Tensor
+        :param right: torch.Tensor
+        :return: zero dimensional torch.Tensor
+        """
         if self.norm == 1:
             return torch.mean(F.relu(left - right))
         elif self.norm == 2:
@@ -51,7 +65,11 @@ class LT(nn.Module):
 
 
 class GT(nn.Module):
-    """Greater than constraint for lower bounding the left hand side by the right hand side."""
+    """
+    Greater than constraint for lower bounding the left hand side by the right hand side.
+    Used for defining infix operator for the Variable class and calculating constraint
+    violation losses for the forward pass of Constraint objects.
+    """
 
     def __init__(self, norm=1):
         super().__init__()
@@ -61,6 +79,12 @@ class GT(nn.Module):
         return 'gt'
 
     def forward(self, left, right):
+        """
+
+        :param left: torch.Tensor
+        :param right: torch.Tensor
+        :return: zero dimensional torch.Tensor
+        """
         if self.norm == 1:
             return torch.mean(F.relu(right - left))
         elif self.norm == 2:
@@ -68,7 +92,11 @@ class GT(nn.Module):
 
 
 class Eq(nn.Module):
-    """Equality constraint penalizing difference between left and right hand side."""
+    """
+    Equality constraint penalizing difference between left and right hand side.
+    Used for defining infix operator for the Variable class and calculating constraint
+    violation losses for the forward pass of Constraint objects.
+    """
     def __init__(self, norm=1):
         super().__init__()
         self.norm = norm
@@ -77,6 +105,12 @@ class Eq(nn.Module):
         return 'eq'
 
     def forward(self, left, right):
+        """
+
+        :param left: torch.Tensor
+        :param right: torch.Tensor
+        :return: zero dimensional torch.Tensor
+        """
         if self.norm == 1:
             return F.l1_loss(left, right)
         elif self.norm == 2:
@@ -84,8 +118,12 @@ class Eq(nn.Module):
 
 
 class Constraint(nn.Module):
-
-    def __init__(self, left, right, comparator, weight=1.0):
+    """
+    Drop in replacement for an Objective object but constructed by a composition of Variable objects
+    using comparative infix operators, '<', '>', '==', '<=', '>=' and '*' to weight loss component and '^' to
+    determine l-norm of constraint violation in determining loss.
+    """
+    def __init__(self, left, right, comparator, weight=1.0, name=None):
         """
 
         :param left: (nm.Variable or numeric) Left hand side of equality or inequality constraint
@@ -93,6 +131,8 @@ class Constraint(nn.Module):
         :param comparator: (nn.Module) Intended to be LE, GE, LT, GT, or Eq object, but can be any nn.Module
                                        which satisfies the Comparator interface (init function takes an integer norm and
                                        object has an integer valued self.norm attribute.
+        :param weight: (float, int, or zero-D torch.Tensor) For scaling calculated Constraint violation loss
+        :param name: (str) Optional intuitive name for storing in Problem's output dictionary.
         """
         super().__init__()
         if not type(left) is Variable:
@@ -103,7 +143,10 @@ class Constraint(nn.Module):
         self.right = right
         self.comparator = comparator
         self.weight = weight
-        self.name = f'{self.left}_{self.comparator}_{self.right}'
+        if name is None:
+            self.name = f'{self.left}_{self.comparator}_{self.right}'
+        else:
+            self.name = name
 
     @property
     def variable_names(self):
@@ -120,6 +163,11 @@ class Constraint(nn.Module):
         return Constraint(self.left, self.right, self.comparator, weight=weight)
 
     def forward(self, variables):
+        """
+
+        :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
+        :return: 0-dimensional torch.Tensor that can be cast as a floating point number
+        """
         return self.weight*self.comparator(self.left(variables), self.right(variables))
 
 
@@ -133,12 +181,20 @@ class Variable:
     Supported infix operators (variable * variable, variable * numeric): +, -, *, @, **, <, <=, >, >=, ==, ^
     """
 
-    def __init__(self, key, value=None, left=None, right=None, operator=None, slice=None):
+    def __init__(self, key, value=None, left=None, right=None, operator=None, slice=None, name=None):
         """
 
         :param key: (str) Unique string identifier which should occur as a key at some point in
-                          the data dictionary which is accumulated through the computational graph.
+                          the data dictionary which is accumulated through the computational graph unless
+                          the variable is a composition of other variables with a numeric operator.
+        :param value: (torch.Tensor or numeric) To use when variable is a constant or nn.Parameter
+        :param left: (Variable) Another Variable used in the composition of this Variable
+        :param right: (Variable) Another Variable used in the composition of this Variable
+        :param operator: (str) Indicates how this Variable is derived from left and right
+        :param slice: (Slice) Indicates if and where Variable is to be indexed
+        :param name: (str) Optional intuitive name for Variable for storage in a Problem's output dictionary.
         """
+
         self.key = key
         self.left = left
         self.right = right
@@ -148,6 +204,10 @@ class Variable:
         self.value = value
         self.slice = slice
         self._check_()
+        if name is None:
+            self.name = self.key
+        else:
+            self.name = name
 
     def _check_(self):
         """
@@ -170,7 +230,8 @@ class Variable:
         """
         The call function is going to hand back a pytorch tensor. In the base case the call function will simply look
         up the tensor in the data dictionary. More complicated cases will involve calling the left and calling the right
-        and then performing a pytorch operation.
+        (recursively traversing the tree defining this composition ov Variables) and then performing a pytorch operation.
+
         :param data: (dict: {str: torch.Tensor})
         :return: torch.Tensor
         """
@@ -204,11 +265,6 @@ class Variable:
         else:
             return value[self.slice]
 
-    """
-        Numeric operators. Numeric operators return a variable with a special __call__ function which first retrieves instantiated
-        numeric quantities for the left and right hand side and performs the corresponding pytorch operator on the instantiate quantities
-        """
-
     def __getitem__(self, slice):
         return Variable(f'{self.key}_{str(slice)}', value=self.value, left=self.left,
                         right=self.right, operator=self.op, slice=slice)
@@ -223,6 +279,10 @@ class Variable:
         return f'neuromancer.variable.Variable object, key={self.key}, left={self.left}, ' \
                f'right={self.right}, operator={self.op}, value={self.value}, slice={self.slice}'
 
+    """
+    Numeric operators. Numeric operators return a variable with a special __call__ function which first retrieves instantiated
+    numeric quantities for the left and right hand side and performs the corresponding pytorch operator on the instantiate quantities
+    """
     def __add__(self, other):
         if not type(other) is Variable:
             other = Variable(str(other), value=other)

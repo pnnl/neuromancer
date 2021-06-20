@@ -31,7 +31,8 @@ from neuromancer import blocks, estimators, dynamics, arg
 from neuromancer.activations import activations
 from neuromancer.visuals import VisualizerOpen
 from neuromancer.trainer import Trainer
-from neuromancer.problem import Problem, Objective
+from neuromancer.problem import Problem
+from neuromancer.constraint import Objective
 from neuromancer.simulators import OpenLoopSimulator
 from neuromancer.datasets import load_dataset
 from neuromancer.callbacks import SysIDCallback

@@ -114,6 +114,7 @@ def get_objective_terms(args, dataset, estimator, dynamics_model):
     dxudmax = 0.05
 
     x0 = Variable(f"x0_{estimator.name}")
+
     xhat = Variable(f"X_pred_{dynamics_model.name}")
     estimator_loss = args.Q_e*((x0[1:] == xhat[-1, :-1, :])^2)
     state_smoothing = args.Q_dx*((xhat[1:] == xhat[:-1])^2)

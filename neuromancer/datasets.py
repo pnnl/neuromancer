@@ -691,8 +691,8 @@ def load_dataset(args, device, name, file_path=None, split_ratio=[40, 30, 30]):
 
 
 systems = {
-    **{k: "datafile" for k in psl.datasets if k not in ['vehicle3']},
-    **{k: "emulator" for k in psl.systems if k not in ['UAV3D_kin', 'UAV2D_kin', 'vehicle3', 'UAV3D_reduced']},
+    **{k: "datafile" for k in psl.datasets if k not in ['vehicle3', '9bus_test']},
+    **{k: "emulator" for k in psl.systems if k not in ['UAV3D_kin', 'UAV2D_kin', 'vehicle3', 'UAV3D_reduced', 'InvPendulum']},
 }
 
 if __name__ == '__main__':

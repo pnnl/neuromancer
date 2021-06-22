@@ -38,7 +38,3 @@ def test_opts_constraints():
 
     failures = {k: v for k, v in results.items() if v != 0}
     assert not failures, f'Test failures: {failures}'
-
-
-if __name__ == '__main__':
-    test_opts_constraints()

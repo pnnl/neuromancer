@@ -1,26 +1,4 @@
-from neuromancer.component import Component
-
-
-class Function(Component):
-    def __init__(
-        self,
-        func,
-        input_keys,
-        output_key,
-        name,
-    ):
-        self.DEFAULT_OUTPUT_KEYS = [output_key]
-        super().__init__(
-            input_keys,
-            [output_key],
-            name,
-        )
-        self.func = func
-        self.output_key = output_key
-        
-    def forward(self, data):
-        x = [data[k] for k in self.input_keys]
-        return {self.output_key: self.func(*x)}
+from neuromancer.component import Component, Function
 
 
 if __name__ == "__main__":

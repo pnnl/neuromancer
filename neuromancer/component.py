@@ -153,3 +153,44 @@ class Component(nn.Module):
 
     def __repr__(self):
         return f"{self.name}({', '.join(self.input_keys)}) -> {', '.join(self.output_keys)}"
+
+
+# TODO: just use output_keys list
+class Function(Component):
+    def __init__(
+        self,
+        func,
+        input_keys,
+        output_keys,
+        name,
+    ):
+        self.DEFAULT_OUTPUT_KEYS = output_keys if isinstance(output_keys, list) else [output_keys]
+        super().__init__(input_keys, output_keys, name)
+        self.func = func
+
+    def forward(self, data):
+        x = [data[k] for k in self.input_keys]
+        out = self.func(*x)
+        return {
+            k: v for k, v in zip(
+                self.output_keys,
+                out if isinstance(out, tuple) else (out,)
+            )
+        }
+
+
+class RecurrentFunction(Function):
+    def __init__(
+        self,
+        func,
+        input_keys,
+        iter_key,
+        output_keys,
+        name,
+    ):
+        super().__init__(func, input_keys, output_keys, name)
+        self.iter_key = iter_key
+        self._retain_keys = set(input_keys) & set(output_keys)
+
+    def forward(self, data):
+        steps = data[self.iter_key].shape[0]

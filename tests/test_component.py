@@ -117,7 +117,6 @@ def test_black_ssm(x0_dim, y_dim, u_dim, d_dim, batch_size, nsteps):
 )
 @settings(max_examples=1000, deadline=None)
 def test_policies(constructor, x0_dim, r_dim, u_dim, past_u, d_dim, batch_size, nsteps):
-    # x0 needs to be sequential for RNNPolicy
     test_data = {"x0": torch.rand(batch_size, x0_dim)}
     dims = {"x0": (x0_dim,), "U": (nsteps, u_dim)}
 

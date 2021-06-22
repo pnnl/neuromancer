@@ -14,7 +14,7 @@ Unstructured (blackbox) dynamical models:
     + :math:`odot` is some operator acting on elements, e.g. + or *
 
 Block-structured dynamical models:
-    + :math:`x_{t+1} = f_x(x_t) \odot f_u(u_t) \odot f_d(d_t) \odot f_e(x_t)`
+    + :math:`x_{t+1} = f_x(x_t) \\odot f_u(u_t) \\odot f_d(d_t) \\odot f_e(x_t)`
     + :math:`y_t =  f_y(x_t)`
 
 Block components:

@@ -1,9 +1,11 @@
-import torch
-from torch.utils.data import Dataset
-from torch.utils.data.dataloader import default_collate
-from scipy.io import loadmat
+import math
+
 import numpy as np
 import pandas as pd
+from scipy.io import loadmat
+import torch
+from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.dataloader import default_collate
 
 from neuromancer.data.normalization import norm_fns
 
@@ -60,7 +62,6 @@ class SequenceDataset(Dataset):
         nsteps=1,
         moving_horizon=False,
         name="data",
-        device="cpu"
     ):
         """Dataset for handling sequential data and transforming it into the dictionary structure
         used by NeuroMANCER models.
@@ -78,12 +79,16 @@ class SequenceDataset(Dataset):
         .. warning:: This dataset class requires the use of a special collate function that must be
             provided to PyTorch's DataLoader class; see the `collate_fn` method of this class.
 
+        .. todo:: Add support for categorical features.
         .. todo:: Add support for memory-mapped and/or streaming data.
-        .. todo:: Add support for DataLoaders with num_workers > 0 (switching devices must be
-            handled elsewhere).
+        .. todo:: Add support for data augmentation?
         """
 
         super().__init__()
+
+        for k in data.keys():
+            assert nsteps < data[k].shape[0], \
+                f"length of time series data ({data[k].shape[0]}) must be greater than nsteps ({nsteps})"
 
         self.name = name
 
@@ -114,16 +119,12 @@ class SequenceDataset(Dataset):
         self.batched_data = batch_tensor(self.full_data, nsteps, mh=moving_horizon)
         self.batched_data = self.batched_data.permute(0, 2, 1)
 
-        self.to(device)
-
     def __len__(self):
-        """Gives the number of N-step batches in the dataset.
-        """
+        """Gives the number of N-step batches in the dataset."""
         return len(self.batched_data) - 1
 
     def __getitem__(self, i):
-        """Fetch a single N-step sequence from the dataset.
-        """
+        """Fetch a single N-step sequence from the dataset."""
         return {
             **{
                 k + "p": self.batched_data[i, :, self._vslices[k]]
@@ -135,24 +136,21 @@ class SequenceDataset(Dataset):
             },
         }
 
-    def to(self, device=None):
-        self.device = device
-        self.full_data = self.full_data.to(self.device)
-        self.batched_data = self.batched_data.to(self.device)
-        return self
-
-    def _get_full_sequence_impl(self, start=0, end=-1):
+    def _get_full_sequence_impl(self, start=0, end=None):
         """Returns the full sequence of data as a dictionary. Useful for open-loop evaluation.
         """
-        if end == -1:
+        if end is not None and end < 0:
+            end = self.full_data.shape[0] + end
+        elif end is None:
             end = self.full_data.shape[0]
+
         return {
             **{
-                k + "p": self.full_data[start:end-1, self._vslices[k]].unsqueeze(1)
+                k + "p": self.full_data[start : end - self.nsteps, self._vslices[k]].unsqueeze(1)
                 for k in self.variables
             },
             **{
-                k + "f": self.full_data[start+1:end, self._vslices[k]].unsqueeze(1)
+                k + "f": self.full_data[start + self.nsteps : end, self._vslices[k]].unsqueeze(1)
                 for k in self.variables
             },
             "name": "loop_" + self.name,
@@ -185,7 +183,6 @@ class SequenceDataset(Dataset):
 
         :param batch: (dict str: torch.Tensor) dataset sample.
         """
-
         batch = default_collate(batch)
         return {
             **{k: v.transpose(0, 1) for k, v in batch.items()},
@@ -212,7 +209,6 @@ def normalize_data(data, norm_type, stats=None):
     :param stats: (dict str: np.array) statistics to use for normalization. Default is None, in which
         case stats are inferred by underlying normalization function
     """
-
     if stats is None:
         norm_fn = lambda x, _: norm_fns[norm_type](x)
     else:
@@ -238,7 +234,6 @@ def split_data(data, split_ratio=None):
     :param split_ratio: (list float) Two numbers indicating percentage of data included in train and
         development sets (out of 100.0). Default is None, which splits data into thirds.
     """
-
     nsim = min(v.shape[0] for v in data.values())
     if split_ratio is None:
         split_len = nsim // 3
@@ -246,8 +241,8 @@ def split_data(data, split_ratio=None):
         dev_offs = slice(split_len, split_len * 2)
         test_offs = slice(split_len * 2, nsim)
     else:
-        dev_start = int(split_ratio[0] / 100.) * nsim
-        test_start = dev_start + int(split_ratio[1] / 100.) * nsim
+        dev_start = math.ceil(split_ratio[0] / 100.) * nsim
+        test_start = dev_start + math.ceil(split_ratio[1] / 100.) * nsim
         train_offs = slice(0, dev_start)
         dev_offs = slice(dev_start, test_start)
         test_offs = slice(test_start, nsim)
@@ -260,7 +255,7 @@ def split_data(data, split_ratio=None):
 
 
 def get_sequence_dataloaders(
-    data, nsteps, norm_type="zero-one", split_ratio=None, num_workers=1, device="cpu"
+    data, nsteps, norm_type="zero-one", split_ratio=None, num_workers=1,
 ):
     """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
     data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
@@ -276,31 +271,27 @@ def get_sequence_dataloaders(
     data, _ = normalize_data(data, norm_type)
     train_data, dev_data, test_data = split_data(data, split_ratio)
 
-    # train_data, train_stats = normalize_data(train_data, "zero-one")
-    # dev_data, _ = normalize_data(dev_data, "zero-one", train_stats)
-    # test_data, _ = normalize_data(test_data, "zero-one", train_stats)
-
-    train_data = SequenceDataset(train_data, nsteps=nsteps, name="train", device=device)
-    dev_data = SequenceDataset(dev_data, nsteps=nsteps, name="dev", device=device)
-    test_data = SequenceDataset(test_data, nsteps=nsteps, name="test", device=device)
+    train_data = SequenceDataset(train_data, nsteps=nsteps, name="train")
+    dev_data = SequenceDataset(dev_data, nsteps=nsteps, name="dev")
+    test_data = SequenceDataset(test_data, nsteps=nsteps, name="test")
 
     train_loop = train_data.get_full_sequence()
     dev_loop = dev_data.get_full_sequence()
     test_loop = test_data.get_full_sequence()
 
-    train_data = torch.utils.data.DataLoader(
+    train_data = DataLoader(
         train_data,
         batch_size=len(train_data),
         shuffle=False,
         collate_fn=train_data.collate_fn,
     )
-    dev_data = torch.utils.data.DataLoader(
+    dev_data = DataLoader(
         dev_data,
         batch_size=len(dev_data),
         shuffle=False,
         collate_fn=dev_data.collate_fn,
     )
-    test_data = torch.utils.data.DataLoader(
+    test_data = DataLoader(
         test_data,
         batch_size=len(test_data),
         shuffle=False,

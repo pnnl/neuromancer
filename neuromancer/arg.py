@@ -173,7 +173,7 @@ def data(prefix='', system='CSTR'):
                 "None will use a default nsim from the selected dataset or emulator")
 
     gp.add("-norm", nargs="+", default=["U", "D", "Y"], choices=["U", "D", "Y", "X"],
-               help="List of sequences to max-min normalize")
+           help="List of sequences to max-min normalize")
 
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
@@ -346,7 +346,7 @@ def policy(prefix=''):
     gp.add("-policy", type=str, choices=["mlp", "linear"], default="mlp",
            help='Choice of architecture for modeling control policy.')
 
-    gp.add("-controlled_outputs", type=int, nargs='+', default=[0, 1],
+    gp.add("-controlled_outputs", type=int, nargs='+', default=[0],
            help="list of indices of controlled outputs len(default)<=ny")
 
     gp.add("-n_hidden", type=int, default=20,

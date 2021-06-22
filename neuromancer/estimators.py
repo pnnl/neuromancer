@@ -121,7 +121,7 @@ class seq2seqTimeDelayEstimator(TimeDelayEstimator):
         :return: (dict {str: torch.tensor)}
         """
         features = self.features(data)
-        Xtd = self.net(features).view(self.timedelay+1, -1, self.nx)
+        Xtd = self.net(features).reshape(self.timedelay+1, -1, self.nx)
         print('outfeats', self.out_features)
         print('netoutfeats', self.net.out_features)
         print(Xtd.shape)
@@ -266,7 +266,7 @@ class seq2seqRNNEstimator(seq2seqTimeDelayEstimator):
 
     def forward(self, data):
         features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
-        Xtd = self.net(features).view(self.timedelay+1, -1, self.nx)
+        Xtd = self.net(features).reshape(self.timedelay+1, -1, self.nx)
         return {'x0': Xtd, 'reg_error': self.net.reg_error()}
 
 

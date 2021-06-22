@@ -1,5 +1,6 @@
 """
-Script for training block dynamics models for system identification.
+Script for training block dynamics models for system identification using the new Constraints and Variables
+instead of Objectives.
 
 Basic model options are:
     + prior on the linear maps of the neural network
@@ -31,12 +32,12 @@ from neuromancer import blocks, estimators, dynamics, arg
 from neuromancer.activations import activations
 from neuromancer.visuals import VisualizerOpen
 from neuromancer.trainer import Trainer
-from neuromancer.problem import Problem
-from neuromancer.constraint import Objective
+from neuromancer.problem import Problem, Objective
 from neuromancer.simulators import OpenLoopSimulator
 from neuromancer.datasets import load_dataset
 from neuromancer.callbacks import SysIDCallback
 from neuromancer.loggers import BasicLogger, MLFlowLogger
+from neuromancer.constraint import Variable
 
 
 def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynamics"):
@@ -80,26 +81,26 @@ def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynam
 
     dynamics_model = (
         dynamics.blackbox_model(
-            {**dataset.dims, "x0": (nx,)},
+            {**dataset.dims, "x0_estim": (nx,)},
             linmap,
             nonlinmap,
             bias=args.bias,
             n_layers=args.n_layers,
             activation=activation,
             name=dynamics_name,
-            input_keys={f'x0_{estimator.name}': 'x0'},
+            input_keys={'x0': f'x0_{estimator.name}'},
             linargs=linargs
         ) if args.ssm_type == "blackbox"
         else dynamics.block_model(
             args.ssm_type,
-            {**dataset.dims, "x0": (nx,)},
+            {**dataset.dims, "x0_estim": (nx,)},
             linmap,
             nonlinmap,
             bias=args.bias,
             n_layers=args.n_layers,
             activation=activation,
             name=dynamics_name,
-            input_keys={f'x0_{estimator.name}': 'x0'},
+            input_keys={'x0': f'x0_{estimator.name}'},
             linargs=linargs
         )
     )
@@ -111,41 +112,25 @@ def get_objective_terms(args, dataset, estimator, dynamics_model):
     xmax = 1.2
     dxudmin = -0.05
     dxudmax = 0.05
-    estimator_loss = Objective(
-        [f"X_pred_{dynamics_model.name}", f"x0_{estimator.name}"],
-        lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
-        weight=args.Q_e,
-        name="arrival_cost",
-    )
-    regularization = Objective(
-        [f"reg_error_{estimator.name}", f"reg_error_{dynamics_model.name}"],
-        lambda reg1, reg2: reg1 + reg2,
-        weight=args.Q_sub,
-        name="reg_error",
-    )
-    reference_loss = Objective(
-        [f"Y_pred_{dynamics_model.name}", "Yf"], F.mse_loss, weight=args.Q_y, name="ref_loss"
-    )
-    state_smoothing = Objective(
-        [f"X_pred_{dynamics_model.name}"],
-        lambda x: F.mse_loss(x[1:], x[:-1]),
-        weight=args.Q_dx,
-        name="state_smoothing",
-    )
-    observation_lower_bound_penalty = Objective(
-        [f"Y_pred_{dynamics_model.name}"],
-        lambda x: torch.mean(F.relu(-x + xmin)),
-        weight=args.Q_con_x,
-        name="y_low_bound_error",
-    )
-    observation_upper_bound_penalty = Objective(
-        [f"Y_pred_{dynamics_model.name}"],
-        lambda x: torch.mean(F.relu(x - xmax)),
-        weight=args.Q_con_x,
-        name="y_up_bound_error",
-    )
 
-    objectives = [regularization, reference_loss, estimator_loss]
+    x0 = Variable(f"x0_{estimator.name}")
+
+    xhat = Variable(f"X_pred_{dynamics_model.name}")
+    estimator_loss = args.Q_e*((x0[1:] == xhat[-1, :-1, :])^2)
+    state_smoothing = args.Q_dx*((xhat[1:] == xhat[:-1])^2)
+
+    est_reg = Variable(f"reg_error_{estimator.name}")
+    dyn_reg = Variable(f"reg_error_{estimator.name}")
+    regularization = args.Q_sub*((est_reg + dyn_reg == 0)^2)
+
+    yhat = Variable(f'Y_pred_{dynamics_model.name}')
+    y = Variable('Yf')
+    reference_loss = args.Q_y*((yhat == y)^2)
+
+    observation_lower_bound_penalty = args.Q_con_x*(yhat > xmin)
+    observation_upper_bound_penalty = args.Q_con_x*(yhat < xmax)
+
+    objectives = [reference_loss, regularization, estimator_loss]
     constraints = [
         state_smoothing,
         observation_lower_bound_penalty,
@@ -154,36 +139,15 @@ def get_objective_terms(args, dataset, estimator, dynamics_model):
 
     if args.ssm_type != "blackbox":
         if "U" in dataset.data:
-            inputs_max_influence_lb = Objective(
-                [f"fU_{dynamics_model.name}"],
-                lambda x: torch.mean(F.relu(-x + dxudmin)),
-                weight=args.Q_con_fdu,
-                name="input_influence_lb",
-            )
-            inputs_max_influence_ub = Objective(
-                [f"fU_{dynamics_model.name}"],
-                lambda x: torch.mean(F.relu(x - dxudmax)),
-                weight=args.Q_con_fdu,
-                name="input_influence_ub",
-            )
+            fu = Variable(f'fU_{dynamics_model.name}')
+            inputs_max_influence_lb = args.Q_con_fdu*(fu > dxudmin)
+            inputs_max_influence_ub = args.Q_con_fdu*(fu < dxudmax)
             constraints += [inputs_max_influence_lb, inputs_max_influence_ub]
         if "D" in dataset.data:
-            disturbances_max_influence_lb = Objective(
-                [f"fD_{dynamics_model.name}"],
-                lambda x: torch.mean(F.relu(-x + dxudmin)),
-                weight=args.Q_con_fdu,
-                name="dist_influence_lb",
-            )
-            disturbances_max_influence_ub = Objective(
-                [f"fD_{dynamics_model.name}"],
-                lambda x: torch.mean(F.relu(x - dxudmax)),
-                weight=args.Q_con_fdu,
-                name="dist_influence_ub",
-            )
-            constraints += [
-                disturbances_max_influence_lb,
-                disturbances_max_influence_ub,
-            ]
+            fd = Variable(f'fD_{dynamics_model.name}')
+            disturbances_max_influence_lb = args.Q_con_fdu * (fd > dxudmin)
+            disturbances_max_influence_ub = args.Q_con_fdu * (fd < dxudmax)
+            constraints += [disturbances_max_influence_lb, disturbances_max_influence_ub]
 
     return objectives, constraints
 
@@ -197,8 +161,6 @@ if __name__ == "__main__":
                                     arg.loss(), arg.lin(), arg.ssm()])
 
     grp = parser.group('OPTIMIZATION')
-    grp.add("-eval_metric", type=str, default="loop_dev_ref_loss",
-            help="Metric for model selection and early stopping.")
     args, grps = parser.parse_arg_groups()
     print({k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)})
 
@@ -217,8 +179,6 @@ if __name__ == "__main__":
 
     model = Problem(objectives, constraints, [estimator, dynamics_model])
     model = model.to(device)
-
-    print(model)
 
     simulator = OpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
@@ -239,7 +199,7 @@ if __name__ == "__main__":
         logger=logger,
         callback=SysIDCallback(simulator, visualizer),
         epochs=args.epochs,
-        eval_metric=args.eval_metric,
+        eval_metric=f'{dataset.dev_loop.name}_{objectives[0].name}',
         patience=args.patience,
         warmup=args.warmup,
     )

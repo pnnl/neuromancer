@@ -10,7 +10,7 @@ def standardize(M, mean=None, std=None):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         M_norm = (M - mean) / std
-    return np.nan_to_num(M_norm), mean.squeeze(), std.squeeze()
+    return np.nan_to_num(M_norm), mean.squeeze(0), std.squeeze(0)
 
 
 def normalize_01(M, Mmin=None, Mmax=None):
@@ -25,7 +25,7 @@ def normalize_01(M, Mmin=None, Mmax=None):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         M_norm = (M - Mmin) / (Mmax - Mmin)
-    return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
+    return np.nan_to_num(M_norm), Mmin.squeeze(0), Mmax.squeeze(0)
 
 
 def normalize_11(M, Mmin=None, Mmax=None):
@@ -40,7 +40,7 @@ def normalize_11(M, Mmin=None, Mmax=None):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         M_norm = 2 * ((M - Mmin) / (Mmax - Mmin)) - 1
-    return np.nan_to_num(M_norm), Mmin.squeeze(), Mmax.squeeze()
+    return np.nan_to_num(M_norm), Mmin.squeeze(0), Mmax.squeeze(0)
 
 
 def denormalize_01(M, Mmin, Mmax):

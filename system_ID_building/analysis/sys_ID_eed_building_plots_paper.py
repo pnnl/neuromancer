@@ -274,10 +274,10 @@ def plot_eigenvalues_compact(model, savedir='./test/'):
 
 
 def plot_sysID(args, Y_id, Y, U=None):
-    plot.pltOL(Y=Y.T, Ytrain=Y_id.T,
+    pltOL(Y=Y.T, Ytrain=Y_id.T,
                figname=os.path.join(args.savedir, 'sys_ID_open_OL.png'))
 
-    plot.trajectory_static(Y, Y_id,
+    trajectory_static(Y, Y_id,
                            figname=os.path.join(args.savedir, f'sys_ID_open_static.png'))
 
 

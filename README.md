@@ -100,5 +100,5 @@ doi = {https://doi.org/10.1016/j.enbuild.2021.110992},
 url = {https://www.sciencedirect.com/science/article/pii/S0378778821002760},
 author = {Ján Drgoňa and Aaron R. Tuor and Vikas Chandan and Draguna L. Vrabie},
 keywords = {System identification, Physics-constrained deep learning, 
-Building thermal dynamics, Control-oriented modeling},
+Building thermal dynamics, Control-oriented modeling}
 }

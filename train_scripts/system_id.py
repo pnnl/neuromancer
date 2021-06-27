@@ -192,7 +192,7 @@ if __name__ == "__main__":
 
     # for available systems in PSL library check: psl.systems.keys()
     # for available datasets in PSL library check: psl.datasets.keys()
-    system = 'aero'         # keyword of selected system
+    system = 'EED_building'         # keyword of selected system
     parser = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.data(system=system),
                                     arg.loss(), arg.lin(), arg.ssm()])
 

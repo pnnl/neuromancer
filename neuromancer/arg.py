@@ -130,10 +130,10 @@ def opt(prefix=''):
     parser = ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("OPTIMIZATION")
 
-    gp.add("-epochs", type=int, default=20,
+    gp.add("-epochs", type=int, default=5000,
            help='Number of training epochs')
 
-    gp.add("-lr", type=float, default=0.001,
+    gp.add("-lr", type=float, default=0.003,
            help="Step size for gradient descent.")
 
     gp.add("-patience", type=int, default=100,
@@ -148,7 +148,7 @@ def opt(prefix=''):
     return parser
 
 
-def data(prefix='', system='CSTR'):
+def data(prefix='', system='EED_building'):
     """
     Command line parser for data arguments
 
@@ -165,7 +165,7 @@ def data(prefix='', system='CSTR'):
     gp.add("-system", type=str, default=system,
            help="select particular dataset with keyword")
 
-    gp.add("-nsim", type=int, default=10000,
+    gp.add("-nsim", type=int, default=3000,
            help="Number of time steps for full dataset. (ntrain + ndev + ntest)"
                 "train, dev, and test will be split evenly from contiguous, sequential, "
                 "non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,"
@@ -195,7 +195,7 @@ def lin(prefix=''):
     gp.add("-linear_map", type=str, choices=["linear", "softSVD", "pf"], default="linear",
            help='Choice of map from SLiM package')
 
-    gp.add("-sigma_min", type=float, default=0.1,
+    gp.add("-sigma_min", type=float, default=0.8,
            help='Minimum singular value (for maps with singular value constraints)')
 
     gp.add("-sigma_max", type=float, default=1.0,
@@ -218,7 +218,7 @@ def loss(prefix=''):
     gp.add("-Q_con_x", type=float, default=1.0,
            help="Hidden state constraints penalty weight.")
 
-    gp.add("-Q_dx", type=float, default=0.1,
+    gp.add("-Q_dx", type=float, default=0.2,
            help="Penalty weight on hidden state difference in one time step.")
 
     gp.add("-Q_sub", type=float, default=0.1,
@@ -230,66 +230,8 @@ def loss(prefix=''):
     gp.add("-Q_e", type=float, default=1.0,
            help="State estimator hidden prediction penalty weight")
 
-    gp.add("-Q_con_fdu", type=float, default=0.0,
+    gp.add("-Q_con_fdu", type=float, default=0.2,
            help="Penalty weight on control actions and disturbances.")
-
-    return parser
-
-
-def freeze(prefix=''):
-    """
-    Command line parser for weight freezing arguments
-
-    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
-                         are bundled as parents.
-    :return: (arg.ArgParse) A command line parser
-    """
-    parser = ArgParser(prefix=prefix, add_help=False)
-    gp = parser.group('FREEZE')
-
-    gp.add("-freeze", nargs="+", default=[""],
-           help="sets requires grad to False")
-
-    gp.add("-unfreeze", default=["components.2"],
-           help="sets requires grad to True")
-
-    return parser
-
-
-def ctrl_loss(prefix=''):
-    """
-    Command line parser for special control loss arguments
-
-    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
-                         are bundled as parents.
-    :return: (arg.ArgParse) A command line parser
-    """
-    parser = ArgParser(prefix=prefix, add_help=False)
-
-    gp = parser.group('LOSS')
-    gp.add("-Q_con_u", type=float, default=0.0,
-           help="Input constraints penalty weight.")
-
-    gp.add("-Q_r", type=float, default=1.0,
-           help="Reference tracking penalty weight")
-
-    gp.add("-Q_du", type=float, default=0.0,
-           help="control action difference penalty weight")
-
-    gp.add("-con_tighten", action="store_true",
-           help='Tighten constraints')
-
-    gp.add("-tighten", type=float, default=0.00,
-           help="control action difference penalty weight")
-
-    gp.add("-loss_clip", action="store_true",
-           help='Clip loss terms to avoid terms taking over at beginning of training')
-
-    gp.add("-noise", action="store_true",
-           help='Whether to add noise to control actions during training.')
-
-    gp.add("-Q_con_y", type=float, default=0.0,
-           help="Observable constraints penalty weight.")
 
     return parser
 
@@ -305,10 +247,10 @@ def ssm(prefix=''):
     parser = ArgParser(prefix=prefix, add_help=False)
     gp = parser.group('SSM')
 
-    gp.add("-ssm_type", type=str, choices=["blackbox", "hw", "hammerstein", "blocknlin", "linear"], default="hammerstein",
+    gp.add("-ssm_type", type=str, choices=["blackbox", "hw", "hammerstein", "blocknlin", "linear"], default="blocknlin",
            help='Choice of block structure for system identification model')
 
-    gp.add("-nx_hidden", type=int, default=32,
+    gp.add("-nx_hidden", type=int, default=4,
            help="Number of hidden states per output")
 
     gp.add("-n_layers", type=int, default=2,
@@ -317,7 +259,7 @@ def ssm(prefix=''):
     gp.add("-state_estimator", type=str, choices=["rnn", "mlp", "linear", "residual_mlp", "fully_observable"], default="mlp",
            help='Choice of model architecture for state estimator.')
 
-    gp.add("-estimator_input_window", type=int, default=8,
+    gp.add("-estimator_input_window", type=int, default=32,
            help="Number of previous time steps measurements to include in state estimator input")
 
     gp.add("-nonlinear_map", type=str, default="mlp", choices=["mlp", "rnn", "pytorch_rnn", "linear", "residual_mlp"],
@@ -331,40 +273,3 @@ def ssm(prefix=''):
 
     return parser
 
-
-def policy(prefix=''):
-    """
-    Command line parser for control policy arguments
-
-    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
-                         are bundled as parents.
-    :return: (arg.ArgParse) A command line parser
-    """
-    parser = ArgParser(prefix=prefix, add_help=False)
-    gp = parser.group("POLICY")
-
-    gp.add("-policy", type=str, choices=["mlp", "linear"], default="mlp",
-           help='Choice of architecture for modeling control policy.')
-
-    gp.add("-controlled_outputs", type=int, nargs='+', default=[0],
-           help="list of indices of controlled outputs len(default)<=ny")
-
-    gp.add("-n_hidden", type=int, default=20,
-           help="Number of hidden states")
-
-    gp.add("-n_layers", type=int, default=3,
-           help="Number of hidden layers of single time-step state transition")
-
-    gp.add("-bias", action="store_true",
-           help="Whether to use bias in the neural network models.")
-
-    gp.add("-policy_features", nargs="+", default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'],
-           help="Policy features")  # reference tracking option
-
-    gp.add("-activation", choices=["gelu", "softexp"], default="gelu",
-           help="Activation function for neural networks")
-
-    gp.add("-perturbation", choices=["white_noise_sine_wave", "white_noise"], default="white_noise",
-           help='System perturbation method.')
-
-    return parser

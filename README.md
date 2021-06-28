@@ -89,6 +89,7 @@ Plot comparison results from the paper:
 
 #### Cite as
 
+```yaml
 @article{DRGONA2021,
 title = {Physics-constrained deep learning of multi-zone building thermal dynamics},
 journal = {Energy and Buildings},
@@ -102,3 +103,4 @@ author = {Ján Drgoňa and Aaron R. Tuor and Vikas Chandan and Draguna L. Vrabie
 keywords = {System identification, Physics-constrained deep learning, 
 Building thermal dynamics, Control-oriented modeling}
 }
+```

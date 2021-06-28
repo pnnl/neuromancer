@@ -78,13 +78,13 @@ Comparison of classical linear and proposed neural state space models.
 #### Run experiments
 
 Run system identification with neural state space models:
-[neural_system_id](neuromancer/system_ID_building/system_id_building_constraints.py)  
+[neural_system_id](system_ID_building/system_id_building_constraints.py)  
 
 Plot best pefrorming neural model from the saved dataset and run benchmark linear system identification:
-[linear_system_id](neuromancer/system_ID_building/nmpc2020_buildings/analysis/sys_ID_eed_building_plots_paper.py)
+[linear_system_id](system_ID_building/nmpc2020_buildings/analysis/sys_ID_eed_building_plots_paper.py)
 
 Plot comparison results from the paper:
-[results_analysis](neuromancer/system_ID_building/nmpc2020_buildings/analysis/results_analysis_eed.py)
+[results_analysis](system_ID_building/nmpc2020_buildings/analysis/results_analysis_eed.py)
 
 
 #### Cite as

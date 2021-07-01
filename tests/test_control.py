@@ -1,6 +1,5 @@
 import os
 from neuromancer import arg
-from neuromancer import datasets
 import torch
 import psl
 from hypothesis import given, settings, strategies as st
@@ -22,11 +21,11 @@ for k, v in options.items():
         args.append(f'{k} {opt}')
 
 
-@given(st.sampled_from(systems),
+@given(st.sampled_from(list(psl.datasets.keys()) + list(psl.emulators.keys())),
        st.sampled_from(args))
 @settings(deadline=None, max_examples=20)
 def test_opts(system, arg):
-    os.system(f'python ../train_scripts/system_id.py -system {system} -epochs 1')
+    os.system(f'python ../train_scripts/system_id.py -dataset {system} -epochs 1')
     code = os.system(f'python ../train_scripts/control.py -norm Y -savedir test_ctrl '
                      f'{arg} -epochs 1 -nsteps 8 -verbosity 1 -nsim 128 -system {system}')
     assert code == 0

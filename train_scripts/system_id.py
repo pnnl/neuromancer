@@ -217,7 +217,7 @@ if __name__ == "__main__":
     else:
         data = read_file(args.dataset)
 
-    nstep_data, loop_data, dims = get_sequence_dataloaders(data, args.nsteps, device=device)
+    nstep_data, loop_data, dims = get_sequence_dataloaders(data, args.nsteps)
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data
 

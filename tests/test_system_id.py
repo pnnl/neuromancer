@@ -1,6 +1,6 @@
 import os
 from neuromancer import arg
-from neuromancer import datasets
+from psl import datasets, emulators
 import torch
 
 gpu = '-gpu 0' if torch.cuda.is_available() else ''
@@ -9,7 +9,7 @@ gpu = '-gpu 0' if torch.cuda.is_available() else ''
 def test_opts():
     p = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.data(), arg.loss(), arg.lin(), arg.ssm()])
     options = {k: v.choices for k, v in p._option_string_actions.items() if v.choices is not None and k != '-norm'}
-    systems = list(datasets.systems.keys())
+    systems = list(emulators.keys()) + list(datasets.keys())
     results = dict()
     for i, (k, v) in enumerate(options.items()):
         for j, opt in enumerate(v):
@@ -26,7 +26,7 @@ def test_opts():
 def test_opts_constraints():
     p = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.data(), arg.loss(), arg.lin(), arg.ssm()])
     options = {k: v.choices for k, v in p._option_string_actions.items() if v.choices is not None and k != '-norm'}
-    systems = list(datasets.systems.keys())
+    systems = list(emulators.keys()) + list(datasets.keys())
     results = dict()
     for i, (k, v) in enumerate(options.items()):
         for j, opt in enumerate(v):

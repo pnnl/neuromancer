@@ -25,6 +25,12 @@ class Component(torch.nn.Module):
     output = self.module(*[data[k] for k in self.input_keys])
     """
     def __init__(self, module, input_keys, output_keys, device):
+        """
+        :param module: (torch.nn.Module)
+        :param input_keys:
+        :param output_keys:
+        :param device:
+        """
         super().__init__()
         self.module = module
         self.input_keys = input_keys
@@ -32,6 +38,11 @@ class Component(torch.nn.Module):
         self.device = device
 
     def forward(self, data):
+        """
+
+        :param data:
+        :return:
+        """
         output = self.module([data[k].to(self.device) for k in self.input_keys])
         if not isinstance(output, collections.abc.Sequence):
             output = (output, )
@@ -59,11 +70,21 @@ class WrapAni:
 
 def get_ani_data(species_order, device, batch_size, data_path, pickled_data):
     """
+
+    :param species_order: (list of str) List of characters indicating atom types with position indicating integer index
+    :param device: (str) String indicating device to place computation and data on
+    :param batch_size: (int) Mini-batch size.
+    :param data_path: (str) Path to ANI dataset file
+    :param pickled_data: (str) Path to previously processed pickled ANI data.
+
+    :return:ANIDataset object which is a wrapper conforming data to what neuromancer expects.
+
     We pickle the dataset after loading to ensure we use the same validation set
     each time we restart training, otherwise we risk mixing the validation and
     training sets on each restart.
 
     When iterating the dataset, we will get a dict of name->property mapping
+
     """
 
     energy_shifter = torchani.utils.EnergyShifter(None)
@@ -105,6 +126,13 @@ def get_ani_data(species_order, device, batch_size, data_path, pickled_data):
 
 
 def get_aev_computer(device, species_order):
+    """
+
+    :param device: (str) String indicating device to place computation on.
+    :param species_order: (tuple of str) Tuple of strings with positions indicating integer index of atom type.
+    :return: (nn.Module) torchani.AEVComputer which translates atom coordinates (shape=[batchsize, numatoms, 3])
+    into atomic environment vectors (shape=[batchsize, numatoms, AEV-size]) for each atom in a molecule
+    """
     Rcr = 5.2000e+00
     Rca = 3.5000e+00
     EtaR = torch.tensor([1.6000000e+01], device=device)
@@ -124,6 +152,13 @@ def get_aev_computer(device, species_order):
 
 
 def get_atomic_neural_network(aev_computer):
+    """
+
+    :param aev_computer:
+    :return: (torch.nn.Module) torchani.ANIModel which takes AEVs (size=(batchsize, num_atoms, AEV-size)) and outputs
+                               Potential energy for the molecules (size=(batchsize)).
+
+    """
     aev_dim = aev_computer.aev_length
     h_network = blocks.MLP(aev_dim, outsize=1, bias=True, linear_map=slim.Linear,
                            nonlin=torch.nn.CELU, hsizes=[160, 128, 96], linargs=dict())
@@ -138,12 +173,16 @@ def get_atomic_neural_network(aev_computer):
                            nonlin=torch.nn.CELU, hsizes=[128, 112, 96], linargs=dict())
 
     nn = torchani.ANIModel([h_network, c_network, n_network, o_network])
-    print(nn)
 
     return nn
 
 
 def get_args():
+    """
+
+    :return: (argparse.Namespace, str) A tuple containing the parsed command line arguments and a string indicating
+                                       the device to place computations on.
+    """
 
     parser = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.loss(), arg.lin()])
     grp = parser.group('DATA')
@@ -169,6 +208,14 @@ if __name__ == '__main__':
     model = torchani.nn.Sequential(aev_computer, nn).to(device)
 
     def energy_mse(true, pred, species):
+        """
+        Objective function from torchani training code.
+
+        :param true: (torch.Tensor, shape=[batchsize], dtype=)
+        :param pred: (torch.Tensor, shape=[batchsize], dtype=)
+        :param species: (torch.Tensor, shape=[batchsize, num_atoms])
+        :return:
+        """
         num_atoms = (species.to(device) >= 0).sum(dim=1, dtype=pred.dtype)
         energy_mse = (F.mse_loss(true.to(device).type(torch.float32), pred)/torch.sqrt(num_atoms)).mean()
         return energy_mse
@@ -195,6 +242,7 @@ if __name__ == '__main__':
 
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
+    print({k: v.shape for k, v in best_outputs.items()})
 
 
 

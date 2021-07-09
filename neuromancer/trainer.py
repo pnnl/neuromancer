@@ -110,7 +110,7 @@ class Trainer:
 
                 if (self._eval_min and output[self.eval_metric] < self.best_devloss)\
                         or (not self._eval_min and output[self.eval_metric] > self.best_devloss):
-                    best_model = deepcopy(self.model.state_dict())
+                    self.best_model = deepcopy(self.model.state_dict())
                     self.best_devloss = output[self.eval_metric]
                     self.badcount = 0
                 else:
@@ -128,10 +128,10 @@ class Trainer:
         self.callback.end_train(self, output)  # write training visualizations
 
         self.logger.log_artifacts({
-            "best_model_state_dict.pth": best_model,
+            "best_model_state_dict.pth": self.best_model,
             "best_model.pth": self.model,
         })
-        return best_model
+        return self.best_model
 
     def test(self, best_model):
         """

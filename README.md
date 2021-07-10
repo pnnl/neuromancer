@@ -87,9 +87,11 @@ Run DPC control policy optimization and closed-loop control:
 
 #### Cite as
 
+```yaml
 @misc{DPC_explicit_2021,
       title={Deep Learning Explicit Differentiable Predictive Control Laws for Buildings}, 
       author={Jan Drgoňa and Aaron Tuor and Elliott Skomski and Soumya Vasisht and Draguna Vrabie},
       year={2021},
       booktitle={IFAC Nonlinear Model Predictive Control (NMPC) Conference}
 }
+```

@@ -98,7 +98,7 @@ class Component(nn.Module):
 
     def _remap_input(self, module, input_data):
         input_data = input_data[0]
-        check_keys({x[0] for x in self._input_keys}, input_data.keys())
+        #check_keys({x[0] for x in self._input_keys}, input_data.keys())
         return {
             k2: input_data[k1] for k1, k2 in self._input_keys
             if k1 in input_data
@@ -119,7 +119,6 @@ class Component(nn.Module):
         """
         # reverse mapping
         rvalues, rkeys = zip(*self._input_keys)
-        #rkeys = dict(zip(rkeys, rvalues))
         return rkeys
 
     @property

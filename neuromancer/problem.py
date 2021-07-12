@@ -10,9 +10,6 @@ import torch.nn as nn
 
 from neuromancer.constraint import Variable, Objective
 
-    def __repr__(self):
-        return f"{self.name}({', '.join(self.variable_names)}) -> {self.loss} * {self.weight}"
-
 
 class Problem(nn.Module):
 

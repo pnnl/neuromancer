@@ -72,7 +72,6 @@ class BlockSSM(Component):
             [x for x, c in zip(self.OPTIONAL_INPUT_KEYS, [fu, fd]) if c is not None],
             remapping=input_keys,
         )
-        print(input_keys)
         output_keys = BlockSSM.add_optional_outputs(
             [x for x, c in zip(self.OPTIONAL_OUTPUT_KEYS, [fu, fd, fe]) if c is not None]
         )

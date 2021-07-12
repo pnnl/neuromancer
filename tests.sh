@@ -26,7 +26,7 @@ cd -
 exit_code=0
 
 pytest tests
-if [ $? == 1 ]; then
+if [ $? != 0 ]; then
     exit_code=1
 fi
 

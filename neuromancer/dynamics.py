@@ -142,7 +142,7 @@ class BlockSSM(Component):
                 x = self.xod(x, fd)
                 FD.append(fd)
             if self.fe is not None:
-                fe = self.fe(x)
+                fe = self.fe(x_prev)
                 x = self.xoe(x, fe)
                 FE.append(fe)
             if self.residual:
@@ -230,7 +230,7 @@ class BlackSSM(Component):
             x = torch.cat([x] + [data[k][i] for k in [u_in, d_in] if k in data], dim=1)
             x = self.fxud(x)
             if self.fe is not None:
-                fe = self.fe(x)
+                fe = self.fe(x_prev)
                 x = self.xoe(x, fe)
                 FE.append(fe)
             if self.residual:

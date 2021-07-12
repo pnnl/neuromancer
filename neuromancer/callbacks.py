@@ -63,10 +63,3 @@ class SysIDCallback(Callback):
         if self.visualizer is not None:
             plots = self.visualizer.eval(output)
             trainer.logger.log_artifacts(plots)
-
-
-
-
-
-
-

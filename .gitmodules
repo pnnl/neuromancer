@@ -1,0 +1,6 @@
+[submodule "psl"]
+	path = psl
+	url = ../psl.git
+[submodule "slim"]
+	path = slim
+	url = ../slim.git

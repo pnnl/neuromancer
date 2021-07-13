@@ -11,16 +11,16 @@ source /share/apps/python/anaconda3.2019.3/etc/profile.d/conda.sh
 env_dir='/qfs/projects/dadaist/conda-env/neuromancer'
 conda activate $env_dir
 
-# Fetch and update shared psl + slim
-cd /qfs/projects/dadaist/src/psl
-git fetch --all
-git pull
-cd -
+# Assumes that the submodules are already cloned...
+cd psl
+python setup.py develop
+cd ..
 
-cd /qfs/projects/dadaist/src/slim
-git fetch --all
-git pull
-cd -
+cd slim
+python setup.py develop
+cd ..
+
+python setup.py develop
 
 # Run tests
 exit_code=0

@@ -77,6 +77,7 @@ stages:
 build_on_marianas:
   stage: build
   variables:
+    GIT_SUBMODULE_STRATEGY: normal
     SLURM_Q: "dlt_shared"
     CLUSTER: "marianas"
   <<: *pnnl_tags_definition

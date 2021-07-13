@@ -32,13 +32,16 @@ workflow:
         cp -R ./* "$WORKDIR"
       fi
 
+      # Call script to find idle node
+      export SLURM_Q=`perl ./buildsystem/findIdleDLNodes.pl`
+
       cd "$WORKDIR"
       # echo submitting batch job
       [ -f output ] && rm output
       touch output
       tail -f output &
       tailpid=$!
-      jobid=$(sbatch -A DADAIST --export=ALL --gres=gpu:1 --ntasks=1 -p $SLURM_Q -o output -e output -t 1:00:00 $WORKDIR/tests.sh)
+      jobid=$(sbatch -A DADAIST --export=ALL --exclusive -p $SLURM_Q -o output -e output -t 1:00:00 $WORKDIR/tests.sh)
       export jobid=$(echo $jobid | cut -f4 -d' ')
       echo $jobid > "$WORKDIR/jobid"
 
@@ -52,7 +55,7 @@ workflow:
           res=$(grep BUILD_STATUS output | tail -n 1 | cut -f2 -d':')
           break
         fi
-        sleep 10
+        sleep 30
       done
       echo "Finished batch job with exit code: $res"
       rm "$WORKDIR/jobid"

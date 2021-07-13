@@ -59,10 +59,6 @@ For a compact overview of the method and results see the [blog post](https://pnn
 ![methodology.](figs/graphical_abstract_EnB2020_v2.png)
 *Conceptual methodology.*
 
-![system model.](figs/SSM_dynamics_model_neurips_ws.png)
-*Architecture of the physics-inspired neural state space model.*
-
-
 #### Paper results
 
 Comparison of classical linear and proposed neural state space models.

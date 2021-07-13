@@ -13,14 +13,17 @@ conda activate $env_dir
 
 # Assumes that the submodules are already cloned...
 cd psl
-python setup.py develop
+pip install -e . --prefix .
+export PYTHONPATH=$PYTHONPATH:$(pwd)
 cd ..
 
 cd slim
-python setup.py develop
+pip install -e . --prefix .
+export PYTHONPATH=$PYTHONPATH:$(pwd)
 cd ..
 
-python setup.py develop
+pip install -e . --prefix .
+export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 # Run tests
 exit_code=0

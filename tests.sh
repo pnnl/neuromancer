@@ -17,6 +17,15 @@ conda activate $env_dir
 # To initialize submodules + clone 
 #   - git submodule update --init (--recursive)
 
+# Submodules are set up to track master in respective remote
+# To integrate new changes from psl/slim master:
+#   - git submodule update --remote
+# You may have to update the branch pointer for PSL/slim after:
+#   - cd (psl/slim); git clean -ffdx; cd - # If you have changes in submodule
+#   - git add (psl/sim) # To update HEAD pointer for submodule
+#   - git commit ...; git push...
+
+
 # Note that `pip install` is required in CI
 # Feel free to use an alternative to develop w/ PSL/slim:
 #   - python setup.py develop

@@ -51,7 +51,7 @@ workflow:
         if [[ "$(awk 'BEGIN{i=0}/BUILD_STATUS/{i++}END{print i}' output)" != "0" ]]; then
           kill $tailpid
           echo 'Last tail of build output:'
-          tail -n 50 output
+          tail -n 200 output
           res=$(grep BUILD_STATUS output | tail -n 1 | cut -f2 -d':')
           break
         fi

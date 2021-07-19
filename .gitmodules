@@ -1,6 +1,8 @@
 [submodule "psl"]
 	path = psl
 	url = ../psl.git
+	branch = master
 [submodule "slim"]
 	path = slim
 	url = ../slim.git
+	branch = master

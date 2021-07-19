@@ -12,15 +12,25 @@ env_dir='/qfs/projects/dadaist/conda-env/neuromancer'
 conda activate $env_dir
 
 # Assumes that the submodules are already cloned...
-cd psl
-pip install -e . --prefix .
-export PYTHONPATH=$PYTHONPATH:$(pwd)
-cd ..
+# To clone the submodules directly when cloning neuromancer:
+#   - git clone --recurse-submodules <git-url>
+# To initialize submodules + clone 
+#   - git submodule update --init (--recursive)
 
-cd slim
+# Note that `pip install` is required in CI
+# Feel free to use an alternative to develop w/ PSL/slim:
+#   - python setup.py develop
+#   - conda develop .
+
+cd psl # Change this directory for non-submodule psl
 pip install -e . --prefix .
 export PYTHONPATH=$PYTHONPATH:$(pwd)
-cd ..
+cd -
+
+cd slim # Change this directory for non-submodule slim
+pip install -e . --prefix .
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+cd -
 
 pip install -e . --prefix .
 export PYTHONPATH=$PYTHONPATH:$(pwd)

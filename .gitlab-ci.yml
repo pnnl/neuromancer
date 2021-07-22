@@ -41,7 +41,7 @@ workflow:
       touch output
       tail -f output &
       tailpid=$!
-      jobid=$(sbatch -A DADAIST --export=ALL --exclusive -p $SLURM_Q -o output -e output -t 1:00:00 $WORKDIR/tests.sh)
+      jobid=$(sbatch -A DADAIST --export=ALL --exclusive -p $SLURM_Q -o output -e output -t 2:00:00 $WORKDIR/tests.sh)
       export jobid=$(echo $jobid | cut -f4 -d' ')
       echo $jobid > "$WORKDIR/jobid"
 

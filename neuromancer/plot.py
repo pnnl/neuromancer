@@ -17,6 +17,7 @@ try:
 except ImportError:
     pydot = None
 
+
 def _add_obj_components(graph, objs, components, data_keys, style="solid"):
     for obj in objs:
         graph.add_node(pydot.Node(obj.name, label=obj.name, shape="box", color="red", style=style))

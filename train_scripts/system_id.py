@@ -41,12 +41,12 @@ from neuromancer.loggers import BasicLogger, MLFlowLogger
 
 def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynamics"):
     torch.manual_seed(args.seed)
-    if not args.state_estimator == 'fully_observable':
+    if not args.state_estimator == "fully_observable":
         nx = dataset.dims["Y"][-1] * args.nx_hidden
     else:
         nx = dataset.dims["Y"][-1]
-    print('dims', dataset.dims)
-    print('nx', nx)
+    print("dims", dataset.dims)
+    print("nx", nx)
     activation = activations[args.activation]
     linmap = slim.maps[args.linear_map]
     linargs = {"sigma_min": args.sigma_min, "sigma_max": args.sigma_max}
@@ -87,7 +87,7 @@ def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynam
             n_layers=args.n_layers,
             activation=activation,
             name=dynamics_name,
-            input_keys={f'x0_{estimator.name}': 'x0'},
+            input_keys={f"x0_{estimator.name}": "x0", "Uf": "Uf"},
             linargs=linargs
         ) if args.ssm_type == "blackbox"
         else dynamics.block_model(
@@ -99,7 +99,7 @@ def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynam
             n_layers=args.n_layers,
             activation=activation,
             name=dynamics_name,
-            input_keys={f'x0_{estimator.name}': 'x0'},
+            input_keys={f"x0_{estimator.name}": "x0", "Uf": "Uf"},
             linargs=linargs
         )
     )
@@ -192,7 +192,7 @@ if __name__ == "__main__":
 
     # for available systems in PSL library check: psl.systems.keys()
     # for available datasets in PSL library check: psl.datasets.keys()
-    system = 'aero'         # keyword of selected system
+    system = "aero"         # keyword of selected system
     parser = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.data(system=system),
                                     arg.loss(), arg.lin(), arg.ssm()])
 

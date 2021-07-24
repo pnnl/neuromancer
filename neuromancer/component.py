@@ -119,7 +119,7 @@ class Component(nn.Module):
         """
         # reverse mapping
         rvalues, rkeys = zip(*self._input_keys)
-        return rkeys
+        return rvalues
 
     @property
     def output_keys(self):
@@ -138,7 +138,7 @@ class Component(nn.Module):
         if isinstance(remapping, dict) and len(remapping) > 0:
             reverse_map = dict(zip(remapping.values(), remapping.keys()))
             keys = {
-                **{k: k for k in cls.DEFAULT_INPUT_KEYS},
+                **{k: k for k in cls.DEFAULT_INPUT_KEYS if k not in remapping.values()},
                 **{k: v for k, v in remapping.items() if v not in new_keys},
                 **{reverse_map[k] if k in reverse_map else k: k for k in new_keys},
             }

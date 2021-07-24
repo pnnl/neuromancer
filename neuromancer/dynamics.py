@@ -198,7 +198,6 @@ class BlackSSM(Component):
             remapping=input_keys,
         )
 
-        print("uuh", input_keys)
         output_keys = BlackSSM.add_optional_outputs(
             [x for x, c in zip(self.OPTIONAL_OUTPUT_KEYS, [fe]) if c is not None]
         )

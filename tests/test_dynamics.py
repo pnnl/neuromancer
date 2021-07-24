@@ -65,7 +65,7 @@ def test_black_ssm_shape(samples, nsteps, nx, ny, nu, nd, hsize, nlayers, blk):
     hsizes = [hsize for k in range(nlayers)]
     fxud = blk(nx + nu + nd, nx, hsizes=hsizes)
     fy = blk(nx, ny, hsizes=hsizes)
-    model = dynamics.BlackSSM(fxud, fy)
+    model = dynamics.BlackSSM(fxud, fy, input_keys={"Uf": "Uf"})
     output = model(data)
 
     assert output['X_pred_black_ssm'].shape[0] == nsteps

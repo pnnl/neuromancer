@@ -34,7 +34,7 @@ from neuromancer.visuals import VisualizerOpen
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
 from neuromancer.constraint import Objective
-from neuromancer.simulators import OpenLoopSimulator
+from neuromancer.simulators import OpenLoopSimulator, MultiSequenceOpenLoopSimulator
 from neuromancer.dataset import get_sequence_dataloaders, read_file
 from neuromancer.callbacks import SysIDCallback
 from neuromancer.loggers import BasicLogger, MLFlowLogger
@@ -228,7 +228,9 @@ if __name__ == "__main__":
     model = model.to(device)
 
     simulator = OpenLoopSimulator(
-        model, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim
+        model, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=device,
+    ) if isinstance(train_loop, dict) else MultiSequenceOpenLoopSimulator(
+        model, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=device,
     )
     visualizer = VisualizerOpen(
         dynamics_model,
@@ -253,6 +255,7 @@ if __name__ == "__main__":
         eval_metric=args.eval_metric,
         patience=args.patience,
         warmup=args.warmup,
+        device=device,
     )
 
     best_model = trainer.train()

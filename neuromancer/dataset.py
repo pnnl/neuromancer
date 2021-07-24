@@ -153,7 +153,6 @@ class SequenceDataset(Dataset):
                 k + "f": self.full_data[start + self.nsteps : end, self._vslices[k]].unsqueeze(1)
                 for k in self.variables
             },
-            "name": "loop_" + self.name,
         }
 
     def _get_full_multi_sequence_impl(self):
@@ -167,11 +166,14 @@ class SequenceDataset(Dataset):
         for id_, count in zip(ids, sample_counts):
             sequences.append(self._get_full_sequence_impl(start=i, end=i+count))
             i += count
-        return {k: torch.cat([d[k] for d in sequences], dim=1) for k in sequences[0]}
+        return [
+            {**{k: d[k] for k in sequences[0]}, "name": "loop_" + self.name}
+            for d in sequences
+        ]
 
     def get_full_sequence(self):
         return (
-            self._get_full_sequence_impl()
+            {**self._get_full_sequence_impl(), "name": "loop_" + self.name}
             if "exp_id" not in self.variables
             else self._get_full_multi_sequence_impl()
         )
@@ -233,6 +235,8 @@ def split_data(data, split_ratio=None):
     :param data: (dict str: np.array) data dictionary
     :param split_ratio: (list float) Two numbers indicating percentage of data included in train and
         development sets (out of 100.0). Default is None, which splits data into thirds.
+
+    .. todo:: add real support for multi-experiment datasets
     """
     nsim = min(v.shape[0] for v in data.values())
     if split_ratio is None:
@@ -255,7 +259,7 @@ def split_data(data, split_ratio=None):
 
 
 def get_sequence_dataloaders(
-    data, nsteps, norm_type="zero-one", split_ratio=None, num_workers=1,
+    data, nsteps, norm_type="zero-one", split_ratio=None, num_workers=0,
 ):
     """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
     data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
@@ -284,18 +288,21 @@ def get_sequence_dataloaders(
         batch_size=len(train_data),
         shuffle=False,
         collate_fn=train_data.collate_fn,
+        num_workers=num_workers,
     )
     dev_data = DataLoader(
         dev_data,
         batch_size=len(dev_data),
         shuffle=False,
         collate_fn=dev_data.collate_fn,
+        num_workers=num_workers,
     )
     test_data = DataLoader(
         test_data,
         batch_size=len(test_data),
         shuffle=False,
         collate_fn=test_data.collate_fn,
+        num_workers=num_workers,
     )
 
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims

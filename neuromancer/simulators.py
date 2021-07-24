@@ -15,6 +15,7 @@ from neuromancer.datasets import EmulatorDataset, FileDataset
 from neuromancer.data.normalization import normalize_01 as normalize, denormalize_01 as min_max_denorm
 from neuromancer.problem import Problem
 from neuromancer.datasets import Dataset, DataDict
+from neuromancer.trainer import move_batch_to_device
 
 
 class Simulator:
@@ -25,7 +26,8 @@ class Simulator:
         dev_data: Dataset,
         test_data: Dataset,
         emulator: EmulatorBase = None,
-        eval_sim=True
+        eval_sim=True,
+        device="cpu",
     ):
         self.model = model
         self.train_data = train_data
@@ -33,6 +35,7 @@ class Simulator:
         self.test_data = test_data
         self.emulator = emulator
         self.eval_sim = eval_sim
+        self.device = device
 
     def dev_eval(self):
         if self.eval_sim:
@@ -45,7 +48,10 @@ class Simulator:
         all_output = dict()
         for data, dname in zip([self.train_data, self.dev_data, self.test_data],
                                ['train', 'dev', 'test']):
-            all_output = {**all_output, **self.simulate(data)}
+            all_output = {
+                **all_output,
+                **self.simulate(data)
+            }
         return all_output
 
     def simulate(self, data):
@@ -60,7 +66,8 @@ class OpenLoopSimulator(Simulator):
         dev_data: Dataset,
         test_data: Dataset,
         emulator: EmulatorBase = None,
-        eval_sim=True
+        eval_sim=True,
+        device="cpu",
     ):
         super().__init__(
             model=model,
@@ -68,11 +75,12 @@ class OpenLoopSimulator(Simulator):
             dev_data=dev_data,
             test_data=test_data,
             emulator=emulator,
-            eval_sim=eval_sim
+            eval_sim=eval_sim,
+            device=device,
         )
 
     def simulate(self, data):
-        return self.model(data)
+        return self.model(move_batch_to_device(data, self.device))
 
 
 class MHOpenLoopSimulator(Simulator):
@@ -80,8 +88,8 @@ class MHOpenLoopSimulator(Simulator):
     moving horizon open loop simulator
     """
     def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None,
-                 eval_sim=True):
-        super().__init__(model=model, dataset=dataset, emulator=emulator, eval_sim=eval_sim)
+                 eval_sim=True, device="cpu"):
+        super().__init__(model=model, dataset=dataset, emulator=emulator, eval_sim=eval_sim, device=device)
 
     def horizon_data(self, data, i):
         """
@@ -99,6 +107,7 @@ class MHOpenLoopSimulator(Simulator):
     def simulate(self, data):
         Y, X, L = [], [], []
         Yp, Yf, Xp, Xf = [], [], [], []
+        data = move_batch_to_device(data, self.device)
         yN = data['Yp'][:self.dataset.nsteps, :, :]
         nsim = data['Yp'].shape[0]
         for i in range(nsim-self.dataset.nsteps):
@@ -149,6 +158,7 @@ class MultiSequenceOpenLoopSimulator(Simulator):
         emulator: EmulatorBase = None,
         eval_sim=True,
         stack=False,
+        device="cpu",
     ):
         super().__init__(
             model=model,
@@ -156,7 +166,8 @@ class MultiSequenceOpenLoopSimulator(Simulator):
             dev_data=dev_data,
             test_data=test_data,
             emulator=emulator,
-            eval_sim=eval_sim
+            eval_sim=eval_sim,
+            device=device,
         )
         self.stack = stack
 
@@ -183,20 +194,21 @@ class MultiSequenceOpenLoopSimulator(Simulator):
     def simulate(self, data):
         outputs = []
         for d in data:
+            d = move_batch_to_device(d, self.device)
             outputs.append(self.model(d))
         return self.agg(outputs)
 
     def dev_eval(self):
         if self.eval_sim:
-            dev_loop_output = self.simulate(self.dev_data)
+            dev_loop_output = self.simulate(move_batch_to_device(self.dev_data, self.device))
         else:
             dev_loop_output = dict()
         return dev_loop_output
 
 
 class ClosedLoopSimulator(Simulator):
-    def __init__(self, model: Problem, dataset: Dataset, policy: nn.Module, emulator: [EmulatorBase, nn.Module] = None):
-        super().__init__(model=model, dataset=dataset, emulator=emulator)
+    def __init__(self, model: Problem, dataset: Dataset, policy: nn.Module, emulator: [EmulatorBase, nn.Module] = None, device="cpu"):
+        super().__init__(model=model, dataset=dataset, emulator=emulator, device=device)
         assert isinstance(emulator, EmulatorBase) or isinstance(emulator,  nn.Module), \
             f'{type(emulator)} is not EmulatorBase or nn.Module.'
         self.emulator = emulator
@@ -207,7 +219,7 @@ class ClosedLoopSimulator(Simulator):
             self.x0 = self.emulator.x0
         elif isinstance(emulator, nn.Module):
             self.x0 = torch.zeros([1, self.emulator.nx])
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = device
 
     def select_step_data(self, data, i):
         """

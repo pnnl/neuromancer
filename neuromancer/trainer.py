@@ -42,6 +42,7 @@ class Trainer:
         eval_metric="loop_dev_loss",
         eval_mode="min",
         clip=100.0,
+        device="cpu"
     ):
         """
 
@@ -80,6 +81,7 @@ class Trainer:
         self.clip = clip
         self.best_devloss = np.finfo(np.float32).max if self._eval_min else 0.
         self.best_model = deepcopy(self.model.state_dict())
+        self.device = device
 
     def train(self):
         """
@@ -94,6 +96,7 @@ class Trainer:
             self.model.train()
             losses = []
             for t_batch in self.train_data:
+                t_batch = move_batch_to_device(t_batch, self.device)
                 output = self.model(t_batch)
                 self.optimizer.zero_grad()
                 output[self.train_metric].backward()
@@ -111,6 +114,7 @@ class Trainer:
                 self.model.eval()
                 losses = []
                 for d_batch in self.dev_data:
+                    d_batch = move_batch_to_device(d_batch, self.device)
                     eval_output = self.model(d_batch)
                     losses.append(eval_output[self.dev_metric])
                 eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
@@ -156,6 +160,7 @@ class Trainer:
                                     [self.train_metric, self.dev_metric, self.test_metric]):
                 losses = []
                 for batch in dset:
+                    batch = move_batch_to_device(batch, self.device)
                     batch_output = self.model(batch)
                     losses.append(batch_output[metric])
                 output[f'mean_{metric}'] = torch.mean(torch.stack(losses))

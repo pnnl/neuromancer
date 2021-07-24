@@ -145,6 +145,23 @@ class FullyObservable(TimeDelayEstimator):
         return torch.tensor(0.0)
 
 
+class FullyObservableAugmented(FullyObservable):
+    def __init__(self, data_dims, nsteps=1, window_size=1, nd=1, d0=0.0, bias=False,
+                 linear_map=slim.Linear, nonlin=nn.Identity, hsizes=[],
+                 input_keys=['Yp'], linargs=dict(), name='fully_observable_aug'):
+        """
+        Dummmy estimator to use consistent API for fully observable systems with augmented state space with disturbaces
+        """
+        super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
+        self.net = nn.Identity()
+        self.nd = nd   # dimensions of the augmented states
+        self.d0 = d0   # fixed initial conditions of the augmented state
+
+    def features(self, data):
+        augmented_state = self.d0*torch.ones([data['Yp'][self.nsteps - 1].shape[0], self.nd])
+        return torch.cat([data['Yp'][self.nsteps - 1], augmented_state], 1)
+
+
 class LinearEstimator(TimeDelayEstimator):
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
                  linear_map=slim.Linear, nonlin=nn.Identity, hsizes=[],

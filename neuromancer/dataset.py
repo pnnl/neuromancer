@@ -10,6 +10,14 @@ from torch.utils.data.dataloader import default_collate
 from neuromancer.data.normalization import norm_fns
 
 
+def _is_multisequence_data(data):
+    return isinstance(data, list) and all([isinstance(x, dict) for x in data])
+
+
+def _is_sequence_data(data):
+    return isinstance(data, dict) and len({x.shape[0] for x in data.values()}) == 1
+
+
 def _extract_var(data, regex):
     filtered = data.filter(regex=regex).values
     return filtered if filtered.size != 0 else None
@@ -30,17 +38,23 @@ def read_file(file_path):
         id_ = f.get("exp_id", None)  # experiment run id
     elif file_type == "csv":
         data = pd.read_csv(file_path)
-        Y = _extract_var(data, "y[0-9]*")
-        X = _extract_var(data, "x[0-9]*")
-        U = _extract_var(data, "u[0-9]*")
-        D = _extract_var(data, "d[0-9]*")
-        id_ = _extract_var(data, "exp_id")
+        Y = _extract_var(data, "^y[0-9]+$")
+        X = _extract_var(data, "^x[0-9]+$")
+        U = _extract_var(data, "^u[0-9]+$")
+        D = _extract_var(data, "^d[0-9]+$")
+        id_ = _extract_var(data, "^exp_id")
     else:
         print(f"error: unsupported file type: {file_type}")
 
-    return {
-        k: v for k, v in zip(["Y", "X", "U", "D", "exp_id"], [Y, X, U, D, id_]) if v is not None
-    }
+    if id_ is None:
+        return {
+            k: v for k, v in zip(["Y", "X", "U", "D"], [Y, X, U, D]) if v is not None
+        }
+    else:
+        return [
+            {k: v[id_.flatten() == i, ...] for k, v in zip(["Y", "X", "U", "D"], [Y, X, U, D]) if v is not None}
+            for i in sorted(set(id_.flatten()))
+        ]
 
 
 def batch_tensor(x: torch.Tensor, steps: int, mh: bool = False):
@@ -53,6 +67,32 @@ def unbatch_tensor(x: torch.Tensor, mh: bool = False):
         if mh
         else torch.cat(torch.unbind(x, 0), dim=-1).permute(2, 0, 1)
     )
+
+
+def _get_sequence_time_slices(data):
+    seq_lens = []
+    for i, d in enumerate(data):
+        seq_lens.append(None)
+        for v in d.values():
+            seq_lens[i] = seq_lens[i] or v.shape[0]
+            assert seq_lens[i] == v.shape[0], \
+                "sequence lengths within a dictionary must be equal"
+    slices = []
+    i = 0
+    for seq_len in seq_lens:
+        slices.append(slice(i, i + seq_len, 1))
+        i += seq_len
+    return slices
+
+
+def _validate_keys(data):
+    keys = set(data[0].keys())
+    for d in data[1:]:
+        other_keys = set(d.keys())
+        assert len(keys - other_keys) == 0 and len(other_keys - keys) == 0, \
+            "list of dictionaries must have matching keys across all dictionaries."
+        keys = other_keys
+    return keys
 
 
 class SequenceDataset(Dataset):
@@ -82,21 +122,35 @@ class SequenceDataset(Dataset):
         .. todo:: Add support for categorical features.
         .. todo:: Add support for memory-mapped and/or streaming data.
         .. todo:: Add support for data augmentation?
+        .. todo:: Clean up data validation code.
         """
 
         super().__init__()
-
-        for k in data.keys():
-            assert nsteps < data[k].shape[0], \
-                f"length of time series data ({data[k].shape[0]}) must be greater than nsteps ({nsteps})"
-
         self.name = name
 
+        self.multisequence = _is_multisequence_data(data)
+        assert _is_sequence_data(data) or self.multisequence, \
+            "data must be provided as a dictionary or list of dictionaries"
+
+        if isinstance(data, dict):
+            data = [data]
+
+        keys = _validate_keys(data)
+
+        # _sslices used to slice out sequences from a multi-sequence dataset
+        self._sslices = _get_sequence_time_slices(data)
+        assert all([nsteps < (sl.stop - sl.start) for sl in self._sslices]), \
+            f"length of time series data ({v.shape[0]}) must be greater than nsteps ({nsteps})"
+
+        self.nsteps = nsteps
+
+        self.variables = list(keys)
         self.full_data = torch.cat(
-            [torch.tensor(v, dtype=torch.float) for v in data.values()], dim=1
+            [torch.cat([torch.tensor(d[k], dtype=torch.float) for k in self.variables], dim=1) for d in data],
+            dim=0,
         )
-        self.dims = {k: v.shape for k, v in data.items()}
-        self.variables = list(data.keys())
+        self.nsim = self.full_data.shape[0]
+        self.dims = {k: (self.nsim, *data[0][k].shape[1:],) for k in self.variables}
 
         # _vslices used to slice out sequences of individual variables from full_data and batched_data
         i = 0
@@ -105,18 +159,18 @@ class SequenceDataset(Dataset):
             self._vslices[k] = slice(i, i + v[1], 1)
             i += v[1]
 
-        self.nsteps = nsteps
-        self.nsim = self.full_data.shape[0]
-
         self.dims = {
             **self.dims,
-            **{k + "p": (self.nsim, v[1]) for k, v in self.dims.items()},
-            **{k + "f": (self.nsim, v[1]) for k, v in self.dims.items()},
+            **{k + "p": (self.nsim - 1, v[1]) for k, v in self.dims.items()},
+            **{k + "f": (self.nsim - 1, v[1]) for k, v in self.dims.items()},
             "nsim": self.nsim,
             "nsteps": nsteps,
         }
 
-        self.batched_data = batch_tensor(self.full_data, nsteps, mh=moving_horizon)
+        self.batched_data = torch.cat(
+            [batch_tensor(self.full_data[s, ...] , nsteps, mh=moving_horizon) for s in self._sslices],
+            dim=0,
+        )
         self.batched_data = self.batched_data.permute(0, 2, 1)
 
     def __len__(self):
@@ -146,36 +200,21 @@ class SequenceDataset(Dataset):
 
         return {
             **{
-                k + "p": self.full_data[start : end - self.nsteps, self._vslices[k]].unsqueeze(1)
+                k + "p": self.full_data[start : end - 1, self._vslices[k]].unsqueeze(1)
                 for k in self.variables
             },
             **{
-                k + "f": self.full_data[start + self.nsteps : end, self._vslices[k]].unsqueeze(1)
+                k + "f": self.full_data[start + 1 : end, self._vslices[k]].unsqueeze(1)
                 for k in self.variables
             },
+            "name": "loop_" + self.name,
         }
-
-    def _get_full_multi_sequence_impl(self):
-        """Returns a list of sequences partitioned by their "exp_id" key."""
-        ids, sample_counts = torch.unique_consecutive(
-            self.full_data[:, self._vslices["exp_id"]], return_counts=True
-        )
-
-        sequences = []
-        i = 0
-        for id_, count in zip(ids, sample_counts):
-            sequences.append(self._get_full_sequence_impl(start=i, end=i+count))
-            i += count
-        return [
-            {**{k: d[k] for k in sequences[0]}, "name": "loop_" + self.name}
-            for d in sequences
-        ]
 
     def get_full_sequence(self):
         return (
-            {**self._get_full_sequence_impl(), "name": "loop_" + self.name}
-            if "exp_id" not in self.variables
-            else self._get_full_multi_sequence_impl()
+            [self._get_full_sequence_impl(start=s.start, end=s.stop) for s in self._sslices]
+            if self.multisequence
+            else self._get_full_sequence_impl()
         )
 
     def collate_fn(self, batch):
@@ -193,9 +232,12 @@ class SequenceDataset(Dataset):
 
     def __repr__(self):
         varinfo = "\n    ".join([f"{x}: {d}" for x, d in self.dims.items() if x not in {"nsteps", "nsim"}])
+        seqinfo = f"    nsequences: {len(self._sslices)}\n" if self.multisequence else ""
         return (
             f"{type(self).__name__}:\n"
-            f"  variables:\n"
+            f"  multi-sequence: {self.multisequence}\n"
+            f"{seqinfo}"
+            f"  variables (shapes):\n"
             f"    {varinfo}\n"
             f"  nsim: {self.nsim}\n"
             f"  nsteps: {self.nsteps}\n"
@@ -211,6 +253,13 @@ def normalize_data(data, norm_type, stats=None):
     :param stats: (dict str: np.array) statistics to use for normalization. Default is None, in which
         case stats are inferred by underlying normalization function
     """
+    multisequence = _is_multisequence_data(data)
+    assert _is_sequence_data(data) or multisequence, \
+        "data must be provided as a dictionary or list of dictionaries"
+
+    if not multisequence:
+        data = [data]
+
     if stats is None:
         norm_fn = lambda x, _: norm_fns[norm_type](x)
     else:
@@ -220,25 +269,38 @@ def normalize_data(data, norm_type, stats=None):
             stats[k + "_max"].reshape(1, -1),
         )
 
+    keys = data[0].keys()
+    slices = _get_sequence_time_slices(data)
+    data = {k: np.concatenate([v[k] for v in data], axis=0) for k in keys}
+
     norm_data = [norm_fn(v, k) for k, v in data.items()]
     norm_data, stat0, stat1 = zip(*norm_data)
-    return {k: v if k != "exp_id" else data[k] for k, v in zip(data.keys(), norm_data)}, {
+
+    stats = {
         **{k + "_min": v for k, v in zip(data.keys(), stat0)},
         **{k + "_max": v for k, v in zip(data.keys(), stat1)},
     }
+    data = [{k: v[sl, ...] for k, v in zip(data.keys(), norm_data)} for sl in slices]
+
+    return data if multisequence else data[0], stats
 
 
 def split_data(data, split_ratio=None):
     """Split a data dictionary into train, development, and test sets. Splits data into thirds by
     default, but arbitrary split ratios for train and development can be provided.
 
-    :param data: (dict str: np.array) data dictionary
+    :param data: (dict str: np.array or list[str: np.array]) data dictionary
     :param split_ratio: (list float) Two numbers indicating percentage of data included in train and
         development sets (out of 100.0). Default is None, which splits data into thirds.
 
     .. todo:: add real support for multi-experiment datasets
+    .. todo:: fix split boundary cutoff issue when len(data) % nsteps != 0
     """
-    nsim = min(v.shape[0] for v in data.values())
+    multisequence = _is_multisequence_data(data)
+    assert _is_sequence_data(data) or multisequence, \
+        "data must be provided as a dictionary or list of dictionaries"
+
+    nsim = len(data) if multisequence else min(v.shape[0] for v in data.values())
     if split_ratio is None:
         split_len = nsim // 3
         train_offs = slice(0, split_len)
@@ -251,15 +313,20 @@ def split_data(data, split_ratio=None):
         dev_offs = slice(dev_start, test_start)
         test_offs = slice(test_start, nsim)
 
-    train_data = {k: v[train_offs] for k, v in data.items()}
-    dev_data = {k: v[dev_offs] for k, v in data.items()}
-    test_data = {k: v[test_offs] for k, v in data.items()}
+    if not multisequence:
+        train_data = {k: v[train_offs] for k, v in data.items()}
+        dev_data = {k: v[dev_offs] for k, v in data.items()}
+        test_data = {k: v[test_offs] for k, v in data.items()}
+    else:
+        train_data = data[train_offs]
+        dev_data = data[dev_offs]
+        test_data = data[test_offs]
 
     return train_data, dev_data, test_data
 
 
 def get_sequence_dataloaders(
-    data, nsteps, norm_type="zero-one", split_ratio=None, num_workers=0,
+    data, nsteps, moving_horizon=False, norm_type="zero-one", split_ratio=None, num_workers=0,
 ):
     """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
     data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original

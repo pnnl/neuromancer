@@ -1,4 +1,6 @@
+from glob import glob
 import math
+import os
 
 import numpy as np
 import pandas as pd
@@ -23,7 +25,22 @@ def _extract_var(data, regex):
     return filtered if filtered.size != 0 else None
 
 
-def read_file(file_path):
+SUPPORTED_EXTENSIONS = {".csv", ".mat"}
+
+
+def read_file(file_or_dir):
+    if os.path.isdir(file_or_dir):
+        files = [
+            os.path.join(file_or_dir, x)
+            for x in os.listdir(file_or_dir)
+            if os.path.splitext(x)[1].lower() in SUPPORTED_EXTENSIONS
+        ]
+        return [_read_file(x) for x in sorted(files)]
+
+    return _read_file(file_or_dir)
+
+
+def _read_file(file_path):
     """Read data from MAT or CSV file into data dictionary.
 
     :param file_path: (str) path to a MAT or CSV file to load.
@@ -45,6 +62,8 @@ def read_file(file_path):
         id_ = _extract_var(data, "^exp_id")
     else:
         print(f"error: unsupported file type: {file_type}")
+
+    assert any([v is not None for v in [Y, X, U, D]])
 
     if id_ is None:
         return {
@@ -107,11 +126,11 @@ class SequenceDataset(Dataset):
         used by NeuroMANCER models.
 
         :param data: (dict str: np.array) dictionary mapping variable names to tensors of shape
-            (T, Dk), where T is number of time steps and Dk is dimensionality of variable k
-        :param nsteps: (int) N-step prediction horizon for batching data
+            (T, Dk), where T is number of time steps and Dk is dimensionality of variable k.
+        :param nsteps: (int) N-step prediction horizon for batching data.
         :param moving_horizon: (bool) if True, generate batches using sliding window with stride 1;
-            else use stride N
-        :param name: (str) name of dataset split
+            else use stride N.
+        :param name: (str) name of dataset split.
 
         .. note:: To generate train/dev/test datasets and DataLoaders for each, see the
             `get_sequence_dataloaders` function.
@@ -200,11 +219,11 @@ class SequenceDataset(Dataset):
 
         return {
             **{
-                k + "p": self.full_data[start : end - 1, self._vslices[k]].unsqueeze(1)
+                k + "p": self.full_data[start : end - self.nsteps, self._vslices[k]].unsqueeze(1)
                 for k in self.variables
             },
             **{
-                k + "f": self.full_data[start + 1 : end, self._vslices[k]].unsqueeze(1)
+                k + "f": self.full_data[start + self.nsteps : end, self._vslices[k]].unsqueeze(1)
                 for k in self.variables
             },
             "name": "loop_" + self.name,
@@ -248,10 +267,10 @@ class SequenceDataset(Dataset):
 def normalize_data(data, norm_type, stats=None):
     """Normalize data, optionally using arbitrary statistics (e.g. computed from train split).
 
-    :param data: (dict str: np.array) data dictionary
-    :param norm_type: (str) type of normalization to use; can be "zero-one", "one-one", or "zscore"
+    :param data: (dict str: np.array) data dictionary.
+    :param norm_type: (str) type of normalization to use; can be "zero-one", "one-one", or "zscore".
     :param stats: (dict str: np.array) statistics to use for normalization. Default is None, in which
-        case stats are inferred by underlying normalization function
+        case stats are inferred by underlying normalization function.
     """
     multisequence = _is_multisequence_data(data)
     assert _is_sequence_data(data) or multisequence, \
@@ -285,30 +304,35 @@ def normalize_data(data, norm_type, stats=None):
     return data if multisequence else data[0], stats
 
 
-def split_data(data, split_ratio=None):
+def split_sequence_data(data, nsteps, moving_horizon=False, split_ratio=None):
     """Split a data dictionary into train, development, and test sets. Splits data into thirds by
     default, but arbitrary split ratios for train and development can be provided.
 
-    :param data: (dict str: np.array or list[str: np.array]) data dictionary
+    :param data: (dict str: np.array or list[str: np.array]) data dictionary.
+    :param nsteps: (int) N-step prediction horizon for batching data; used here to ensure split
+        lengths are evenly divisible by N.
+    :param moving_horizon: (bool) whether batches use a sliding window with stride 1; else stride of
+        N is assumed.
     :param split_ratio: (list float) Two numbers indicating percentage of data included in train and
         development sets (out of 100.0). Default is None, which splits data into thirds.
-
-    .. todo:: add real support for multi-experiment datasets
-    .. todo:: fix split boundary cutoff issue when len(data) % nsteps != 0
     """
     multisequence = _is_multisequence_data(data)
     assert _is_sequence_data(data) or multisequence, \
         "data must be provided as a dictionary or list of dictionaries"
 
     nsim = len(data) if multisequence else min(v.shape[0] for v in data.values())
+    split_mod = nsteps if not multisequence else 1
     if split_ratio is None:
         split_len = nsim // 3
-        train_offs = slice(0, split_len)
-        dev_offs = slice(split_len, split_len * 2)
+        split_len -= split_len % split_mod
+        train_offs = slice(0, split_len + nsteps * (not multisequence))
+        dev_offs = slice(split_len, split_len * 2 + nsteps * (not multisequence))
         test_offs = slice(split_len * 2, nsim)
     else:
         dev_start = math.ceil(split_ratio[0] / 100.) * nsim
+        dev_start -= dev_start % split_mod
         test_start = dev_start + math.ceil(split_ratio[1] / 100.) * nsim
+        test_start -= test_start % split_mod
         train_offs = slice(0, dev_start)
         dev_offs = slice(dev_start, test_start)
         test_offs = slice(test_start, nsim)
@@ -332,19 +356,37 @@ def get_sequence_dataloaders(
     data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
     training setup.
 
-    :param data: (dict str: np.array) data dictionary
-    :param nsteps: (int) length of windowed subsequences for N-step training
+    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
+        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
+        computed over the number of sequences rather than their lengths.
+    :param nsteps: (int) length of windowed subsequences for N-step training.
+    :param moving_horizon: (bool) whether to use moving horizon batching.
     :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
     :param split_ratio: (list float) percentage of data in train and development splits; see
-        function `split_data` for more info.
+        function `split_sequence_data` for more info.
     """
 
     data, _ = normalize_data(data, norm_type)
-    train_data, dev_data, test_data = split_data(data, split_ratio)
+    train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
 
-    train_data = SequenceDataset(train_data, nsteps=nsteps, name="train")
-    dev_data = SequenceDataset(dev_data, nsteps=nsteps, name="dev")
-    test_data = SequenceDataset(test_data, nsteps=nsteps, name="test")
+    train_data = SequenceDataset(
+        train_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="train",
+    )
+    dev_data = SequenceDataset(
+        dev_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="dev",
+    )
+    test_data = SequenceDataset(
+        test_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="test",
+    )
 
     train_loop = train_data.get_full_sequence()
     dev_loop = dev_data.get_full_sequence()

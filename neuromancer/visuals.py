@@ -32,7 +32,6 @@ class VisualizerOpen(Visualizer):
     def __init__(self, model, verbosity, savedir, training_visuals=False, trace_movie=False):
         """
 
-        :param dataset:
         :param model:
         :param verbosity:
         :param savedir:
@@ -121,7 +120,8 @@ class VisualizerOpen(Visualizer):
                     axes[k, 0].set_title('Weights Singular values')
                 else:
                     w, v = LA.eig(Mat[k].T)
-                    axes[k, 0].set_title('Weights Eigenvalues') if count == 0 else None
+                    if count == 0:
+                        axes[k, 0].set_title('Weights Eigenvalues')
                     count += 1
                 axes[k, 0].scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
                 patch = mpatches.Circle((0, 0), radius=1, alpha=0.2)
@@ -206,11 +206,11 @@ class VisualizerTrajectories(Visualizer):
 
 class VisualizerClosedLoop(Visualizer):
 
-    def __init__(self, dataset, policy, plot_keys, verbosity, savedir='test_control'):
+    def __init__(self, policy, plot_keys, ctrl_outputs, verbosity, savedir='test_control'):
         self.model = policy
-        self.dataset = dataset
         self.verbosity = verbosity
         self.plot_keys = plot_keys
+        self.ctrl_outputs = ctrl_outputs
         self.savedir = savedir
 
     def plot_matrix(self):
@@ -266,16 +266,16 @@ class VisualizerClosedLoop(Visualizer):
             plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
 
     def eval(self, outputs):
-        D = outputs['D'] if 'D' in outputs.keys() else None
-        R = outputs['R'] if 'R' in outputs.keys() else None
-        Ymin = outputs['Ymin'] if 'Ymin' in outputs.keys() else None
-        Ymax = outputs['Ymax'] if 'Ymax' in outputs.keys() else None
-        Umin = outputs['Umin'] if 'Umin' in outputs.keys() else None
-        Umax = outputs['Umax'] if 'Umax' in outputs.keys() else None
+        D = outputs.get("D", None)
+        R = outputs.get("R", None)
+        Ymin = outputs.get("Ymin", None)
+        Ymax = outputs.get("Ymax", None)
+        Umin = outputs.get("Umin", None)
+        Umax = outputs.get("Umax", None)
 
         plot.pltCL(Y=outputs['Y'], U=outputs['U'], D=D, R=R,
                    Ymin=Ymin, Ymax=Ymax, Umin=Umin, Umax=Umax,
-                   ctrl_outputs=self.dataset.ctrl_outputs,
+                   ctrl_outputs=self.ctrl_outputs,
                    figname=os.path.join(self.savedir, 'CL_control.png'))
         self.plot_matrix()
         return dict()

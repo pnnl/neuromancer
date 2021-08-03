@@ -315,6 +315,9 @@ def split_sequence_data(data, nsteps, moving_horizon=False, split_ratio=None):
         N is assumed.
     :param split_ratio: (list float) Two numbers indicating percentage of data included in train and
         development sets (out of 100.0). Default is None, which splits data into thirds.
+
+    .. todo:: polymorphic split arg for supporting split percentages or indices for multiseq case
+        and determine best way to split given a dict of file names
     """
     multisequence = _is_multisequence_data(data)
     assert _is_sequence_data(data) or multisequence, \
@@ -325,93 +328,25 @@ def split_sequence_data(data, nsteps, moving_horizon=False, split_ratio=None):
     if split_ratio is None:
         split_len = nsim // 3
         split_len -= split_len % split_mod
-        train_offs = slice(0, split_len + nsteps * (not multisequence))
-        dev_offs = slice(split_len, split_len * 2 + nsteps * (not multisequence))
-        test_offs = slice(split_len * 2, nsim)
+        train_slice = slice(0, split_len + nsteps * (not multisequence))
+        dev_slice = slice(split_len, split_len * 2 + nsteps * (not multisequence))
+        test_slice = slice(split_len * 2, nsim)
     else:
         dev_start = math.ceil(split_ratio[0] / 100.) * nsim
         dev_start -= dev_start % split_mod
         test_start = dev_start + math.ceil(split_ratio[1] / 100.) * nsim
         test_start -= test_start % split_mod
-        train_offs = slice(0, dev_start)
-        dev_offs = slice(dev_start, test_start)
-        test_offs = slice(test_start, nsim)
+        train_slice = slice(0, dev_start)
+        dev_slice = slice(dev_start, test_start)
+        test_slice = slice(test_start, nsim)
 
     if not multisequence:
-        train_data = {k: v[train_offs] for k, v in data.items()}
-        dev_data = {k: v[dev_offs] for k, v in data.items()}
-        test_data = {k: v[test_offs] for k, v in data.items()}
+        train_data = {k: v[train_slice] for k, v in data.items()}
+        dev_data = {k: v[dev_slice] for k, v in data.items()}
+        test_data = {k: v[test_slice] for k, v in data.items()}
     else:
-        train_data = data[train_offs]
-        dev_data = data[dev_offs]
-        test_data = data[test_offs]
+        train_data = data[train_slice]
+        dev_data = data[dev_slice]
+        test_data = data[test_slices]
 
     return train_data, dev_data, test_data
-
-
-def get_sequence_dataloaders(
-    data, nsteps, moving_horizon=False, norm_type="zero-one", split_ratio=None, num_workers=0,
-):
-    """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
-    data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
-    training setup.
-
-    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
-        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
-        computed over the number of sequences rather than their lengths.
-    :param nsteps: (int) length of windowed subsequences for N-step training.
-    :param moving_horizon: (bool) whether to use moving horizon batching.
-    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
-    :param split_ratio: (list float) percentage of data in train and development splits; see
-        function `split_sequence_data` for more info.
-    """
-
-    data, _ = normalize_data(data, norm_type)
-    train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
-
-    train_data = SequenceDataset(
-        train_data,
-        nsteps=nsteps,
-        moving_horizon=moving_horizon,
-        name="train",
-    )
-    dev_data = SequenceDataset(
-        dev_data,
-        nsteps=nsteps,
-        moving_horizon=moving_horizon,
-        name="dev",
-    )
-    test_data = SequenceDataset(
-        test_data,
-        nsteps=nsteps,
-        moving_horizon=moving_horizon,
-        name="test",
-    )
-
-    train_loop = train_data.get_full_sequence()
-    dev_loop = dev_data.get_full_sequence()
-    test_loop = test_data.get_full_sequence()
-
-    train_data = DataLoader(
-        train_data,
-        batch_size=len(train_data),
-        shuffle=False,
-        collate_fn=train_data.collate_fn,
-        num_workers=num_workers,
-    )
-    dev_data = DataLoader(
-        dev_data,
-        batch_size=len(dev_data),
-        shuffle=False,
-        collate_fn=dev_data.collate_fn,
-        num_workers=num_workers,
-    )
-    test_data = DataLoader(
-        test_data,
-        batch_size=len(test_data),
-        shuffle=False,
-        collate_fn=test_data.collate_fn,
-        num_workers=num_workers,
-    )
-
-    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims

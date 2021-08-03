@@ -40,8 +40,9 @@ def test_nstep_samples(nsteps):
     for sample in dset:
         assert all([v.shape[0] == nsteps for v in sample.values()])
         assert len(keys - set(sample.keys())) == 0
-    
 
+
+# TODO(mia): test split pct == 0
 @given(
     st.integers(1, 128),
     st.sampled_from(["zero-one", "one-one", "zscore"]),

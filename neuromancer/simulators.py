@@ -110,7 +110,7 @@ class MHOpenLoopSimulator(Simulator):
         data = move_batch_to_device(data, self.device)
         yN = data['Yp'][:self.dataset.nsteps, :, :]
         nsim = data['Yp'].shape[0]
-        for i in range(nsim-self.dataset.nsteps):
+        for i in range(nsim-self.nsteps):
             step_data = self.horizon_data(data, i)
             step_data['Yp'] = yN
             step_output = self.model(step_data)
@@ -207,18 +207,45 @@ class MultiSequenceOpenLoopSimulator(Simulator):
 
 
 class ClosedLoopSimulator(Simulator):
-    def __init__(self, model: Problem, dataset: Dataset, policy: nn.Module, emulator: [EmulatorBase, nn.Module] = None, device="cpu"):
-        super().__init__(model=model, dataset=dataset, emulator=emulator, device=device)
+    def __init__(
+        self,
+        model: Problem,
+        policy: nn.Module,
+        emulator: [EmulatorBase, nn.Module],
+        train_data: Dataset,
+        dev_data: Dataset,
+        test_data: Dataset,
+        norm_stats = None,
+        eval_sim = True,
+        device="cpu",
+    ):
+        super().__init__(
+            model=model,
+            train_data=train_data,
+            dev_data=dev_data,
+            test_data=test_data,
+            emulator=emulator,
+            eval_sim=eval_sim,
+            device=device,
+        )
         assert isinstance(emulator, EmulatorBase) or isinstance(emulator,  nn.Module), \
             f'{type(emulator)} is not EmulatorBase or nn.Module.'
         self.emulator = emulator
         self.policy = policy
         self.ninit = 0
-        self.nsim = self.dataset.nstep_data['Yf'].shape[1]
+        self.nsim = self.train_data.nsteps
+        self.train_loop = self.train_data.get_full_sequence()
+        self.train_data = next(iter(self.train_data))
+        self.dev_loop = self.dev_data.get_full_sequence()
+        self.dev_data = next(iter(self.dev_data))
+        self.test_loop = self.test_data.get_full_sequence()
+        self.test_data = next(iter(self.test_data))
+        self.norm_stats = norm_stats or {}
         if isinstance(emulator, EmulatorBase):
             self.x0 = self.emulator.x0
         elif isinstance(emulator, nn.Module):
             self.x0 = torch.zeros([1, self.emulator.nx])
+
         self.device = device
 
     def select_step_data(self, data, i):
@@ -229,14 +256,34 @@ class ClosedLoopSimulator(Simulator):
         :param i:
         :return:
         """
-        step_data = DataDict()
+        step_data = {}
         for k, v in data.items():
+            if k == "name": continue
             step_data[k] = v[:, i, :].reshape(v.shape[0], 1, v.shape[2])
-        step_data.name = data.name
+
+        step_data["name"] = data["name"]
         return step_data
 
     def eval_metric(self):
         pass
+
+    def dev_eval(self):
+        if self.eval_sim:
+            dev_loop_output = self.model(self.dev_loop)
+        else:
+            dev_loop_output = dict()
+        return dev_loop_output
+
+    def test_eval(self):
+        all_output = dict()
+        for data, dname in zip([self.train_data, self.dev_data, self.test_data],
+                               ['train', 'dev', 'test']):
+            all_output = {
+                **all_output,
+                **self.simulate(data)
+            }
+        return all_output
+
 
     def simulate(self, data):
         """
@@ -268,21 +315,21 @@ class ClosedLoopSimulator(Simulator):
                 ymax = step_data['Y_maxf'][0].cpu().detach().numpy() if 'Y_maxf' in step_data else None
                 umin = step_data['U_minf'][0].cpu().detach().numpy() if 'U_minf' in step_data else None
                 umax = step_data['U_maxf'][0].cpu().detach().numpy() if 'U_maxf' in step_data else None
-                if 'Y' in self.dataset.norm:
-                    r = min_max_denorm(r, self.dataset.min_max_norms['Ymin'],
-                                       self.dataset.min_max_norms['Ymax']) if r is not None else None
-                    ymin = min_max_denorm(ymin, self.dataset.min_max_norms['Ymin'],
-                                       self.dataset.min_max_norms['Ymax']) if ymin is not None else None
-                    ymax = min_max_denorm(ymax, self.dataset.min_max_norms['Ymin'],
-                                          self.dataset.min_max_norms['Ymax']) if ymax is not None else None
-                if 'U' in self.dataset.norm:
-                    umin = min_max_denorm(umin, self.dataset.min_max_norms['Umin'],
-                                       self.dataset.min_max_norms['Umax']) if umin is not None else None
-                    umax = min_max_denorm(umax, self.dataset.min_max_norms['Umin'],
-                                          self.dataset.min_max_norms['Umax']) if umax is not None else None
-                if 'D' in self.dataset.norm:
-                    d = min_max_denorm(d, self.dataset.min_max_norms['Dmin'],
-                                       self.dataset.min_max_norms['Dmax']) if d is not None else None
+                if 'Y' in self.norm_stats:
+                    r = min_max_denorm(r, self.norm_stats['Ymin'],
+                                       self.norm_stats['Ymax']) if r is not None else None
+                    ymin = min_max_denorm(ymin, self.norm_stats['Ymin'],
+                                       self.norm_stats['Ymax']) if ymin is not None else None
+                    ymax = min_max_denorm(ymax, self.norm_stats['Ymin'],
+                                          self.norm_stats['Ymax']) if ymax is not None else None
+                if 'U' in self.norm_stats:
+                    umin = min_max_denorm(umin, self.norm_stats['Umin'],
+                                       self.norm_stats['Umax']) if umin is not None else None
+                    umax = min_max_denorm(umax, self.norm_stats['Umin'],
+                                          self.norm_stats['Umax']) if umax is not None else None
+                if 'D' in self.norm_stats:
+                    d = min_max_denorm(d, self.norm_stats['Dmin'],
+                                       self.norm_stats['Dmax']) if d is not None else None
                 # simulate 1 step of the emulator model
                 if isinstance(self.emulator, EmulatorBase):
                     x, y, _, _ = self.emulator.simulate(ninit=0, nsim=1, U=u, D=d, x0=x.flatten())
@@ -296,15 +343,15 @@ class ClosedLoopSimulator(Simulator):
                     emulator_output = self.emulator(step_data_0)
                     x = emulator_output['X_pred_dynamics'][0]
                     y = emulator_output['Y_pred_dynamics'][0].cpu().detach().numpy()
-                    if 'Y' in self.dataset.norm:
-                        y = min_max_denorm(y, self.dataset.min_max_norms['Ymin'],
-                                           self.dataset.min_max_norms['Ymax']) if y is not None else None
+                    if 'Y' in self.norm_stats:
+                        y = min_max_denorm(y, self.norm_stats['Ymin'],
+                                           self.norm_stats['Ymax']) if y is not None else None
                 # update u and y trajectory history
                 if len(Y) > self.nsteps:
-                    if 'Y' in self.dataset.norm:
+                    if 'Y' in self.norm_stats:
                         Yp_np, _, _ = normalize(np.concatenate(Y[-self.nsteps:]),
-                                                             Mmin=self.dataset.min_max_norms['Ymin'],
-                                                             Mmax=self.dataset.min_max_norms['Ymax'])
+                                                             Mmin=self.norm_stats['Ymin'],
+                                                             Mmax=self.norm_stats['Ymax'])
                     else:
                         Yp_np = np.concatenate(Y[-self.nsteps:])
                     step_data['Yp'] = torch.tensor(np.concatenate(Yp_np, 0)).reshape(self.nsteps, 1, -1).float().to(self.device)
@@ -326,9 +373,9 @@ class ClosedLoopSimulator(Simulator):
             U_opt.append(uopt)
 
             # emulator trajectories
-            if 'U' in self.dataset.norm:
-                u = min_max_denorm(uopt.cpu().numpy(), self.dataset.min_max_norms['Umin'],
-                                   self.dataset.min_max_norms['Umax'])
+            if 'U' in self.norm_stats:
+                u = min_max_denorm(uopt.cpu().numpy(), self.norm_stats['Umin'],
+                                   self.norm_stats['Umax'])
             else:
                 u = uopt.cpu().numpy()
             if i > 0:

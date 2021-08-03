@@ -114,9 +114,8 @@ class SignalGenerator(nn.Module):
         return self.xmin
 
     def forward(self, data):
-
         key = list(data.keys())[0]
-        nsim = data[key].shape[1]*data[key].shape[0] + self.nsteps
+        nsim = data[key].shape[1] * data[key].shape[0] + self.nsteps
         nbatch = data[key].shape[1]
 
         xmax, xmin = self.get_xmax(), self.get_xmin()

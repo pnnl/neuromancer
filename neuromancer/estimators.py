@@ -18,20 +18,13 @@ import slim
 # local imports
 import neuromancer.blocks as blocks
 from neuromancer.dynamics import BlockSSM
+from neuromancer.component import Component, check_keys
 
 
-def check_keys(k1, k2):
-    """
-    Check that all elements in k1 are contained in k2
+class TimeDelayEstimator(Component):
+    DEFAULT_INPUT_KEYS = ["Yp"]
+    DEFAULT_OUTPUT_KEYS = ["x0", "reg_error"]
 
-    :param k1: iterable of str
-    :param k2: iterable of str
-    """
-    assert set(k1) - set(k2) == set(), \
-        f'Missing values in dataset. Input_keys: {set(k1)}, data_keys: {set(k2)}'
-
-
-class TimeDelayEstimator(nn.Module):
     def __init__(self, data_dims, nsteps=1, window_size=1, input_keys=['Yp'], name='estimator'):
         """
 
@@ -41,7 +34,11 @@ class TimeDelayEstimator(nn.Module):
         :param input_keys: (List of str) List of input variable names
         :param name: (str) Name for tracking output of module.
         """
-        super().__init__()
+        super().__init__(
+            input_keys,
+            TimeDelayEstimator.DEFAULT_OUTPUT_KEYS,
+            name,
+        )
         assert window_size <= nsteps, f'Window size {window_size} longer than sequence length {nsteps}.'
         check_keys(set(input_keys), set(data_dims.keys()))
         self.name, self.data_dims = name, data_dims
@@ -52,7 +49,6 @@ class TimeDelayEstimator(nn.Module):
         self.static_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 1)
         self.in_features = self.static_dims_sum + window_size * self.sequence_dims_sum
         self.out_features = self.nx
-        self.input_keys = input_keys
 
     def reg_error(self):
         """
@@ -94,10 +90,14 @@ class TimeDelayEstimator(nn.Module):
         :return: (dict {str: torch.tensor)}
         """
         features = self.features(data)
-        return {f'x0_{self.name}': self.net(features), f'reg_error_{self.name}': self.reg_error()}
+        return {
+            'x0': self.net(features),
+            'reg_error': self.reg_error()
+        }
 
 
 class seq2seqTimeDelayEstimator(TimeDelayEstimator):
+    DEFAULT_OUTPUT_KEYS = ["Xtd", "reg_error"]
     def __init__(self, data_dims, nsteps=1, window_size=1, input_keys=['Yp'], timedelay=0, name='estimator'):
         """
 
@@ -125,7 +125,7 @@ class seq2seqTimeDelayEstimator(TimeDelayEstimator):
         print('outfeats', self.out_features)
         print('netoutfeats', self.net.out_features)
         print(Xtd.shape)
-        return {f'Xtd_{self.name}': Xtd, f'reg_error_{self.name}': self.reg_error()}
+        return {'Xtd': Xtd, 'reg_error': self.reg_error()}
 
 
 class FullyObservable(TimeDelayEstimator):
@@ -265,7 +265,7 @@ class RNNEstimator(TimeDelayEstimator):
 
     def forward(self, data):
         features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
-        return {f'x0_{self.name}': self.net(features), f'reg_error_{self.name}': self.net.reg_error()}
+        return {'x0': self.net(features), 'reg_error': self.net.reg_error()}
 
 
 class seq2seqRNNEstimator(seq2seqTimeDelayEstimator):
@@ -284,10 +284,12 @@ class seq2seqRNNEstimator(seq2seqTimeDelayEstimator):
     def forward(self, data):
         features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
         Xtd = self.net(features).reshape(self.timedelay+1, -1, self.nx)
-        return {f'x0_{self.name}': Xtd, f'reg_error_{self.name}': self.net.reg_error()}
+        return {'x0': Xtd, 'reg_error': self.net.reg_error()}
 
 
-class LinearKalmanFilter(nn.Module):
+class LinearKalmanFilter(Component):
+    DEFAULT_INPUT_KEYS = ["Yp", "Up", "Dp"]
+    DEFAULT_OUTPUT_KEYS = ["x0", "reg_error"]
     """
     Time-Varying Linear Kalman Filter
     """
@@ -335,7 +337,7 @@ class LinearKalmanFilter(nn.Module):
                                                         torch.mm(P, self.model.fy.effective_W())))
             L = torch.mm(torch.mm(P, self.model.fy.effective_W()), L_inverse_part)
             P = eye - torch.mm(L, torch.mm(self.model.fy.effective_W().T, P))
-        return {f'x0_{self.name}': x, f'reg_error_{self.name}': self.reg_error()}
+        return {f'x0': x, f'reg_error': self.reg_error()}
 
 
 estimators = {'fullobservable': FullyObservable,

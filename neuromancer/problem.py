@@ -71,3 +71,68 @@ class Problem(nn.Module):
                 f'Output_keys: {output_dict.keys()}'
             input_dict = {**input_dict, **output_dict}
         return input_dict
+
+    def __repr__(self):
+        s = "### MODEL SUMMARY ###\n\nCOMPONENTS:"
+        if len(self.components) > 0:
+            for c in self.components:
+                s += f"\n  {repr(c)}"
+            s += "\n"
+        else:
+            s += " none\n"
+
+        s += "\nCONSTRAINTS:"
+        if len(self.constraints) > 0:
+            for c in self.constraints:
+                s += f"\n  {repr(c)}"
+            s += "\n"
+        else:
+            s += " none\n"
+
+        s += "\nOBJECTIVES:"
+        if len(self.objectives) > 0:
+            for c in self.objectives:
+                s += f"\n  {repr(c)}"
+            s += "\n"
+        else:
+            s += " none\n"
+
+        return s
+
+
+class MSELoss(Objective):
+    def __init__(self, variable_names, weight=1.0, name="mse_loss"):
+        super().__init__(
+            variable_names,
+            nn.functional.mse_loss,
+            weight=weight,
+            name=name
+        )
+
+
+class RegularizationLoss(Objective):
+    def __init__(self, variable_names, weight=1.0, name="reg_loss"):
+        super().__init__(
+            variable_names,
+            lambda *x: torch.sum(*x),
+            weight=weight,
+            name=name
+        )
+
+
+if __name__ == '__main__':
+    nx, ny, nu, nd = 15, 7, 5, 3
+    Np = 2
+    Nf = 10
+    samples = 100
+    # Data format: (N,samples,dim)
+    x = torch.rand(samples, nx)
+    Yp = torch.rand(Np, samples, ny)
+    Up = torch.rand(Np, samples, nu)
+    Uf = torch.rand(Nf, samples, nu)
+    Dp = torch.rand(Np, samples, nd)
+    Df = torch.rand(Nf, samples, nd)
+    Rf = torch.rand(Nf, samples, ny)
+    x0 = torch.rand(samples, nx)
+
+

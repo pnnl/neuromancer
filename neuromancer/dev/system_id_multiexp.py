@@ -9,9 +9,16 @@ from neuromancer.visuals import VisualizerOpen
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem, Objective
 from neuromancer.simulators import MultiSequenceOpenLoopSimulator
-from neuromancer.dataset import get_sequence_dataloaders, read_file
+from neuromancer.dataset import read_file
 from neuromancer.callbacks import SysIDCallback
 from neuromancer.loggers import BasicLogger, MLFlowLogger
+
+
+import sys
+import os
+sys.path.append(os.path.abspath("../examples"))
+
+from system_id import get_sequence_dataloaders
 
 
 def get_model_components(args, dims, estim_name="estim", dynamics_name="dynamics"):
@@ -22,6 +29,7 @@ def get_model_components(args, dims, estim_name="estim", dynamics_name="dynamics
         nx = dims["Y"][-1]
     print('dims', dims)
     print('nx', nx)
+
     activation = activations[args.activation]
     linmap = slim.maps[args.linear_map]
     linargs = {"sigma_min": args.sigma_min, "sigma_max": args.sigma_max}
@@ -62,7 +70,7 @@ def get_model_components(args, dims, estim_name="estim", dynamics_name="dynamics
             n_layers=args.n_layers,
             activation=activation,
             name=dynamics_name,
-            input_keys={'x0': f'x0_{estimator.name}'},
+            input_keys={f"x0_{estimator.name}": "x0", "Uf": "Uf"},
             linargs=linargs
         ) if args.ssm_type == "blackbox"
         else dynamics.block_model(
@@ -74,7 +82,7 @@ def get_model_components(args, dims, estim_name="estim", dynamics_name="dynamics
             n_layers=args.n_layers,
             activation=activation,
             name=dynamics_name,
-            input_keys={'x0': f'x0_{estimator.name}'},
+            input_keys={f"x0_{estimator.name}": "x0", "Uf": "Uf"},
             linargs=linargs
         )
     )
@@ -166,7 +174,7 @@ def get_objective_terms(args, dims, estimator, dynamics_model):
 if __name__ == "__main__":
     # for available systems in PSL library check: psl.systems.keys()
     # for available datasets in PSL library check: psl.datasets.keys()
-    system = 'aero'         # keyword of selected system
+    system = "aero"         # keyword of selected system
     parser = arg.ArgParser(parents=[arg.log(), arg.opt(), arg.data(system=system),
                                     arg.loss(), arg.lin(), arg.ssm()])
 
@@ -204,6 +212,8 @@ if __name__ == "__main__":
     simulator = MultiSequenceOpenLoopSimulator(
         model, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim
     )
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+
     visualizer = VisualizerOpen(
         dynamics_model,
         args.verbosity,

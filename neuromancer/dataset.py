@@ -159,7 +159,7 @@ class SequenceDataset(Dataset):
         # _sslices used to slice out sequences from a multi-sequence dataset
         self._sslices = _get_sequence_time_slices(data)
         assert all([nsteps < (sl.stop - sl.start) for sl in self._sslices]), \
-            f"length of time series data ({v.shape[0]}) must be greater than nsteps ({nsteps})"
+            f"length of time series data must be greater than nsteps"
 
         self.nsteps = nsteps
 
@@ -347,6 +347,6 @@ def split_sequence_data(data, nsteps, moving_horizon=False, split_ratio=None):
     else:
         train_data = data[train_slice]
         dev_data = data[dev_slice]
-        test_data = data[test_slices]
+        test_data = data[test_slice]
 
     return train_data, dev_data, test_data

@@ -16,10 +16,17 @@ import torch
 from torch import nn
 
 
+import sys
+import os
+sys.path.append(os.path.abspath("../examples"))
+
+from system_id import get_sequence_dataloaders
+
+
 def generate_test_data():
     test_data = [
         [random.random() for _ in range(20)]
-        for _ in range(1000)
+        for _ in range(10000)
     ]
     header = [
         *[f"y{i}" for i in range(10)],
@@ -53,7 +60,7 @@ def test_nstep_samples(nsteps):
 def test_default_load_pipeline(nsteps, norm_type, train_pct, val_pct):
     data = dataset.read_file("test_data.csv")
     try:
-        nstep_data, loop_data, dims = dataset.get_sequence_dataloaders(
+        nstep_data, loop_data, dims = get_sequence_dataloaders(
             data, nsteps, norm_type=norm_type, split_ratio=[train_pct, val_pct],
         )
     except AssertionError as e:
@@ -76,3 +83,20 @@ def test_get_full_sequence(nsteps):
         assert np.allclose(loop[kp].squeeze(1), data[k][:-nsteps])
         assert loop[kf].shape[0] == data[k].shape[0] - nsteps
         assert np.allclose(loop[kf].squeeze(1), data[k][nsteps:])
+
+
+@given(
+    st.integers(10, 20),
+    st.integers(1, 128),
+    st.sampled_from(["zero-one", "one-one", "zscore"]),
+)
+@settings(max_examples=500, deadline=None)
+def test_multiseq_data(num_sequences, nsteps, norm_type):
+    data = [dataset.read_file("test_data.csv") for _ in range(num_sequences)]
+
+    try:
+        nstep_data, loop_data, dims = get_sequence_dataloaders(
+            data, nsteps, norm_type=norm_type, # split_ratio=[80, 10],
+        )
+    except AssertionError as e:
+        print(f"caught assert: {e}")

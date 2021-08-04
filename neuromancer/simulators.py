@@ -11,10 +11,8 @@ import numpy as np
 
 from psl import EmulatorBase
 
-from neuromancer.datasets import EmulatorDataset, FileDataset
 from neuromancer.data.normalization import normalize_01 as normalize, denormalize_01 as min_max_denorm
 from neuromancer.problem import Problem
-from neuromancer.datasets import Dataset, DataDict
 from neuromancer.trainer import move_batch_to_device
 
 
@@ -22,9 +20,9 @@ class Simulator:
     def __init__(
         self,
         model: Problem,
-        train_data: Dataset,
-        dev_data: Dataset,
-        test_data: Dataset,
+        train_data,
+        dev_data,
+        test_data,
         emulator: EmulatorBase = None,
         eval_sim=True,
         device="cpu",
@@ -62,9 +60,9 @@ class OpenLoopSimulator(Simulator):
     def __init__(
         self,
         model: Problem,
-        train_data: Dataset,
-        dev_data: Dataset,
-        test_data: Dataset,
+        train_data,
+        dev_data,
+        test_data,
         emulator: EmulatorBase = None,
         eval_sim=True,
         device="cpu",
@@ -87,7 +85,7 @@ class MHOpenLoopSimulator(Simulator):
     """
     moving horizon open loop simulator
     """
-    def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None,
+    def __init__(self, model: Problem, dataset, emulator: [EmulatorBase, nn.Module] = None,
                  eval_sim=True, device="cpu"):
         super().__init__(model=model, dataset=dataset, emulator=emulator, eval_sim=eval_sim, device=device)
 
@@ -98,10 +96,10 @@ class MHOpenLoopSimulator(Simulator):
         :param i: i-th time step
         :return:
         """
-        step_data = DataDict()
+        step_data = {}
         for k, v in data.items():
             step_data[k] = v[i:self.dataset.nsteps+i, :, :]
-        step_data.name = data.name
+        step_data["name"] = data["name"]
         return step_data
 
     def simulate(self, data):
@@ -152,9 +150,9 @@ class MultiSequenceOpenLoopSimulator(Simulator):
     def __init__(
         self,
         model: Problem,
-        train_data: Dataset,
-        dev_data: Dataset,
-        test_data: Dataset,
+        train_data,
+        dev_data,
+        test_data,
         emulator: EmulatorBase = None,
         eval_sim=True,
         stack=False,
@@ -212,9 +210,9 @@ class ClosedLoopSimulator(Simulator):
         model: Problem,
         policy: nn.Module,
         emulator: [EmulatorBase, nn.Module],
-        train_data: Dataset,
-        dev_data: Dataset,
-        test_data: Dataset,
+        train_data,
+        dev_data,
+        test_data,
         norm_stats = None,
         eval_sim = True,
         device="cpu",
@@ -396,15 +394,3 @@ class ClosedLoopSimulator(Simulator):
                 'Ymax': np.concatenate(Ymax, 0) if Ymax else None,
                 'Umin': np.concatenate(Umin, 0) if Umin else None,
                 'Umax': np.concatenate(Umax, 0) if Umax else None}
-
-
-if __name__ == '__main__':
-
-    systems = {'Reno_full': 'emulator'}
-    for system, data_type in systems.items():
-        if data_type == 'emulator':
-            dataset = EmulatorDataset(system)
-        elif data_type == 'datafile':
-            dataset = FileDataset(system)
-    nsim, ny = dataset.data['Y'].shape
-    nu = dataset.data['U'].shape[1]

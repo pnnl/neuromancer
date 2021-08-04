@@ -1,5 +1,6 @@
 """
 
+
 """
 from copy import deepcopy
 
@@ -9,7 +10,6 @@ import numpy as np
 
 from neuromancer.loggers import BasicLogger
 from neuromancer.problem import Problem
-from neuromancer.datasets import Dataset
 from neuromancer.callbacks import Callback
 
 

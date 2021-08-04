@@ -11,7 +11,7 @@ import scipy.linalg as LA
 import matplotlib.patches as mpatches
 
 # local imports
-from neuromancer.datasets import unbatch_data
+from neuromancer.dataset import unbatch_tensor
 import neuromancer.plot as plot
 
 

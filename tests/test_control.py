@@ -25,7 +25,7 @@ for k, v in options.items():
        st.sampled_from(args))
 @settings(deadline=None, max_examples=20)
 def test_opts(system, arg):
-    os.system(f'python ../train_scripts/system_id.py -dataset {system} -epochs 1')
-    code = os.system(f'python ../train_scripts/control.py -norm Y -savedir test_ctrl '
+    os.system(f'python ../examples/system_id.py -dataset {system} -epochs 1')
+    code = os.system(f'python ../examples/control.py -norm Y -savedir test_ctrl '
                      f'{arg} -epochs 1 -nsteps 8 -verbosity 1 -nsim 128 -system {system}')
     assert code == 0

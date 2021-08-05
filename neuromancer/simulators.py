@@ -11,7 +11,7 @@ import numpy as np
 
 from psl import EmulatorBase
 
-from neuromancer.data.normalization import normalize_01 as normalize, denormalize_01 as min_max_denorm
+from neuromancer.dataset import normalize_01 as normalize, denormalize_01 as min_max_denorm
 from neuromancer.problem import Problem
 from neuromancer.trainer import move_batch_to_device
 

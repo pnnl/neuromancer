@@ -63,26 +63,26 @@ def get_model_components(args, dims, estim_name="estim", dynamics_name="dynamics
 
     dynamics_model = (
         dynamics.blackbox_model(
-            {**dims, "x0_estim": (nx,)},
+            {**dims, "x0": (nx,)},
             linmap,
             nonlinmap,
             bias=args.bias,
             n_layers=args.n_layers,
             activation=activation,
             name=dynamics_name,
-            input_keys={f"x0_{estimator.name}": "x0", "Uf": "Uf"},
+            input_keys={"x0": f"x0_{estimator.name}", "Uf": "Uf"},
             linargs=linargs
         ) if args.ssm_type == "blackbox"
         else dynamics.block_model(
             args.ssm_type,
-            {**dims, "x0_estim": (nx,)},
+            {**dims, "x0": (nx,)},
             linmap,
             nonlinmap,
             bias=args.bias,
             n_layers=args.n_layers,
             activation=activation,
             name=dynamics_name,
-            input_keys={f"x0_{estimator.name}": "x0", "Uf": "Uf"},
+            input_keys={"x0": f"x0_{estimator.name}", "Uf": "Uf"},
             linargs=linargs
         )
     )

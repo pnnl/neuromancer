@@ -4,7 +4,6 @@ import torch
 import slim
 from neuromancer.component import Component
 from neuromancer import (
-    datasets,
     blocks,
     dynamics,
     estimators,
@@ -16,13 +15,13 @@ _ = torch.set_grad_enabled(False)
 
 
 def get_test_data(dims, batch_size, nsteps):
-    data = datasets.DataDict({
+    data = {
         k: torch.rand(nsteps, batch_size, *v)
         if k != "x0"
         else torch.rand(batch_size, *v)
         for k, v in dims.items()
-    })
-    data.name = "test"
+    }
+    data["name"] = "test"
     return data
 
     
@@ -39,7 +38,7 @@ def test_estimators(kind, x0_dim, y_dim, u_dim, batch_size, nsteps):
     dims = {k: (s,) for k, s in zip(["x0", "Yp", "Up"], [x0_dim, y_dim, u_dim]) if s != 0}
     dims["x0"] = (dims["Yp"][-1] * 5,) if kind != "fullobservable" else (5,)
     test_data = get_test_data(dims, batch_size, nsteps)
-    dims = {k: (nsteps, v.shape[-1]) for k, v in test_data.items()}
+    dims = {k: (nsteps, v.shape[-1]) for k, v in test_data.items() if k != "name"}
     constructor = estimators.estimators[kind]
     estim = constructor(
         dims,

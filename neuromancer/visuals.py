@@ -168,8 +168,8 @@ class VisualizerOpen(Visualizer):
         """
         dsets = ['train', 'dev', 'test']
         ny = outputs["nstep_train_Y_pred_dynamics"].shape[-1]
-        Ypred = [unbatch_data(outputs[f'nstep_{dset}_Y_pred_dynamics']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
-        Ytrue = [unbatch_data(outputs[f'nstep_{dset}_Yf']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
+        Ypred = [unbatch_tensor(outputs[f'nstep_{dset}_Y_pred_dynamics']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
+        Ytrue = [unbatch_tensor(outputs[f'nstep_{dset}_Yf']).reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
         self.plot_traj(np.concatenate(Ytrue).transpose(1, 0),
                        np.concatenate(Ypred).transpose(1, 0),
                        figname=os.path.join(self.savedir, 'nstep_loop.png'))
@@ -197,7 +197,7 @@ class VisualizerTrajectories(Visualizer):
         self.plot_keys = plot_keys
 
     def eval(self, outputs):
-        data = {k:  unbatch_data(v).squeeze(1).detach().cpu().numpy()
+        data = {k:  unbatch_tensor(v).squeeze(1).detach().cpu().numpy()
                 for (k, v) in outputs.items() if any([plt_k in k for plt_k in self.plot_keys])}
         for k, v in data.items():
             plot.plot_traj({k: v}, figname=None)

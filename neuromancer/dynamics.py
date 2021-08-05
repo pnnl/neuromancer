@@ -1,4 +1,4 @@
-"""
+r"""
 State space models (SSMs) for dynamical modeling.
 
 Nomenclature:
@@ -50,7 +50,7 @@ class BlockSSM(Component):
 
     def __init__(self, fx, fy, fu=None, fd=None, fe=None, fyu=None,
                  xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, residual=False, name='block_ssm',
-                 input_keys=dict()):
+                 input_keys=None):
         """
         Block structured system dynamics:
 
@@ -81,7 +81,6 @@ class BlockSSM(Component):
             output_keys,
             name,
         )
-        
         self.fx, self.fy, self.fu, self.fd, self.fe, self.fyu = fx, fy, fu, fd, fe, fyu
         self.nx, self.ny, self.nu, self.nd = (
             self.fx.in_features,
@@ -175,7 +174,7 @@ class BlackSSM(Component):
     _ALL_INPUTS = DEFAULT_INPUT_KEYS + OPTIONAL_INPUT_KEYS
     _ALL_OUTPUTS = DEFAULT_OUTPUT_KEYS + OPTIONAL_OUTPUT_KEYS
 
-    def __init__(self, fxud, fy, fe=None, fyu=None, xoe=torch.add, xoyu=torch.add, name='black_ssm', input_keys=dict(), residual=False):
+    def __init__(self, fxud, fy, fe=None, fyu=None, xoe=torch.add, xoyu=torch.add, name='black_ssm', input_keys=None, residual=False):
         """
         Black box state space model with unstructured system dynamics:
 
@@ -190,6 +189,7 @@ class BlackSSM(Component):
         :param residual: (bool) Whether to make recurrence in state space model residual
 
         """
+        input_keys = input_keys or BlackSSM.DEFAULT_INPUT_KEYS
         input_keys = BlackSSM.add_optional_inputs(
             [
                 k for k in self.OPTIONAL_INPUT_KEYS
@@ -265,7 +265,7 @@ class TimeDelayBlockSSM(BlockSSM):
 
     def __init__(self, fx, fy, fu=None, fd=None, fe=None,
                  xou=torch.add, xod=torch.add, xoe=torch.add, residual=False, name='block_ssm',
-                 input_keys=dict(), timedelay=0):
+                 input_keys=None, timedelay=0):
         """
         generic structured time delayed system dynamics:
         T < nsteps
@@ -364,7 +364,7 @@ class TimeDelayBlockSSM(BlockSSM):
 class TimeDelayBlackSSM(BlackSSM):
     DEFAULT_INPUT_KEYS = ["Xtd", "Yf", "Uf", "Up", "Df", "Dp"]
 
-    def __init__(self, fxud, fy, fe=None, xoe=torch.add, name='black_ssm', input_keys=dict(), timedelay=0, residual=False):
+    def __init__(self, fxud, fy, fe=None, xoe=torch.add, name='black_ssm', input_keys=None, timedelay=0, residual=False):
         """
         black box state space with generic unstructured time delayed system dynamics:
         x_k+1 = fxud(x_k, ..., x_k-T, u_k, ..., u_k-T, d_k, ..., d_k-T) o fe(x_k, ..., x_k-T)
@@ -427,7 +427,7 @@ class TimeDelayBlackSSM(BlackSSM):
         return output
 
 
-def _extract_dims(datadims, keys, timedelay=0):
+def _extract_dims(datadims, timedelay=0):
     xkey, ykey, ukey, dkey = ["x0", "Yf", "Uf", "Df"]
     nx = datadims[xkey][-1]
     ny = datadims[ykey][-1]
@@ -443,14 +443,14 @@ def _extract_dims(datadims, keys, timedelay=0):
 
 def block_model(kind, datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fyu=None,
               activation=nn.GELU, residual=False, linargs=dict(), timedelay=0,
-              xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, name='blockmodel', input_keys=dict()):
+              xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, name='blockmodel', input_keys=None):
     """
     Generate a block-structured SSM with the same structure used across fx, fy, fu, and fd.
     """
     assert kind in _bssm_kinds, \
         f"Unrecognized model kind {kind}; supported models are {_bssm_kinds}"
 
-    nx, ny, nu, nd, nx_td, nu_td, nd_td = _extract_dims(datadims, input_keys, timedelay)
+    nx, ny, nu, nd, nx_td, nu_td, nd_td = _extract_dims(datadims, timedelay)
     hsizes = [nx] * n_layers
 
     lin = lambda ni, no: (
@@ -510,11 +510,11 @@ def block_model(kind, datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fy
 
 def blackbox_model(datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fyu=None,
              activation=nn.GELU, residual=False, timedelay=0, linargs=dict(),
-             xoyu=torch.add, xoe=torch.add, input_keys=dict(), name='blackbox_model'):
+             xoyu=torch.add, xoe=torch.add, input_keys=None, name='blackbox_model'):
     """
     Black box state space model.
     """
-    nx, ny, _, _, nx_td, nu_td, nd_td = _extract_dims(datadims, input_keys)
+    nx, ny, _, _, nx_td, nu_td, nd_td = _extract_dims(datadims)
     hsizes = [nx] * n_layers
 
     fxud = nonlinmap(nx_td + nu_td + nd_td, nx, hsizes=hsizes,
@@ -543,69 +543,3 @@ _bssm_kinds = {
     "hw",
     "blocknlin"
 }
-
-
-if __name__ == '__main__':
-    nx, ny, nu, nd = 15, 7, 5, 3
-    N = 10
-    samples = 100
-    # Data format: (N,samples,dim)
-    x = torch.rand(samples, nx)
-    U = torch.rand(N, samples, nu)
-    D = torch.rand(N, samples, nd)
-    Y = torch.rand(N, samples, ny)
-
-    data = {'x0': x, 'Uf': U, 'Df': D, 'Yf': Y}
-    datadims = {'x0': (nx,), 'Uf': (N, nu), 'Df': (N, nd), 'Yf': (N, ny)}
-    # block SSM
-    fx, fu, fd = [blocks.MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx, nu, nd]]
-    fy = blocks.MLP(nx, ny, hsizes=[64, 64, 64])
-    model = BlockSSM(fx, fy, fu, fd)
-    model = BlockSSM(fx, fy, fu, fd)
-    output = model(data)
-    # black box SSM
-    fxud = blocks.MLP(nx+nu+nd, nx, hsizes=[64, 64, 64])
-    fy = slim.Linear(nx, ny)
-    model = BlackSSM(fxud, fy)
-    output = model(data)
-    fxud = blocks.RNN(nx + nu + nd, nx, hsizes=[64, 64, 64])
-    model = BlackSSM(fxud, fy)
-    output = model(data)
-
-    data = {'x0_new': x, 'Uf': U, 'Df': D, 'Yf_fresh': Y}
-    datadims = {'x0_new': (nx,), 'Uf': (N, nu), 'Df': (N, nd), 'Yf_fresh': (N, ny)}
-    # block SSM
-    fx, fu, fd = [blocks.MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx, nu, nd]]
-    fy = blocks.MLP(nx, ny, hsizes=[64, 64, 64])
-    model = BlockSSM(fx, fy, fu, fd, input_keys={'x0': 'x0_new', 'Yf': 'Yf_fresh'})
-    model = BlockSSM(fx, fy, fu, fd, input_keys={'x0': 'x0_new', 'Yf': 'Yf_fresh'})
-    output = model(data)
-    # black box SSM
-    fxud = blocks.MLP(nx + nu + nd, nx, hsizes=[64, 64, 64])
-    fy = slim.Linear(nx, ny)
-    model = BlackSSM(fxud, fy, input_keys={'x0': 'x0_new', 'Yf': 'Yf_fresh'})
-    output = model(data)
-    fxud = blocks.RNN(nx + nu + nd, nx, hsizes=[64, 64, 64])
-    model = BlackSSM(fxud, fy, input_keys={'x0': 'x0_new', 'Yf': 'Yf_fresh'})
-    output = model(data)
-
-    # time delayed block SSM
-    T = N-1   # admissible values: [0, nsteps-1]
-    nx_td = (T+1)*nx
-    nu_td = (T+1)*nu
-    nd_td = (T+1)*nd
-    X_td = torch.rand(T+1, samples, nx)
-    data = {'X': X_td, 'Uf': U, 'Up': U, 'Df': D, 'Dp': D, 'Yf_fresh': Y}
-    datadims = {'X': (nx,), 'Uf': (N, nu), 'Df': (N, nd), 'Up': (N, nu), 'Dp': (N, nd), 'Yf_fresh': (N, ny)}
-    fx, fu, fd = [blocks.MLP(insize, nx, hsizes=[64, 64, 64]) for insize in [nx_td, nu_td, nd_td]]
-    fy = blocks.MLP(nx_td, ny, hsizes=[64, 64, 64])
-    model = TimeDelayBlockSSM(fx, fy, fu, fd, timedelay=T, input_keys={'Xtd': 'X', 'Yf': 'Yf_fresh'})
-    output = model(data)
-
-    # time delayed black box SSM
-    insize = (T + 1) * (nx+nu+nd)
-    nx_td = (T + 1) * nx
-    fxud = blocks.MLP(insize, nx, hsizes=[64, 64, 64])
-    fy = blocks.MLP(nx_td, ny, hsizes=[64, 64, 64])
-    model = TimeDelayBlackSSM(fxud, fy, timedelay=T, input_keys={'Xtd': 'X', 'Yf': 'Yf_fresh'})
-    output = model(data)

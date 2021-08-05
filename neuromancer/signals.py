@@ -10,8 +10,7 @@ import torch
 import torch.nn as nn
 import random
 
-from neuromancer.datasets import FileDataset
-from neuromancer.data.normalization import normalize_01 as normalize
+from neuromancer.dataset import normalize_01 as normalize
 import psl
 import dill
 import itertools
@@ -216,6 +215,8 @@ class NonlinearExpansion(nn.Module):
         return nlin_data
 
 
+"""
+# TODO: make this a proper unit test
 if __name__ == '__main__':
     import os
     model_file = os.path.join(psl.resource_path, "Flexy_air/ape_models/best_model.pth")
@@ -238,3 +239,4 @@ if __name__ == '__main__':
     dynamics_generator = SignalGeneratorDynamics(dynamics, estimator, nsteps, xmax=1.0, xmin=0.0, name='Y_ctrl_')
     out = dynamics_generator(dataset.train_data)
     print(out['Y_ctrl_p'].shape)
+"""

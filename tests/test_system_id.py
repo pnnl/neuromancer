@@ -15,8 +15,8 @@ def test_opts():
         for j, opt in enumerate(v):
             key = '_'.join([k, opt, systems[(i*j) % len(systems)]])
             print(k, opt, systems[(i*j) % len(systems)])
-            code = os.system(f'python ../train_scripts/system_id.py -norm Y '
-                             f'{k} {opt} -epochs 1 -nsteps 8 -verbosity 1 -nsim 128 -system {systems[(i*j) % len(systems)]}')
+            code = os.system(f'python ../examples/system_id.py -norm Y '
+                             f'{k} {opt} -epochs 1 -nsteps 8 -verbosity 1 -nsim 128 -dataset {systems[(i*j) % len(systems)]}')
             results[key] = code
 
     failures = {k: v for k, v in results.items() if v != 0}
@@ -32,8 +32,8 @@ def test_opts_constraints():
         for j, opt in enumerate(v):
             key = '_'.join([k, opt, systems[(i*j) % len(systems)]])
             print(k, opt, systems[(i*j) % len(systems)])
-            code = os.system(f'python ../train_scripts/system_id_constraints.py -norm Y '
-                             f'{k} {opt} -epochs 1 -nsteps 8 -verbosity 1 -nsim 128 -system {systems[(i*j) % len(systems)]}')
+            code = os.system(f'python ../examples/system_id_constraints.py -norm Y '
+                             f'{k} {opt} -epochs 1 -nsteps 8 -verbosity 1 -nsim 128 -dataset {systems[(i*j) % len(systems)]}')
             results[key] = code
 
     failures = {k: v for k, v in results.items() if v != 0}

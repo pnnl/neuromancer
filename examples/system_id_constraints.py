@@ -27,27 +27,98 @@ More detailed description of options in the `get_base_parser()` function in comm
 import torch
 import torch.nn.functional as F
 import slim
+import psl
 
 from neuromancer import blocks, estimators, dynamics, arg
 from neuromancer.activations import activations
 from neuromancer.visuals import VisualizerOpen
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem, Objective
-from neuromancer.simulators import OpenLoopSimulator
-from neuromancer.datasets import load_dataset
+from neuromancer.simulators import OpenLoopSimulator, MultiSequenceOpenLoopSimulator
+from neuromancer.dataset import read_file, normalize_data, split_sequence_data, SequenceDataset
 from neuromancer.callbacks import SysIDCallback
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.constraint import Variable
+from torch.utils.data import DataLoader
 
 
-def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynamics"):
+def get_sequence_dataloaders(
+    data, nsteps, moving_horizon=False, norm_type="zero-one", split_ratio=None, num_workers=0,
+):
+    """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
+    data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
+    training setup.
+
+    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
+        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
+        computed over the number of sequences rather than their lengths.
+    :param nsteps: (int) length of windowed subsequences for N-step training.
+    :param moving_horizon: (bool) whether to use moving horizon batching.
+    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
+    :param split_ratio: (list float) percentage of data in train and development splits; see
+        function `split_sequence_data` for more info.
+    """
+
+    data, _ = normalize_data(data, norm_type)
+    train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
+
+    train_data = SequenceDataset(
+        train_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="train",
+    )
+    dev_data = SequenceDataset(
+        dev_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="dev",
+    )
+    test_data = SequenceDataset(
+        test_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="test",
+    )
+
+    train_loop = train_data.get_full_sequence()
+    dev_loop = dev_data.get_full_sequence()
+    test_loop = test_data.get_full_sequence()
+
+    train_data = DataLoader(
+        train_data,
+        batch_size=len(train_data),
+        shuffle=False,
+        collate_fn=train_data.collate_fn,
+        num_workers=num_workers,
+    )
+    dev_data = DataLoader(
+        dev_data,
+        batch_size=len(dev_data),
+        shuffle=False,
+        collate_fn=dev_data.collate_fn,
+        num_workers=num_workers,
+    )
+    test_data = DataLoader(
+        test_data,
+        batch_size=len(test_data),
+        shuffle=False,
+        collate_fn=test_data.collate_fn,
+        num_workers=num_workers,
+    )
+
+    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
+
+
+
+def get_model_components(args, dims, estim_name="estim", dynamics_name="dynamics"):
     torch.manual_seed(args.seed)
-    if not args.state_estimator == "fully_observable":
-        nx = dataset.dims["Y"][-1] * args.nx_hidden
+    if not args.state_estimator == 'fully_observable':
+        nx = dims["Y"][-1] * args.nx_hidden
     else:
-        nx = dataset.dims["Y"][-1]
-    print("dims", dataset.dims)
-    print("nx", nx)
+        nx = dims["Y"][-1]
+    print('dims', dims)
+    print('nx', nx)
     activation = activations[args.activation]
     linmap = slim.maps[args.linear_map]
     linargs = {"sigma_min": args.sigma_min, "sigma_max": args.sigma_max}
@@ -67,7 +138,7 @@ def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynam
         "residual_mlp": estimators.ResMLPEstimator,
         "fully_observable": estimators.FullyObservable,
     }[args.state_estimator](
-        {**dataset.dims, "x0": (nx,)},
+        {**dims, "x0": (nx,)},
         nsteps=args.nsteps,
         window_size=args.estimator_input_window,
         bias=args.bias,
@@ -81,33 +152,33 @@ def get_model_components(args, dataset, estim_name="estim", dynamics_name="dynam
 
     dynamics_model = (
         dynamics.blackbox_model(
-            {**dataset.dims, "x0": (nx,)},
+            {**dims, "x0": (nx,)},
             linmap,
             nonlinmap,
             bias=args.bias,
             n_layers=args.n_layers,
             activation=activation,
             name=dynamics_name,
-            input_keys={"x0": f"x0_{estimator.name}", "Uf": "Uf"},
+            input_keys={f"x0_{estimator.name}": "x0"},
             linargs=linargs
         ) if args.ssm_type == "blackbox"
         else dynamics.block_model(
             args.ssm_type,
-            {**dataset.dims, "x0": (nx,)},
+            {**dims, "x0": (nx,)},
             linmap,
             nonlinmap,
             bias=args.bias,
             n_layers=args.n_layers,
             activation=activation,
             name=dynamics_name,
-            input_keys={"x0": f"x0_{estimator.name}", "Uf": "Uf"},
+            input_keys={f"x0_{estimator.name}": "x0"},
             linargs=linargs
         )
     )
     return estimator, dynamics_model
 
 
-def get_objective_terms(args, dataset, estimator, dynamics_model):
+def get_objective_terms(args, dims, estimator, dynamics_model):
     xmin = -0.2
     xmax = 1.2
     dxudmin = -0.05
@@ -138,12 +209,12 @@ def get_objective_terms(args, dataset, estimator, dynamics_model):
     ]
 
     if args.ssm_type != "blackbox":
-        if "U" in dataset.data:
+        if "U" in dims:
             fu = Variable(f"fU_{dynamics_model.name}")
             inputs_max_influence_lb = args.Q_con_fdu*(fu > dxudmin)
             inputs_max_influence_ub = args.Q_con_fdu*(fu < dxudmax)
             constraints += [inputs_max_influence_lb, inputs_max_influence_ub]
-        if "D" in dataset.data:
+        if "D" in dims:
             fd = Variable(f"fD_{dynamics_model.name}")
             disturbances_max_influence_lb = args.Q_con_fdu * (fd > dxudmin)
             disturbances_max_influence_ub = args.Q_con_fdu * (fd < dxudmax)
@@ -169,22 +240,35 @@ if __name__ == "__main__":
     log_constructor = MLFlowLogger if args.logger == "mlflow" else BasicLogger
     metrics = ["nstep_dev_loss", "loop_dev_loss", "best_loop_dev_loss",
                "nstep_dev_ref_loss", "loop_dev_ref_loss"]
+
     logger = log_constructor(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
 
-    dataset = load_dataset(args, device, "openloop")
-    print(dataset.dims)
+    # TODO: this can probably be moved to dataset.py
+    if args.dataset in psl.emulators:
+        data = psl.emulators[args.dataset](nsim=args.nsim, ninit=0, seed=args.data_seed).simulate()
+    elif args.dataset in psl.datasets:
+        data = read_file(psl.datasets[args.dataset])
+    else:
+        data = read_file(args.dataset)
 
-    estimator, dynamics_model = get_model_components(args, dataset)
-    objectives, constraints = get_objective_terms(args, dataset, estimator, dynamics_model)
+    nstep_data, loop_data, dims = get_sequence_dataloaders(data, args.nsteps)
+    train_data, dev_data, test_data = nstep_data
+    train_loop, dev_loop, test_loop = loop_data
+
+    estimator, dynamics_model = get_model_components(args, dims)
+    objectives, constraints = get_objective_terms(args, dims, estimator, dynamics_model)
 
     model = Problem(objectives, constraints, [estimator, dynamics_model])
     model = model.to(device)
 
-    simulator = OpenLoopSimulator(model=model, dataset=dataset, eval_sim=not args.skip_eval_sim)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    print(model)
 
+    simulator = OpenLoopSimulator(
+        model, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=device,
+    ) if isinstance(train_loop, dict) else MultiSequenceOpenLoopSimulator(
+        model, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=device,
+    )
     visualizer = VisualizerOpen(
-        dataset,
         dynamics_model,
         args.verbosity,
         args.savedir,
@@ -192,16 +276,22 @@ if __name__ == "__main__":
         trace_movie=False,
     )
 
+    callback = SysIDCallback(simulator, visualizer)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+
     trainer = Trainer(
         model,
-        dataset,
+        train_data,
+        dev_data,
+        test_data,
         optimizer,
         logger=logger,
-        callback=SysIDCallback(simulator, visualizer),
+        callback=callback,
         epochs=args.epochs,
-        eval_metric=f"{dataset.dev_loop.name}_{objectives[0].name}",
+        eval_metric=f"{dev_loop['name']}_{objectives[0].name}",
         patience=args.patience,
         warmup=args.warmup,
+        device=device,
     )
 
     best_model = trainer.train()

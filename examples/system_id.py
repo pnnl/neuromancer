@@ -194,7 +194,8 @@ def get_objective_terms(args, dims, estimator, dynamics_model):
         name="reg_error",
     )
     reference_loss = Objective(
-        [f"Y_pred_{dynamics_model.name}", "Yf"], F.mse_loss, weight=args.Q_y, name="ref_loss"
+        [f"Y_pred_{dynamics_model.name}", "Yf"], F.mse_loss, weight=args.Q_y,
+        name="ref_loss"
     )
     state_smoothing = Objective(
         [f"X_pred_{dynamics_model.name}"],

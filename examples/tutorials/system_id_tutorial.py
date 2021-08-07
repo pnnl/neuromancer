@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     activation = activations['relu']
     linmap = slim.maps['softSVD']
-    linargs = {"sigma_min": 0.5, "sigma_max": 1.0}
+    linargs = {"sigma_min": 0.95, "sigma_max": 1.0}
     block = blocks.MLP
 
     nx = 90  # size of the latent variables
@@ -184,7 +184,7 @@ if __name__ == "__main__":
 
     # neural network blocks
     fx = blocks.RNN(nx, nx)
-    fy = slim.maps['linear'](nx, ny, linargs=linargs)
+    fy = slim.maps['softSVD'](nx, ny, linargs=linargs)
     fu = block(nu, nx) if nu != 0 else None
 
     dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics',
@@ -253,7 +253,7 @@ if __name__ == "__main__":
     x0 = Variable(f"x0_{estimator.name}")
     xhat = Variable(f"X_pred_{dynamics_model.name}")
     est_reg = Variable(f"reg_error_{estimator.name}")
-    dyn_reg = Variable(f"reg_error_{estimator.name}")
+    dyn_reg = Variable(f"reg_error_{dynamics_model.name}")
 
     # define loss function terms and constraints via operator overlad
     reference_loss = args.Q_y*((yhat == y)^2)

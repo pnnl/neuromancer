@@ -2,6 +2,8 @@
 Callback classes for versatile behavior in the Trainer object at specified checkpoints.
 """
 
+from copy import deepcopy
+
 
 class Callback:
     """
@@ -62,4 +64,33 @@ class SysIDCallback(Callback):
         output.update(self.simulator.test_eval())
         if self.visualizer is not None:
             plots = self.visualizer.eval(output)
+            trainer.logger.log_artifacts(plots)
+
+
+
+class ControlCallback(SysIDCallback):
+    """
+    Callbacks for closed loop control training. May refactor to put visualization and simulation
+    functionality directly in the callback at which point there will be separate sysID and control callbacks.
+    """
+    def __init__(self, simulator, visualizer):
+        super().__init__(simulator=simulator, visualizer=visualizer)
+        # self.epoch_output = dict()
+        self.epoch_model = dict()
+        self.epoch_policy = dict()
+
+    def end_epoch(self, trainer, output):
+        # self.epoch_output[trainer.current_epoch] = output
+        self.epoch_model[trainer.current_epoch] = deepcopy(trainer.model.state_dict())
+        self.epoch_policy[trainer.current_epoch] = \
+            deepcopy(trainer.model.components[1].state_dict())
+
+    def end_train(self, trainer, output):
+        plots = self.visualizer.train_output(trainer, self.epoch_policy) if self.visualizer is not None else {}
+        trainer.logger.log_artifacts(plots)
+
+    def end_test(self, trainer, output):
+        output.update(self.simulator.test_eval())
+        if self.visualizer is not None:
+            plots = self.visualizer.eval(trainer)
             trainer.logger.log_artifacts(plots)

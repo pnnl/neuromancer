@@ -213,8 +213,8 @@ class ClosedLoopSimulator(Simulator):
         train_data,
         dev_data,
         test_data,
-        norm_stats = None,
-        eval_sim = True,
+        norm_stats=None,
+        eval_sim=True,
         device="cpu",
     ):
         super().__init__(

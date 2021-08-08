@@ -25,14 +25,12 @@ import copy
 from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
 from neuromancer.trainer import Trainer
-from neuromancer.simulators import ClosedLoopSimulator
 from neuromancer.problem import Problem, Objective
 from neuromancer import policies
 import neuromancer.arg as arg
-from neuromancer.datasets import Dataset
+from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
+from torch.utils.data import DataLoader
 from neuromancer.loggers import BasicLogger
-from neuromancer.visuals import VisualizerClosedLoop
-from neuromancer.callbacks import SysIDCallback
 
 
 def arg_dpc_problem(prefix=''):
@@ -82,6 +80,75 @@ def arg_dpc_problem(prefix=''):
     gp.add("-warmup", type=int, default=10,
            help="Number of epochs to wait before enacting early stopping policy.")
     return parser
+
+
+def get_sequence_dataloaders(
+    data, nsteps, moving_horizon=False, norm_type=None, split_ratio=None, num_workers=0,
+):
+    """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
+    data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
+    training setup.
+
+    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
+        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
+        computed over the number of sequences rather than their lengths.
+    :param nsteps: (int) length of windowed subsequences for N-step training.
+    :param moving_horizon: (bool) whether to use moving horizon batching.
+    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
+    :param split_ratio: (list float) percentage of data in train and development splits; see
+        function `split_sequence_data` for more info.
+    """
+
+    if norm_type is not None:
+        data, _ = normalize_data(data, norm_type)
+    train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
+
+    train_data = SequenceDataset(
+        train_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="train",
+    )
+    dev_data = SequenceDataset(
+        dev_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="dev",
+    )
+    test_data = SequenceDataset(
+        test_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="test",
+    )
+
+    train_loop = train_data.get_full_sequence()
+    dev_loop = dev_data.get_full_sequence()
+    test_loop = test_data.get_full_sequence()
+
+    train_data = DataLoader(
+        train_data,
+        batch_size=len(train_data),
+        shuffle=False,
+        collate_fn=train_data.collate_fn,
+        num_workers=num_workers,
+    )
+    dev_data = DataLoader(
+        dev_data,
+        batch_size=len(dev_data),
+        shuffle=False,
+        collate_fn=dev_data.collate_fn,
+        num_workers=num_workers,
+    )
+    test_data = DataLoader(
+        test_data,
+        batch_size=len(test_data),
+        shuffle=False,
+        collate_fn=test_data.collate_fn,
+        num_workers=num_workers,
+    )
+
+    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
 def cl_simulate(A, B, policy, args, nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
@@ -180,7 +247,7 @@ if __name__ == "__main__":
     ny = 2
     nu = 1
     # number of datapoints
-    nsim = 50000        # rule of thumb: more data samples -> improved control performance
+    nsim = 10000        # rule of thumb: more data samples -> improved control performance
     # constraints bounds
     umin = -1
     umax = 1
@@ -208,20 +275,39 @@ if __name__ == "__main__":
         "R": np.concatenate([np.random.uniform(low=ref_min, high=ref_max)*np.ones([args.nsteps, 1])
                              for i in range(int(np.ceil(nsim/args.nsteps)))])[:nsim, :],
     }
-    dataset = Dataset(nsim=nsim, ninit=0, norm=args.norm, nsteps=args.nsteps,
-                      device='cpu', sequences=sequences, name='closedloop')
+    nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps)
+    train_data, dev_data, test_data = nstep_data
+    train_loop, dev_loop, test_loop = loop_data
 
     """
-    # # #  System model
+    # # #  System model and Control policy
     """
-    # Fully observable estimator as identity map:
+    # Fully observable estimator as identity map: x0 = Yp[-1]
     # x_0 = Yp
     # Yp = [y_-N, ..., y_0]
-    estimator = estimators.FullyObservable({**dataset.dims, "x0": (nx,)},
+    estimator = estimators.FullyObservable({**dims, "x0": (nx,)},
                                            nsteps=args.nsteps,  # future window Nf
                                            window_size=1,  # past window Np <= Nf
                                            input_keys=["Yp"],
                                            name='estimator')
+    # full state feedback control policy with reference preview Rf
+    # U_policy = p(x_0, Rf)
+    # U_policy = [u_0, ..., u_N]
+    # Rf = [r_0, ..., r_N]
+    activation = activations['relu']
+    linmap = slim.maps['linear']
+    block = blocks.MLP
+    policy = policies.MLPPolicy(
+        {f'x0_{estimator.name}': (nx,), **dims},
+        nsteps=args.nsteps,
+        bias=args.bias,
+        linear_map=linmap,
+        nonlin=activation,
+        hsizes=[args.nx_hidden] * args.n_layers,
+        input_keys=[f'x0_{estimator.name}', 'Rf'],
+        name='policy',
+    )
+
     # A, B, C linear maps
     fu = slim.maps['linear'](nu, nx)
     fx = slim.maps['linear'](nx, nx)
@@ -230,7 +316,8 @@ if __name__ == "__main__":
     # x_k+1 = Ax_k + Bu_k
     # y_k+1 = Cx_k+1
     dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics',
-                                       input_keys={'x0': f'x0_{estimator.name}'})
+                                       input_keys={f'x0_{estimator.name}': 'x0',
+                                                   'U_pred_policy': 'Uf'})
     # model matrices values
     A = torch.tensor([[1.2, 1.0],
                       [0.0, 1.0]])
@@ -243,29 +330,6 @@ if __name__ == "__main__":
     dynamics_model.fy.linear.weight = torch.nn.Parameter(C)
     # fix model parameters
     dynamics_model.requires_grad_(False)
-
-    """
-    # # #  Control policy
-    """
-    # full state feedback control policy with reference preview Rf
-    # Uf = p(x_0, Rf)
-    # Uf = [u_0, ..., u_N]
-    # Rf = [r_0, ..., r_N]
-    activation = activations['relu']
-    linmap = slim.maps['linear']
-    block = blocks.MLP
-    policy = policies.MLPPolicy(
-        {f'x0_{estimator.name}': (dynamics_model.nx,), **dataset.dims},
-        nsteps=args.nsteps,
-        bias=args.bias,
-        linear_map=linmap,
-        nonlin=activation,
-        hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=[f'x0_{estimator.name}', 'Rf'],
-        name='policy',
-    )
-    # link policy with the model through the input keys
-    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_policy'
 
     """
     # # #  DPC objectives and constraints
@@ -361,36 +425,31 @@ if __name__ == "__main__":
     # logger and metrics
     args.savedir = 'test_control'
     args.verbosity = 1
-    metrics = ["nstep_dev_loss", "loop_dev_loss", "best_loop_dev_loss",
-               "nstep_dev_ref_loss", "loop_dev_ref_loss"]
+    metrics = ["nstep_dev_loss"]
+
     logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'integrator'
+    logger.args.system = 'dpc_var_ref'
     # device and optimizer
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
     model = model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    # simulator
-    simulator = ClosedLoopSimulator(
-        model=model, dataset=dataset, emulator=dynamics_model, policy=policy
-    )
-    # visualizer
-    plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
-    visualizer = VisualizerClosedLoop(
-        dataset, policy, plot_keys, args.verbosity, savedir=args.savedir
-    )
+
     # trainer
     trainer = Trainer(
         model,
-        dataset,
+        train_data,
+        dev_data,
+        test_data,
         optimizer,
         logger=logger,
-        callback=SysIDCallback(simulator, visualizer),
         epochs=args.epochs,
         patience=args.patience,
+        eval_metric='nstep_dev_loss',
         warmup=args.warmup,
     )
     # Train control policy
     best_model = trainer.train()
+    best_outputs = trainer.test(best_model)
 
     """
     # # #  Plots and Analysis

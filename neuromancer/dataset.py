@@ -142,6 +142,7 @@ class SequenceDataset(Dataset):
         .. todo:: Add support for memory-mapped and/or streaming data.
         .. todo:: Add support for data augmentation?
         .. todo:: Clean up data validation code.
+        .. todo:: include attribute full_dict with dictionary of full batches (stacked items)
         """
 
         super().__init__()

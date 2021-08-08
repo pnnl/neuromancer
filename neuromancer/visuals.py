@@ -13,6 +13,9 @@ import matplotlib.patches as mpatches
 # local imports
 from neuromancer.dataset import unbatch_tensor
 import neuromancer.plot as plot
+from neuromancer.plot import plot_policy, plot_policy_train, \
+    cl_simulate, plot_cl, plot_cl_train, plot_loss
+
 
 
 class Visualizer:
@@ -278,4 +281,71 @@ class VisualizerClosedLoop(Visualizer):
                    ctrl_outputs=self.ctrl_outputs,
                    figname=os.path.join(self.savedir, 'CL_control.png'))
         self.plot_matrix()
+        return dict()
+
+
+class VisualizerDobleIntegrator(Visualizer):
+    """
+    custom visualizer for double integrator example
+    """
+    def __init__(self, dataset, model, verbosity, savedir,
+                 nstep=40, x0=1.5 * np.ones([2, 1]),
+                 training_visuals=False, trace_movie=False):
+        """
+
+        :param dataset:
+        :param model:
+        :param verbosity:
+        :param savedir:
+        :param training_visuals:
+        :param trace_movie:
+        """
+        self.model = model
+        self.dataset = dataset
+        self.verbosity = verbosity
+        self.savedir = savedir
+        self.training_visuals = training_visuals
+        self.trace_movie = trace_movie
+        self.nstep = nstep
+        self.x0 = x0
+
+    def train_output(self, trainer, epoch_policy):
+        """
+
+        :return:
+        """
+        A = self.model.components[2].fx.linear.weight
+        B = self.model.components[2].fu.linear.weight
+        if self.training_visuals:
+            X_list, U_list = [], []
+            policy_list = []
+            for i in range(trainer.epochs):
+                best_policy = epoch_policy[i]
+                trainer.model.eval()
+                policy = trainer.model.components[1]
+                policy.load_state_dict(best_policy)
+                X, U = cl_simulate(A, B, policy.net, nstep=self.nstep, x0=self.x0)
+                X_list.append(X)
+                U_list.append(U)
+                policy_list.append(best_policy)
+            plot_cl_train(X_list, U_list, nstep=self.nstep, save_path=self.savedir)
+            plot_policy_train(A, B, policy, policy_list, save_path=self.savedir)
+
+        return dict()
+
+
+    def eval(self, trainer):
+
+        A = self.model.components[2].fx.linear.weight
+        B = self.model.components[2].fu.linear.weight
+        policy = trainer.model.components[1]
+        # plot closed loop trajectories
+        X, U = cl_simulate(A, B, policy.net, nstep=self.nstep, x0=self.x0)
+        plot_cl(X, U, nstep=self.nstep, save_path=self.savedir, trace_movie=self.trace_movie)
+        # plot policy surface
+        plot_policy(policy.net, save_path=self.savedir)
+        # loss landscape and contraction regions
+        plot_loss(trainer.model, trainer.dataset, xmin=-5, xmax=5,
+                  save_path=self.savedir)
+
         return dict()

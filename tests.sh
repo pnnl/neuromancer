@@ -47,7 +47,7 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)
 # Run tests
 exit_code=0
 
-pytest --workers 64 --tests-per-worker 1 tests
+pytest --workers 16 --tests-per-worker 1 tests
 if [ $? != 0 ]; then
     exit_code=1
 fi

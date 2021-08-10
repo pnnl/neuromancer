@@ -16,6 +16,7 @@ workflow:
         scancel $jobid
       fi
       rm -rf $WORKDIR
+      rm -rf ./*
 
 .pnnl_script_template: &pnnl_script_definition
   script:

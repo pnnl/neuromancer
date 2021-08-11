@@ -159,9 +159,7 @@ if __name__ == "__main__":
     """
 
     activation = activations['relu']
-    linmap = slim.maps['softSVD']
-    linargs = {"sigma_min": 0.95, "sigma_max": 1.0}
-    block = blocks.MLP
+    linmap = slim.maps['linear']
 
     nx = 90  # size of the latent variables
     estimator = estimators.MLPEstimator(
@@ -173,7 +171,7 @@ if __name__ == "__main__":
         nonlin=activation,
         hsizes=[90, 120, 90],
         input_keys=["Yp"],
-        linargs=linargs,
+        linargs={},
         name='estimator',
     )
     # x0 = estimator(Yp)
@@ -183,9 +181,11 @@ if __name__ == "__main__":
     nu = dims['U'][1]
 
     # neural network blocks
-    fx = blocks.RNN(nx, nx)
+    fx = blocks.RNN(nx, nx, linear_map=linmap,
+                    nonlin=activations['softexp'], hsizes=[60, 60])
+    linargs = {"sigma_min": 0.95, "sigma_max": 1.0}
     fy = slim.maps['softSVD'](nx, ny, linargs=linargs)
-    fu = block(nu, nx) if nu != 0 else None
+    fu = blocks.MLP(nu, nx, hsizes=[60, 60]) if nu != 0 else None
 
     dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics',
                                        input_keys={f"x0_{estimator.name}": "x0"})
@@ -206,47 +206,7 @@ if __name__ == "__main__":
     dxudmin = -0.5
     dxudmax = 0.5
 
-    # # # Loss terms and constraitns definition via Objective class:
-    # # # this approach can be used for more user flexibility as it supports any callable
-
-    # reference_loss = Objective(
-    #     [f"Y_pred_{dynamics_model.name}", "Yf"], F.mse_loss, weight=args.Q_y, name="ref_loss"
-    # )
-    #
-    # estimator_loss = Objective(
-    #     [f"X_pred_{dynamics_model.name}", f"x0_{estimator.name}"],
-    #     lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
-    #     weight=args.Q_e,
-    #     name="arrival_cost",
-    # )
-    # regularization = Objective(
-    #     [f"reg_error_{estimator.name}", f"reg_error_{dynamics_model.name}"],
-    #     lambda reg1, reg2: reg1 + reg2,
-    #     weight=args.Q_sub,
-    #     name="reg_error",
-    # )
-    # state_smoothing = Objective(
-    #     [f"X_pred_{dynamics_model.name}"],
-    #     lambda x: F.mse_loss(x[1:], x[:-1]),
-    #     weight=args.Q_dx,
-    #     name="state_smoothing",
-    # )
-    # # inequality constraints
-    # observation_lower_bound_penalty = Objective(
-    #     [f"Y_pred_{dynamics_model.name}"],
-    #     lambda x: torch.mean(F.relu(-x + xmin)),
-    #     weight=args.Q_con_x,
-    #     name="y_low_bound_error",
-    # )
-    # observation_upper_bound_penalty = Objective(
-    #     [f"Y_pred_{dynamics_model.name}"],
-    #     lambda x: torch.mean(F.relu(x - xmax)),
-    #     weight=args.Q_con_x,
-    #     name="y_up_bound_error",
-    # )
-
-    # # #  alternative loss terms and constraints definition via variable class:
-
+    # # #  loss terms and constraints definition via variable class:
     # neuromancer variable declaration
     yhat = Variable(f"Y_pred_{dynamics_model.name}")
     y = Variable("Yf")
@@ -298,7 +258,7 @@ if __name__ == "__main__":
 
     #  trainer = problem + datasets + optimizer + callback
     """
-    args.epochs = 20
+    args.epochs = 300
 
     simulator = OpenLoopSimulator(
         model, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=device,
@@ -344,3 +304,43 @@ if __name__ == "__main__":
     # we can just call visualizer on the results dictionary:
     # visualizer.eval(best_outputs)
     logger.clean_up()
+
+
+    # # # Alternative Loss terms and constraitns definition via Objective class:
+    # # # this approach can be used for more user flexibility as it supports any callable
+
+    # reference_loss = Objective(
+    #     [f"Y_pred_{dynamics_model.name}", "Yf"], F.mse_loss, weight=args.Q_y, name="ref_loss"
+    # )
+    #
+    # estimator_loss = Objective(
+    #     [f"X_pred_{dynamics_model.name}", f"x0_{estimator.name}"],
+    #     lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
+    #     weight=args.Q_e,
+    #     name="arrival_cost",
+    # )
+    # regularization = Objective(
+    #     [f"reg_error_{estimator.name}", f"reg_error_{dynamics_model.name}"],
+    #     lambda reg1, reg2: reg1 + reg2,
+    #     weight=args.Q_sub,
+    #     name="reg_error",
+    # )
+    # state_smoothing = Objective(
+    #     [f"X_pred_{dynamics_model.name}"],
+    #     lambda x: F.mse_loss(x[1:], x[:-1]),
+    #     weight=args.Q_dx,
+    #     name="state_smoothing",
+    # )
+    # # inequality constraints
+    # observation_lower_bound_penalty = Objective(
+    #     [f"Y_pred_{dynamics_model.name}"],
+    #     lambda x: torch.mean(F.relu(-x + xmin)),
+    #     weight=args.Q_con_x,
+    #     name="y_low_bound_error",
+    # )
+    # observation_upper_bound_penalty = Objective(
+    #     [f"Y_pred_{dynamics_model.name}"],
+    #     lambda x: torch.mean(F.relu(x - xmax)),
+    #     weight=args.Q_con_x,
+    #     name="y_up_bound_error",
+    # )

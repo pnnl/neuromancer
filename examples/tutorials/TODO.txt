@@ -1,2 +1,4 @@
 debug system_id_tutorial.ipynb
+debug component_tutprial.ipynb/py - missing DataDict in dataset.py after refactor
+debug and finish dataset_tutorial.ipynb/py
 python script versions of: component, constraints, and dataset tutorials

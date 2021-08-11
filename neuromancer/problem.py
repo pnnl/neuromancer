@@ -40,18 +40,18 @@ class Problem(nn.Module):
         num_objectives = len(self.objectives) + len(self.constraints)
         assert num_unique == num_objectives, "All objectives and constraints must have unique names."
 
-    def _calculate_loss(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def _calculate_loss(self, input_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
 
         """
         loss = 0.0
         for objective in self.objectives:
-            variables[objective.name] = objective(variables)
-            loss += variables[objective.name]
+            input_dict[objective.name] = objective(input_dict)
+            loss += input_dict[objective.name]
         for constraint in self.constraints:
-            variables[constraint.name] = constraint(variables)
-            loss += variables[constraint.name]
-        variables['loss'] = loss
+            input_dict[constraint.name] = constraint(input_dict)
+            loss += input_dict[constraint.name]
+        input_dict['loss'] = loss
 
     def _evaluate_variables(self, input_dict: Dict[str, torch.Tensor]):
         for variable in self.variables:

@@ -6,16 +6,18 @@
 
 ## Setup
 
-##### Clone and install neuromancer, linear maps, and emulator packages
+##### Clone and install neuromancer, linear maps, and emulator submodules 
 ```console
-user@machine:~$ mkdir ecosystem; cd ecosystem
+# Clone submodules recursively:
+user@machine:~$ git clone --recurse-submodules https://gitlab.pnnl.gov/dadaist/neuromancer.git
+
+# Clone submodules manually:
 user@machine:~$ git clone https://gitlab.pnnl.gov/dadaist/neuromancer.git
-user@machine:~$ git clone https://gitlab.pnnl.gov/dadaist/psl.git
-user@machine:~$ git clone https://gitlab.pnnl.gov/dadaist/slim.git
+user@machine:~$ git submodule init
+user@machine:~$ git submodule update
 
 # Resulting file structure:
-    ecosystem/
-        neuromancer/
+    neuromancer/
         psl/
         slim/
 ```
@@ -34,19 +36,22 @@ user@machine:~$ conda config --add channels conda-forge pytorch
 user@machine:~$ conda create -n neuromancer python=3.7
 user@machine:~$ source activate neuromancer
 (neuromancer) user@machine:~$ conda install pytorch torchvision -c pytorch
-(neuromancer) user@machine:~$ conda install scipy pandas matplotlib control pyts numba scikit-learn mlflow dill
+(neuromancer) user@machine:~$ conda install scipy pandas matplotlib control pyts numba scikit-learn dill
+(neuromancer) user@machine:~$ conda install mlflow boto3
 (neuromancer) user@machine:~$ conda install -c powerai gym
 ```
 
-##### install neuromancer ecosystem 
+##### Install neuromancer ecosystem 
+
+Feel free to use `pip install -e .` or `python setup.py develop` to configure the neuromancer, psl and slim python modules.
 
 ```console
 (neuromancer) user@machine:~$ cd psl
 (neuromancer) user@machine:~$ python setup.py develop
 (neuromancer) user@machine:~$ cd ../slim
 (neuromancer) user@machine:~$ python setup.py develop
-(neuromancer) user@machine:~$ cd ../neuromancer
-(neuromancer) user@machine:~$ python setup.py develop
+(neuromancer) user@machine:~$ cd .. # into neuromancer
+(neuromancer) user@machine:~$ pip install -e . 
 ```
 
 ### Current TODOS

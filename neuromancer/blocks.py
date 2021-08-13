@@ -462,7 +462,7 @@ blocks = {
     "residual_mlp": ResMLP,
     "basislinear": BasisLinear,
     "bilinear": BilinearTorch,
-    "icnn": InputConvexNN
+    # "icnn": InputConvexNN,
 }
 
 

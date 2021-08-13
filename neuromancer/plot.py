@@ -15,6 +15,7 @@ import torch
 import copy
 from matplotlib import cm
 from celluloid import Camera
+import matplotlib.image as mpimg
 
 try:
     import pydot
@@ -60,6 +61,11 @@ def plot_model_graph(model, data_keys, include_objectives=True, fname="model_gra
         _add_obj_components(graph, model.constraints, model.components, data_keys, style="dashed")
 
     graph.write_png(fname)
+    img = mpimg.imread(fname)
+    fig = plt.imshow(img, aspect='equal')
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    plt.show()
 
 
 def get_colors(k):

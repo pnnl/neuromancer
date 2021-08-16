@@ -106,6 +106,8 @@ def arg_sys_id_problem(prefix='', system='CSTR'):
     gp.add("-Q_con_fdu", type=float, default=0.0,
            help="Penalty weight on control actions and disturbances.")
     #  LOG
+    gp.add("-logger", type=str, choices=["mlflow", "stdout"], default="stdout",
+           help="Logging setup to use")
     gp.add("-savedir", type=str, default="test",
            help="Where should your trained model and plots be saved (temp)")
     gp.add("-verbosity", type=int, default=1,
@@ -116,7 +118,7 @@ def arg_sys_id_problem(prefix='', system='CSTR'):
     #  OPTIMIZATION
     gp.add("-eval_metric", type=str, default="loop_dev_ref_loss",
             help="Metric for model selection and early stopping.")
-    gp.add("-epochs", type=int, default=300,
+    gp.add("-epochs", type=int, default=200,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
@@ -315,11 +317,13 @@ def get_objective_terms(args, dims, estimator, dynamics_model):
 if __name__ == "__main__":
 
     # for available systems and datasets in PSL library check: psl.systems.keys() and psl.datasets.keys()
-    system = "aero"         # keyword of selected system
+    system = "TwoTank"         # keyword of selected system
     # load argument parser
     parser = arg.ArgParser(parents=[arg_sys_id_problem(system=system)])
     args, grps = parser.parse_arg_groups()
-    logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=args.metrics)
+    log_constructor = MLFlowLogger if args.logger == 'mlflow' else BasicLogger
+    logger = log_constructor(args=args, savedir=args.savedir,
+                             verbosity=args.verbosity, stdout=args.metrics)
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
 
     # load raw dataset

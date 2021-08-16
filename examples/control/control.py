@@ -1,51 +1,141 @@
 import dill
+import torch
+import torch.nn.functional as F
+from torch import nn
+import numpy as np
+from torch.utils.data import DataLoader
+import psl
+import slim
+
+from neuromancer.activations import BLU, SoftExponential
+from neuromancer import blocks, policies, estimators, dynamics, arg
+from neuromancer.activations import activations
+from neuromancer.visuals import VisualizerOpen
+from neuromancer.problem import Problem, Objective
+from neuromancer.constraint import Variable
+from torch.utils.data import DataLoader
 from neuromancer.signals import WhiteNoisePeriodicGenerator, NoiseGenerator
-from neuromancer.simulators import ClosedLoopSimulator
+from neuromancer.simulators import OpenLoopSimulator, ClosedLoopSimulator
 from neuromancer.trainer import Trainer, freeze_weight, unfreeze_weight
 from neuromancer.visuals import VisualizerClosedLoop
 from neuromancer.dataset import read_file, normalize_data, split_sequence_data, SequenceDataset
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.callbacks import SysIDCallback
 
-import torch
-import torch.nn.functional as F
-from torch import nn
-import numpy as np
 
-import psl
-import slim
-
-from neuromancer.problem import Problem, Objective
-from neuromancer.activations import BLU, SoftExponential
-from neuromancer import policies
-from neuromancer import arg
-from torch.utils.data import DataLoader
-
-
-def add_reference_features(args, data, dynamics_model):
+def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth'):
     """
-    """
-    ny = dynamics_model.fy.out_features
-    if ny != data["Y"].shape[1]:
-        data["Y"] = data["Y"][:, :1]
+    Command line parser for differentiable predictive (DPC) problem arguments
 
-    nsim = data["Y"].shape[0]
-    nu = data["U"].shape[1]
-    ny = len(args.controlled_outputs)
-    data = {
-        **data,
-        # "Y_max": psl.Periodic(nx=ny, nsim=nsim, numPeriods=30, xmax=1.0, xmin=0.9)[:nsim, :],
-        # "Y_min": psl.Periodic(nx=ny, nsim=nsim, numPeriods=24, xmax=0.8, xmin=0.7)[:nsim, :],
-        "Y_max": np.ones([nsim, ny]),
-        "Y_min": 0.7 * np.ones([nsim, ny]),
-        "U_max": np.ones([nsim, nu]),
-        "U_min": np.zeros([nsim, nu]),
-        "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=20, xmax=0.9, xmin=0.8)[:nsim, :]
-        # 'Y_ctrl_': psl.WhiteNoise(nx=ny, nsim=nsim, xmax=[1.0] * ny, xmin=[0.0] * ny)
-    }
-    # indices of controlled states, e.g. [0, 1, 3] out of 5 outputs
-    # data.ctrl_outputs = args.controlled_outputs
-    return data
+    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers
+                         are bundled as parents.
+    :return: (arg.ArgParse) A command line parser
+    """
+    parser = arg.ArgParser(prefix=prefix, add_help=False)
+    gp = parser.group("control")
+    #  DATA
+    gp.add("-dataset", type=str, default=system,
+           help="select particular dataset with keyword")
+    parser.add('-model_file', type=str, default=path,
+               help='Path to pytorch pickled model.')
+    gp.add("-nsteps", type=int, default=32,
+           help="prediction horizon.")
+    gp.add("-nsim", type=int, default=10000,
+           help="Number of time steps for full dataset. (ntrain + ndev + ntest)"
+                "train, dev, and test will be split evenly from contiguous, sequential, "
+                "non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,"
+                "next nsim/3 are dev and next nsim/3 simulation steps are test points."
+                "None will use a default nsim from the selected dataset or emulator")
+    gp.add("-norm", nargs="+", default=["U", "D", "Y"], choices=["U", "D", "Y", "X"],
+           help="List of sequences to max-min normalize")
+    gp.add("-data_seed", type=int, default=408,
+           help="Random seed used for simulated data")
+    #  SYSTEM MODEL
+    gp.add("-ssm_type", type=str, choices=["blackbox", "hw", "hammerstein", "blocknlin", "linear"],
+           default="hammerstein",
+           help='Choice of block structure for system identification model')
+    gp.add("-nx_hidden", type=int, default=32,
+           help="Number of hidden states per output")
+    gp.add("-n_hidden", type=int, default=32,
+           help="Number of hidden nodes in policy")
+    gp.add("-state_estimator", type=str, choices=["rnn", "mlp", "linear",
+                      "residual_mlp", "fully_observable"], default="mlp",
+           help='Choice of model architecture for state estimator.')
+    gp.add("-estimator_input_window", type=int, default=8,
+           help="Number of previous time steps measurements to include in state estimator input")
+    gp.add("-nonlinear_map", type=str, default="mlp", choices=["mlp", "rnn", "pytorch_rnn", "linear", "residual_mlp"],
+           help='Choice of architecture for component blocks in state space model.')
+    gp.add("-linear_map", type=str, choices=["linear", "softSVD", "pf"], default="linear",
+           help='Choice of map from SLiM package')
+    gp.add("-sigma_min", type=float, default=0.1,
+           help='Minimum singular value (for maps with singular value constraints)')
+    gp.add("-sigma_max", type=float, default=1.0,
+           help='Maximum singular value (for maps with singular value constraints)')
+    gp.add("-bias", action="store_true",
+           help="Whether to use bias in the neural network block component models.")
+    gp.add("-activation", choices=activations.keys(), default="gelu",
+           help="Activation function for component block neural networks")
+    gp.add("-noise", action="store_true",
+           help='Whether to add noise to control actions during training.')
+    gp.add("-loss_clip", action="store_true",
+           help='Clip loss terms to avoid terms taking over at beginning of training')
+    # POLICY
+    gp.add("-policy", type=str, choices=["mlp", "linear"], default="mlp",
+           help='Choice of architecture for modeling control policy.')
+    gp.add("-policy_features", nargs="+", default=['Y_ctrl_p', 'Rf', 'Y_maxf', 'Y_minf'],
+           help="Policy features")  # reference tracking option
+    gp.add("-n_layers", type=int, default=2,
+           help="Number of hidden layers of single time-step state transition")
+    gp.add("-perturbation", choices=["white_noise_sine_wave", "white_noise"], default="white_noise",
+           help='System perturbation method.')
+    #  LOSS
+    gp.add("-Q_sub", type=float, default=0.1,
+           help="Linear maps regularization weight.")
+    gp.add("-Q_r", type=float, default=1.0,
+           help="Reference tracking penalty weight")
+    gp.add("-Q_du", type=float, default=0.0,
+           help="control action difference penalty weight")
+    gp.add("-Q_con_u", type=float, default=0.0,
+           help="Input constraints penalty weight.")
+    gp.add("-Q_con_y", type=float, default=0.0,
+           help="Output constraints penalty weight.")
+    gp.add("-con_tighten", action="store_true",
+           help='Tighten constraints')
+    gp.add("-tighten", type=float, default=0.00,
+           help="control action difference penalty weight")
+    #  LOG
+    gp.add("-logger", type=str, choices=["mlflow", "stdout"], default="stdout",
+           help="Logging setup to use")
+    gp.add("-savedir", type=str, default="test",
+           help="Where should your trained model and plots be saved (temp)")
+    gp.add("-verbosity", type=int, default=1,
+           help="How many epochs in between status updates")
+    gp.add("-metrics", nargs="+", default=["nstep_dev_loss", "loop_dev_loss", "best_loop_dev_loss",
+               "nstep_dev_ref_loss", "loop_dev_ref_loss"],
+           help="Metrics to be logged")
+    # SELECT LEARNABLE COMPONENTS
+    gp.add("-freeze", nargs="+", default=[""],
+           help="sets requires grad to False")
+    gp.add("-unfreeze", default=["components.1"],
+           help="sets requires grad to True")
+    # gp.add("-unfreeze", default=["components.2"],
+    #        help="sets requires grad to True")
+    #  OPTIMIZATION
+    gp.add("-eval_metric", type=str, default="loop_dev_ref_loss",
+            help="Metric for model selection and early stopping.")
+    gp.add("-epochs", type=int, default=300,
+           help='Number of training epochs')
+    gp.add("-lr", type=float, default=0.001,
+           help="Step size for gradient descent.")
+    gp.add("-patience", type=int, default=100,
+           help="How many epochs to allow for no improvement in eval metric before early stopping.")
+    gp.add("-warmup", type=int, default=10,
+           help="Number of epochs to wait before enacting early stopping policy.")
+    gp.add("-skip_eval_sim", action="store_true",
+           help="Whether to run simulator during evaluation phase of training.")
+    gp.add("-seed", type=int, default=408, help="Random seed used for weight initialization.")
+    gp.add("-gpu", type=int, help="GPU to use")
+    return parser
 
 
 def get_sequence_dataloaders(
@@ -116,20 +206,7 @@ def get_sequence_dataloaders(
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
-def update_system_id_inputs(args, dataset, estimator, dynamics_model):
-    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_policy'
-    dynamics_model.fe = None
-    dynamics_model.fyu = None
-
-    estimator.input_keys[0] = 'Y_ctrl_p'
-    estimator.data_dims = dataset.dims
-    estimator.data_dims['Y_ctrl_p'] = dataset.dims['Yp']
-    estimator.nsteps = args.nsteps
-
-    return estimator, dynamics_model
-
-
-def get_policy_components(args, dataset, dynamics_model, policy_name="policy"):
+def get_policy_components(args, dims, dynamics_model, policy_name="policy"):
     torch.manual_seed(args.seed)
 
     activation = {
@@ -148,7 +225,7 @@ def get_policy_components(args, dataset, dynamics_model, policy_name="policy"):
         "mlp": policies.MLPPolicy,
         "rnn": policies.RNNPolicy,
     }[args.policy](
-        {"x0_estim": (dynamics_model.nx,), **dataset.dims},
+        {"x0_estim": (dynamics_model.nx,), **dims},
         nsteps=args.nsteps,
         bias=args.bias,
         linear_map=linmap,
@@ -258,49 +335,75 @@ def get_objective_terms(args, policy):
 
 
 if __name__ == "__main__":
-    # for available systems in PSL library check: psl.systems.keys()
-    system = 'CSTR'         # keyword of selected system
-    parser = arg.ArgParser(parents=[arg.log(), arg.log(prefix='sysid_'),
-                                    arg.opt(), arg.data(system=system),
-                                    arg.loss(), arg.lin(), arg.policy(),
-                                    arg.ctrl_loss(), arg.freeze()])
-    path = './test/best_model.pth'
-    parser.add('-model_file', type=str, default=path,
-               help='Path to pytorch pickled model.')
-
-    args = parser.parse_args()
-
+    """
+    # # #  Arguments, logger
+    """
+    # for available systems and datasets in PSL library check: psl.systems.keys() and psl.datasets.keys()
+    system = "TwoTank"  # keyword of selected system to control
+    # path with saved model parameters obtained from system identification
+    path = f'./trained_models/{system}_best_model.pth'
+    parser = arg.ArgParser(parents=[arg_control_problem(system=system, path=path)])
+    args, grps = parser.parse_arg_groups()
     log_constructor = MLFlowLogger if args.logger == 'mlflow' else BasicLogger
-    metrics = ["nstep_dev_loss", "loop_dev_loss", "best_loop_dev_loss",
-               "nstep_dev_ref_loss", "loop_dev_ref_loss"]
-    logger = log_constructor(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-
-    print({k: str(getattr(args, k)) for k in vars(args) if getattr(args, k)})
+    logger = log_constructor(args=args, savedir=args.savedir,
+                             verbosity=args.verbosity, stdout=args.metrics)
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
 
-    sysid_model = torch.load(args.model_file, pickle_module=dill, map_location=torch.device(device))
+    """
+    # # #  Load trained dynamics model
+    """
+    sysid_model = torch.load(args.model_file, pickle_module=dill,
+                             map_location=torch.device(device))
     dynamics_model = sysid_model.components[1]
     estimator = sysid_model.components[0]
 
-    if args.dataset in psl.emulators:
-        data = psl.emulators[args.dataset](nsim=args.nsim, ninit=0, seed=args.data_seed).simulate()
-    elif args.dataset in psl.datasets:
-        data = read_file(psl.datasets[args.dataset])
-    else:
-        data = read_file(args.dataset)
+    """
+    # # #  Problem Dimensions
+    """
+    # problem dimensions
+    nx = dynamics_model.nx
+    ny = dynamics_model.ny
+    nu = dynamics_model.nu
+    # number of datapoints
+    nsim = 10000
+    # # constraints bounds
+    umin = 0
+    umax = 1
+    xmin = 0
+    xmax = 1
 
-    data = add_reference_features(args, data, dynamics_model)
+    """
+    # # #  Dataset
+    """
+    # sample raw dataset
+    data = {
+        "Y_max": xmax*np.ones([nsim, nx]),
+        "Y_min": xmin*np.ones([nsim, nx]),
+        "U_max": umax*np.ones([nsim, nu]),
+        "U_min": umin*np.ones([nsim, nu]),
+        "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=20, xmax=0.9, xmin=0.8)[:nsim, :],
+        "Y_ctrl_": 2 * np.random.randn(nsim, nx),
+        "U": np.random.randn(nsim, nu),
+    }
+    # get dataloaders
     nstep_data, loop_data, dims = get_sequence_dataloaders(data, args.nsteps)
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data
 
-    # Control Problem Definition
-    estimator, dynamics_model = update_system_id_inputs(
-        args, train_data.dataset, estimator, dynamics_model
-    )
-    policy = get_policy_components(
-        args, train_data.dataset, dynamics_model, policy_name="policy"
-    )
+    """
+    # # #  Component Models
+    """
+    # update model dimensions and input output keys
+    # dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_policy'
+    dynamics_model._input_keys[2] = ('U_pred_policy', 'Uf')
+    estimator._input_keys[0] = ('Y_ctrl_p', 'Yp')
+    estimator.data_dims = dims
+    estimator.nsteps = args.nsteps
+    # define policy
+    policy = get_policy_components(args, dims, dynamics_model, policy_name="policy")
+
+    # TODO: update signal generators to be components
+    # get feedback signal sampler
     signal_generator = WhiteNoisePeriodicGenerator(
         args.nsteps,
         dynamics_model.fy.out_features,
@@ -310,49 +413,64 @@ if __name__ == "__main__":
         max_period=20,
         name="Y_ctrl_",
     )
+    # add output noise for robustness
     noise_generator = NoiseGenerator(
         ratio=0.05, keys=["Y_pred_dynamics"], name="_noise"
     )
-
+    # move models to device
     signal_generator = signal_generator.to(device)
     estimator = estimator.to(device)
     policy = policy.to(device)
     dynamics_model = dynamics_model.to(device)
 
+    """
+    # # #  Differentiable Predictive Control Problem Definition
+    """
+    # get objectives and constraints
     objectives, constraints = get_objective_terms(args, policy)
+    # define component models
+    components = [estimator, policy, dynamics_model]
+    # components = [signal_generator, estimator, policy, dynamics_model]
+    # define constrained optimal control problem
     model = Problem(
         objectives,
         constraints,
-        [signal_generator, estimator, policy, dynamics_model],
+        components,
     )
     model = model.to(device)
 
+    # TODO: make freeze and unfreeze a method on nm models (components, blocks, weights)
     # train only policy component
     freeze_weight(model, module_names=args.freeze)
     unfreeze_weight(model, module_names=args.unfreeze)
+
+    """
+    # # # Training
+    """
+    # select optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    # plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
+    # define callback
+    # visualizer = VisualizerClosedLoop(
+    #     policy,
+    #     plot_keys,
+    #     args.controlled_outputs,
+    #     args.verbosity,
+    #     savedir=args.savedir,
+    # )
+    # policy.input_keys[0] = "Yp"  # hack for policy input key compatibility w/ simulator
+    # simulator = ClosedLoopSimulator(
+    #     model,
+    #     policy,
+    #     dynamics_model,
+    #     train_data.dataset,
+    #     dev_data.dataset,
+    #     test_data.dataset,
+    #     eval_sim=not args.skip_eval_sim,
+    #     device=device,
+    # )
 
-    plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
-    visualizer = VisualizerClosedLoop(
-        policy,
-        plot_keys,
-        args.controlled_outputs,
-        args.verbosity,
-        savedir=args.savedir,
-    )
-
-    policy.input_keys[0] = "Yp"  # hack for policy input key compatibility w/ simulator
-    simulator = ClosedLoopSimulator(
-        model,
-        policy,
-        dynamics_model,
-        train_data.dataset,
-        dev_data.dataset,
-        test_data.dataset,
-        eval_sim=not args.skip_eval_sim,
-        device=device,
-    )
-
+    # define trainer
     trainer = Trainer(
         model,
         train_data,
@@ -360,7 +478,7 @@ if __name__ == "__main__":
         test_data,
         optimizer,
         logger=logger,
-        callback=SysIDCallback(simulator, visualizer),
+        # callback=SysIDCallback(simulator, visualizer),
         eval_metric="nstep_dev_loss",
         epochs=args.epochs,
         patience=args.patience,
@@ -370,5 +488,4 @@ if __name__ == "__main__":
     # Train control policy
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
-
     logger.clean_up()

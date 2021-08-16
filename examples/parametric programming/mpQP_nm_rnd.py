@@ -45,6 +45,7 @@ from neuromancer.activations import activations
 from neuromancer import policies
 from neuromancer.loggers import BasicLogger
 from neuromancer.dataset import normalize_data, split_static_data, StaticDataset
+from neuromancer.plot import plot_loss_mpp, plot_solution_mpp
 
 
 def arg_mpLP_problem(prefix=''):
@@ -71,7 +72,7 @@ def arg_mpLP_problem(prefix=''):
            help="Whether to use bias in the neural network block component models.")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
-    gp.add("-epochs", type=int, default=400,
+    gp.add("-epochs", type=int, default=200,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.01,
            help="Step size for gradient descent.")
@@ -80,7 +81,6 @@ def arg_mpLP_problem(prefix=''):
     gp.add("-warmup", type=int, default=100,
            help="Number of epochs to wait before enacting early stopping policy.")
     return parser
-
 
 
 def get_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
@@ -135,73 +135,6 @@ def get_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
     )
 
     return (train_data, dev_data, test_data), train_data.dataset.dims
-
-
-def plot_loss(model, dataset, xmin=-2, xmax=2, save_path=None):
-    """
-    plots loss function for problem with 2 parameters
-    :param model:
-    :param dataset:
-    :param xmin:
-    :param xmax:
-    :param save_path:
-    :return:
-    """
-    x = torch.arange(xmin, xmax, 0.1)
-    y = torch.arange(xmin, xmax, 0.1)
-    xx, yy = torch.meshgrid(x, y)
-    dataset_plt = copy.deepcopy(dataset)
-    dataset_plt.dims['nsim'] = 1
-    Loss = np.ones([x.shape[0], y.shape[0]])*np.nan
-
-    for i in range(x.shape[0]):
-        for j in range(y.shape[0]):
-            # check loss
-            X = torch.stack([x[[i]], y[[j]]]).reshape(1,1,-1)
-            if dataset.nsteps == 1:
-                dataset_plt.train_data['thetap'] = X
-                step = model(dataset_plt.train_data)
-                Loss[i,j] = step['nstep_train_loss'].detach().numpy()
-
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Loss,
-                           cmap=cm.viridis,
-                           linewidth=0, antialiased=False)
-    ax.set(ylabel='$x_1$')
-    ax.set(xlabel='$x_2$')
-    ax.set(zlabel='$L$')
-    ax.set(title='Loss landscape')
-    # plt.colorbar(surf)
-    if save_path is not None:
-        plt.savefig(save_path+'/loss.pdf')
-
-
-def plot_solution(model, xmin=-2, xmax=2, save_path=None):
-    """
-    plots solution landscape for problem with 2 parameters and 1 decision variable
-    :param net:
-    :param xmin:
-    :param xmax:
-    :param save_path:
-    :return:
-    """
-    x = torch.arange(xmin, xmax, 0.1)
-    y = torch.arange(xmin, xmax, 0.1)
-    xx, yy = torch.meshgrid(x, y)
-    features = torch.stack([xx, yy]).transpose(0, 2)
-    uu = model.net(features)
-    plot_u = uu.detach().numpy()[:,:,0]
-
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), plot_u,
-                           cmap=cm.viridis,
-                           linewidth=0, antialiased=False)
-    ax.set(ylabel='$x_1$')
-    ax.set(xlabel='$x_2$')
-    ax.set(zlabel='$u$')
-    ax.set(title='Solution landscape')
-    if save_path is not None:
-        plt.savefig(save_path+'/solution.pdf')
 
 
 if __name__ == "__main__":
@@ -315,5 +248,5 @@ if __name__ == "__main__":
     best_outputs = trainer.test(best_model)
 
     # plots
-    # plot_loss(model, dataset, xmin=-2, xmax=2, save_path=None)
-    plot_solution(sol_map, xmin=-2, xmax=2, save_path=None)
+    plot_loss_mpp(model, train_data, xmin=-2, xmax=2, save_path=None)
+    plot_solution_mpp(sol_map, xmin=-2, xmax=2, save_path=None)

@@ -44,6 +44,7 @@ from neuromancer.activations import activations
 from neuromancer import policies
 from neuromancer.loggers import BasicLogger
 from neuromancer.dataset import normalize_data, split_static_data, StaticDataset
+from neuromancer.plot import plot_loss_mpp, plot_solution_mpp
 
 
 def arg_mpLP_problem(prefix=''):
@@ -133,45 +134,6 @@ def get_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
     )
 
     return (train_data, dev_data, test_data), train_data.dataset.dims
-
-
-def plot_loss(model, dataset, xmin=-2, xmax=2, save_path=None):
-    """
-    plots loss function for problem with 2 parameters
-    :param model:
-    :param dataset:
-    :param xmin:
-    :param xmax:
-    :param save_path:
-    :return:
-    """
-    x = torch.arange(xmin, xmax, 0.1)
-    y = torch.arange(xmin, xmax, 0.1)
-    xx, yy = torch.meshgrid(x, y)
-    dataset_plt = copy.deepcopy(dataset)
-    dataset_plt.dims['nsim'] = 1
-    Loss = np.ones([x.shape[0], y.shape[0]]) * np.nan
-
-    for i in range(x.shape[0]):
-        for j in range(y.shape[0]):
-            # check loss
-            X = torch.stack([x[[i]], y[[j]]]).reshape(1, 1, -1)
-            if dataset.nsteps == 1:
-                dataset_plt.train_data['thetap'] = X
-                step = model(dataset_plt.train_data)
-                Loss[i, j] = step['nstep_train_loss'].detach().numpy()
-
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Loss,
-                           cmap=cm.viridis,
-                           linewidth=0, antialiased=False)
-    ax.set(ylabel='$x_1$')
-    ax.set(xlabel='$x_2$')
-    ax.set(zlabel='$L$')
-    ax.set(title='Loss landscape')
-    # plt.colorbar(surf)
-    if save_path is not None:
-        plt.savefig(save_path + '/loss.pdf')
 
 
 def plot_solution(model, xmin=-2, xmax=2, save_path=None):
@@ -310,5 +272,5 @@ if __name__ == "__main__":
     best_outputs = trainer.test(best_model)
 
     # plots
-    # plot_loss(model, dataset, xmin=-2, xmax=2, save_path=None)
-    plot_solution(sol_map, xmin=-2, xmax=2, save_path=None)
+    plot_loss_mpp(model, train_data, xmin=-2, xmax=2, save_path=None)
+    plot_solution_mpp(sol_map, xmin=-2, xmax=2, save_path=None)

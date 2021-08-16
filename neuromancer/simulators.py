@@ -231,13 +231,13 @@ class ClosedLoopSimulator(Simulator):
         self.emulator = emulator
         self.policy = policy
         self.ninit = 0
-        self.nsim = self.train_data.nsteps
-        self.train_loop = self.train_data.get_full_sequence()
-        self.train_data = next(iter(self.train_data))
-        self.dev_loop = self.dev_data.get_full_sequence()
-        self.dev_data = next(iter(self.dev_data))
-        self.test_loop = self.test_data.get_full_sequence()
-        self.test_data = next(iter(self.test_data))
+        self.nsim = self.train_data.dataset.nsteps
+        self.train_loop = self.train_data.dataset.get_full_sequence()
+        # self.train_data = next(iter(self.train_data))
+        self.dev_loop = self.dev_data.dataset.get_full_sequence()
+        # self.dev_data = next(iter(self.dev_data))
+        self.test_loop = self.test_data.dataset.get_full_sequence()
+        # self.test_data = next(iter(self.test_data))
         self.norm_stats = norm_stats or {}
         if isinstance(emulator, EmulatorBase):
             self.x0 = self.emulator.x0

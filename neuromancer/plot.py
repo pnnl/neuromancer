@@ -466,15 +466,96 @@ class Animator:
 
 
 """
+  Parametric programming example plots
+"""
+
+
+def plot_solution_mpp(model, xmin=-2, xmax=2, save_path=None):
+    """
+    plots solution landscape for problem with 2 parameters and 1 decision variable
+    :param net:
+    :param xmin:
+    :param xmax:
+    :param save_path:
+    :return:
+    """
+    x = torch.arange(xmin, xmax, 0.1)
+    y = torch.arange(xmin, xmax, 0.1)
+    xx, yy = torch.meshgrid(x, y)
+    features = torch.stack([xx, yy]).transpose(0, 2)
+    uu = model.net(features)
+    plot_u = uu.detach().numpy()[:,:,0]
+
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), plot_u,
+                           cmap=cm.viridis,
+                           linewidth=0, antialiased=False)
+    ax.set(ylabel='$x_1$')
+    ax.set(xlabel='$x_2$')
+    ax.set(zlabel='$u$')
+    ax.set(title='Solution landscape')
+    if save_path is not None:
+        plt.savefig(save_path+'/solution.pdf')
+
+
+def plot_loss_mpp(model, dataset, xmin=-2, xmax=2, save_path=None):
+    """
+    plots loss function for multiparametric problem with 2 parameters
+    :param model:
+    :param dataset:
+    :param xmin:
+    :param xmax:
+    :param save_path:
+    :return:
+    """
+    x = torch.arange(xmin, xmax, 0.1)
+    y = torch.arange(xmin, xmax, 0.1)
+    xx, yy = torch.meshgrid(x, y)
+    dataset_plt = dataset.dataset.get_full_batch()
+    name = dataset_plt['name']
+    Loss = np.ones([x.shape[0], y.shape[0]])*np.nan
+
+    for i in range(x.shape[0]):
+        for j in range(y.shape[0]):
+            # check loss
+            X = torch.stack([x[[i]], y[[j]]]).reshape(1,1,-1)
+            dataset_plt['theta'] = X
+            step = model(dataset_plt)
+            Loss[i,j] = step[name+'_loss'].detach().numpy()
+
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Loss,
+                           cmap=cm.viridis,
+                           linewidth=0, antialiased=False)
+    ax.set(ylabel='$x_1$')
+    ax.set(xlabel='$x_2$')
+    ax.set(zlabel='$L$')
+    ax.set(title='Loss landscape')
+    # plt.colorbar(surf)
+    if save_path is not None:
+        plt.savefig(save_path+'/loss.pdf')
+
+
+"""
     Double Integrator DPC example plots
 """
 
-def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
+def plot_loss_DPC(model, dataset, xmin=-5, xmax=5, save_path=None):
+    """
+    plot loss function for trained DPC model
+    :param model:
+    :param dataset:
+    :param xmin:
+    :param xmax:
+    :param save_path:
+    :return:
+    """
     x = torch.arange(xmin, xmax, 0.2)
     y = torch.arange(xmin, xmax, 0.2)
     xx, yy = torch.meshgrid(x, y)
-    dataset_plt = copy.deepcopy(dataset)
-    dataset_plt.dims['nsim'] = 1
+    dataset_plt = dataset.dataset.get_full_batch()
+    name = dataset_plt['name']
+    nsteps = dataset.dataset.nsteps
     Loss = np.ones([x.shape[0], y.shape[0]])*np.nan
     # Alpha contraction coefficient: ||x_k+1|| = alpha * ||x_k||
     Alpha = np.ones([x.shape[0], y.shape[0]])*np.nan
@@ -489,10 +570,11 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
         for j in range(y.shape[0]):
             # check loss
             X = torch.stack([x[[i]], y[[j]]]).reshape(1,1,-1)
-            if dataset.nsteps == 1:
-                dataset_plt.train_data['Yp'] = X
-                step = model(dataset_plt.train_data)
-                Loss[i,j] = step['nstep_train_loss'].detach().numpy()
+            if nsteps == 1:
+                dataset_plt['Yp'] = X
+                dataset_plt['Yf'] = dataset_plt['Yf'][[0],:,:]
+                step = model(dataset_plt)
+                Loss[i,j] = step[name+'_loss'].detach().numpy()
             # check contraction
             x0 = X.view(1, X.shape[-1])
             Astar, bstar, _, _, _ = lpv_batched(policy, x0)
@@ -508,7 +590,7 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
             else:
                 Alpha[i, j] = 0
 
-    if dataset.nsteps == 1:
+    if nsteps == 1:
         fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
         surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Loss,
                                cmap=cm.viridis,
@@ -557,7 +639,6 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
     im1.set_clim(0., 2.)  #  color limit
     if save_path is not None:
         plt.savefig(save_path+'/contraction_regions.pdf')
-
 
 
 def plot_policy(net, xmin=-5, xmax=5, save_path=None):

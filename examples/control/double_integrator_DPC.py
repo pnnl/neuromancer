@@ -28,7 +28,7 @@ from torch.utils.data import DataLoader
 from neuromancer.loggers import BasicLogger
 from neuromancer.visuals import VisualizerClosedLoop, VisualizerDobleIntegrator
 from neuromancer.callbacks import SysIDCallback, ControlCallback
-from neuromancer.plot import plot_policy, cl_simulate, plot_loss, plot_cl
+from neuromancer.plot import plot_policy, cl_simulate, plot_loss_DPC, plot_cl
 from neuromancer.simulators import ClosedLoopSimulator
 
 
@@ -154,7 +154,6 @@ if __name__ == "__main__":
     parser = arg.ArgParser(parents=[arg.log(),
                                     arg_dpc_problem()])
     args, grps = parser.parse_arg_groups()
-
     args.bias = True
 
     # problem dimensions
@@ -342,7 +341,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
     # TODO: update ClosedLoopSimulator to work with refactor
-    # simulator
+    # # simulator
     # simulator = ClosedLoopSimulator(
     #     model=model, emulator=dynamics_model, policy=model,
     #     train_data=train_data, dev_data=dev_data, test_data=test_data,
@@ -381,5 +380,5 @@ if __name__ == "__main__":
     # plot policy surface
     plot_policy(policy.net, save_path='test_control')
     # loss landscape and contraction regions
-    # plot_loss(model, train_data, xmin=-5, xmax=5, save_path='test_control')
+    plot_loss_DPC(model, train_data, xmin=-2, xmax=2, save_path='test_control')
 

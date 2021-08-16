@@ -304,7 +304,6 @@ if __name__ == "__main__":
         "R": np.concatenate([np.random.uniform(low=ref_min, high=ref_max)*np.ones([args.nsteps, 1])
                              for i in range(int(np.ceil(nsim/args.nsteps)))])[:nsim, :],
     }
-    # sequences['E'] = sequences['R'] - sequences['Y'][:, args.controlled_outputs]
     nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps)
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data

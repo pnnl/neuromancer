@@ -126,6 +126,7 @@ class BlockSSM(Component):
         :return: output (dict: {str: Tensor})
         """
         x_in, y_out, u_in, d_in = self._ALL_INPUTS
+        # TODO: in future version treat nsteps as item in the data dictionary
         nsteps = data[y_out].shape[0]
         X, Y, FD, FU, FE = [], [], [], [], []
         x = data[x_in]

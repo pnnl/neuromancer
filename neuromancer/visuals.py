@@ -14,7 +14,7 @@ import matplotlib.patches as mpatches
 from neuromancer.dataset import unbatch_tensor
 import neuromancer.plot as plot
 from neuromancer.plot import plot_policy, plot_policy_train, \
-    cl_simulate, plot_cl, plot_cl_train, plot_loss
+    cl_simulate, plot_cl, plot_cl_train, plot_loss_DPC
 
 
 
@@ -345,7 +345,7 @@ class VisualizerDobleIntegrator(Visualizer):
         # plot policy surface
         plot_policy(policy.net, save_path=self.savedir)
         # loss landscape and contraction regions
-        plot_loss(trainer.model, trainer.dataset, xmin=-5, xmax=5,
+        plot_loss_DPC(trainer.model, trainer.dataset, xmin=-5, xmax=5,
                   save_path=self.savedir)
 
         return dict()

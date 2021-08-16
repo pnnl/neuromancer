@@ -27,27 +27,24 @@ Further reading:
         https://deepblue.lib.umich.edu/bitstream/handle/2027.42/47907/10107_2005_Article_BF01581642.pdf?sequence=1
     Multiparametric (MPT3) toolbox - solving parametric programming problems in Matlab
         https://ieeexplore.ieee.org/abstract/document/6669862
-
-
 """
 
 import numpy as np
 import copy
 import matplotlib.pyplot as plt
 from matplotlib import cm
-
 import torch
+from torch.utils.data import DataLoader
 import slim
 
-from neuromancer import blocks
 from neuromancer.trainer import Trainer
-from neuromancer.problem import Problem, Objective
+from neuromancer.problem import Problem
 import neuromancer.arg as arg
-from neuromancer.datasets import Dataset
 from neuromancer.constraint import Variable
 from neuromancer.activations import activations
 from neuromancer import policies
 from neuromancer.loggers import BasicLogger
+from neuromancer.dataset import normalize_data, split_static_data, StaticDataset
 
 
 def arg_mpLP_problem(prefix=''):
@@ -83,6 +80,61 @@ def arg_mpLP_problem(prefix=''):
     gp.add("-warmup", type=int, default=100,
            help="Number of epochs to wait before enacting early stopping policy.")
     return parser
+
+
+
+def get_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
+    """This will generate dataloaders for a given dictionary of data.
+    Dataloaders are hard-coded for full-batch training to match NeuroMANCER's training setup.
+
+    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
+        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
+        computed over the number of sequences rather than their lengths.
+    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
+    :param split_ratio: (list float) percentage of data in train and development splits; see
+        function `split_sequence_data` for more info.
+    """
+
+    if norm_type is not None:
+        data, _ = normalize_data(data, norm_type)
+    train_data, dev_data, test_data = split_static_data(data, split_ratio)
+
+    train_data = StaticDataset(
+        train_data,
+        name="train",
+    )
+    dev_data = StaticDataset(
+        dev_data,
+        name="dev",
+    )
+    test_data = StaticDataset(
+        test_data,
+        name="test",
+    )
+
+    train_data = DataLoader(
+        train_data,
+        batch_size=len(train_data),
+        shuffle=False,
+        collate_fn=train_data.collate_fn,
+        num_workers=num_workers,
+    )
+    dev_data = DataLoader(
+        dev_data,
+        batch_size=len(dev_data),
+        shuffle=False,
+        collate_fn=dev_data.collate_fn,
+        num_workers=num_workers,
+    )
+    test_data = DataLoader(
+        test_data,
+        batch_size=len(test_data),
+        shuffle=False,
+        collate_fn=test_data.collate_fn,
+        num_workers=num_workers,
+    )
+
+    return (train_data, dev_data, test_data), train_data.dataset.dims
 
 
 def plot_loss(model, dataset, xmin=-2, xmax=2, save_path=None):
@@ -162,17 +214,12 @@ if __name__ == "__main__":
     args.bias = True
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
 
-    np.random.seed(args.data_seed)
-    torch.manual_seed(args.data_seed)
-
     """
     # # #  LP problem matrices
     """
     n_x = 1         # number of decision variables
     n_theta = 2     # number of parameters
     n_con = 5       # number of constraints
-
-# TODO: check the same random generation that in matlab
 
     # fixed problem parameters
     A = torch.randn(n_x, n_con).t()
@@ -189,43 +236,33 @@ if __name__ == "__main__":
     """
     #  randomly sampled parameters theta generating superset of:
     #  theta_samples.min() <= theta <= theta_samples.max()
+    np.random.seed(args.data_seed)
     nsim = 50000  # number of datapoints: increase sample density for more robust results
     sequences = {"theta": 0.5 * np.random.randn(nsim, n_theta)}
-    dataset = Dataset(nsim=nsim, device='cpu', sequences=sequences, name='openloop')
 
-    # # # TODO manual fix for static datasets
-    # TODO: do we need to have datasets specific to static optimization?
-    #  to support batches, we don't need to have loop datasets
-    dataset.train_data['thetap'] = dataset.train_data['thetap'][0, :, :]
-    dataset.dev_data['thetap'] = dataset.dev_data['thetap'][0, :, :]
-    dataset.test_data['thetap'] = dataset.test_data['thetap'][0, :, :]
-    dataset.train_loop['thetap'] = dataset.train_loop['thetap'][:, 0, :]
-    dataset.dev_loop['thetap'] = dataset.dev_loop['thetap'][:, 0, :]
-    dataset.test_loop['thetap'] = dataset.test_loop['thetap'][:, 0, :]
+    nstep_data, dims = get_dataloaders(sequences)
+    train_data, dev_data, test_data = nstep_data
 
     """
     # # #  mpLP problem formulation in Neuromancer
     """
     # define solution map as MLP policy
-    dataset.dims['U'] = (nsim, n_x)  # defining expected dimensions of the solution variable: internal policy key 'U'
+    dims['U'] = (nsim, n_x)  # defining expected dimensions of the solution variable: internal policy key 'U'
     activation = activations['relu']
     linmap = slim.maps['linear']
     sol_map = policies.MLPPolicy(
-        {'thetap': (n_theta,), 'nu': (n_x,), **dataset.dims},
+        {**dims},
         bias=args.bias,
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=["thetap"],
+        input_keys=["theta"],
         name='sol_map',
     )
 
-    # TODO: support transpose on variable
-    # TODO: support norms
-
     # variables
     x = Variable(f"U_pred_{sol_map.name}")  # decision variable as output from the solution map
-    theta = Variable('thetap')  # sampled parametric variable
+    theta = Variable('theta')  # sampled parametric variable
     # objective function
     loss = args.Q * (x == 0)^2  # weighted loss to be penalized
     loss.name = 'loss'
@@ -246,8 +283,7 @@ if __name__ == "__main__":
     """
     args.savedir = 'test_mpQP'
     args.verbosity = 1
-    metrics = ["nstep_dev_loss",
-               "nstep_dev_ref_loss"]
+    metrics = ["dev_loss"]
     logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
     logger.args.system = 'mpQP'
 
@@ -256,15 +292,22 @@ if __name__ == "__main__":
     """
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
+    # define trainer
     trainer = Trainer(
         model,
-        dataset,
+        train_data,
+        dev_data,
+        test_data,
         optimizer,
+        logger=logger,
         epochs=args.epochs,
+        train_metric="train_loss",
+        dev_metric="dev_loss",
+        test_metric="test_loss",
+        eval_metric="dev_loss",
         patience=args.patience,
         warmup=args.warmup,
-        eval_metric="nstep_dev_loss",
-        logger=logger,
+        device=device,
     )
 
     # Train mpLP solution map
@@ -272,5 +315,5 @@ if __name__ == "__main__":
     best_outputs = trainer.test(best_model)
 
     # plots
-    plot_loss(model, dataset, xmin=-2, xmax=2, save_path=None)
+    # plot_loss(model, dataset, xmin=-2, xmax=2, save_path=None)
     plot_solution(sol_map, xmin=-2, xmax=2, save_path=None)

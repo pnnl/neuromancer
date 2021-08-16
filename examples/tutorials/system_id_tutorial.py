@@ -18,7 +18,6 @@ from neuromancer.dataset import read_file, normalize_data, split_sequence_data, 
 from neuromancer.constraint import Variable
 
 
-
 def arg_sys_id_problem(prefix='', system='CSTR'):
     """
     Command line parser for system identification problem arguments
@@ -158,8 +157,7 @@ if __name__ == "__main__":
     # # # # # # # # # # # # # # # # # # #
     """
 
-    # for available systems in PSL library check: psl.systems.keys()
-    # for available datasets in PSL library check: psl.datasets.keys()
+    # for available systems and datasets in PSL library check: psl.systems.keys() and psl.datasets.keys()
     system = 'aero'         # keyword of selected system
     # load argument parser
     parser = arg.ArgParser(parents=[arg_sys_id_problem(system=system)])

@@ -447,6 +447,35 @@ def split_sequence_data(data, nsteps, moving_horizon=False, split_ratio=None):
     return train_data, dev_data, test_data
 
 
+def split_static_data(data, split_ratio=None):
+    """Split a data dictionary into train, development, and test sets. Splits data into thirds by
+    default, but arbitrary split ratios for train and development can be provided.
+
+    :param data: (dict str: np.array or list[str: np.array]) data dictionary.
+    :param split_ratio: (list float) Two numbers indicating percentage of data included in train and
+        development sets (out of 100.0). Default is None, which splits data into thirds.
+    """
+
+    nsim = min(v.shape[0] for v in data.values())
+    if split_ratio is None:
+        split_len = nsim // 3
+        train_slice = slice(0, split_len)
+        dev_slice = slice(split_len, split_len * 2)
+        test_slice = slice(split_len * 2, nsim)
+    else:
+        dev_start = math.ceil(split_ratio[0] / 100.) * nsim
+        test_start = dev_start + math.ceil(split_ratio[1] / 100.) * nsim
+        train_slice = slice(0, dev_start)
+        dev_slice = slice(dev_start, test_start)
+        test_slice = slice(test_start, nsim)
+
+    train_data = {k: v[train_slice] for k, v in data.items()}
+    dev_data = {k: v[dev_slice] for k, v in data.items()}
+    test_data = {k: v[test_slice] for k, v in data.items()}
+
+    return train_data, dev_data, test_data
+
+
 def standardize(M, mean=None, std=None):
     mean = M.mean(axis=0).reshape(1, -1) if mean is None else mean
     std = M.std(axis=0).reshape(1, -1) if std is None else std

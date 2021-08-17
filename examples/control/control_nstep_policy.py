@@ -11,13 +11,12 @@ from neuromancer.activations import BLU, SoftExponential
 from neuromancer import policies, arg
 from neuromancer.activations import activations
 from neuromancer.problem import Problem, Objective
-from neuromancer.constraint import Variable
 from torch.utils.data import DataLoader
 from neuromancer.signals import WhiteNoisePeriodicGenerator, NoiseGenerator
-from neuromancer.simulators import OpenLoopSimulator, ClosedLoopSimulator
+from neuromancer.simulators import ClosedLoopSimulator
 from neuromancer.trainer import Trainer, freeze_weight, unfreeze_weight
 from neuromancer.visuals import VisualizerClosedLoop, VisualizerOpen
-from neuromancer.dataset import read_file, normalize_data, split_sequence_data, SequenceDataset
+from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.callbacks import ControlCallback, SysIDCallback
 
@@ -45,7 +44,7 @@ def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth
                 "non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,"
                 "next nsim/3 are dev and next nsim/3 simulation steps are test points."
                 "None will use a default nsim from the selected dataset or emulator")
-    gp.add("-norm", nargs="+", default=["U", "D", "Y"], choices=["U", "D", "Y", "X"],
+    gp.add("-norm", nargs="+", default=[], choices=["U", "D", "Y", "X"],
            help="List of sequences to max-min normalize")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
@@ -443,25 +442,19 @@ if __name__ == "__main__":
     """
     # select optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+
+    # TODO: fix generic callbacks for closed loop control
     # define callback
-    plot_keys = ["Y_pred_dynamics", "U_pred_policy"]  # variables to be plotted
-    visualizer = VisualizerClosedLoop(
-        policy,
-        plot_keys,
-        args.verbosity,
-        savedir=args.savedir,
-    )
-    policy.input_keys[0] = "Yp"  # hack for policy input key compatibility w/ simulator
-    simulator = ClosedLoopSimulator(
-        model,
-        policy,
-        dynamics_model,
-        train_data.dataset,
-        dev_data.dataset,
-        test_data.dataset,
-        eval_sim=not args.skip_eval_sim,
-        device=device,
-    )
+    # plot_keys = ["Y_pred_dynamics", "U_pred_policy"]  # variables to be plotted
+    # visualizer = VisualizerClosedLoop(
+    #     policy,
+    #     plot_keys,
+    #     args.verbosity,
+    #     savedir=args.savedir,
+    # )
+    simulator = ClosedLoopSimulator(sim_data=test_loop, policy=policy,
+                                    emulator=dynamics_model, estimator=estimator)
+    sim_out = simulator.simulate(nsim=100)
 
     # define trainer
     trainer = Trainer(
@@ -471,7 +464,7 @@ if __name__ == "__main__":
         test_data,
         optimizer,
         logger=logger,
-        callback=ControlCallback(simulator, visualizer),
+        # callback=ControlCallback(simulator, visualizer),
         eval_metric="nstep_dev_loss",
         epochs=args.epochs,
         patience=args.patience,

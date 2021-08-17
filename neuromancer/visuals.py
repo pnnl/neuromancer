@@ -315,7 +315,7 @@ class VisualizerDobleIntegrator(Visualizer):
 
     def train_output(self, trainer, epoch_policy):
         """
-
+        visualize evolution of closed-loop contro and policy landscape during training
         :return:
         """
         A = self.model.components[2].fx.linear.weight

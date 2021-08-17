@@ -26,8 +26,8 @@ import neuromancer.arg as arg
 from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
 from torch.utils.data import DataLoader
 from neuromancer.loggers import BasicLogger
-from neuromancer.visuals import VisualizerClosedLoop, VisualizerDobleIntegrator
-from neuromancer.callbacks import SysIDCallback, ControlCallback
+from neuromancer.visuals import VisualizerDobleIntegrator
+from neuromancer.callbacks import SysIDCallback, ControlCallback, DoubleIntegratorCallback
 from neuromancer.plot import plot_policy, cl_simulate, plot_loss_DPC, plot_cl
 from neuromancer.simulators import ClosedLoopSimulator
 
@@ -340,17 +340,11 @@ if __name__ == "__main__":
     model = model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
-    # TODO: update ClosedLoopSimulator to work with refactor
-    # # simulator
-    # simulator = ClosedLoopSimulator(
-    #     model=model, emulator=dynamics_model, policy=model,
-    #     train_data=train_data, dev_data=dev_data, test_data=test_data,
-    # )
-    # # visualizer
-    # visualizer = VisualizerDobleIntegrator(train_data, model,
-    #                  args.verbosity, savedir=args.savedir,
-    #                  nstep=40, x0=1.5 * np.ones([2, 1]),
-    #                  training_visuals=False, trace_movie=True)
+    # visualizer
+    visualizer = VisualizerDobleIntegrator(train_data, model,
+                     args.verbosity, savedir=args.savedir,
+                     nstep=40, x0=1.5 * np.ones([2, 1]),
+                     training_visuals=False, trace_movie=False)
 
     # trainer
     trainer = Trainer(
@@ -363,7 +357,7 @@ if __name__ == "__main__":
         epochs=args.epochs,
         patience=args.patience,
         eval_metric='nstep_dev_loss',
-        # callback=ControlCallback(simulator, visualizer),
+        callback=DoubleIntegratorCallback(visualizer),
         warmup=args.warmup,
     )
     # Train control policy
@@ -371,7 +365,7 @@ if __name__ == "__main__":
     best_outputs = trainer.test(best_model)
 
     """
-    # # #  Plots and Analysis
+    # # #  Plots and Analysis from the VisualizerDobleIntegrator
     """
     # simulate and plot closed loop trajectories
     cl_simulate(A, B, policy.net, nstep=40, x0=1.5*np.ones([2, 1]))

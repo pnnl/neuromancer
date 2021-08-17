@@ -8,19 +8,18 @@ import psl
 import slim
 
 from neuromancer.activations import BLU, SoftExponential
-from neuromancer import blocks, policies, estimators, dynamics, arg
+from neuromancer import policies, arg
 from neuromancer.activations import activations
-from neuromancer.visuals import VisualizerOpen
 from neuromancer.problem import Problem, Objective
 from neuromancer.constraint import Variable
 from torch.utils.data import DataLoader
 from neuromancer.signals import WhiteNoisePeriodicGenerator, NoiseGenerator
 from neuromancer.simulators import OpenLoopSimulator, ClosedLoopSimulator
 from neuromancer.trainer import Trainer, freeze_weight, unfreeze_weight
-from neuromancer.visuals import VisualizerClosedLoop
+from neuromancer.visuals import VisualizerClosedLoop, VisualizerOpen
 from neuromancer.dataset import read_file, normalize_data, split_sequence_data, SequenceDataset
 from neuromancer.loggers import BasicLogger, MLFlowLogger
-from neuromancer.callbacks import SysIDCallback
+from neuromancer.callbacks import ControlCallback, SysIDCallback
 
 
 def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth'):
@@ -123,7 +122,7 @@ def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth
     #  OPTIMIZATION
     gp.add("-eval_metric", type=str, default="loop_dev_ref_loss",
             help="Metric for model selection and early stopping.")
-    gp.add("-epochs", type=int, default=300,
+    gp.add("-epochs", type=int, default=100,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
@@ -246,7 +245,7 @@ def get_objective_terms(args, policy):
 
     reference_loss = Objective(
         [output_key, "Rf"],
-        lambda pred, ref: F.mse_loss(pred[:, :, args.controlled_outputs], ref),
+        lambda pred, ref: F.mse_loss(pred, ref),
         weight=args.Q_r,
         name="ref_loss",
     )
@@ -261,13 +260,13 @@ def get_objective_terms(args, policy):
     )
     observation_lower_bound_penalty = Objective(
         [output_key, "Y_minf"],
-        lambda x, xmin: torch.mean(F.relu(-x[:, :, args.controlled_outputs] + xmin)),
+        lambda x, xmin: torch.mean(F.relu(-x + xmin)),
         weight=args.Q_con_y,
         name="observation_lower_bound",
     )
     observation_upper_bound_penalty = Objective(
         [output_key, "Y_maxf"],
-        lambda x, xmax: torch.mean(F.relu(x[:, :, args.controlled_outputs] - xmax)),
+        lambda x, xmax: torch.mean(F.relu(x - xmax)),
         weight=args.Q_con_y,
         name="observation_upper_bound",
     )
@@ -288,13 +287,13 @@ def get_objective_terms(args, policy):
     if args.con_tighten:
         observation_lower_bound_penalty = Objective(
             [output_key, "Y_minf"],
-            lambda x, xmin: torch.mean(F.relu(-x[:, :, args.controlled_outputs] + xmin + args.tighten)),
+            lambda x, xmin: torch.mean(F.relu(-x + xmin + args.tighten)),
             weight=args.Q_con_y,
             name="observation_lower_bound",
         )
         observation_upper_bound_penalty = Objective(
             [output_key, "Y_maxf"],
-            lambda x, xmax: torch.mean(F.relu(x[:, :, args.controlled_outputs] - xmax + args.tighten)),
+            lambda x, xmax: torch.mean(F.relu(x - xmax + args.tighten)),
             weight=args.Q_con_y,
             name="observation_upper_bound",
         )
@@ -316,7 +315,7 @@ def get_objective_terms(args, policy):
         reference_loss = Objective(
             [output_key, "Rf", "Y_minf", "Y_maxf"],
             lambda pred, ref, xmin, xmax: F.mse_loss(
-                pred[:, :, args.controlled_outputs] * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),
+                pred * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),
                 ref * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),
             ),
             weight=args.Q_r,
@@ -377,12 +376,12 @@ if __name__ == "__main__":
     """
     # sample raw dataset
     data = {
-        "Y_max": xmax*np.ones([nsim, nx]),
-        "Y_min": xmin*np.ones([nsim, nx]),
+        "Y_max": xmax*np.ones([nsim, ny]),
+        "Y_min": xmin*np.ones([nsim, ny]),
         "U_max": umax*np.ones([nsim, nu]),
         "U_min": umin*np.ones([nsim, nu]),
         "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=20, xmax=0.9, xmin=0.8)[:nsim, :],
-        "Y_ctrl_": 2 * np.random.randn(nsim, nx),
+        "Y_ctrl_": 2 * np.random.randn(nsim, ny),
         "U": np.random.randn(nsim, nu),
     }
     # get dataloaders
@@ -394,8 +393,8 @@ if __name__ == "__main__":
     # # #  Component Models
     """
     # update model dimensions and input output keys
-    # dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_policy'
-    dynamics_model._input_keys[2] = ('U_pred_policy', 'Uf')
+    dynamics_model._input_keys[2] = ('U_pred_policy', 'Uf')     # this key matching links policy output with control inputs to the model
+    dynamics_model._input_keys[0] = ('Rf', 'Yf')        # this key is needed to infer the prediction horizon from the dataset
     estimator._input_keys[0] = ('Y_ctrl_p', 'Yp')
     estimator.data_dims = dims
     estimator.nsteps = args.nsteps
@@ -417,11 +416,6 @@ if __name__ == "__main__":
     noise_generator = NoiseGenerator(
         ratio=0.05, keys=["Y_pred_dynamics"], name="_noise"
     )
-    # move models to device
-    signal_generator = signal_generator.to(device)
-    estimator = estimator.to(device)
-    policy = policy.to(device)
-    dynamics_model = dynamics_model.to(device)
 
     """
     # # #  Differentiable Predictive Control Problem Definition
@@ -449,26 +443,25 @@ if __name__ == "__main__":
     """
     # select optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    # plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
     # define callback
-    # visualizer = VisualizerClosedLoop(
-    #     policy,
-    #     plot_keys,
-    #     args.controlled_outputs,
-    #     args.verbosity,
-    #     savedir=args.savedir,
-    # )
-    # policy.input_keys[0] = "Yp"  # hack for policy input key compatibility w/ simulator
-    # simulator = ClosedLoopSimulator(
-    #     model,
-    #     policy,
-    #     dynamics_model,
-    #     train_data.dataset,
-    #     dev_data.dataset,
-    #     test_data.dataset,
-    #     eval_sim=not args.skip_eval_sim,
-    #     device=device,
-    # )
+    plot_keys = ["Y_pred_dynamics", "U_pred_policy"]  # variables to be plotted
+    visualizer = VisualizerClosedLoop(
+        policy,
+        plot_keys,
+        args.verbosity,
+        savedir=args.savedir,
+    )
+    policy.input_keys[0] = "Yp"  # hack for policy input key compatibility w/ simulator
+    simulator = ClosedLoopSimulator(
+        model,
+        policy,
+        dynamics_model,
+        train_data.dataset,
+        dev_data.dataset,
+        test_data.dataset,
+        eval_sim=not args.skip_eval_sim,
+        device=device,
+    )
 
     # define trainer
     trainer = Trainer(
@@ -478,7 +471,7 @@ if __name__ == "__main__":
         test_data,
         optimizer,
         logger=logger,
-        # callback=SysIDCallback(simulator, visualizer),
+        callback=ControlCallback(simulator, visualizer),
         eval_metric="nstep_dev_loss",
         epochs=args.epochs,
         patience=args.patience,

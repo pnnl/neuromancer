@@ -11,9 +11,10 @@ mpLP problem formulation:
     A, b, E = fixed problem parameters
     F = set of admissible parameters \Theta
 
-The objective is to find an explicit optimizer (solution map) x = h(\Theta) that optimizes the value function J(\Theta)
+The objective is to find an explicit optimizer (solution map) x = h(\Theta)
+optimizing the value function J(\Theta)
 
-We consider a tutorial mpLP problem with benchmark solution using Yalmip and MPT3 toolbox in Matlab
+We consider a mpLP problem with benchmark solution using Yalmip and MPT3 toolbox in Matlab
     https://yalmip.github.io/tutorial/multiparametricprogramming/
 
 Further reading:
@@ -29,7 +30,6 @@ Further reading:
 """
 
 import numpy as np
-import copy
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import torch
@@ -134,34 +134,6 @@ def get_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
     )
 
     return (train_data, dev_data, test_data), train_data.dataset.dims
-
-
-def plot_solution(model, xmin=-2, xmax=2, save_path=None):
-    """
-    plots solution landscape for problem with 2 parameters and 1 decision variable
-    :param net:
-    :param xmin:
-    :param xmax:
-    :param save_path:
-    :return:
-    """
-    x = torch.arange(xmin, xmax, 0.1)
-    y = torch.arange(xmin, xmax, 0.1)
-    xx, yy = torch.meshgrid(x, y)
-    features = torch.stack([xx, yy]).transpose(0, 2)
-    uu = model.net(features)
-    plot_u = uu.detach().numpy()[:, :, 0]
-
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), plot_u,
-                           cmap=cm.viridis,
-                           linewidth=0, antialiased=False)
-    ax.set(ylabel='$x_1$')
-    ax.set(xlabel='$x_2$')
-    ax.set(zlabel='$u$')
-    ax.set(title='Solution landscape')
-    if save_path is not None:
-        plt.savefig(save_path + '/solution.pdf')
 
 
 if __name__ == "__main__":

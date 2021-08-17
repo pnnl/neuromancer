@@ -215,6 +215,7 @@ class ClosedLoopSimulator(Simulator):
         test_data,
         norm_stats=None,
         eval_sim=True,
+        input_keys=None,
         device="cpu",
     ):
         super().__init__(
@@ -231,19 +232,21 @@ class ClosedLoopSimulator(Simulator):
         self.emulator = emulator
         self.policy = policy
         self.ninit = 0
-        self.nsim = self.train_data.dataset.nsteps
-        self.train_loop = self.train_data.dataset.get_full_sequence()
+        self.nsim = self.train_data.nsteps
+        self.train_loop = self.train_data.get_full_sequence()
+        self.train_data = self.train_data.get_full_batch()
         # self.train_data = next(iter(self.train_data))
-        self.dev_loop = self.dev_data.dataset.get_full_sequence()
+        self.dev_loop = self.dev_data.get_full_sequence()
+        self.dev_data = self.dev_data.get_full_batch()
         # self.dev_data = next(iter(self.dev_data))
-        self.test_loop = self.test_data.dataset.get_full_sequence()
+        self.test_loop = self.test_data.get_full_sequence()
+        self.test_data = self.test_data.get_full_batch()
         # self.test_data = next(iter(self.test_data))
         self.norm_stats = norm_stats or {}
         if isinstance(emulator, EmulatorBase):
             self.x0 = self.emulator.x0
         elif isinstance(emulator, nn.Module):
             self.x0 = torch.zeros([1, self.emulator.nx])
-
         self.device = device
 
     def select_step_data(self, data, i):
@@ -266,11 +269,14 @@ class ClosedLoopSimulator(Simulator):
         pass
 
     def dev_eval(self):
-        if self.eval_sim:
-            dev_loop_output = self.model(self.dev_loop)
-        else:
-            dev_loop_output = dict()
-        return dev_loop_output
+        pass
+
+    # def dev_eval(self):
+    #     if self.eval_sim:
+    #         dev_data_output = self.model(self.dev_data)
+    #     else:
+    #         dev_data_output = dict()
+    #     return dev_data_output
 
     def test_eval(self):
         all_output = dict()

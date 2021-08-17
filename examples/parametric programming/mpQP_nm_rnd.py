@@ -11,10 +11,10 @@ mpLP problem formulation:
     A, b, E = fixed problem parameters
     F = set of admissible parameters \Theta
 
-The objective is to find an explicit optimizer (solution map):
-x = h(\Theta) that optimizes the value function J(\Theta)
+The objective is to find an explicit optimizer (solution map) x = h(\Theta)
+optimizing the value function J(\Theta)
 
-We consider a tutorial mpLP problem with benchmark solution using Yalmip and MPT3 toolbox in Matlab
+We consider a mpLP problem with benchmark solution using Yalmip and MPT3 toolbox in Matlab
     https://yalmip.github.io/tutorial/multiparametricprogramming/
 
 Further reading:
@@ -30,9 +30,6 @@ Further reading:
 """
 
 import numpy as np
-import copy
-import matplotlib.pyplot as plt
-from matplotlib import cm
 import torch
 from torch.utils.data import DataLoader
 import slim

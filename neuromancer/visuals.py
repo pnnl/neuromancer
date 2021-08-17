@@ -209,12 +209,15 @@ class VisualizerTrajectories(Visualizer):
 
 class VisualizerClosedLoop(Visualizer):
 
-    def __init__(self, policy, plot_keys, ctrl_outputs, verbosity, savedir='test_control'):
+    def __init__(self, policy, plot_keys, verbosity, ctrl_outputs=None, savedir='test_control'):
         self.model = policy
         self.verbosity = verbosity
         self.plot_keys = plot_keys
         self.ctrl_outputs = ctrl_outputs
         self.savedir = savedir
+
+    def train_output(self, trainer, epoch_policy):
+        pass
 
     def plot_matrix(self):
         if hasattr(self.model, 'net'):
@@ -275,10 +278,11 @@ class VisualizerClosedLoop(Visualizer):
         Ymax = outputs.get("Ymax", None)
         Umin = outputs.get("Umin", None)
         Umax = outputs.get("Umax", None)
+        ctrl_outputs = outputs['Y'].shape[1] if self.ctrl_outputs is None else self.ctrl_outputs
 
         plot.pltCL(Y=outputs['Y'], U=outputs['U'], D=D, R=R,
                    Ymin=Ymin, Ymax=Ymax, Umin=Umin, Umax=Umax,
-                   ctrl_outputs=self.ctrl_outputs,
+                   ctrl_outputs=ctrl_outputs,
                    figname=os.path.join(self.savedir, 'CL_control.png'))
         self.plot_matrix()
         return dict()
@@ -330,9 +334,7 @@ class VisualizerDobleIntegrator(Visualizer):
                 policy_list.append(best_policy)
             plot_cl_train(X_list, U_list, nstep=self.nstep, save_path=self.savedir)
             plot_policy_train(A, B, policy, policy_list, save_path=self.savedir)
-
         return dict()
-
 
     def eval(self, trainer):
 
@@ -345,7 +347,6 @@ class VisualizerDobleIntegrator(Visualizer):
         # plot policy surface
         plot_policy(policy.net, save_path=self.savedir)
         # loss landscape and contraction regions
-        plot_loss_DPC(trainer.model, trainer.dataset, xmin=-5, xmax=5,
+        plot_loss_DPC(trainer.model, trainer.train_data, xmin=-2, xmax=2,
                   save_path=self.savedir)
-
         return dict()

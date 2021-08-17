@@ -67,7 +67,6 @@ class SysIDCallback(Callback):
             trainer.logger.log_artifacts(plots)
 
 
-
 class ControlCallback(SysIDCallback):
     """
     Callbacks for closed loop control training. May refactor to put visualization and simulation
@@ -79,6 +78,9 @@ class ControlCallback(SysIDCallback):
         self.epoch_model = dict()
         self.epoch_policy = dict()
 
+    # def begin_eval(self, trainer, output):
+    #     pass
+
     def end_epoch(self, trainer, output):
         # self.epoch_output[trainer.current_epoch] = output
         self.epoch_model[trainer.current_epoch] = deepcopy(trainer.model.state_dict())
@@ -87,10 +89,36 @@ class ControlCallback(SysIDCallback):
 
     def end_train(self, trainer, output):
         plots = self.visualizer.train_output(trainer, self.epoch_policy) if self.visualizer is not None else {}
-        trainer.logger.log_artifacts(plots)
+        if plots is not None:
+            trainer.logger.log_artifacts(plots)
 
     def end_test(self, trainer, output):
         output.update(self.simulator.test_eval())
+        if self.visualizer is not None:
+            plots = self.visualizer.eval(trainer)
+            trainer.logger.log_artifacts(plots)
+
+
+class DoubleIntegratorCallback(Callback):
+    def __init__(self, visualizer):
+        super().__init__()
+        self.visualizer = visualizer
+        self.epoch_model = dict()
+        self.epoch_policy = dict()
+
+    def end_epoch(self, trainer, output):
+        # save current copies of the system model and control policy
+        self.epoch_model[trainer.current_epoch] = deepcopy(trainer.model.state_dict())
+        self.epoch_policy[trainer.current_epoch] = \
+            deepcopy(trainer.model.components[1].state_dict())
+
+    def end_train(self, trainer, output):
+        plots = self.visualizer.train_output(trainer, self.epoch_policy) \
+            if self.visualizer is not None else {}
+        if plots is not None:
+            trainer.logger.log_artifacts(plots)
+
+    def end_test(self, trainer, output):
         if self.visualizer is not None:
             plots = self.visualizer.eval(trainer)
             trainer.logger.log_artifacts(plots)

@@ -239,11 +239,11 @@ class SequenceDataset(Dataset):
     def get_full_batch(self):
         return {
             **{
-                k + "p": self.batched_data[:-1, :, self._vslices[k]]
+                k + "p": self.batched_data[:-1, :, self._vslices[k]].transpose(0, 1)
                 for k in self.variables
             },
             **{
-                k + "f": self.batched_data[1:, :, self._vslices[k]]
+                k + "f": self.batched_data[1:, :, self._vslices[k]].transpose(0, 1)
                 for k in self.variables
             },
             "name": "nstep_" + self.name,

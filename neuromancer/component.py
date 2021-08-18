@@ -119,7 +119,7 @@ class Component(nn.Module):
         """
         # reverse mapping
         rvalues, rkeys = zip(*self._input_keys)
-        return rvalues
+        return list(rvalues)
 
     @property
     def output_keys(self):

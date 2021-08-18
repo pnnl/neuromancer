@@ -18,7 +18,6 @@ from neuromancer.dataset import read_file, normalize_data, split_sequence_data, 
 from neuromancer.constraint import Variable
 
 
-
 def arg_sys_id_problem(prefix='', system='CSTR'):
     """
     Command line parser for system identification problem arguments
@@ -158,8 +157,7 @@ if __name__ == "__main__":
     # # # # # # # # # # # # # # # # # # #
     """
 
-    # for available systems in PSL library check: psl.systems.keys()
-    # for available datasets in PSL library check: psl.datasets.keys()
+    # for available systems and datasets in PSL library check: psl.systems.keys() and psl.datasets.keys()
     system = 'aero'         # keyword of selected system
     # load argument parser
     parser = arg.ArgParser(parents=[arg_sys_id_problem(system=system)])
@@ -197,6 +195,8 @@ if __name__ == "__main__":
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data
 
+    ny = dims['Y'][1]
+    nu = dims['U'][1]
 
     """
     # # # # # # # # # # # # # # # # # # #
@@ -229,9 +229,6 @@ if __name__ == "__main__":
     )
     # x0 = estimator(Yp)
     # x0: initial values of latent variables estimated from time lagged outputs Yp
-
-    ny = dims['Y'][1]
-    nu = dims['U'][1]
 
     # neural network blocks
     fx = blocks.RNN(nx, nx, linear_map=linmap,
@@ -268,7 +265,7 @@ if __name__ == "__main__":
     est_reg = Variable(f"reg_error_{estimator.name}")
     dyn_reg = Variable(f"reg_error_{dynamics_model.name}")
 
-    # define loss function terms and constraints via operator overlad
+    # define loss function terms and constraints via operator overload
     reference_loss = args.Q_y*((yhat == y)^2)
     estimator_loss = args.Q_e*((x0[1:] == xhat[-1, :-1, :])^2)
     state_smoothing = args.Q_dx*((xhat[1:] == xhat[:-1])^2)

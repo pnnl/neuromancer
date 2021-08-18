@@ -11,9 +11,10 @@ mpLP problem formulation:
     A, b, E = fixed problem parameters
     F = set of admissible parameters \Theta
 
-The objective is to find an explicit optimizer (solution map) x = h(\Theta) that optimizes the value function J(\Theta)
+The objective is to find an explicit optimizer (solution map) x = h(\Theta)
+optimizing the value function J(\Theta)
 
-We consider a tutorial mpLP problem with benchmark solution using Yalmip and MPT3 toolbox in Matlab
+We consider a mpLP problem with benchmark solution using Yalmip and MPT3 toolbox in Matlab
     https://yalmip.github.io/tutorial/multiparametricprogramming/
 
 Further reading:
@@ -26,36 +27,24 @@ Further reading:
         https://deepblue.lib.umich.edu/bitstream/handle/2027.42/47907/10107_2005_Article_BF01581642.pdf?sequence=1
     Multiparametric (MPT3) toolbox - solving parametric programming problems in Matlab
         https://ieeexplore.ieee.org/abstract/document/6669862
-
-
-    TODO: create method for dataset name = 'optim' for static optimization problems
-    # TODO: custom class for static solution maps: constructed via component class wrapper on blocks
-    # solution_map = sol_map(linmap,
-    #         nonlinmap,
-    #         bias=args.bias,
-    #         n_layers=args.n_layers,
-    #         activation=activation,
-    #         input_keys={'theta': 'thetap'},
-    #         name='sol_map')
-
 """
 
 import numpy as np
-import copy
 import matplotlib.pyplot as plt
 from matplotlib import cm
-
 import torch
+from torch.utils.data import DataLoader
 import slim
-from neuromancer import blocks
+
 from neuromancer.trainer import Trainer
-from neuromancer.problem import Problem, Objective
+from neuromancer.problem import Problem
 import neuromancer.arg as arg
-from neuromancer.datasets import Dataset
 from neuromancer.constraint import Variable
 from neuromancer.activations import activations
 from neuromancer import policies
 from neuromancer.loggers import BasicLogger
+from neuromancer.dataset import normalize_data, split_static_data, StaticDataset
+from neuromancer.plot import plot_loss_mpp, plot_solution_mpp
 
 
 def arg_mpLP_problem(prefix=''):
@@ -93,71 +82,58 @@ def arg_mpLP_problem(prefix=''):
     return parser
 
 
-def plot_loss(model, dataset, xmin=-2, xmax=2, save_path=None):
+def get_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
+    """This will generate dataloaders for a given dictionary of data.
+    Dataloaders are hard-coded for full-batch training to match NeuroMANCER's training setup.
+
+    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
+        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
+        computed over the number of sequences rather than their lengths.
+    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
+    :param split_ratio: (list float) percentage of data in train and development splits; see
+        function `split_sequence_data` for more info.
     """
-    plots loss function for problem with 2 parameters
-    :param model:
-    :param dataset:
-    :param xmin:
-    :param xmax:
-    :param save_path:
-    :return:
-    """
-    x = torch.arange(xmin, xmax, 0.1)
-    y = torch.arange(xmin, xmax, 0.1)
-    xx, yy = torch.meshgrid(x, y)
-    dataset_plt = copy.deepcopy(dataset)
-    dataset_plt.dims['nsim'] = 1
-    Loss = np.ones([x.shape[0], y.shape[0]]) * np.nan
 
-    for i in range(x.shape[0]):
-        for j in range(y.shape[0]):
-            # check loss
-            X = torch.stack([x[[i]], y[[j]]]).reshape(1, 1, -1)
-            if dataset.nsteps == 1:
-                dataset_plt.train_data['thetap'] = X
-                step = model(dataset_plt.train_data)
-                Loss[i, j] = step['nstep_train_loss'].detach().numpy()
+    if norm_type is not None:
+        data, _ = normalize_data(data, norm_type)
+    train_data, dev_data, test_data = split_static_data(data, split_ratio)
 
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Loss,
-                           cmap=cm.viridis,
-                           linewidth=0, antialiased=False)
-    ax.set(ylabel='$x_1$')
-    ax.set(xlabel='$x_2$')
-    ax.set(zlabel='$L$')
-    ax.set(title='Loss landscape')
-    # plt.colorbar(surf)
-    if save_path is not None:
-        plt.savefig(save_path + '/loss.pdf')
+    train_data = StaticDataset(
+        train_data,
+        name="train",
+    )
+    dev_data = StaticDataset(
+        dev_data,
+        name="dev",
+    )
+    test_data = StaticDataset(
+        test_data,
+        name="test",
+    )
 
+    train_data = DataLoader(
+        train_data,
+        batch_size=len(train_data),
+        shuffle=False,
+        collate_fn=train_data.collate_fn,
+        num_workers=num_workers,
+    )
+    dev_data = DataLoader(
+        dev_data,
+        batch_size=len(dev_data),
+        shuffle=False,
+        collate_fn=dev_data.collate_fn,
+        num_workers=num_workers,
+    )
+    test_data = DataLoader(
+        test_data,
+        batch_size=len(test_data),
+        shuffle=False,
+        collate_fn=test_data.collate_fn,
+        num_workers=num_workers,
+    )
 
-def plot_solution(model, xmin=-2, xmax=2, save_path=None):
-    """
-    plots solution landscape for problem with 2 parameters and 1 decision variable
-    :param net:
-    :param xmin:
-    :param xmax:
-    :param save_path:
-    :return:
-    """
-    x = torch.arange(xmin, xmax, 0.1)
-    y = torch.arange(xmin, xmax, 0.1)
-    xx, yy = torch.meshgrid(x, y)
-    features = torch.stack([xx, yy]).transpose(0, 2)
-    uu = model.net(features)
-    plot_u = uu.detach().numpy()[:, :, 0]
-
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), plot_u,
-                           cmap=cm.viridis,
-                           linewidth=0, antialiased=False)
-    ax.set(ylabel='$x_1$')
-    ax.set(xlabel='$x_2$')
-    ax.set(zlabel='$u$')
-    ax.set(title='Solution landscape')
-    if save_path is not None:
-        plt.savefig(save_path + '/solution.pdf')
+    return (train_data, dev_data, test_data), train_data.dataset.dims
 
 
 if __name__ == "__main__":
@@ -169,8 +145,6 @@ if __name__ == "__main__":
     args, grps = parser.parse_arg_groups()
     args.bias = True
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
-
-    np.random.seed(args.data_seed)
 
     """
     # # #  LP problem matrices
@@ -190,40 +164,33 @@ if __name__ == "__main__":
     """
     #  randomly sampled parameters theta generating superset of:
     #  theta_samples.min() <= theta <= theta_samples.max()
+    np.random.seed(args.data_seed)
     nsim = 50000  # number of datapoints: increase sample density for more robust results
     sequences = {"theta": 0.5 * np.random.randn(nsim, n_theta)}
-    dataset = Dataset(nsim=nsim, device='cpu', sequences=sequences, name='openloop')
 
-    # # # TODO manual fix for static datasets
-    # TODO: do we need to have datasets specific to static optimization?
-    #  to support batches, we don't need to have loop datasets
-    dataset.train_data['thetap'] = dataset.train_data['thetap'][0, :, :]
-    dataset.dev_data['thetap'] = dataset.dev_data['thetap'][0, :, :]
-    dataset.test_data['thetap'] = dataset.test_data['thetap'][0, :, :]
-    dataset.train_loop['thetap'] = dataset.train_loop['thetap'][:, 0, :]
-    dataset.dev_loop['thetap'] = dataset.dev_loop['thetap'][:, 0, :]
-    dataset.test_loop['thetap'] = dataset.test_loop['thetap'][:, 0, :]
+    nstep_data, dims = get_dataloaders(sequences)
+    train_data, dev_data, test_data = nstep_data
 
     """
     # # #  mpLP problem formulation in Neuromancer
     """
     # define solution map as MLP policy
-    dataset.dims['U'] = (nsim, n_x)  # defining expected dimensions of the solution variable: internal policy key 'U'
+    dims['U'] = (nsim, n_x)  # defining expected dimensions of the solution variable: internal policy key 'U'
     activation = activations['relu']
     linmap = slim.maps['linear']
     sol_map = policies.MLPPolicy(
-        {'thetap': (n_theta,), 'nu': (n_x,), **dataset.dims},
+        {**dims},
         bias=args.bias,
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=["thetap"],
+        input_keys=["theta"],
         name='sol_map',
     )
 
     # variables
     x = Variable(f"U_pred_{sol_map.name}")  # decision variable as output from the solution map
-    theta = Variable('thetap')  # sampled parametric variable
+    theta = Variable('theta')  # sampled parametric variable
     # objective function:  J = c*x
     loss = args.Q * (x@c.t() == 0)  # weighted loss to be penalized
     loss.name = 'loss'
@@ -244,9 +211,9 @@ if __name__ == "__main__":
     """
     args.savedir = 'test_mpLP'
     args.verbosity = 1
-    metrics = ["nstep_dev_loss",
-               "nstep_dev_ref_loss"]
-    logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
+    metrics = ["dev_loss"]
+    logger = BasicLogger(args=args, savedir=args.savedir,
+                         verbosity=args.verbosity, stdout=metrics)
     logger.args.system = 'mpLP'
 
     """
@@ -254,15 +221,22 @@ if __name__ == "__main__":
     """
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
+    # define trainer
     trainer = Trainer(
         model,
-        dataset,
+        train_data,
+        dev_data,
+        test_data,
         optimizer,
+        logger=logger,
         epochs=args.epochs,
+        train_metric="train_loss",
+        dev_metric="dev_loss",
+        test_metric="test_loss",
+        eval_metric="dev_loss",
         patience=args.patience,
         warmup=args.warmup,
-        eval_metric="nstep_dev_loss",
-        logger=logger,
+        device=device,
     )
 
     # Train mpLP solution map
@@ -270,5 +244,5 @@ if __name__ == "__main__":
     best_outputs = trainer.test(best_model)
 
     # plots
-    plot_loss(model, dataset, xmin=-2, xmax=2, save_path=None)
-    plot_solution(sol_map, xmin=-2, xmax=2, save_path=None)
+    plot_loss_mpp(model, train_data, xmin=-2, xmax=2, save_path=None)
+    plot_solution_mpp(sol_map, xmin=-2, xmax=2, save_path=None)

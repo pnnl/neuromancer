@@ -26,9 +26,9 @@ import neuromancer.arg as arg
 from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
 from torch.utils.data import DataLoader
 from neuromancer.loggers import BasicLogger
-from neuromancer.visuals import VisualizerClosedLoop, VisualizerDobleIntegrator
-from neuromancer.callbacks import SysIDCallback, ControlCallback
-from neuromancer.plot import plot_policy, cl_simulate, plot_loss, plot_cl
+from neuromancer.visuals import VisualizerDobleIntegrator
+from neuromancer.callbacks import SysIDCallback, ControlCallback, DoubleIntegratorCallback
+from neuromancer.plot import plot_policy, cl_simulate, plot_loss_DPC, plot_cl
 from neuromancer.simulators import ClosedLoopSimulator
 
 
@@ -75,7 +75,6 @@ def arg_dpc_problem(prefix=''):
     gp.add("-warmup", type=int, default=10,
            help="Number of epochs to wait before enacting early stopping policy.")
     return parser
-
 
 
 def get_sequence_dataloaders(
@@ -147,193 +146,6 @@ def get_sequence_dataloaders(
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
-# def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
-#     x = torch.arange(xmin, xmax, 0.2)
-#     y = torch.arange(xmin, xmax, 0.2)
-#     xx, yy = torch.meshgrid(x, y)
-#     dataset_plt = copy.deepcopy(dataset)
-#     dataset_plt.dims['nsim'] = 1
-#     Loss = np.ones([x.shape[0], y.shape[0]])*np.nan
-#     # Alpha contraction coefficient: ||x_k+1|| = alpha * ||x_k||
-#     Alpha = np.ones([x.shape[0], y.shape[0]])*np.nan
-#     # ||A+B*Kx||
-#     Phi_norm = np.ones([x.shape[0], y.shape[0]])*np.nan
-#     policy = model.components[1].net
-#     A = model.components[2].fx.linear.weight
-#     B = model.components[2].fu.linear.weight
-#     Anp = A.detach().numpy()
-#     Bnp = B.detach().numpy()
-#     for i in range(x.shape[0]):
-#         for j in range(y.shape[0]):
-#             # check loss
-#             X = torch.stack([x[[i]], y[[j]]]).reshape(1,1,-1)
-#             if dataset.nsteps == 1:
-#                 dataset_plt['Yp'] = X
-#                 step = model(dataset_plt.train_data)
-#                 Loss[i,j] = step['nstep_train_loss'].detach().numpy()
-#             # check contraction
-#             x0 = X.view(1, X.shape[-1])
-#             Astar, bstar, _, _, _ = lpv_batched(policy, x0)
-#             BKx = torch.mm(B, Astar[:, :, 0])
-#             phi = A + BKx
-#             Phi_norm[i,j] = torch.norm(phi, 2).detach().numpy()
-#             # print(torch.matmul(Astar[:, :, 0], x0.transpose(0, 1))+bstar)
-#             u = policy(x0).detach().numpy()
-#             xnp = x0.transpose(0, 1).detach().numpy()
-#             xnp_n = np.matmul(Anp, xnp) + np.matmul(Bnp, u)
-#             if not np.linalg.norm(xnp) == 0:
-#                 Alpha[i,j] = np.linalg.norm(xnp_n)/np.linalg.norm(xnp)
-#             else:
-#                 Alpha[i, j] = 0
-#
-#     if dataset.nsteps == 1:
-#         fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-#         surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Loss,
-#                                cmap=cm.viridis,
-#                                linewidth=0, antialiased=False)
-#         ax.set(ylabel='$x_1$')
-#         ax.set(xlabel='$x_2$')
-#         ax.set(zlabel='$L$')
-#         ax.set(title='Loss landscape')
-#         # plt.colorbar(surf)
-#         if save_path is not None:
-#             plt.savefig(save_path+'/loss.pdf')
-#
-#     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-#     surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Phi_norm,
-#                            cmap=cm.viridis,
-#                            linewidth=0, antialiased=False)
-#     ax.set(ylabel='$x_1$')
-#     ax.set(xlabel='$x_2$')
-#     ax.set(zlabel='$Phi$')
-#     ax.set(title='CLS 2-norm')
-#     if save_path is not None:
-#         plt.savefig(save_path+'/phi_norm.pdf')
-#
-#     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-#     surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Alpha,
-#                            cmap=cm.viridis,
-#                            linewidth=0, antialiased=False)
-#     ax.set(ylabel='$x_1$')
-#     ax.set(xlabel='$x_2$')
-#     ax.set(zlabel='$alpha$')
-#     ax.set(title='CLS contraction')
-#     if save_path is not None:
-#         plt.savefig(save_path+'/contraction.pdf')
-#
-#     fig1, ax1 = plt.subplots()
-#     cm_map = plt.cm.get_cmap('RdBu_r')
-#     im1 = ax1.imshow(Alpha, vmin=abs(Alpha).min(), vmax=abs(Alpha).max(),
-#                      cmap=cm_map, origin='lower',
-#                      extent=[xx.detach().numpy().min(), xx.detach().numpy().max(),
-#                              yy.detach().numpy().min(), yy.detach().numpy().max()],
-#                      interpolation="bilinear")
-#     fig1.colorbar(im1, ax=ax1)
-#     ax1.set(ylabel='$x_1$')
-#     ax1.set(xlabel='$x_2$')
-#     ax1.set(title='CLS contraction regions')
-#     im1.set_clim(0., 2.)  #  color limit
-#     if save_path is not None:
-#         plt.savefig(save_path+'/contraction_regions.pdf')
-#
-#
-# def plot_policy(net, xmin=-5, xmax=5, save_path=None):
-#     x = torch.arange(xmin, xmax, 0.1)
-#     y = torch.arange(xmin, xmax, 0.1)
-#     xx, yy = torch.meshgrid(x, y)
-#     features = torch.stack([xx, yy]).transpose(0, 2)
-#     uu = net(features)
-#     plot_u = uu.detach().numpy()[:,:,0]
-#
-#     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-#     surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), plot_u,
-#                            cmap=cm.viridis,
-#                            linewidth=0, antialiased=False)
-#     ax.set(ylabel='$x_1$')
-#     ax.set(xlabel='$x_2$')
-#     ax.set(zlabel='$u$')
-#     ax.set(title='Policy landscape')
-#     if save_path is not None:
-#         plt.savefig(save_path+'/policy.pdf')
-#
-#
-# def cl_simulate(A, B, net, nstep=50, x0=np.ones([2, 1]), save_path=None):
-#     """
-#
-#     :param A:
-#     :param B:
-#     :param net:
-#     :param nstep:
-#     :param x0:
-#     :return:
-#     """
-#     Anp = A.detach().numpy()
-#     Bnp = B.detach().numpy()
-#     x = x0
-#     X = [x]
-#     U = []
-#     for k in range(nstep+1):
-#         x_torch = torch.tensor(x).float().transpose(0, 1)
-#         # taking a first control action based on RHC principle
-#         u = net(x_torch).detach().numpy()[:, [0]]
-#         # compute feedback gain
-#         Astar, bstar, _, _, _ = lpv_batched(net, x_torch)
-#         Kx = torch.mm(B, Astar[:, :, 0])
-#         # closed loop dynamics
-#         x = np.matmul(Anp, x) + np.matmul(Bnp, u)
-#         X.append(x)
-#         U.append(u)
-#     Xnp = np.asarray(X)[:, :, 0]
-#     Unp = np.asarray(U)[:, :, 0]
-#
-#     fig, ax = plt.subplots(2, 1)
-#     ax[0].plot(Xnp, label='x', linewidth=2)
-#     ax[0].set(ylabel='$x$')
-#     ax[0].set(xlabel='time')
-#     ax[0].grid()
-#     ax[0].set_xlim(0, nstep)
-#     ax[1].plot(Unp, label='u', drawstyle='steps',  linewidth=2)
-#     ax[1].set(ylabel='$u$')
-#     ax[1].set(xlabel='time')
-#     ax[1].grid()
-#     ax[1].set_xlim(0, nstep)
-#     plt.tight_layout()
-#     if save_path is not None:
-#         plt.savefig(save_path+'/closed_loop_dpc.pdf')
-#
-#
-# def lpv_batched(fx, x):
-#     x_layer = x
-#     Aprime_mats = []
-#     activation_mats = []
-#     bprimes = []
-#
-#     for nlin, lin in zip(fx.nonlin, fx.linear):
-#         A = lin.effective_W()  # layer weight
-#         b = lin.bias if lin.bias is not None else torch.zeros(A.shape[-1])
-#         Ax = torch.matmul(x_layer, A) + b  # affine transform
-#         zeros = Ax == 0
-#         lambda_h = nlin(Ax) / Ax  # activation scaling
-#         lambda_h[zeros] = 0.
-#         lambda_h_mats = [torch.diag(v) for v in lambda_h]
-#         activation_mats += lambda_h_mats
-#         lambda_h_mats = torch.stack(lambda_h_mats)
-#         x_layer = Ax * lambda_h
-#         Aprime = torch.matmul(A, lambda_h_mats)
-#         Aprime_mats += [Aprime]
-#         bprime = lambda_h * b
-#         bprimes += [bprime]
-#
-#     # network-wise parameter varying linear map:  A* = A'_L ... A'_1
-#     Astar = Aprime_mats[0]
-#     bstar = bprimes[0] # b x nx
-#     for Aprime, bprime in zip(Aprime_mats[1:], bprimes[1:]):
-#         Astar = torch.bmm(Astar, Aprime)
-#         bstar = torch.bmm(bstar.unsqueeze(-2), Aprime).squeeze(-2) + bprime
-#
-#     return Astar, bstar, Aprime_mats, bprimes, activation_mats
-
-
 if __name__ == "__main__":
 
     """
@@ -342,7 +154,6 @@ if __name__ == "__main__":
     parser = arg.ArgParser(parents=[arg.log(),
                                     arg_dpc_problem()])
     args, grps = parser.parse_arg_groups()
-
     args.bias = True
 
     # problem dimensions
@@ -529,17 +340,11 @@ if __name__ == "__main__":
     model = model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
-    # TODO: update ClosedLoopSimulator to work with refactor
-    # simulator
-    # simulator = ClosedLoopSimulator(
-    #     model=model, emulator=dynamics_model, policy=model,
-    #     train_data=train_data, dev_data=dev_data, test_data=test_data,
-    # )
-    # # visualizer
-    # visualizer = VisualizerDobleIntegrator(train_data, model,
-    #                  args.verbosity, savedir=args.savedir,
-    #                  nstep=40, x0=1.5 * np.ones([2, 1]),
-    #                  training_visuals=False, trace_movie=True)
+    # visualizer
+    visualizer = VisualizerDobleIntegrator(train_data, model,
+                     args.verbosity, savedir=args.savedir,
+                     nstep=40, x0=1.5 * np.ones([2, 1]),
+                     training_visuals=False, trace_movie=False)
 
     # trainer
     trainer = Trainer(
@@ -552,7 +357,7 @@ if __name__ == "__main__":
         epochs=args.epochs,
         patience=args.patience,
         eval_metric='nstep_dev_loss',
-        # callback=ControlCallback(simulator, visualizer),
+        callback=DoubleIntegratorCallback(visualizer),
         warmup=args.warmup,
     )
     # Train control policy
@@ -560,14 +365,14 @@ if __name__ == "__main__":
     best_outputs = trainer.test(best_model)
 
     """
-    # # #  Plots and Analysis
+    # # #  Plots and Analysis from the VisualizerDobleIntegrator
     """
     # simulate and plot closed loop trajectories
     cl_simulate(A, B, policy.net, nstep=40, x0=1.5*np.ones([2, 1]))
     X, U = cl_simulate(A, B, policy.net, nstep=40, x0=1.5*np.ones([2, 1]))
-    plot_cl(X, U, nstep=40, save_path='test_control', trace_movie=True)
+    plot_cl(X, U, nstep=40, save_path='test_control', trace_movie=False)
     # plot policy surface
     plot_policy(policy.net, save_path='test_control')
     # loss landscape and contraction regions
-    # plot_loss(model, train_data, xmin=-5, xmax=5, save_path='test_control')
+    plot_loss_DPC(model, train_data, xmin=-2, xmax=2, save_path='test_control')
 

@@ -1,4 +1,3 @@
-debug mpLP and mpQP neuromancer scripts
 fix random seed to be shared between matlab and python scripts
 create multiparametric programming scripts for specific problems
 create tutorials for multiparametric programming

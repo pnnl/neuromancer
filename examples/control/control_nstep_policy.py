@@ -12,7 +12,7 @@ from neuromancer import policies, arg
 from neuromancer.activations import activations
 from neuromancer.problem import Problem, Objective
 from torch.utils.data import DataLoader
-from neuromancer.signals import WhiteNoisePeriodicGenerator, NoiseGenerator
+from neuromancer.signals import WhiteNoisePeriodicGenerator, DataNoiseGenerator
 from neuromancer.simulators import ClosedLoopSimulator
 from neuromancer.trainer import Trainer, freeze_weight, unfreeze_weight
 from neuromancer.visuals import VisualizerClosedLoop, VisualizerOpen
@@ -22,7 +22,6 @@ from neuromancer.callbacks import ControlCallback, SysIDCallback
 
 # TODO adhoc imports for testing plots
 import numpy as np
-import matplotlib.pyplot as plt
 from neuromancer.plot import pltCL
 
 
@@ -41,7 +40,7 @@ def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth
            help="select particular dataset with keyword")
     parser.add('-model_file', type=str, default=path,
                help='Path to pytorch pickled model.')
-    gp.add("-nsteps", type=int, default=32,
+    gp.add("-nsteps", type=int, default=8,
            help="prediction horizon.")
     gp.add("-nsim", type=int, default=10000,
            help="Number of time steps for full dataset. (ntrain + ndev + ntest)"
@@ -92,7 +91,7 @@ def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth
     gp.add("-perturbation", choices=["white_noise_sine_wave", "white_noise"], default="white_noise",
            help='System perturbation method.')
     #  LOSS
-    gp.add("-Q_sub", type=float, default=0.1,
+    gp.add("-Q_sub", type=float, default=0.0,
            help="Linear maps regularization weight.")
     gp.add("-Q_r", type=float, default=1.0,
            help="Reference tracking penalty weight")
@@ -104,7 +103,7 @@ def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth
            help="Output constraints penalty weight.")
     gp.add("-con_tighten", action="store_true",
            help='Tighten constraints')
-    gp.add("-tighten", type=float, default=0.00,
+    gp.add("-tighten", type=float, default=0.0,
            help="control action difference penalty weight")
     #  LOG
     gp.add("-logger", type=str, choices=["mlflow", "stdout"], default="stdout",
@@ -142,7 +141,7 @@ def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth
 
 
 def get_sequence_dataloaders(
-    data, nsteps, moving_horizon=False, norm_type="zero-one", split_ratio=None, num_workers=0,
+    data, nsteps, moving_horizon=False, norm_type=None, split_ratio=None, num_workers=0,
 ):
     """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
     data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
@@ -158,7 +157,8 @@ def get_sequence_dataloaders(
         function `split_sequence_data` for more info.
     """
 
-    data, _ = normalize_data(data, norm_type)
+    if norm_type is not None:
+        data, _ = normalize_data(data, norm_type)
     train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
 
     train_data = SequenceDataset(
@@ -249,7 +249,7 @@ def get_objective_terms(args, policy):
 
     reference_loss = Objective(
         [output_key, "Rf"],
-        lambda pred, ref: F.mse_loss(pred, ref),
+        lambda pred, ref: F.mse_loss(pred[:,:,1], ref[:,:,1]),
         weight=args.Q_r,
         name="ref_loss",
     )
@@ -326,7 +326,7 @@ def get_objective_terms(args, policy):
             name="ref_loss",
         )
 
-    objectives = [regularization, reference_loss]
+    objectives = [regularization, reference_loss, control_smoothing]
     constraints = [
         observation_lower_bound_penalty,
         observation_upper_bound_penalty,
@@ -355,6 +355,7 @@ if __name__ == "__main__":
     """
     # # #  Load trained dynamics model
     """
+    # TODO: fix issue that args.nsteps must be larger than estimator.window_size
     sysid_model = torch.load(args.model_file, pickle_module=dill,
                              map_location=torch.device(device))
     dynamics_model = sysid_model.components[1]
@@ -371,9 +372,9 @@ if __name__ == "__main__":
     nsim = 10000
     # # constraints bounds
     umin = 0
-    umax = 1
+    umax = 5
     xmin = 0
-    xmax = 1
+    xmax = 5
 
     """
     # # #  Dataset
@@ -384,11 +385,14 @@ if __name__ == "__main__":
         "Y_min": xmin*np.ones([nsim, ny]),
         "U_max": umax*np.ones([nsim, nu]),
         "U_min": umin*np.ones([nsim, nu]),
-        # "R": 0.8 * np.ones([nsim, nu]),
-        "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=20, xmax=0.9, xmin=0.8)[:nsim, :],
-        "Y_ctrl_": 2 * np.random.randn(nsim, ny),
+        "R": 0.9 * np.ones([nsim, nu]),
+        # "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=60, xmax=0.9, xmin=0.8)[:nsim, :],
+        "Y_ctrl_": 0.5 * np.random.randn(nsim, ny),
+        # "Y_ctrl_": np.random.uniform(low=0.0, high=1.5, size=(nsim, ny)),
         "U": np.random.randn(nsim, nu),
     }
+    # note: sampling of the past trajectories "Y_ctrl_" has a significant effect on learned control performance
+
     # get dataloaders
     nstep_data, loop_data, dims = get_sequence_dataloaders(data, args.nsteps)
     train_data, dev_data, test_data = nstep_data
@@ -406,21 +410,21 @@ if __name__ == "__main__":
     # define policy
     policy = get_policy_components(args, dims, dynamics_model, policy_name="policy")
 
-    # TODO: update signal generators to be components
-    # get feedback signal sampler
-    signal_generator = WhiteNoisePeriodicGenerator(
-        args.nsteps,
-        dynamics_model.fy.out_features,
-        xmax=(0.8, 0.7),
-        xmin=0.2,
-        min_period=1,
-        max_period=20,
-        name="Y_ctrl_",
-    )
-    # add output noise for robustness
-    noise_generator = NoiseGenerator(
-        ratio=0.05, keys=["Y_pred_dynamics"], name="_noise"
-    )
+    # TODO: test signal generators and add docstrings
+    # # get feedback signal sampler
+    # signal_generator = WhiteNoisePeriodicGenerator(
+    #     args.nsteps,
+    #     dynamics_model.fy.out_features,
+    #     xmax=(0.8, 0.7),
+    #     xmin=0.2,
+    #     min_period=1,
+    #     max_period=20,
+    #     name="Y_ctrl_",
+    # )
+    # # add output noise for robustness
+    # noise_generator = NoiseGenerator(
+    #     ratio=0.05, keys=["Y_pred_dynamics"], name="_noise"
+    # )
 
     """
     # # #  Differentiable Predictive Control Problem Definition
@@ -438,7 +442,6 @@ if __name__ == "__main__":
     )
     model = model.to(device)
 
-    # TODO: make freeze and unfreeze a method on nm models (components, blocks, weights)
     # train only policy component
     freeze_weight(model, module_names=args.freeze)
     unfreeze_weight(model, module_names=args.unfreeze)

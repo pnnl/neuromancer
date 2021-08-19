@@ -261,7 +261,6 @@ class ClosedLoopSimulator:
         for key in self.policy.input_keys:
             if key in data.keys():
                 step_data[key] = data[key][k - self.policy.nsteps:k, :, :]
-                # step_data[key] = step_data[key].reshape(1, step_data[key].shape[0], data[key].shape[2])
         return step_data
 
     def step_data_estimator(self, data, k):
@@ -276,7 +275,6 @@ class ClosedLoopSimulator:
             if key in data.keys():
                 # step_data[key] = data[key][k-self.estimator.window_size:k,:,:]
                 step_data[key] = data[key][k-self.policy.nsteps:k,:,:]
-                # step_data[key] = step_data[key].reshape(1, step_data[key].shape[0], data[key].shape[2])
         return step_data
 
     def step_data_model(self, data, k, input_keys):
@@ -290,7 +288,6 @@ class ClosedLoopSimulator:
         for key in input_keys:
             if key in data.keys():
                 step_data[key] = data[key][k, :, :]
-                # step_data[key] = step_data[key].reshape(1, step_data[key].shape[0], data[key].shape[2])
         return step_data
 
     def step_emulator(self, step_data):
@@ -332,7 +329,6 @@ class ClosedLoopSimulator:
         :return:
         """
         key = self.policy.output_keys[0]
-        # policy_out[key] = policy_out[key][:, [0], :]
         policy_out[key] = policy_out[key][[0], :, :]
         return policy_out
 

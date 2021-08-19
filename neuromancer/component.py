@@ -118,7 +118,10 @@ class Component(nn.Module):
         given a mapping; to see a component's canonical input keys, see class attribute `DEFAULT_INPUT_KEYS`.
         """
         # reverse mapping
-        rvalues, rkeys = zip(*self._input_keys)
+        if len(self._input_keys) == 0:
+            rvalues = []
+        else:
+            rvalues, _ = zip(*self._input_keys)
         return list(rvalues)
 
     @property

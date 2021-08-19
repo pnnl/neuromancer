@@ -302,6 +302,10 @@ def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
                     ax[j, 0].plot(R[:, rk], '--', linewidth=3, c=colors[rk]) if R[:, rk] is not None else None
                     ax[j, 0].plot(Ymin[:, rk], '--', linewidth=3, c='k') if Ymin[:, rk] is not None else None
                     ax[j, 0].plot(Ymax[:, rk], '--', linewidth=3, c='k') if Ymax[:, rk] is not None else None
+                else:
+                    ax[j, 0].plot(R, '--', linewidth=3, c='r') if R is not None else None
+                    ax[j, 0].plot(Ymin, '--', linewidth=3, c='k') if Ymin is not None else None
+                    ax[j, 0].plot(Ymax, '--', linewidth=3, c='k') if Ymax is not None else None
                 ax[j, 0].legend(custom_lines, ['Reference', 'Output'])
         if notation == 'U':
             for k in range(array.shape[1]):

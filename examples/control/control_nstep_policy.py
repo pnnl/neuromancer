@@ -20,6 +20,11 @@ from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDat
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.callbacks import ControlCallback, SysIDCallback
 
+# TODO adhoc imports for testing plots
+import numpy as np
+import matplotlib.pyplot as plt
+from neuromancer.plot import pltCL
+
 
 def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth'):
     """
@@ -121,7 +126,7 @@ def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth
     #  OPTIMIZATION
     gp.add("-eval_metric", type=str, default="loop_dev_ref_loss",
             help="Metric for model selection and early stopping.")
-    gp.add("-epochs", type=int, default=100,
+    gp.add("-epochs", type=int, default=300,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
@@ -379,6 +384,7 @@ if __name__ == "__main__":
         "Y_min": xmin*np.ones([nsim, ny]),
         "U_max": umax*np.ones([nsim, nu]),
         "U_min": umin*np.ones([nsim, nu]),
+        # "R": 0.8 * np.ones([nsim, nu]),
         "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=20, xmax=0.9, xmin=0.8)[:nsim, :],
         "Y_ctrl_": 2 * np.random.randn(nsim, ny),
         "U": np.random.randn(nsim, nu),
@@ -452,13 +458,13 @@ if __name__ == "__main__":
     #     args.verbosity,
     #     savedir=args.savedir,
     # )
-    simulator = ClosedLoopSimulator(sim_data=test_loop, policy=policy,
+    simulator = ClosedLoopSimulator(sim_data=train_loop, policy=policy,
                                     system_model=dynamics_model, estimator=estimator,
                                     emulator=psl.systems[system](),
                                     emulator_output_keys=["Y_pred_dynamics", "X_pred_dynamics"],
                                     emulator_input_keys=["U_pred_policy"])
-    sim_out = simulator.simulate_model(nsim=100)
-    sim_out = simulator.simulate_emulator(nsim=100)
+    # sim_out_model = simulator.simulate_model(nsim=200)
+    # sim_out_emul = simulator.simulate_emulator(nsim=200)
 
     # define trainer
     trainer = Trainer(
@@ -479,3 +485,16 @@ if __name__ == "__main__":
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
     logger.clean_up()
+
+
+    # TODO: ad hoc plots to verify simulator
+    sim_out_model = simulator.simulate_model(nsim=200)
+    Y = sim_out_model['Y_pred_dynamics'][:,0,:].detach().numpy()
+    U = sim_out_model['U_pred_policy'][:,0,:].detach().numpy()
+    R = sim_out_model['Rf'][::args.nsteps,0,:].detach().numpy()
+    pltCL(Y=Y, U=U, R=R)
+    sim_out_emul = simulator.simulate_emulator(nsim=200)
+    Y = sim_out_emul['Y_pred_dynamics'][:,0,:].detach().numpy()
+    U = sim_out_emul['U_pred_policy'][:,0,:].detach().numpy()
+    R = sim_out_emul['Rf'][::args.nsteps,0,:].detach().numpy()
+    pltCL(Y=Y, U=U, R=R)

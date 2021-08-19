@@ -344,7 +344,8 @@ class ClosedLoopSimulator:
     def simulate_emulator(self, nsim):
         # TODO: fix the initial keys more elegantly for emulator model
         # set initial keys for closed loop simulation data
-        cl_keys = self.estimator.output_keys+self.policy.output_keys+self.emulator_output_keys
+        cl_keys = self.estimator.output_keys+self.policy.output_keys+\
+                  self.policy.input_keys+self.emulator_output_keys
         cl_keys.remove('reg_error_policy')
         if self.estimator is not None:
             cl_keys.remove('reg_error_estim')
@@ -364,8 +365,8 @@ class ClosedLoopSimulator:
             else:
                 estim_out = {}
             # policy step
-            step_data = self.step_data_policy(self.sim_data, k)
-            step_data = {**step_data, **estim_out}
+            policy_in = self.step_data_policy(self.sim_data, k)
+            step_data = {**policy_in, **estim_out}
             policy_out = self.policy(step_data)  # calculate n-step ahead control
             policy_out = self.rhc(policy_out)  # apply reciding horizon control
             # emulator step
@@ -373,7 +374,7 @@ class ClosedLoopSimulator:
             step_data = {**step_data, **estim_out, **policy_out}
             model_out = self.step_emulator(step_data)
             # closed-loop step
-            cl_step_data = {**estim_out, **policy_out, **model_out}
+            cl_step_data = {**estim_out, **policy_in, **policy_out, **model_out}
             # update sim_data for next step
             self.sim_data = self.update_sim_data(self.sim_data, cl_step_data, k)
             # append closed-loop step to simulation data
@@ -385,7 +386,8 @@ class ClosedLoopSimulator:
 
     def simulate_model(self, nsim):
         # set initial keys for closed loop simulation data
-        cl_keys = self.estimator.output_keys+self.policy.output_keys+self.system_model.output_keys
+        cl_keys = self.estimator.output_keys+self.policy.output_keys+\
+                  self.policy.input_keys+self.system_model.output_keys
         # TODO: fix initial keys more elegantly
         cl_keys.remove('reg_error_dynamics')
         cl_keys.remove('reg_error_policy')
@@ -407,8 +409,8 @@ class ClosedLoopSimulator:
             else:
                 estim_out = {}
             # policy step
-            step_data = self.step_data_policy(self.sim_data, k)
-            step_data = {**step_data, **estim_out}
+            policy_in = self.step_data_policy(self.sim_data, k)
+            step_data = {**policy_in, **estim_out}
             policy_out = self.policy(step_data)     # calculate n-step ahead control
             policy_out = self.rhc(policy_out)       # apply reciding horizon control
             # model step
@@ -416,7 +418,7 @@ class ClosedLoopSimulator:
             step_data = {**step_data, **estim_out, **policy_out}
             model_out = self.system_model(step_data)
             # closed-loop step
-            cl_step_data = {**estim_out, **policy_out, **model_out}
+            cl_step_data = {**estim_out, **policy_in, **policy_out, **model_out}
             # update sim_data for next step
             self.sim_data = self.update_sim_data(self.sim_data, cl_step_data, k)
             # append closed-loop step to simulation data

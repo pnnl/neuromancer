@@ -14,7 +14,7 @@ import matplotlib.patches as mpatches
 from neuromancer.datasets import unbatch_data
 import neuromancer.plot as plot
 
-
+import neuromancer.blocks as blocks
 class Visualizer:
 
     def train_plot(self, outputs, epochs):
@@ -63,6 +63,9 @@ class VisualizerOpen(Visualizer):
             if hasattr(self.model.fx, 'effective_W'):
                 rows = 1
                 mat = self.model.fx.effective_W().detach().cpu().numpy()
+            elif isinstance(self.model.fx, blocks.Linear):
+                rows = 1
+                mat = self.model.fx.linear.effective_W().detach().cpu().numpy()
             elif hasattr(self.model.fx, 'linear'):
                 rows = len(self.model.fx.linear)
                 Mat = []
@@ -187,6 +190,57 @@ class VisualizerOpen(Visualizer):
                                   np.concatenate(Ypred).transpose(1, 0),
                                   figname=os.path.join(self.savedir, f'open_movie.mp4'),
                                   freq=self.verbosity)
+        return dict()
+
+
+class VisualizerUncertaintyOpen(Visualizer):
+    def __init__(self, dataset, savedir, dynamics_name='dynamics'):
+        self.dataset = dataset
+        self.savedir = savedir
+        self.dynamics_name = dynamics_name
+
+    def plot_traj(self, true_traj, pred_traj, pred_mean, pred_std, figname='open_loop.png'):
+        try:
+            plt.style.use('dark_background')
+            fig, ax = plt.subplots(len(true_traj), 1)
+            labels = [f'$y_{k}$' for k in range(len(true_traj))]
+            for row, (t1, t2, mean, std, label) in enumerate(zip(true_traj, pred_traj, pred_mean, pred_std, labels)):
+                axe = ax if len(true_traj) == 1 else ax[row]
+                x = np.array(range(len(mean)))
+                axe.set_ylabel(label, rotation=0, labelpad=20)
+                axe.plot(t1, label='True', c='c')
+                axe.fill_between(x, mean - std, mean + std, color='C3', alpha=0.2, linewidth=0)
+                axe.fill_between(x, mean - std * 2, mean + std * 2, color='C3', alpha=0.2, linewidth=0)
+                axe.plot(mean, label='Mean', c='C3')
+                axe.tick_params(labelbottom=False)
+            axe.tick_params(labelbottom=True)
+            axe.set_xlabel('Time')
+            axe.legend()
+        except Exception as e:
+            print(e)
+
+        plt.savefig(figname)
+
+    def eval(self, outputs):
+        """
+        :param outputs:
+        :return:
+        """
+        dsets = ['train', 'dev', 'test']
+        ny = self.dataset.dims['Yf'][-1]
+
+        Ypred = [outputs[f'loop_{dset}_Y_pred_{self.dynamics_name}'].reshape(-1, ny).detach().cpu().numpy() for dset in
+                 dsets]
+        Ymean = [outputs[f'loop_{dset}_Y_pred_{self.dynamics_name}_mean'].reshape(-1, ny).detach().cpu().numpy() for
+                 dset in dsets]
+        Ystd = [outputs[f'loop_{dset}_Y_pred_{self.dynamics_name}_std'].reshape(-1, ny).detach().cpu().numpy() for dset
+                in dsets]
+        Ytrue = [outputs[f'loop_{dset}_Yf'].reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
+        self.plot_traj(np.concatenate(Ytrue).transpose(1, 0),
+                       np.concatenate(Ypred).transpose(1, 0),
+                       np.concatenate(Ymean).transpose(1, 0),
+                       np.concatenate(Ystd).transpose(1, 0),
+                       figname=os.path.join(self.savedir, 'open_loop.png'))
         return dict()
 
 

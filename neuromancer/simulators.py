@@ -9,12 +9,16 @@ import torch
 import torch.nn as nn
 import numpy as np
 
+import psl
 from psl import EmulatorBase
 
 from neuromancer.datasets import EmulatorDataset, FileDataset
-from neuromancer.data.normalization import normalize_01 as normalize, denormalize_01 as min_max_denorm
 from neuromancer.problem import Problem
 from neuromancer.datasets import Dataset, DataDict
+
+
+from neuromancer.data.normalization import normalize_01 as normalize, denormalize_01 as denorm, denormalize_01 as min_max_denorm
+
 
 
 class Simulator:
@@ -113,6 +117,62 @@ class MHOpenLoopSimulator(Simulator):
             if tensor_list:
                 output[name] = torch.stack(tensor_list)
         return {**data, **output}
+
+
+class DropoutStochasticOpenLoopSimulator(Simulator):
+    def __init__(self, model: Problem, dataset: Dataset, emulator: [EmulatorBase, nn.Module] = None,
+                 eval_sim=True, nsamples=20):
+        """Open-loop simulator that runs multiple simulations. Only useful for Monte Carlo Dropout,
+        don't use if models not outfitted with dropout enabled during test time.
+        """
+        super().__init__(model=model, dataset=dataset, emulator=emulator, eval_sim=eval_sim)
+        self.nsamples = nsamples
+
+    def agg(self, outputs):
+        agg_outputs = dict()
+        filtered_keys = [k for k, v in outputs[0].items() if '_pred' in k or len(v.shape) == 1]
+        for k in filtered_keys:
+            agg_outputs[k] = []
+
+        for data in outputs:
+            for k in filtered_keys:
+                agg_outputs[k].append(data[k])
+
+        outputs = {}
+        for k in agg_outputs:
+            if '_pred' in k:
+                std, mean = torch.std_mean(torch.stack(agg_outputs[k]), dim=0)
+                outputs[f'{k}_mean'] = mean
+                outputs[f'{k}_std'] = std
+
+            elif len(agg_outputs[k][0].shape) < 2:
+                outputs[f'{k}_mean'] = torch.mean(torch.stack(agg_outputs[k]))
+
+        return outputs
+
+    def simulate(self, data):
+        return self.model(data)
+
+    def test_eval(self):
+        """Test evaluation which enables dropout for Monte Carlo sampling, then
+        disables it for single-shot prediction.
+        """
+        all_output = dict()
+        for data, dname in zip([self.dataset.train_loop, self.dataset.dev_loop, self.dataset.test_loop],
+                               ['train', 'dev', 'test']):
+            # get stochastic outputs
+            self.model.eval() # enable dropout
+            rand_outputs = []
+            for _ in range(self.nsamples):
+                rand_outputs += [self.simulate(data)]
+            rand_outputs = self.agg(rand_outputs)
+
+            # get deterministic outputs
+            self.model.train() # disable dropout
+            outputs = self.simulate(data)
+
+            all_output = {**all_output, **rand_outputs, **outputs}
+        return all_output
 
 
 class MultiSequenceOpenLoopSimulator(Simulator):
@@ -295,6 +355,136 @@ class ClosedLoopSimulator(Simulator):
                 'Ymax': np.concatenate(Ymax, 0) if Ymax else None,
                 'Umin': np.concatenate(Umin, 0) if Umin else None,
                 'Umax': np.concatenate(Umax, 0) if Umax else None}
+
+
+class CLSimulator(Simulator):
+    """
+    Closed loop simulation using pytorch nn.Module policy and dynamics models.
+    """
+    def __init__(self, model: Problem, dataset: Dataset, policy: nn.Module, emulator: [EmulatorBase, nn.Module] = None,
+                 gt_emulator=None, eval_sim=True, Ki=0.1, integrator_steps=3, Kd=0.5, device='cpu'):
+        super().__init__(model=model, dataset=dataset, emulator=emulator)
+        self.policy = policy
+        self.emulator = emulator
+        self.gt_emulator = gt_emulator
+        self.Ki = Ki
+        self.Kd = Kd
+        self.integrator_steps = integrator_steps
+        self.eval_sim = eval_sim
+        self.device = torch.device(device)
+
+    def psl_emulator(self, x, u, nstep_data):
+        x = denorm(x.cpu().numpy(), self.dataset.norms['Ymin'], self.dataset.norms['Ymax'])
+        u = denorm(u.cpu().numpy(), self.dataset.norms['Umin'], self.dataset.norms['Umax'])
+        dta = self.gt_emulator.simulate(ninit=0, nsim=1, U=u, x0=x.flatten())
+        x, y = dta['X'], dta['Y']
+        x, _, _ = normalize(x, Mmin=self.dataset.norms['Ymin'], Mmax=self.dataset.norms['Ymax'])
+        y, _, _ = normalize(y, Mmin=self.dataset.norms['Ymin'], Mmax=self.dataset.norms['Ymax'])
+        return (torch.tensor(x, dtype=torch.float32, device=self.device),
+                torch.tensor(y, dtype=torch.float32, device=self.device))
+
+    def torch_emulator(self, x, u, nstep_data):
+        # print(self.emulator.input_keys())
+        one_step_data = {'U_pred_policy': u.unsqueeze(0),
+                         'x0_estim': x,
+                         **{k: v[0:1] for k, v in nstep_data.items()}}
+        emulator_output = self.emulator(one_step_data)
+        return emulator_output['X_pred_dynamics'][0], emulator_output['Y_pred_dynamics'][0]
+
+    def select_step_data(self, data, i):
+        """
+        Creates an nstep snapshot of the data from a moving horizon dataset.
+
+        :param data: (DataDict {str: torch.Tensor) A dictionary containing moving horizon data (nsteps X nbatches X dim) where each batch contains
+                                                   nstep time series shifted 1 forward from the previous batch.
+        :param i: (int) Time index
+        :return: (DataDict {str: torch.Tensor) A moving horizon dataset with a single batch (nsteps X 1 X dim)
+        """
+        step_data = DataDict()
+        for k, v in data.items():
+            step_data[k] = v[:, i:i+1, :]
+        step_data.name = data.name
+        return step_data
+
+    def dev_eval(self):
+        if self.eval_sim:
+            dev_loop_output = self.simulate(self.dataset.dev_loop, sim=self.torch_emulator,
+                                            name='dev_sim_', nx=self.emulator.nx)
+        else:
+            dev_loop_output = dict()
+        return dev_loop_output
+
+    def test_eval(self):
+        output = {}
+        output = {**output, **self.simulate(self.dataset.test_loop, sim=self.torch_emulator, name='model_', nx=self.emulator.nx)}
+        output = {**output, **self.simulate(self.dataset.test_loop, sim=self.psl_emulator, name='plant_', nx=self.gt_emulator.nx)}
+        output = {**output, **self.simulate(self.dataset.test_loop, sim=self.torch_emulator,
+                                    name='model_dif_', nx=self.emulator.nx, diff=True)}
+        output = {**output, **self.simulate(self.dataset.test_loop, sim=self.psl_emulator,
+                                    name='plant_dif_', nx=self.gt_emulator.nx, diff=True)}
+        return output
+
+    def integrator(self, simulation, nsteps=32):
+        y = torch.stack(simulation['Y'][-nsteps:])[:, :, 1:]
+        r = torch.stack(simulation['R'][-nsteps:])
+        return torch.clamp(self.Ki*torch.sum(r - y, dim=0), -5., 5.)
+
+    def derivative_term(self, simulation):
+        y = torch.stack(simulation['Y'][-2:])[:, :, 1:]
+        r = torch.stack(simulation['R'][-2:])
+        diff = r - y
+        df = diff[1:2] - diff[0:1]
+        return self.Kd*df.squeeze(0)
+
+    def simulate(self, data, sim=None, name='model', nx=2, diff=False, df=False):
+        """
+
+        :param data: (DataDict {str: torch.Tensor) A dictionary containing moving horizon data (nsteps X nbatches X dim) where each batch contains
+                                                   nstep time series shifted 1 forward from the previous batch.
+        :return: (dict {str: np.array} A dictionary containing simulation time series (nsim X dim) with denormalized values
+        """
+        nsteps, nsim = data['Yp'].shape[0], data['Yp'].shape[1]
+        simulation = {k: [] for k in ['Y', 'U', 'R', 'Ymin', 'Ymax', 'Umin', 'Umax']}
+        with torch.no_grad():
+
+            # Generate initial control action
+            nstep_data = self.select_step_data(data, 0)
+            policy_output = self.policy(nstep_data)
+            u = policy_output['U_pred_policy'][0]
+            simulation['U'].append(u)
+            x = torch.zeros([1, nx])
+
+            for i in range(1, nsim):
+                nstep_data = self.select_step_data(data, i)
+
+                # Simulate 1 step of dynamics with generated control input
+                x, y = sim(x, u, nstep_data)
+
+                # Update u and y trajectory history
+                if len(simulation['Y']) > nsteps:
+                    nstep_data['Yp'] = torch.stack(simulation['Y'][-nsteps:])
+                    nstep_data['Up'] = torch.stack(simulation['U'][-nsteps:])
+
+                # Generate sequence of control actions and keep first action
+                policy_output = self.policy(nstep_data)
+                u = policy_output['U_pred_policy'][0]
+
+                if len(simulation['Y']) > self.integrator_steps and diff:
+                    u += self.integrator(simulation, nsteps=self.integrator_steps)
+                if len(simulation['Y']) > 2 and df:
+                    u += self.derivative_term(simulation)
+
+                # Store simulation results
+                for k, d in zip(['Y', 'U', 'R', 'Ymin', 'Ymax', 'Umin', 'Umax'],
+                                [y, u, *[nstep_data[k][0] for k in ['Rf', 'Y_minf', 'Y_maxf', 'U_minf', 'U_maxf']]]):
+                    simulation[k].append(d)
+
+            # Return completed simulation as dictionary of denormalized numpy arrays
+            simulation = {
+                name+k: denorm(torch.cat(v).cpu().numpy(), self.dataset.norms[f'{k}min'], self.dataset.norms[f'{k}max'])
+                for k, v in simulation.items()}
+            simulation[f'{name}error'] = np.mean(np.abs(simulation[f'{name}Y'][:, 1:] - simulation[f'{name}R']))
+        return simulation
 
 
 if __name__ == '__main__':

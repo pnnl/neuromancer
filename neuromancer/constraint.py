@@ -154,13 +154,13 @@ class Constraint(nn.Module):
 
     def __xor__(self, norm):
         comparator = type(self.comparator)(norm=norm)
-        return Constraint(self.left, self.right, comparator, weight=self.weight)
+        return Constraint(self.left, self.right, comparator, weight=self.weight, name=self.name)
 
     def __mul__(self, weight):
-        return Constraint(self.left, self.right, self.comparator, weight=weight)
+        return Constraint(self.left, self.right, self.comparator, weight=weight, name=self.name)
 
     def __rmul__(self, weight):
-        return Constraint(self.left, self.right, self.comparator, weight=weight)
+        return Constraint(self.left, self.right, self.comparator, weight=weight, name=self.name)
 
     def forward(self, variables):
         """
@@ -194,7 +194,7 @@ class Variable:
         :param slice: (Slice) Indicates if and where Variable is to be indexed
         :param name: (str) Optional intuitive name for Variable for storage in a Problem's output dictionary.
         """
-
+        # super().__init__()
         self.key = key
         self.left = left
         self.right = right

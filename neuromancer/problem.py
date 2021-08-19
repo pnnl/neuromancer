@@ -24,9 +24,10 @@ class Problem(nn.Module):
         loss functions via the lists of Objective objects (constraints and objectives) which calculate loss terms
         from aggregated input and set of outputs from the component modules.
 
-        :param objectives: list of Objective objects
-        :param constraints: list of Objective objects
-        :param components: list of objects which implement the component interface
+        :param objectives: list of objects which implement the Loss interface (e.g. Objective or Constraint)
+        :param constraints: list of objects which implement the Loss interface (e.g. Objective or Constraint)
+        :param components: list of objects which implement the Component interface
+        :param variables: list of Variable objects
         """
         super().__init__()
         self.objectives = nn.ModuleList(objectives)

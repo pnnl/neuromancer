@@ -40,7 +40,7 @@ class Component(torch.nn.Module):
     def forward(self, data):
         """
 
-        :param data:
+        :param data: (dict: {str: torch.Tensor})
         :return:
         """
         output = self.module([data[k].to(self.device) for k in self.input_keys])
@@ -234,7 +234,8 @@ if __name__ == '__main__':
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
     dataset = get_ani_data(species_order, device, args.batch_size, args.data_path, args.pickled_data)
-
+    batch = next(iter(dataset.train_data))
+    print({k: v.shape for k, v in batch.items()})
     trainer = Trainer(model, dataset, optimizer, epochs=args.epochs, logger=logger,
                       train_metric='train_energy_mse',
                       dev_metric='dev_energy_mse', test_metric='test_energy_mse',

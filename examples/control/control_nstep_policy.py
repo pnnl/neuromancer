@@ -453,8 +453,12 @@ if __name__ == "__main__":
     #     savedir=args.savedir,
     # )
     simulator = ClosedLoopSimulator(sim_data=test_loop, policy=policy,
-                                    emulator=dynamics_model, estimator=estimator)
-    sim_out = simulator.simulate(nsim=100)
+                                    system_model=dynamics_model, estimator=estimator,
+                                    emulator=psl.systems[system](),
+                                    emulator_output_keys=["Y_pred_dynamics", "X_pred_dynamics"],
+                                    emulator_input_keys=["U_pred_policy"])
+    sim_out = simulator.simulate_model(nsim=100)
+    sim_out = simulator.simulate_emulator(nsim=100)
 
     # define trainer
     trainer = Trainer(

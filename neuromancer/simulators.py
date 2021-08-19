@@ -204,36 +204,47 @@ class MultiSequenceOpenLoopSimulator(Simulator):
         return dev_loop_output
 
 
-# TODO: support psl.EmulatorBase as emulator
-#  update closed loop simulator with component wrapper
-#  around any python emulator mapping input-output keys of the controller model with
-#  input-output keys of the emulator
+# TODO: handle normalized data - for trained models need to denorm everything
+#  ideally within the component
 class ClosedLoopSimulator:
     def __init__(
             self,
             sim_data,
             policy: nn.Module,
-            emulator: [EmulatorBase, nn.Module],
+            system_model: nn.Module,
             estimator: nn.Module = None,
+            emulator: EmulatorBase = None,
+            emulator_output_keys=None,
+            emulator_input_keys=None,
     ):
         """
 
         :param sim_data:
         :param policy: nn.Module
-        :param emulator: nn.Module or psl.EmulatorBase
+        :param system_model: nn.Module
         :param estimator: nn.Module
+        :param emulator: psl.EmulatorBase
         """
-        assert isinstance(emulator, EmulatorBase) or isinstance(emulator, nn.Module), \
-            f'{type(emulator)} is not EmulatorBase or nn.Module.'
         assert isinstance(policy, nn.Module), \
             f'{type(policy)} is not nn.Module.'
+        assert isinstance(system_model, nn.Module), \
+            f'{type(system_model)} is not nn.Module.'
+        if emulator is not None:
+            assert isinstance(emulator, EmulatorBase), \
+                f'{type(emulator)} is not EmulatorBase.'
         if estimator is not None:
             assert isinstance(estimator, nn.Module), \
                 f'{type(estimator)} is not nn.Module.'
         self.sim_data = sim_data
-        self.emulator = emulator
+        self.system_model = system_model
         self.policy = policy
         self.estimator = estimator
+        self.emulator = emulator
+        # ['Y_pred', 'X_pred']  - must be always in this order
+        self.emulator_output_keys = emulator_output_keys
+        # ['Uf', 'Df', 'x0']   - must be always in this order
+        self.emulator_input_keys = emulator_input_keys
+
 
     def test_eval(self):
         pass
@@ -268,19 +279,51 @@ class ClosedLoopSimulator:
                 # step_data[key] = step_data[key].reshape(1, step_data[key].shape[0], data[key].shape[2])
         return step_data
 
-    def step_data_emulator(self, data, k):
+    def step_data_model(self, data, k, input_keys):
         """
-        get one step input data for emulator model
+        get one step input data for system model and emulator
         :param data:
         :param k:
         :return:
         """
         step_data = {}
-        for key in self.emulator.input_keys:
+        for key in input_keys:
             if key in data.keys():
                 step_data[key] = data[key][k, :, :]
                 # step_data[key] = step_data[key].reshape(1, step_data[key].shape[0], data[key].shape[2])
         return step_data
+
+    def step_emulator(self, step_data):
+        """
+
+        :param step_data:
+        :return:
+        """
+        # load data U, D, x0 and transform tensors to numpy arrays
+        U = step_data[self.emulator_input_keys[0]][:, 0, :].detach().numpy() if len(self.emulator_input_keys) >= 1 else None
+        D = step_data[self.emulator_input_keys[1]][:, 0, :].detach().numpy() if len(self.emulator_input_keys) >= 2 else None
+        x0 = step_data[self.emulator_input_keys[2]][0, :] if len(self.emulator_input_keys) >= 3 else None
+        # simulate 1 step ahead
+        emul_out = self.emulator.simulate(nsim=1, U=U, D=D, x0=x0)
+        # transform to dict of torch tensors
+        emul_step = {}
+        emul_step[self.emulator_output_keys[0]] = torch.tensor([emul_out['Y']])
+        emul_step[self.emulator_output_keys[1]] = torch.tensor([emul_out['X']])
+        return emul_step
+
+    def update_sim_data(self, sim_data, step_data, k):
+        """
+        update simulation data dictionary with new predicted values from step forward
+        :param sim_data:
+        :param step_data:
+        :param k:
+        :return:
+        """
+        # TODO update U and Y automatically based on specified input output keys in arguments
+        # TODO: we need to link history data e.g. "Yp" with future predictions "Y_pred"
+        sim_data['Y_ctrl_p'][k, :, :] = step_data[self.system_model.output_keys[1]]
+        sim_data['Up'][k, :, :] = step_data[self.policy.output_keys[0]]
+        return sim_data
 
     def rhc(self, policy_out):
         """
@@ -298,9 +341,52 @@ class ClosedLoopSimulator:
             sim_data[key].append(step_data[key])
         return sim_data
 
-    def simulate(self, nsim):
+    def simulate_emulator(self, nsim):
+        # TODO: fix the initial keys more elegantly for emulator model
         # set initial keys for closed loop simulation data
-        cl_keys = self.estimator.output_keys+self.policy.output_keys+self.emulator.output_keys
+        cl_keys = self.estimator.output_keys+self.policy.output_keys+self.emulator_output_keys
+        cl_keys.remove('reg_error_policy')
+        if self.estimator is not None:
+            cl_keys.remove('reg_error_estim')
+        cl_data = {}
+        for key in cl_keys:
+            cl_data[key] = []
+        # initial time index with offset determined by largest moving horizon window
+        if self.estimator is not None and self.policy.nsteps < self.estimator.window_size:
+            start_k = self.estimator.window_size
+        else:
+            start_k = self.policy.nsteps
+        for k in range(start_k, start_k + nsim):
+            # estimator step
+            if self.estimator is not None:
+                step_data = self.step_data_estimator(self.sim_data, k)
+                estim_out = self.estimator(step_data)
+            else:
+                estim_out = {}
+            # policy step
+            step_data = self.step_data_policy(self.sim_data, k)
+            step_data = {**step_data, **estim_out}
+            policy_out = self.policy(step_data)  # calculate n-step ahead control
+            policy_out = self.rhc(policy_out)  # apply reciding horizon control
+            # emulator step
+            step_data = self.step_data_model(self.sim_data, k, self.emulator_input_keys)
+            step_data = {**step_data, **estim_out, **policy_out}
+            model_out = self.step_emulator(step_data)
+            # closed-loop step
+            cl_step_data = {**estim_out, **policy_out, **model_out}
+            # update sim_data for next step
+            self.sim_data = self.update_sim_data(self.sim_data, cl_step_data, k)
+            # append closed-loop step to simulation data
+            cl_data = self.append_data(cl_data, cl_step_data)
+        # concatenate step data in a single tensor
+        for key in cl_data.keys():
+            cl_data[key] = torch.cat(cl_data[key])
+        return cl_data
+
+    def simulate_model(self, nsim):
+        # set initial keys for closed loop simulation data
+        cl_keys = self.estimator.output_keys+self.policy.output_keys+self.system_model.output_keys
+        # TODO: fix initial keys more elegantly
         cl_keys.remove('reg_error_dynamics')
         cl_keys.remove('reg_error_policy')
         if self.estimator is not None:
@@ -309,8 +395,10 @@ class ClosedLoopSimulator:
         for key in cl_keys:
             cl_data[key] = []
         # initial time index with offset determined by largest moving horizon window
-        start_k = self.policy.nsteps if self.policy.nsteps >= self.estimator.window_size \
-            else self.estimator.window_size
+        if self.estimator is not None and self.policy.nsteps < self.estimator.window_size:
+            start_k = self.estimator.window_size
+        else:
+            start_k = self.policy.nsteps
         for k in range(start_k, start_k+nsim):
             # estimator step
             if self.estimator is not None:
@@ -323,12 +411,14 @@ class ClosedLoopSimulator:
             step_data = {**step_data, **estim_out}
             policy_out = self.policy(step_data)     # calculate n-step ahead control
             policy_out = self.rhc(policy_out)       # apply reciding horizon control
-            # emulator step
-            step_data = self.step_data_emulator(self.sim_data, k)
+            # model step
+            step_data = self.step_data_model(self.sim_data, k, self.system_model.input_keys)
             step_data = {**step_data, **estim_out, **policy_out}
-            emulator_out = self.emulator(step_data)
+            model_out = self.system_model(step_data)
             # closed-loop step
-            cl_step_data = {**estim_out, **policy_out, **emulator_out}
+            cl_step_data = {**estim_out, **policy_out, **model_out}
+            # update sim_data for next step
+            self.sim_data = self.update_sim_data(self.sim_data, cl_step_data, k)
             # append closed-loop step to simulation data
             cl_data = self.append_data(cl_data, cl_step_data)
         # concatenate step data in a single tensor

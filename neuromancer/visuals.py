@@ -208,79 +208,102 @@ class VisualizerTrajectories(Visualizer):
 
 
 class VisualizerClosedLoop(Visualizer):
+    def __init__(self, u_key='U_pred_policy', y_key='Y_pred_dynamics',
+                 r_key='Rf', d_key=None, ymin_key=None, ymax_key=None,
+                 umin_key=None, umax_key=None, policy=None,
+                 ctrl_outputs=None, savedir='test_control'):
+        """
 
-    def __init__(self, policy, plot_keys, verbosity, ctrl_outputs=None, savedir='test_control'):
+        :param u_key:
+        :param y_key:
+        :param r_key:
+        :param d_key:
+        :param ymin_key:
+        :param ymax_key:
+        :param umin_key:
+        :param umax_key:
+        :param policy:
+        :param ctrl_outputs:
+        :param savedir:
+        """
         self.model = policy
-        self.verbosity = verbosity
-        self.plot_keys = plot_keys
+        self.u_key = u_key
+        self.y_key = y_key
+        self.r_key = r_key
+        self.d_key = d_key
+        self.ymin_key = ymin_key
+        self.ymax_key = ymax_key
+        self.umin_key = umin_key
+        self.umax_key = umax_key
         self.ctrl_outputs = ctrl_outputs
         self.savedir = savedir
 
-    def train_output(self, trainer, epoch_policy):
-        pass
-
     def plot_matrix(self):
-        if hasattr(self.model, 'net'):
-            if hasattr(self.model.net, 'effective_W'):
-                rows = 1
-                mat = self.model.net.effective_W().detach().cpu().numpy()
-            elif hasattr(self.model.net, 'linear'):
-                rows = len(self.model.net.linear)
-                Mat = []
-                for linear in self.model.net.linear:
-                    Mat.append(linear.weight.detach().cpu().numpy())
-            else:
-                rows = 0
-        plt.style.use('dark_background')
-        if rows == 1:
-            fig, (eigax, matax) = plt.subplots(rows, 2)
-            # eigax.set_ylim(-1.1, 1.1)
-            # eigax.set_xlim(-1.1, 1.1)
-            eigax.set_aspect(1)
-            matax.axis('off')
-            matax.set_title('Policy Weights')
-            matax.imshow(mat.T)
-            if not mat.shape[0] == mat.shape[1]:
-                # singular values of rectangular matrix
-                s, w, d = np.linalg.svd(mat.T)
-                eigax.set_title('Weights Singular values')
-            else:
-                w, v = LA.eig(mat.T)
-                eigax.set_title('Weights Eigenvalues')
-            eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
-            plt.tight_layout()
-            plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
-        elif rows > 1:
-            fig, axes = plt.subplots(rows, 2)
-            # axes[0, 0].set_title('Weights Eigenvalues')
-            axes[0, 1].set_title('State Transition Weights')
-            count = 0
-            for k in range(rows):
-                axes[k, 0].set_aspect(1)
-                axes[k, 1].axis('off')
-                axes[k, 1].imshow(Mat[k].T)
-                if not Mat[k].shape[0] == Mat[k].shape[1]:
-                    # singular values of rectangular matrix
-                    s, w, d = np.linalg.svd(Mat[k].T)
-                    axes[k, 0].set_title('Weights Singular values')
+        if self.model is not None:
+            if hasattr(self.model, 'net'):
+                if hasattr(self.model.net, 'effective_W'):
+                    rows = 1
+                    mat = self.model.net.effective_W().detach().cpu().numpy()
+                elif hasattr(self.model.net, 'linear'):
+                    rows = len(self.model.net.linear)
+                    Mat = []
+                    for linear in self.model.net.linear:
+                        Mat.append(linear.weight.detach().cpu().numpy())
                 else:
-                    w, v = LA.eig(Mat[k].T)
-                    axes[k, 0].set_title('Weights Eigenvalues') if count == 0 else None
-                    count += 1
-                axes[k, 0].scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
-            plt.tight_layout()
-            plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
+                    rows = 0
+            # plt.style.use('dark_background')
+            if rows == 1:
+                fig, (eigax, matax) = plt.subplots(rows, 2)
+                # eigax.set_ylim(-1.1, 1.1)
+                # eigax.set_xlim(-1.1, 1.1)
+                eigax.set_aspect(1)
+                matax.axis('off')
+                matax.set_title('Policy Weights')
+                matax.imshow(mat.T)
+                if not mat.shape[0] == mat.shape[1]:
+                    # singular values of rectangular matrix
+                    s, w, d = np.linalg.svd(mat.T)
+                    eigax.set_title('Weights Singular values')
+                else:
+                    w, v = LA.eig(mat.T)
+                    eigax.set_title('Weights Eigenvalues')
+                eigax.scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
+                plt.tight_layout()
+                plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
+            elif rows > 1:
+                fig, axes = plt.subplots(rows, 2)
+                # axes[0, 0].set_title('Weights Eigenvalues')
+                axes[0, 1].set_title('State Transition Weights')
+                count = 0
+                for k in range(rows):
+                    axes[k, 0].set_aspect(1)
+                    axes[k, 1].axis('off')
+                    axes[k, 1].imshow(Mat[k].T)
+                    if not Mat[k].shape[0] == Mat[k].shape[1]:
+                        # singular values of rectangular matrix
+                        s, w, d = np.linalg.svd(Mat[k].T)
+                        axes[k, 0].set_title('Weights Singular values')
+                    else:
+                        w, v = LA.eig(Mat[k].T)
+                        axes[k, 0].set_title('Weights Eigenvalues') if count == 0 else None
+                        count += 1
+                    axes[k, 0].scatter(w.real, w.imag, alpha=0.5, c=plot.get_colors(len(w.real)))
+                plt.tight_layout()
+                plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
 
-    def eval(self, outputs):
-        D = outputs.get("D", None)
-        R = outputs.get("R", None)
-        Ymin = outputs.get("Ymin", None)
-        Ymax = outputs.get("Ymax", None)
-        Umin = outputs.get("Umin", None)
-        Umax = outputs.get("Umax", None)
-        ctrl_outputs = outputs['Y'].shape[1] if self.ctrl_outputs is None else self.ctrl_outputs
+    def eval(self, outputs, figname='CL_control.png'):
 
-        plot.pltCL(Y=outputs['Y'], U=outputs['U'], D=D, R=R,
+        Y = outputs[self.y_key].detach().numpy() if self.y_key is not None else None
+        U = outputs[self.u_key].detach().numpy() if self.u_key is not None else None
+        D = outputs[self.d_key].detach().numpy() if self.d_key is not None else None
+        R = outputs[self.r_key].detach().numpy() if self.r_key is not None else None
+        Ymin = outputs[self.ymin_key].detach().numpy() if self.ymin_key is not None else None
+        Ymax = outputs[self.ymax_key].detach().numpy() if self.ymax_key is not None else None
+        Umin = outputs[self.umin_key].detach().numpy() if self.umin_key is not None else None
+        Umax = outputs[self.umax_key].detach().numpy() if self.umax_key is not None else None
+        ctrl_outputs = None if self.ctrl_outputs is None else self.ctrl_outputs
+
+        plot.pltCL(Y=Y, U=U, D=D, R=R,
                    Ymin=Ymin, Ymax=Ymax, Umin=Umin, Umax=Umax,
                    ctrl_outputs=ctrl_outputs,
                    figname=os.path.join(self.savedir, 'CL_control.png'))

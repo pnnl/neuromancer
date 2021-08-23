@@ -376,7 +376,7 @@ if __name__ == "__main__":
     # A_aug = torch.tensor([[1.2, 1.0, 0.0],
     #                   [0.0, 1.0, 0.0],
     #                   [-1.0, 0.0, 1.0]])
-    K_i = 0.1       # initial integrator gain initial value
+    K_i = 0.1       # integrator gain initial value
     F_aug = torch.zeros(nx+nd, nx+nd)
     F_aug[args.controlled_outputs, nx:] = K_i
     # set of model parameters

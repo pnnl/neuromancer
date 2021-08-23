@@ -105,13 +105,20 @@ class ControlCallback(Callback):
         super().__init__()
         self.simulator, self.visualizer = simulator, visualizer
 
-    # TODO update
     def end_test(self, trainer, output):
+        plots = {}
         if self.simulator is not None:
-            out = self.simulator.test_eval()
-        if self.visualizer is not None:
-            plots = self.visualizer.eval(out)
-            trainer.logger.log_artifacts(plots)
+            # simulate closed-loop control of system model and emulator (if specified)
+            out_model, out_emul = self.simulator.test_eval()
+            if self.visualizer is not None:
+                # visualize closed-loop control of system model
+                plots_model = self.visualizer.eval(out_model, figname='CL_model.png')
+                plots["plt_model"] = plots_model
+                if out_emul is not None:
+                    # visualize closed-loop control of emulator
+                    plots_emul = self.visualizer.eval(out_emul, figname='CL_emul.png')
+                    plots["plt_emul"] = plots_emul
+        trainer.logger.log_artifacts(plots)
 
 
 class DoubleIntegratorCallback(Callback):

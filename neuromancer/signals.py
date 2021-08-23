@@ -2,7 +2,8 @@
 signal generator components which allow you to generate dynamic data for training nm.problem
 or add noise to existing data
 
-TODO: add docstrings
+TODO: normalize to be mode general thant normalize_01
+
 """
 
 # machine learning data science imports
@@ -15,13 +16,18 @@ from neuromancer.dataset import normalize_01 as normalize
 import psl
 
 
-class SignalGenerator(Component):
-
+class SequenceGenerator(Component):
+    """
+        Component object for generating nsteps long sequence signal for nx variables
+        Can be used as a source for generating dynamic sequences in the training data
+    """
+    # TODO: does not work with output keys
     def __init__(self, nsteps, nx, xmax, xmin, output_keys=['Yp', 'Yf'], name='signal'):
         super().__init__(input_keys=[], output_keys=output_keys, name=name)
         self.nsteps, self.nx = nsteps, nx
         self.xmax, self.xmin, self.name = xmax, xmin, name
         self.iter = 0
+
     def get_xmax(self):
         return self.xmax
 
@@ -53,7 +59,11 @@ class SignalGenerator(Component):
         return {self.output_keys[0]: Rp, self.output_keys[1]: Rf}
 
 
-class WhiteNoisePeriodicGenerator(SignalGenerator):
+class WhiteNoisePeriodicGenerator(SequenceGenerator):
+    """
+        Sum of wite noise with periodic signal
+        Periodic signal with random number of periods within: min_period <= nr periods <= max_period
+    """
 
     def __init__(self, nsteps, nx, xmax=(0.1, 0.5), xmin=0.0, min_period=5, max_period=30,
                  output_keys=['Yp', 'Yf'], name='period'):
@@ -64,13 +74,17 @@ class WhiteNoisePeriodicGenerator(SignalGenerator):
         self.period_generator = lambda nsim, xmin, xmax: psl.Periodic(nx=self.nx, nsim=nsim,
                                                                       numPeriods=random.randint(min_period, max_period),
                                                                       xmax=xmax, xmin=xmin)[:nsim]
-        self.sequence_generator = lambda nsim, xmin, xmax: self.period_generator(nsim, xmin, xmax) + self.white_noise_generator(nsim, xmin, 1.0 - xmax)
+        self.sequence_generator = lambda nsim, xmin, xmax: self.period_generator(nsim, xmin, xmax) \
+                                                           + self.white_noise_generator(nsim, xmin, 1.0 - xmax)
 
     def get_xmax(self):
         return random.uniform(*self.xmax)
 
 
-class PeriodicGenerator(SignalGenerator):
+class PeriodicGenerator(SequenceGenerator):
+    """
+        Generates periodic signal with random number of periods within: min_period <= nr periods <= max_period
+    """
 
     def __init__(self, nsteps, nx, xmax, xmin, min_period=5, max_period=30,
                  output_keys=['Yp', 'Yf'],
@@ -81,6 +95,9 @@ class PeriodicGenerator(SignalGenerator):
 
 
 class DataNoiseGenerator(Component):
+    """
+        Generates random signal to be added to variables the dataset labeled by input_keys
+    """
     def __init__(self, ratio=0.05, input_keys=[], name='noise'):
         super().__init__(input_keys=input_keys, output_keys=input_keys, name=name)
         self.name = name
@@ -93,14 +110,20 @@ class DataNoiseGenerator(Component):
         return noisy_data
 
 
-class WhiteNoiseGenerator(SignalGenerator):
+class WhiteNoiseGenerator(SequenceGenerator):
+    """
+        Generates white noise nsteps long for nx variables
+    """
     def __init__(self, nsteps, nx, xmax, xmin, output_keys=[], name='period'):
         super().__init__(nsteps, nx, xmax, xmin, output_keys=output_keys, name=name)
         self.sequence_generator = lambda nsim: psl.WhiteNoise(nx=self.nx, nsim=nsim,
                                                               xmax=self.xmax, xmin=self.xmin)
 
 
-class AddGenerator(SignalGenerator):
+class AddGenerator(SequenceGenerator):
+    """
+        Generates a sequence as a sum of two other SequenceGenerators SG1 and SG2
+    """
     def __init__(self, SG1, SG2, nsteps, nx, xmax, xmin, output_keys=[], name='period'):
         super().__init__(nsteps, nx, xmax, xmin, output_keys=output_keys, name=name)
         assert SG1.nsteps == SG2.nsteps, 'Nsteps must match to compose sequence generators'

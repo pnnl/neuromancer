@@ -340,13 +340,12 @@ if __name__ == "__main__":
     model = model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
-    # visualizer
+    # visualizer object to be called in callback for plotting
     visualizer = VisualizerDobleIntegrator(train_data, model,
                      args.verbosity, savedir=args.savedir,
                      nstep=40, x0=1.5 * np.ones([2, 1]),
                      training_visuals=False, trace_movie=False)
 
-    # trainer
     trainer = Trainer(
         model,
         train_data,

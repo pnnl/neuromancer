@@ -150,7 +150,8 @@ def get_sequence_dataloaders(
         function `split_sequence_data` for more info.
     """
 
-    data, _ = normalize_data(data, norm_type)
+    if norm_type is not None:
+        data, _ = normalize_data(data, norm_type)
     train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
 
     train_data = SequenceDataset(
@@ -333,7 +334,7 @@ if __name__ == "__main__":
     else:
         data = read_file(args.dataset)
     # get dataloader
-    nstep_data, loop_data, dims = get_sequence_dataloaders(data, args.nsteps)
+    nstep_data, loop_data, dims = get_sequence_dataloaders(data, args.nsteps, norm_type=None)
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data
 

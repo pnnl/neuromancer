@@ -83,7 +83,7 @@ class ControlCallback(Callback):
             out_model, out_emul = self.simulator.test_eval()
             if self.visualizer is not None:
                 # visualize closed-loop control of system model
-                plots_model = self.visualizer.eval(out_model, figname='CL_model.png')
+                plots_model = self.visualizer.eval(out_model, plot_weights=True, figname='CL_model.png')
                 plots["plt_model"] = plots_model
                 if out_emul is not None:
                     # visualize closed-loop control of emulator

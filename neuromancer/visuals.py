@@ -291,7 +291,7 @@ class VisualizerClosedLoop(Visualizer):
                 plt.tight_layout()
                 plt.savefig(os.path.join(self.savedir, 'eigmat.png'))
 
-    def eval(self, outputs, figname='CL_control.png'):
+    def eval(self, outputs, plot_weights=False, figname='CL_control.png'):
 
         Y = outputs[self.y_key].detach().numpy() if self.y_key is not None else None
         U = outputs[self.u_key].detach().numpy() if self.u_key is not None else None
@@ -307,7 +307,8 @@ class VisualizerClosedLoop(Visualizer):
                    Ymin=Ymin, Ymax=Ymax, Umin=Umin, Umax=Umax,
                    ctrl_outputs=ctrl_outputs,
                    figname=os.path.join(self.savedir, 'CL_control.png'))
-        self.plot_matrix()
+        if plot_weights:
+            self.plot_matrix()
         return dict()
 
 

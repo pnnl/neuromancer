@@ -1,26 +1,13 @@
 """
+Differentiable predictive control (DPC)
 
+Learning predictive control policies based on learned neural state space model
+of unknown nonlinear dynamical system
 
-
-# TODO: test signal generators in a new file
-    # # get feedback signal sampler
-    signal_generator = WhiteNoisePeriodicGenerator(
-        args.nsteps,
-        dynamics_model.fy.out_features,
-        xmax=(1.5, 1.0),
-        xmin=-1.0,
-        min_period=1,
-        max_period=20,
-        output_keys=["Y_ctrl_p", "Y_ctrl_f"],
-        name="signal",
-    )
-    # add output noise for robustness
-    noise_generator = DataNoiseGenerator(
-        ratio=0.05, input_keys=["Y_pred_dynamics"], name="_noise"
-    )
 
 """
 
+import numpy as np
 import dill
 import torch
 import torch.nn.functional as F
@@ -39,9 +26,6 @@ from neuromancer.visuals import VisualizerClosedLoop
 from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.callbacks import ControlCallback
-
-import numpy as np
-from neuromancer.plot import pltCL
 
 
 def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth'):
@@ -112,13 +96,13 @@ def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth
     #  LOSS
     gp.add("-Q_sub", type=float, default=0.0,
            help="Linear maps regularization weight.")
-    gp.add("-Q_r", type=float, default=1.0,
+    gp.add("-Q_r", type=float, default=10.0,
            help="Reference tracking penalty weight")
-    gp.add("-Q_du", type=float, default=0.0,
+    gp.add("-Q_du", type=float, default=0.1,
            help="control action difference penalty weight")
-    gp.add("-Q_con_u", type=float, default=0.0,
+    gp.add("-Q_con_u", type=float, default=1.0,
            help="Input constraints penalty weight.")
-    gp.add("-Q_con_y", type=float, default=0.0,
+    gp.add("-Q_con_y", type=float, default=1.0,
            help="Output constraints penalty weight.")
     gp.add("-con_tighten", action="store_true",
            help='Tighten constraints')
@@ -389,9 +373,9 @@ if __name__ == "__main__":
     nsim = 10000
     # # constraints bounds
     umin = 0
-    umax = 5
+    umax = 1
     xmin = 0
-    xmax = 5
+    xmax = 1
 
     """
     # # #  Dataset
@@ -444,13 +428,13 @@ if __name__ == "__main__":
     )
     model = model.to(device)
 
+    """
+    # # # Training
+    """
     # train only policy component
     freeze_weight(model, module_names=args.freeze)
     unfreeze_weight(model, module_names=args.unfreeze)
 
-    """
-    # # # Training
-    """
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
     visualizer = VisualizerClosedLoop(
@@ -486,9 +470,3 @@ if __name__ == "__main__":
     best_outputs = trainer.test(best_model)
     logger.clean_up()
 
-    # simulate and plot outside of the callback
-    sim_out_model = simulator.simulate(nsim=400)
-    Y = sim_out_model['Y_pred_dynamics'].detach().numpy()
-    U = sim_out_model['U_pred_policy'].detach().numpy()
-    R = sim_out_model['Rf'].detach().numpy()
-    pltCL(Y=Y, U=U, R=R)

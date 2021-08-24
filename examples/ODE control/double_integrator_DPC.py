@@ -1,21 +1,18 @@
 """
-DPC Double integrator example with given system dynamics model
+Differentiable predictive control (DPC)
+Learning to stabilize unstable linear double integrator system with given system dynamics model
 
 """
 
 import torch
 import torch.nn.functional as F
 import slim
-import psl
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib import cm
 import seaborn as sns
 DENSITY_PALETTE = sns.color_palette("crest_r", as_cmap=True)
 DENSITY_FACECLR = DENSITY_PALETTE(0.01)
 sns.set_theme(style="white")
-import copy
+
 
 from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
@@ -27,9 +24,8 @@ from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDat
 from torch.utils.data import DataLoader
 from neuromancer.loggers import BasicLogger
 from neuromancer.visuals import VisualizerDobleIntegrator
-from neuromancer.callbacks import SysIDCallback, ControlCallback, DoubleIntegratorCallback
+from neuromancer.callbacks import DoubleIntegratorCallback
 from neuromancer.plot import plot_policy, cl_simulate, plot_loss_DPC, plot_cl
-from neuromancer.simulators import ClosedLoopSimulator
 
 
 def arg_dpc_problem(prefix=''):
@@ -362,16 +358,3 @@ if __name__ == "__main__":
     # Train control policy
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
-
-    """
-    # # #  Plots and Analysis from the VisualizerDobleIntegrator
-    """
-    # simulate and plot closed loop trajectories
-    cl_simulate(A, B, policy.net, nstep=40, x0=1.5*np.ones([2, 1]))
-    X, U = cl_simulate(A, B, policy.net, nstep=40, x0=1.5*np.ones([2, 1]))
-    plot_cl(X, U, nstep=40, save_path='test_control', trace_movie=False)
-    # plot policy surface
-    plot_policy(policy.net, save_path='test_control')
-    # loss landscape and contraction regions
-    plot_loss_DPC(model, train_data, xmin=-2, xmax=2, save_path='test_control')
-

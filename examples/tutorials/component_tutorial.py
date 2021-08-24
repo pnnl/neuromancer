@@ -1,5 +1,4 @@
 """
-
 Component tutorial
 
 This script demonstrates how components work together in NeuroMANCER,

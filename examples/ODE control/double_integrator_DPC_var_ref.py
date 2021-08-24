@@ -1,4 +1,6 @@
 """
+Differentiable predictive control (DPC)
+
 DPC double integrator example with given system dynamics model
 time varying reference tracking problem
 

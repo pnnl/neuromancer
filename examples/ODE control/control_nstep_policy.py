@@ -35,12 +35,11 @@ from neuromancer.problem import Problem, Objective
 from torch.utils.data import DataLoader
 from neuromancer.simulators import ClosedLoopSimulator
 from neuromancer.trainer import Trainer, freeze_weight, unfreeze_weight
-from neuromancer.visuals import VisualizerClosedLoop, VisualizerOpen
+from neuromancer.visuals import VisualizerClosedLoop
 from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
 from neuromancer.loggers import BasicLogger, MLFlowLogger
-from neuromancer.callbacks import ControlCallback, SysIDCallback
+from neuromancer.callbacks import ControlCallback
 
-# TODO adhoc imports for testing plots
 import numpy as np
 from neuromancer.plot import pltCL
 

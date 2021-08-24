@@ -1,7 +1,6 @@
 """
 TODO: eval_metric - evaluate closed loop metric based on the simulation results
-# use the same interface for objectives as for the problem via _calculate_loss. if code is changed in problem possible mismatch
-TODO: overwrite past after n-steps, continuously in first n steps. In initial simulation period first n-steps are treated as 0s when only first needs to be a 0 vector
+# use the same interface for objectives as for the problem via _calculate_loss.
 
 """
 
@@ -204,9 +203,8 @@ class MultiSequenceOpenLoopSimulator(Simulator):
         return dev_loop_output
 
 
-# TODO: handle normalized data - for trained models need to denorm everything
-#  ideally within the component
-# TODO: support logging constraints and ref values for subsequent plotting
+# TODO: handle normalized data - for trained models need to denorm ideally within the component
+# TODO: support storing constraints and ref values for subsequent plotting
 class ClosedLoopSimulator:
     def __init__(
             self,
@@ -328,7 +326,7 @@ class ClosedLoopSimulator:
         :return:
         """
         # TODO update U and Y automatically based on specified input output keys in arguments
-        # TODO: we need to link history data e.g. "Yp" with future predictions "Y_pred"
+        # TODO we need to link history data e.g. "Yp" with future predictions "Y_pred" to close the loop
         sim_data['Y_ctrl_p'][k, :, :] = step_data[self.system_model.output_keys[1]]
         sim_data['Up'][k, :, :] = step_data[self.policy.output_keys[0]]
         return sim_data

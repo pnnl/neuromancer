@@ -418,6 +418,7 @@ if __name__ == "__main__":
     # # #  Component Models
     """
     # update model dimensions and input output keys
+    # todo: add method to component class to update I/O keys
     dynamics_model._input_keys[2] = ('U_pred_policy', 'Uf')     # this key matching links policy output with control inputs to the model
     dynamics_model._input_keys[0] = ('Rf', 'Yf')        # this key is needed to infer the prediction horizon from the dataset
     estimator._input_keys[0] = ('Y_ctrl_p', 'Yp')
@@ -486,7 +487,7 @@ if __name__ == "__main__":
     logger.clean_up()
 
     # simulate and plot outside of the callback
-    sim_out_model = simulator.simulate_model(nsim=400)
+    sim_out_model = simulator.simulate(nsim=400)
     Y = sim_out_model['Y_pred_dynamics'].detach().numpy()
     U = sim_out_model['U_pred_policy'].detach().numpy()
     R = sim_out_model['Rf'].detach().numpy()

@@ -252,9 +252,9 @@ class ClosedLoopSimulator:
             self.nsim = nsim
 
     def test_eval(self):
-        sim_out_model = self.simulate_model(nsim=self.nsim)
+        sim_out_model = self.simulate(nsim=self.nsim)
         if self.emulator is not None:
-            sim_out_emul = self.simulate_emulator(nsim=self.nsim)
+            sim_out_emul = self.simulate(nsim=self.nsim, use_emulator=True)
         else:
             sim_out_emul = None
         return sim_out_model, sim_out_emul
@@ -346,73 +346,11 @@ class ClosedLoopSimulator:
             sim_data[key].append(step_data[key])
         return sim_data
 
-    def simulate_emulator(self, nsim):
-        # TODO: fix the initial keys more elegantly for emulator model
-        # set initial keys for closed loop simulation data
-        cl_keys = self.estimator.output_keys+self.policy.output_keys+\
-                  self.policy.input_keys+self.emulator_output_keys
-        cl_keys.remove('reg_error_policy')
-        if self.estimator is not None:
-            cl_keys.remove('reg_error_estim')
-        cl_data = {}
-        for key in cl_keys:
-            cl_data[key] = []
-
-        # initial time index with offset determined by largest moving horizon window
-        if self.estimator is not None and self.policy.nsteps < self.estimator.window_size:
-            start_k = self.estimator.window_size
-        else:
-            start_k = self.policy.nsteps
-        for k in range(start_k, start_k + nsim):
-            # estimator step
-            if self.estimator is not None:
-                step_data = self.step_data_estimator(self.sim_data, k)
-                estim_out = self.estimator(step_data)
-            else:
-                estim_out = {}
-
-            # policy step
-            policy_in = self.step_data_policy(self.sim_data, k)
-            step_data = {**policy_in, **estim_out}
-            policy_out = self.policy(step_data)  # calculate n-step ahead control
-            policy_out = self.rhc(policy_out)  # apply reciding horizon control
-
-            # emulator step
-            step_data = self.step_data_model(self.sim_data, k, self.emulator_input_keys)
-            step_data = {**step_data, **estim_out, **policy_out}
-            # TODO: denormalize here
-            model_out = self.step_emulator(step_data)
-            # TODO: normalize here
-            # closed-loop step
-            cl_step_data = {**estim_out, **policy_in, **policy_out, **model_out}
-            # update sim_data for next step
-            self.sim_data = self.update_sim_data(self.sim_data, cl_step_data, k)
-
-            # process batch data to have 2 dimensions: time x var. dim.
-            for key in cl_step_data.keys():
-                if len(cl_step_data[key].shape) == 3:
-                    cl_step_data[key] = cl_step_data[key][:, 0, :]
-            # if nstep ahead policy: select only each n-th step of policy keys for logging
-            for key in self.policy.input_keys:
-                cl_step_data[key] = cl_step_data[key][::self.policy.nsteps, :]
-
-            # append closed-loop step to simulation data
-            cl_data = self.append_data(cl_data, cl_step_data)
-
-        # concatenate step data in a single tensor
-        for key in cl_data.keys():
-            cl_data[key] = torch.cat(cl_data[key])
-        return cl_data
-
-    def simulate_model(self, nsim):
+    def simulate(self, nsim, use_emulator=False):
         # set initial keys for closed loop simulation data
         cl_keys = self.estimator.output_keys+self.policy.output_keys+\
                   self.policy.input_keys+self.system_model.output_keys
-        # TODO: fix initial keys more elegantly
-        cl_keys.remove('reg_error_dynamics')
-        cl_keys.remove('reg_error_policy')
-        if self.estimator is not None:
-            cl_keys.remove('reg_error_estim')
+        cl_keys = [k for k in cl_keys if not k.startswith('reg_error')]
         cl_data = {}
         for key in cl_keys:
             cl_data[key] = []
@@ -438,9 +376,16 @@ class ClosedLoopSimulator:
             policy_out = self.rhc(policy_out)       # apply reciding horizon control
 
             # model step
-            step_data = self.step_data_model(self.sim_data, k, self.system_model.input_keys)
-            step_data = {**step_data, **estim_out, **policy_out}
-            model_out = self.system_model(step_data)
+            if use_emulator:
+                step_data = self.step_data_model(self.sim_data, k, self.emulator_input_keys)
+                step_data = {**step_data, **estim_out, **policy_out}
+                # TODO: denormalize here
+                model_out = self.step_emulator(step_data)
+                # TODO: normalize here
+            else:
+                step_data = self.step_data_model(self.sim_data, k, self.system_model.input_keys)
+                step_data = {**step_data, **estim_out, **policy_out}
+                model_out = self.system_model(step_data)
 
             # closed-loop step
             cl_step_data = {**estim_out, **policy_in, **policy_out, **model_out}
@@ -463,3 +408,115 @@ class ClosedLoopSimulator:
             cl_data[key] = torch.cat(cl_data[key])
         return cl_data
 
+
+
+    # def simulate_emulator(self, nsim):
+    #     # set initial keys for closed loop simulation data
+    #     cl_keys = self.estimator.output_keys+self.policy.output_keys+\
+    #               self.policy.input_keys+self.emulator_output_keys
+    #     cl_keys = [k for k in cl_keys if not k.startswith('reg_error')]
+    #     cl_data = {}
+    #     for key in cl_keys:
+    #         cl_data[key] = []
+    #
+    #     # initial time index with offset determined by largest moving horizon window
+    #     if self.estimator is not None and self.policy.nsteps < self.estimator.window_size:
+    #         start_k = self.estimator.window_size
+    #     else:
+    #         start_k = self.policy.nsteps
+    #     for k in range(start_k, start_k + nsim):
+    #         # estimator step
+    #         if self.estimator is not None:
+    #             step_data = self.step_data_estimator(self.sim_data, k)
+    #             estim_out = self.estimator(step_data)
+    #         else:
+    #             estim_out = {}
+    #
+    #         # policy step
+    #         policy_in = self.step_data_policy(self.sim_data, k)
+    #         step_data = {**policy_in, **estim_out}
+    #         policy_out = self.policy(step_data)  # calculate n-step ahead control
+    #         policy_out = self.rhc(policy_out)  # apply reciding horizon control
+    #
+    #         # emulator step
+    #         step_data = self.step_data_model(self.sim_data, k, self.emulator_input_keys)
+    #         step_data = {**step_data, **estim_out, **policy_out}
+    #         # TODO: denormalize here
+    #         model_out = self.step_emulator(step_data)
+    #         # TODO: normalize here
+    #         # closed-loop step
+    #         cl_step_data = {**estim_out, **policy_in, **policy_out, **model_out}
+    #         # update sim_data for next step
+    #         self.sim_data = self.update_sim_data(self.sim_data, cl_step_data, k)
+    #
+    #         # process batch data to have 2 dimensions: time x var. dim.
+    #         for key in cl_step_data.keys():
+    #             if len(cl_step_data[key].shape) == 3:
+    #                 cl_step_data[key] = cl_step_data[key][:, 0, :]
+    #         # if nstep ahead policy: select only each n-th step of policy keys for logging
+    #         for key in self.policy.input_keys:
+    #             cl_step_data[key] = cl_step_data[key][::self.policy.nsteps, :]
+    #
+    #         # append closed-loop step to simulation data
+    #         cl_data = self.append_data(cl_data, cl_step_data)
+    #
+    #     # concatenate step data in a single tensor
+    #     for key in cl_data.keys():
+    #         cl_data[key] = torch.cat(cl_data[key])
+    #     return cl_data
+    #
+    # def simulate_model(self, nsim):
+    #     # set initial keys for closed loop simulation data
+    #     cl_keys = self.estimator.output_keys+self.policy.output_keys+\
+    #               self.policy.input_keys+self.system_model.output_keys
+    #     cl_keys = [k for k in cl_keys if not k.startswith('reg_error')]
+    #     cl_data = {}
+    #     for key in cl_keys:
+    #         cl_data[key] = []
+    #
+    #     # initial time index with offset determined by largest moving horizon window
+    #     if self.estimator is not None and self.policy.nsteps < self.estimator.window_size:
+    #         start_k = self.estimator.window_size
+    #     else:
+    #         start_k = self.policy.nsteps
+    #     for k in range(start_k, start_k+nsim):
+    #
+    #         # estimator step
+    #         if self.estimator is not None:
+    #             step_data = self.step_data_estimator(self.sim_data, k)
+    #             estim_out = self.estimator(step_data)
+    #         else:
+    #             estim_out = {}
+    #
+    #         # policy step
+    #         policy_in = self.step_data_policy(self.sim_data, k)
+    #         step_data = {**policy_in, **estim_out}
+    #         policy_out = self.policy(step_data)     # calculate n-step ahead control
+    #         policy_out = self.rhc(policy_out)       # apply reciding horizon control
+    #
+    #         # model step
+    #         step_data = self.step_data_model(self.sim_data, k, self.system_model.input_keys)
+    #         step_data = {**step_data, **estim_out, **policy_out}
+    #         model_out = self.system_model(step_data)
+    #
+    #         # closed-loop step
+    #         cl_step_data = {**estim_out, **policy_in, **policy_out, **model_out}
+    #         # update sim_data for next step
+    #         self.sim_data = self.update_sim_data(self.sim_data, cl_step_data, k)
+    #
+    #         # process batch data to have 2 dimensions: time x var. dim.
+    #         for key in cl_step_data.keys():
+    #             if len(cl_step_data[key].shape) == 3:
+    #                 cl_step_data[key] = cl_step_data[key][:, 0, :]
+    #         # if nstep ahead policy: select only each n-th step of policy keys for logging
+    #         for key in self.policy.input_keys:
+    #             cl_step_data[key] = cl_step_data[key][::self.policy.nsteps, :]
+    #
+    #         # append closed-loop step to simulation data
+    #         cl_data = self.append_data(cl_data, cl_step_data)
+    #
+    #     # concatenate step data in a single tensor
+    #     for key in cl_data.keys():
+    #         cl_data[key] = torch.cat(cl_data[key])
+    #     return cl_data
+    #

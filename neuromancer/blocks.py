@@ -169,6 +169,82 @@ class ResMLP(MLP):
         return self.linear[-1](x) + self.outmap(px)
 
 
+class InputConvexNN(MLP):
+    """
+    Input convex neural network
+    z1 =  sig(W0(x) + b0)
+    z_i+1 = sig_i(Ui(zi) + Wi(x) + bi),  i = 1, ..., k-1
+    V = g(x) = zk
+
+    Equation 11 from https://arxiv.org/abs/2001.06116
+    """
+
+    def __init__(self,
+                 insize,
+                 outsize,
+                 bias=True,
+                 linear_map=slim.Linear,
+                 nonlin=nn.ReLU,
+                 hsizes=[64],
+                 linargs=dict()
+                 ):
+        super().__init__(
+            insize,
+            outsize,
+            bias=bias,
+            linear_map=linear_map,
+            nonlin=nonlin,
+            hsizes=hsizes,
+            linargs=linargs,
+
+        )
+        assert (
+                len(set(hsizes)) == 1
+        ), "All hidden sizes should be equal for residual network"
+
+        sizes = hsizes + [outsize]
+        self.poslinear = nn.ModuleList(
+            [
+                slim.NonNegativeLinear(sizes[k], sizes[k + 1], bias=False, **linargs)
+                for k in range(self.nhidden)
+            ]
+        )
+        # assert(hsizes[0] == outsize)
+        self.inmap = linear_map(insize, hsizes[0], bias=bias, **linargs)
+        # Final layer of W, multiplies input vector x
+        self.outmap = linear_map(insize, outsize, bias=bias, **linargs)
+        self.in_features, self.out_features = insize, outsize
+
+    def forward(self, x):
+        xi = x
+        px = self.inmap(xi)
+        x = self.nonlin[0](px)
+        for layer, (linU, nlin, linW) in enumerate(zip(self.poslinear[:-1], self.nonlin[:-1], self.linear[:-1])):
+            px = linW(xi)
+            ux = linU(x)
+            x = nlin(ux + px)
+        return self.nonlin[-1](self.outmap(xi) + self.poslinear[-1](x))
+
+
+class PosDef(nn.Module):
+    """
+    Enforce positive-definiteness of lyapunov function ICNN, V = g(x)
+    Equation 12 from https://arxiv.org/abs/2001.06116
+    """
+    def __init__(self, g, n, eps=0.01, d=1.0):
+        super().__init__()
+        self.g = g
+        self.zero = torch.nn.Parameter(f(torch.zeros(1,n)), requires_grad=False)
+        self.eps = eps
+        self.d = d
+        self.smReLU = SmoothedReLU(self.d)
+
+    def forward(self, x):
+        shift_to_zero = self.smReLU(self.g(x) - self.zero)
+        quad_psd = self.eps*(x**2).sum(1,keepdim=True)
+        return shift_to_zero + quad_psd
+
+
 class PytorchRNN(nn.Module):
 
     """
@@ -386,6 +462,7 @@ blocks = {
     "residual_mlp": ResMLP,
     "basislinear": BasisLinear,
     "bilinear": BilinearTorch,
+    # "icnn": InputConvexNN,
 }
 
 
@@ -419,5 +496,9 @@ if __name__ == "__main__":
     print(block(y).shape)
 
     block = BasisLinear(5, 7, bias=True)
+    y = torch.randn([25, 5])
+    print(block(y).shape)
+
+    block = InputConvexNN(5, 1, bias=True, hsizes=[64, 64])
     y = torch.randn([25, 5])
     print(block(y).shape)

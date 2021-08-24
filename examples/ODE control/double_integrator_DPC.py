@@ -1,10 +1,5 @@
 """
-DPC double integrator example with given system dynamics model
-time varying reference tracking problem
-
-observation: with increasing predicion horizon we need to retune the relative weights,
-            otherwise the performance deteriorates
-open problem: automatic retuning based on prediction horizon length
+DPC Double integrator example with given system dynamics model
 
 """
 
@@ -25,14 +20,16 @@ import copy
 from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
 from neuromancer.trainer import Trainer
-from neuromancer.simulators import ClosedLoopSimulator
 from neuromancer.problem import Problem, Objective
 from neuromancer import policies
 import neuromancer.arg as arg
-from neuromancer.datasets import Dataset
+from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
+from torch.utils.data import DataLoader
 from neuromancer.loggers import BasicLogger
-from neuromancer.visuals import VisualizerClosedLoop
-from neuromancer.callbacks import SysIDCallback
+from neuromancer.visuals import VisualizerDobleIntegrator
+from neuromancer.callbacks import SysIDCallback, ControlCallback, DoubleIntegratorCallback
+from neuromancer.plot import plot_policy, cl_simulate, plot_loss_DPC, plot_cl
+from neuromancer.simulators import ClosedLoopSimulator
 
 
 def arg_dpc_problem(prefix=''):
@@ -45,16 +42,12 @@ def arg_dpc_problem(prefix=''):
     """
     parser = arg.ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("DPC")
-    gp.add("-controlled_outputs", type=int, default=[0],
-           help="Index of the controlled state.")
-    gp.add("-nsteps", type=int, default=2,
+    gp.add("-nsteps", type=int, default=1,
            help="prediction horizon.")          # tuned values: 1, 2
-    gp.add("-Qr", type=float, default=5.0,
-           help="reference tracking weight.")   # tuned value: 5.0
-    gp.add("-Qu", type=float, default=0.0,
-           help="control action weight.")       # tuned value: 0.0
-    gp.add("-Qdu", type=float, default=0.1,
-           help="control action difference weight.")       # tuned value: 0.0
+    gp.add("-Qx", type=float, default=5.0,
+           help="state weight.")                # tuned value: 5.0
+    gp.add("-Qu", type=float, default=1.0,
+           help="control action weight.")       # tuned value: 1.0
     gp.add("-Qn", type=float, default=1.0,
            help="terminal penalty weight.")     # tuned value: 1.0
     gp.add("-Q_sub", type=float, default=0.0,
@@ -84,85 +77,73 @@ def arg_dpc_problem(prefix=''):
     return parser
 
 
-def cl_simulate(A, B, policy, args, nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
+def get_sequence_dataloaders(
+    data, nsteps, moving_horizon=False, norm_type=None, split_ratio=None, num_workers=0,
+):
+    """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
+    data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
+    training setup.
+
+    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
+        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
+        computed over the number of sequences rather than their lengths.
+    :param nsteps: (int) length of windowed subsequences for N-step training.
+    :param moving_horizon: (bool) whether to use moving horizon batching.
+    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
+    :param split_ratio: (list float) percentage of data in train and development splits; see
+        function `split_sequence_data` for more info.
     """
 
-    :param A:
-    :param B:
-    :param net:
-    :param nstep:
-    :param x0:
-    :return:
-    """
-    Anp = A.detach().numpy()
-    Bnp = B.detach().numpy()
-    x = x0
-    X = [x]
-    U = []
-    N = args.nsteps
-    if ref is None:
-        ref = np.zeros([nstep, 1])
+    if norm_type is not None:
+        data, _ = normalize_data(data, norm_type)
+    train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
 
-    for k in range(nstep+1-N):
-        x_torch = torch.tensor(x).float().transpose(0, 1)
-        # taking a first control action based on RHC principle
-        r_k = torch.tensor([ref[k:k+N, :]]).float().transpose(0, 1)
-        uout = policy({'x0_estimator': x_torch, 'Rf': r_k})
-        u = uout['U_pred_policy'][0,:,:].detach().numpy().transpose()
-        # closed loop dynamics
-        x = np.matmul(Anp, x) + np.matmul(Bnp, u)
-        X.append(x)
-        U.append(u)
-    Xnp = np.asarray(X)[:, :, 0]
-    Unp = np.asarray(U)[:, :, 0]
+    train_data = SequenceDataset(
+        train_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="train",
+    )
+    dev_data = SequenceDataset(
+        dev_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="dev",
+    )
+    test_data = SequenceDataset(
+        test_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="test",
+    )
 
-    fig, ax = plt.subplots(2, 1)
-    ax[0].plot(ref, 'k--', label='r', linewidth=2)
-    ax[0].plot(Xnp, label='x', linewidth=2)
-    ax[0].set(ylabel='$x$')
-    ax[0].set(xlabel='time')
-    ax[0].grid()
-    ax[0].set_xlim(0, nstep)
-    ax[1].plot(Unp, label='u', drawstyle='steps',  linewidth=2)
-    ax[1].set(ylabel='$u$')
-    ax[1].set(xlabel='time')
-    ax[1].grid()
-    ax[1].set_xlim(0, nstep)
-    plt.tight_layout()
-    if save_path is not None:
-        plt.savefig(save_path+'/closed_loop_dpc.pdf')
+    train_loop = train_data.get_full_sequence()
+    dev_loop = dev_data.get_full_sequence()
+    test_loop = test_data.get_full_sequence()
 
+    train_data = DataLoader(
+        train_data,
+        batch_size=len(train_data),
+        shuffle=False,
+        collate_fn=train_data.collate_fn,
+        num_workers=num_workers,
+    )
+    dev_data = DataLoader(
+        dev_data,
+        batch_size=len(dev_data),
+        shuffle=False,
+        collate_fn=dev_data.collate_fn,
+        num_workers=num_workers,
+    )
+    test_data = DataLoader(
+        test_data,
+        batch_size=len(test_data),
+        shuffle=False,
+        collate_fn=test_data.collate_fn,
+        num_workers=num_workers,
+    )
 
-def lpv_batched(fx, x):
-    x_layer = x
-    Aprime_mats = []
-    activation_mats = []
-    bprimes = []
-
-    for nlin, lin in zip(fx.nonlin, fx.linear):
-        A = lin.effective_W()  # layer weight
-        b = lin.bias if lin.bias is not None else torch.zeros(A.shape[-1])
-        Ax = torch.matmul(x_layer, A) + b  # affine transform
-        zeros = Ax == 0
-        lambda_h = nlin(Ax) / Ax  # activation scaling
-        lambda_h[zeros] = 0.
-        lambda_h_mats = [torch.diag(v) for v in lambda_h]
-        activation_mats += lambda_h_mats
-        lambda_h_mats = torch.stack(lambda_h_mats)
-        x_layer = Ax * lambda_h
-        Aprime = torch.matmul(A, lambda_h_mats)
-        Aprime_mats += [Aprime]
-        bprime = lambda_h * b
-        bprimes += [bprime]
-
-    # network-wise parameter varying linear map:  A* = A'_L ... A'_1
-    Astar = Aprime_mats[0]
-    bstar = bprimes[0] # b x nx
-    for Aprime, bprime in zip(Aprime_mats[1:], bprimes[1:]):
-        Astar = torch.bmm(Astar, Aprime)
-        bstar = torch.bmm(bstar.unsqueeze(-2), Aprime).squeeze(-2) + bprime
-
-    return Astar, bstar, Aprime_mats, bprimes, activation_mats
+    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
 if __name__ == "__main__":
@@ -180,18 +161,14 @@ if __name__ == "__main__":
     ny = 2
     nu = 1
     # number of datapoints
-    nsim = 50000        # rule of thumb: more data samples -> improved control performance
+    nsim = 10000
     # constraints bounds
     umin = -1
     umax = 1
     xmin = -10
     xmax = 10
-    # terminal constraints as deviations from desired reference
     xN_min = -0.1
     xN_max = 0.1
-    # reference bounds for the controlled state
-    ref_min = 0.0
-    ref_max = 2.0
 
     """
     # # #  Dataset 
@@ -205,23 +182,39 @@ if __name__ == "__main__":
         "U_min": umin*np.ones([nsim, nu]),
         "Y": 3*np.random.randn(nsim, nx),
         "U": np.random.randn(nsim, nu),
-        "R": np.concatenate([np.random.uniform(low=ref_min, high=ref_max)*np.ones([args.nsteps, 1])
-                             for i in range(int(np.ceil(nsim/args.nsteps)))])[:nsim, :],
     }
-    dataset = Dataset(nsim=nsim, ninit=0, norm=args.norm, nsteps=args.nsteps,
-                      device='cpu', sequences=sequences, name='closedloop')
+    nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps)
+    train_data, dev_data, test_data = nstep_data
+    train_loop, dev_loop, test_loop = loop_data
 
     """
-    # # #  System model
+    # # #  System model and Control policy
     """
-    # Fully observable estimator as identity map:
+    # Fully observable estimator as identity map: x0 = Yp[-1]
     # x_0 = Yp
     # Yp = [y_-N, ..., y_0]
-    estimator = estimators.FullyObservable({**dataset.dims, "x0": (nx,)},
+    estimator = estimators.FullyObservable({**dims, "x0": (nx,)},
                                            nsteps=args.nsteps,  # future window Nf
                                            window_size=1,  # past window Np <= Nf
                                            input_keys=["Yp"],
                                            name='estimator')
+    # full state feedback control policy
+    # Uf = p(x_0)
+    # Uf = [u_0, ..., u_N]
+    activation = activations['relu']
+    linmap = slim.maps['linear']
+    block = blocks.MLP
+    policy = policies.MLPPolicy(
+        {f'x0_{estimator.name}': (nx,), **dims},
+        nsteps=args.nsteps,
+        bias=args.bias,
+        linear_map=linmap,
+        nonlin=activation,
+        hsizes=[args.nx_hidden] * args.n_layers,
+        input_keys=[f'x0_{estimator.name}'],
+        name='policy',
+    )
+
     # A, B, C linear maps
     fu = slim.maps['linear'](nu, nx)
     fx = slim.maps['linear'](nx, nx)
@@ -230,7 +223,8 @@ if __name__ == "__main__":
     # x_k+1 = Ax_k + Bu_k
     # y_k+1 = Cx_k+1
     dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics',
-                                       input_keys={'x0': f'x0_{estimator.name}'})
+                                       input_keys={f'x0_{estimator.name}': 'x0',
+                                                   'U_pred_policy': 'Uf'})
     # model matrices values
     A = torch.tensor([[1.2, 1.0],
                       [0.0, 1.0]])
@@ -244,50 +238,22 @@ if __name__ == "__main__":
     # fix model parameters
     dynamics_model.requires_grad_(False)
 
-    """
-    # # #  Control policy
-    """
-    # full state feedback control policy with reference preview Rf
-    # Uf = p(x_0, Rf)
-    # Uf = [u_0, ..., u_N]
-    # Rf = [r_0, ..., r_N]
-    activation = activations['relu']
-    linmap = slim.maps['linear']
-    block = blocks.MLP
-    policy = policies.MLPPolicy(
-        {f'x0_{estimator.name}': (dynamics_model.nx,), **dataset.dims},
-        nsteps=args.nsteps,
-        bias=args.bias,
-        linear_map=linmap,
-        nonlin=activation,
-        hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=[f'x0_{estimator.name}', 'Rf'],
-        name='policy',
-    )
-    # link policy with the model through the input keys
-    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_policy'
 
     """
     # # #  DPC objectives and constraints
     """
     # objectives
-    reference_loss = Objective(
-        [f'Y_pred_{dynamics_model.name}', "Rf"],
-        lambda pred, ref: F.mse_loss(pred[:, :, args.controlled_outputs], ref),
-        weight=args.Qr,
-        name="ref_loss",
+    regulation_loss = Objective(
+        [f'Y_pred_{dynamics_model.name}'],
+        lambda x: torch.norm(x, 2),
+        weight=args.Qx,
+        name="x^T*Qx*x",
     )
     action_loss = Objective(
         [f"U_pred_{policy.name}"],
         lambda x:  torch.norm(x, 2),
         weight=args.Qu,
         name="u^T*Qu*u",
-    )
-    du_loss = Objective(
-        [f"U_pred_{policy.name}"],
-        lambda x:  F.mse_loss(x[1:], x[:-1]),
-        weight=args.Qdu,
-        name="control_smoothing",
     )
     # regularization
     regularization = Objective(
@@ -308,14 +274,14 @@ if __name__ == "__main__":
         name="state_upper_bound",
     )
     terminal_lower_bound_penalty = Objective(
-        [f'Y_pred_{dynamics_model.name}', "Rf"],
-        lambda x, ref: torch.norm(F.relu(-x[:, :, args.controlled_outputs] + ref + xN_min), 1),
+        [f'Y_pred_{dynamics_model.name}', "Y_minf"],
+        lambda x, xmin: torch.norm(F.relu(-x + xN_min), 1),
         weight=args.Qn,
         name="terminl_lower_bound",
     )
     terminal_upper_bound_penalty = Objective(
-        [f'Y_pred_{dynamics_model.name}', "Rf"],
-        lambda x, ref: torch.norm(F.relu(x[:, :, args.controlled_outputs] - ref - xN_max), 1),
+        [f'Y_pred_{dynamics_model.name}', "Y_maxf"],
+        lambda x, xmax: torch.norm(F.relu(x - xN_max), 1),
         weight=args.Qn,
         name="terminl_upper_bound",
     )
@@ -333,8 +299,12 @@ if __name__ == "__main__":
         weight=args.Q_con_u,
         name="input_upper_bound",
     )
+    # comment: the choice of the penalties shapes loss landscapes differently
+    # nicer landscapes are obtained with: torch.mean(F.relu(-u + umin)) for all constraints
+    # and affects weight tuning, with torch.mean(F.relu(-u + umin)) we need higher constraints weights
+    # the choice of the penalties does not affect the closed-loop control profiles though
 
-    objectives = [regularization, reference_loss, du_loss]
+    objectives = [regularization, regulation_loss, action_loss]
     constraints = [
         state_lower_bound_penalty,
         state_upper_bound_penalty,
@@ -361,43 +331,47 @@ if __name__ == "__main__":
     # logger and metrics
     args.savedir = 'test_control'
     args.verbosity = 1
-    metrics = ["nstep_dev_loss", "loop_dev_loss", "best_loop_dev_loss",
-               "nstep_dev_ref_loss", "loop_dev_ref_loss"]
-    logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'integrator'
+    metrics = ["nstep_dev_loss"]
+    logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity,
+                         stdout=metrics)
+    logger.args.system = 'dpc_stabilize'
     # device and optimizer
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
     model = model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    # simulator
-    simulator = ClosedLoopSimulator(
-        model=model, dataset=dataset, emulator=dynamics_model, policy=policy
-    )
-    # visualizer
-    plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
-    visualizer = VisualizerClosedLoop(
-        dataset, policy, plot_keys, args.verbosity, savedir=args.savedir
-    )
-    # trainer
+
+    # visualizer object to be called in callback for plotting
+    visualizer = VisualizerDobleIntegrator(train_data, model,
+                     args.verbosity, savedir=args.savedir,
+                     nstep=40, x0=1.5 * np.ones([2, 1]),
+                     training_visuals=False, trace_movie=False)
+
     trainer = Trainer(
         model,
-        dataset,
+        train_data,
+        dev_data,
+        test_data,
         optimizer,
         logger=logger,
-        callback=SysIDCallback(simulator, visualizer),
         epochs=args.epochs,
         patience=args.patience,
+        eval_metric='nstep_dev_loss',
+        callback=DoubleIntegratorCallback(visualizer),
         warmup=args.warmup,
     )
     # Train control policy
     best_model = trainer.train()
+    best_outputs = trainer.test(best_model)
 
     """
-    # # #  Plots and Analysis
+    # # #  Plots and Analysis from the VisualizerDobleIntegrator
     """
-    # plot closed loop trajectories with time varying reference
-    ref_step = 40
-    R = np.concatenate([0.5*np.ones([ref_step, 1]),
-                        1*np.ones([ref_step, 1]), 0*np.ones([ref_step, 1])])
-    cl_simulate(A, B, policy, args=args, nstep=R.shape[0],
-                x0=1.5*np.ones([2, 1]), ref=R, save_path='test_control')
+    # simulate and plot closed loop trajectories
+    cl_simulate(A, B, policy.net, nstep=40, x0=1.5*np.ones([2, 1]))
+    X, U = cl_simulate(A, B, policy.net, nstep=40, x0=1.5*np.ones([2, 1]))
+    plot_cl(X, U, nstep=40, save_path='test_control', trace_movie=False)
+    # plot policy surface
+    plot_policy(policy.net, save_path='test_control')
+    # loss landscape and contraction regions
+    plot_loss_DPC(model, train_data, xmin=-2, xmax=2, save_path='test_control')
+

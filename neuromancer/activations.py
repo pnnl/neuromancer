@@ -206,6 +206,22 @@ class RectifiedSoftExp(nn.Module):
         return log + exp
 
 
+class SmoothedReLU(nn.Module):
+    """
+    ReLU with a quadratic region in [0,d]; Rectified Huber Unit;
+    Used to make the Lyapunov function continuously differentiable
+    https://arxiv.org/pdf/2001.06116.pdf
+    """
+    def __init__(self, d=1.0, tune_d=True):
+        super().__init__()
+        self.d = nn.Parameter(torch.tensor(d), requires_grad=tune_d)
+
+    def forward(self, x):
+        alpha = 1.0 / F.softplus(self.d)
+        beta = - F.softplus(self.d) / 2
+        return torch.max(torch.clamp(torch.sign(x) * torch.div(alpha, 2.0) * x ** 2, min=0, max=-beta.item()), x + beta)
+
+
 activations = {
     "softexp": SoftExponential,
     "blu": BLU,
@@ -231,6 +247,7 @@ activations = {
     "softshrink": nn.Softshrink,
     "softsign": nn.Softsign,
     "tanhshrink": nn.Tanhshrink,
+    "smoothedrelu": SmoothedReLU
 }
 
 if __name__ == "__main__":

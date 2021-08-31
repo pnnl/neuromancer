@@ -8,6 +8,7 @@ problem parameters:             a, p
 problem decition variables:     x, y
 
 Reference material:
+    https://en.wikipedia.org/wiki/Rosenbrock_function
     https://web.casadi.org/blog/opti/
     https://web.casadi.org/blog/nlp_sens/
     https://github.com/casadi/casadi/blob/master/docs/examples/python/rosenbrock.py

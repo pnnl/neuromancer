@@ -43,7 +43,7 @@ def arg_mpLP_problem(prefix=''):
            help="loss function weight.")  # tuned value: 1.0
     gp.add("-Q_sub", type=float, default=0.0,
            help="regularization weight.")
-    gp.add("-Q_con", type=float, default=1.0,
+    gp.add("-Q_con", type=float, default=25.0,
            help="constraints penalty weight.")  # tuned value: 50.0
     gp.add("-nx_hidden", type=int, default=40,
            help="Number of hidden states of the solution map")
@@ -55,11 +55,11 @@ def arg_mpLP_problem(prefix=''):
            help="Random seed used for simulated data")
     gp.add("-epochs", type=int, default=800,
            help='Number of training epochs')
-    gp.add("-lr", type=float, default=0.0001,
+    gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
-    gp.add("-patience", type=int, default=100,
+    gp.add("-patience", type=int, default=200,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
-    gp.add("-warmup", type=int, default=100,
+    gp.add("-warmup", type=int, default=200,
            help="Number of epochs to wait before enacting early stopping policy.")
     return parser
 
@@ -134,9 +134,8 @@ if __name__ == "__main__":
     #  randomly sampled parameters theta generating superset of:
     #  theta_samples.min() <= theta <= theta_samples.max()
     np.random.seed(args.data_seed)
-    nsim = 20000  # number of datapoints: increase sample density for more robust results
-    sequences = {"a": np.random.uniform(low=0.2, high=1.5, size=(nsim, 1)),
-                 "p": np.random.uniform(low=0.5, high=2.0, size=(nsim, 1))}
+    nsim = 10000  # number of datapoints: increase sample density for more robust results
+    sequences = {"p": np.random.uniform(low=5.0, high=15.0, size=(nsim, 1))}
     nstep_data, dims = get_dataloaders(sequences)
     train_data, dev_data, test_data = nstep_data
 
@@ -154,7 +153,7 @@ if __name__ == "__main__":
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=["a", "p"],
+        input_keys=["p"],
         name='sol_map',
     )
 
@@ -163,38 +162,21 @@ if __name__ == "__main__":
     y = Variable(f"U_pred_{sol_map.name}")[:, 1]
     # sampled parameters
     p = Variable('p')
-    a = Variable('a')
-
-    # TODO: how to deal with generic minimization problems what can have negative loss
-    # TODO: solution calling nm.min(var)?
-    # TODO: switch Loss and Objective names
 
     # objective function
-
     # # Option 1
-    # loss = args.Q*((1-x)**2 + a*(y-x**2)**2 == -5)
+    # loss = args.Q*(x**2 + y**2 == 0)
     # loss.name = 'loss'
 
     # # Option 2
-    loss = Loss((1-x)**2 + a*(y-x**2)**2, weight=args.Q, name='loss')
-
-    # # Option 3
-    # loss = Objective(
-    #     ['a', 'p', f"U_pred_{sol_map.name}"],
-    #     lambda a, p, xy: torch.mean((1-xy[:, 0])**2 + a*(xy[:, 1]-xy[:, 0]**2)**2),
-    #     weight=args.Q,
-    #     name="loss",
-    # )
-
+    loss = Loss(x**2 + y**2, weight=args.Q, name='loss')
     # constraints
-    con_1 = args.Q_con*(x >= y)
-    con_2 = args.Q_con*((p/2)**2 <= x**2+y**2)
-    con_3 = args.Q_con*(x**2+y**2 <= p**2)
+    con_1 = args.Q_con*(x + y - p >= 0)
+
 
     # constrained optimization problem construction
     objectives = [loss]
-    constraints = [con_1, con_2, con_3]
-    # constraints = []
+    constraints = [con_1]
     components = [sol_map]
     model = Problem(objectives, constraints, components)
     model = model.to(device)
@@ -202,14 +184,14 @@ if __name__ == "__main__":
     """
     # # # Metrics and Logger
     """
-    args.savedir = 'test_mpNLP_rosenbrock'
+    args.savedir = 'test_mpQP_1'
     args.verbosity = 1
     metrics = ["dev_loss"]
     logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'mpNLP_rosenbrock'
+    logger.args.system = 'mpQP_1'
 
     """
-    # # #  mpNLP problem solution in Neuromancer
+    # # #  mpQP problem solution in Neuromancer
     """
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
@@ -239,35 +221,26 @@ if __name__ == "__main__":
     # plot_loss_mpp(model, train_data, xmin=-2, xmax=2, save_path=None)
     # plot_solution_mpp(sol_map, xmin=-2, xmax=2, save_path=None)
 
-    a = 1.0
-    p = 1.0
-    x1 = np.arange(-0.5, 1.5, 0.02)
-    y1 = np.arange(-0.5, 1.5, 0.02)
+    p = 10.0
+    x1 = np.arange(-1.0, 10.0, 0.05)
+    y1 = np.arange(-1.0, 10.0, 0.05)
     xx, yy = np.meshgrid(x1, y1)
 
     # eval objective and constraints
-    J = (1 - xx) ** 2 + a * (yy - xx ** 2) ** 2
-    c1 = xx - yy
-    c2 = xx ** 2 + yy ** 2 - (p / 2) ** 2
-    c3 = -(xx ** 2 + yy ** 2) + p ** 2
+    J = xx ** 2 + yy ** 2
+    c1 = xx + yy - p
 
+    # Plot
     fig, ax = plt.subplots(1, 1)
     cp = ax.contourf(xx, yy, J,
-                     levels=[0, 0.05, 0.2, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0],
                      alpha=0.6)
     fig.colorbar(cp)
-    ax.set_title('Rosenbrock problem')
+    ax.set_title('Quadratic problem')
     cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
     plt.setp(cg1.collections,
              path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-    cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg2.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-    cg3 = ax.contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg3.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
 
-    params = torch.tensor([a, p])
+    params = torch.tensor([p])
     xy_optim = model.components[0].net(params).detach().numpy()
     print(xy_optim[0])
     print(xy_optim[1])

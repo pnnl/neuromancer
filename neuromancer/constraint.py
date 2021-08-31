@@ -120,6 +120,43 @@ class Eq(nn.Module):
             return F.mse_loss(left, right)
 
 
+class Loss(nn.Module):
+    """
+    Drop in replacement for an Objective object constructed via neuromancer Variable object
+    in the forward pass evaluates metric as torch function on Variable values
+    """
+    def __init__(self, var, metric=torch.mean, weight=1.0, name=None):
+        """
+
+        :param var: (nm.Variable) expression to be minimized
+        :param metric: (torch function) differentiable scalar valued function to penalize the expression
+        :param weight: (float, int, or zero-D torch.Tensor) For scaling calculated Constraint violation loss
+        :param name: (str) Optional intuitive name for storing in Problem's output dictionary.
+        """
+        super().__init__()
+        if not type(var) is Variable:
+            var = Variable(str(var), value=var)
+        self.var = var
+        self.metric = metric
+        self.weight = weight
+        if name is None:
+            self.name = f'{self.var}_{self.metric}'
+        else:
+            self.name = name
+
+    @property
+    def variable_names(self):
+        return [self.expr.key]
+
+    def forward(self, variables):
+        """
+
+        :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
+        :return: 0-dimensional torch.Tensor that can be cast as a floating point number
+        """
+        return self.weight*self.metric(self.var(variables))
+
+
 class Constraint(nn.Module):
     """
     Drop in replacement for an Objective object but constructed by a composition of Variable objects

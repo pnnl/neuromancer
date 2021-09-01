@@ -1,13 +1,10 @@
 """
-Solve the Rosenbrock problem, formulated as the NLP using Neuromancer toolbox:
-minimize     (1-x)^2 + a*(y-x^2)^2
-subject to   (p/2)^2 <= x^2 + y^2 <= p^2
-             x>=y
+Solve Quadratic Programming (QP) problem using Neuromancer toolbox:
+minimize     x^2+y^2
+subject to   x+y-p >= 0
 
-problem parameters:             a, p
-problem decition variables:     x, y
-
-https://en.wikipedia.org/wiki/Rosenbrock_function
+problem parameters:            p
+problem decition variables:    x, y
 """
 
 import numpy as np
@@ -135,8 +132,8 @@ if __name__ == "__main__":
     #  theta_samples.min() <= theta <= theta_samples.max()
     np.random.seed(args.data_seed)
     nsim = 10000  # number of datapoints: increase sample density for more robust results
-    sequences = {"p": np.random.uniform(low=5.0, high=15.0, size=(nsim, 1))}
-    nstep_data, dims = get_dataloaders(sequences)
+    samples = {"p": np.random.uniform(low=5.0, high=15.0, size=(nsim, 1))}
+    nstep_data, dims = get_dataloaders(samples)
     train_data, dev_data, test_data = nstep_data
 
     """

@@ -1,5 +1,5 @@
 """
-Solve the Rosenbrock problem, formulated as the NLP using CasADi toolbox:
+Solve Quadratic Programming (QP) problem using CasADi toolbox:
 minimize     x^2+y^2
 subject to   x+y-p >= 0
 

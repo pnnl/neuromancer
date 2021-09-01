@@ -135,9 +135,9 @@ if __name__ == "__main__":
     #  theta_samples.min() <= theta <= theta_samples.max()
     np.random.seed(args.data_seed)
     nsim = 20000  # number of datapoints: increase sample density for more robust results
-    sequences = {"a": np.random.uniform(low=0.2, high=1.5, size=(nsim, 1)),
-                 "p": np.random.uniform(low=0.5, high=2.0, size=(nsim, 1))}
-    nstep_data, dims = get_dataloaders(sequences)
+    samples = {"a": np.random.uniform(low=0.2, high=1.5, size=(nsim, 1)),
+               "p": np.random.uniform(low=0.5, high=2.0, size=(nsim, 1))}
+    nstep_data, dims = get_dataloaders(samples)
     train_data, dev_data, test_data = nstep_data
 
     """

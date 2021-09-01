@@ -1,9 +1,11 @@
 """
-Solve Quadratic Programming (QP) problem using Neuromancer toolbox:
-minimize     x^2+y^2
-subject to   x+y-p >= 0
+Solve Linear Programming (LP) problem using Neuromancer:
+minimize     a1*x-a2*y
+subject to   x+y-p1 >= 0
+             -2*x+y+p2 >= 0
+             x-2*y+p3 >= 0
 
-problem parameters:            p
+problem parameters:            a1, a2, p1, p2, p3
 problem decition variables:    x, y
 """
 
@@ -40,7 +42,7 @@ def arg_mpLP_problem(prefix=''):
            help="loss function weight.")  # tuned value: 1.0
     gp.add("-Q_sub", type=float, default=0.0,
            help="regularization weight.")
-    gp.add("-Q_con", type=float, default=25.0,
+    gp.add("-Q_con", type=float, default=2.0,
            help="constraints penalty weight.")  # tuned value: 50.0
     gp.add("-nx_hidden", type=int, default=40,
            help="Number of hidden states of the solution map")
@@ -131,8 +133,12 @@ if __name__ == "__main__":
     #  randomly sampled parameters theta generating superset of:
     #  theta_samples.min() <= theta <= theta_samples.max()
     np.random.seed(args.data_seed)
-    nsim = 10000  # number of datapoints: increase sample density for more robust results
-    samples = {"p": np.random.uniform(low=5.0, high=15.0, size=(nsim, 1))}
+    nsim = 30000  # number of datapoints: increase sample density for more robust results
+    samples = {"a1": np.random.uniform(low=0.1, high=1.5, size=(nsim, 1)),
+               "a2": np.random.uniform(low=0.1, high=2.0, size=(nsim, 1)),
+               "p1": np.random.uniform(low=5.0, high=10.0, size=(nsim, 1)),
+               "p2": np.random.uniform(low=5.0, high=10.0, size=(nsim, 1)),
+               "p3": np.random.uniform(low=5.0, high=10.0, size=(nsim, 1))}
     nstep_data, dims = get_dataloaders(samples)
     train_data, dev_data, test_data = nstep_data
 
@@ -150,7 +156,7 @@ if __name__ == "__main__":
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=["p"],
+        input_keys=["a1", "a2", "p1", "p2", "p3"],
         name='sol_map',
     )
 
@@ -158,7 +164,11 @@ if __name__ == "__main__":
     x = Variable(f"U_pred_{sol_map.name}")[:, 0]
     y = Variable(f"U_pred_{sol_map.name}")[:, 1]
     # sampled parameters
-    p = Variable('p')
+    a1 = Variable('a1')
+    a2 = Variable('a2')
+    p1 = Variable('p1')
+    p2 = Variable('p2')
+    p3 = Variable('p3')
 
     # objective function
     # # Option 1
@@ -166,14 +176,15 @@ if __name__ == "__main__":
     # loss.name = 'loss'
 
     # # Option 2
-    loss = Loss(x**2 + y**2, weight=args.Q, name='loss')
+    loss = Loss(a1*x+a2*y, weight=args.Q, name='loss')
     # constraints
-    con_1 = args.Q_con*(x + y - p >= 0)
-
+    con_1 = args.Q_con*(x+y-p1 >= 0)
+    con_2 = args.Q_con*(-2*x+y+p2 >= 0)
+    con_3 = args.Q_con*(x-2*y+p3 >= 0)
 
     # constrained optimization problem construction
     objectives = [loss]
-    constraints = [con_1]
+    constraints = [con_1, con_2, con_3]
     components = [sol_map]
     model = Problem(objectives, constraints, components)
     model = model.to(device)
@@ -181,14 +192,14 @@ if __name__ == "__main__":
     """
     # # # Metrics and Logger
     """
-    args.savedir = 'test_mpQP_1'
+    args.savedir = 'test_mpLP_1'
     args.verbosity = 1
     metrics = ["dev_loss"]
     logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'mpQP_1'
+    logger.args.system = 'mpLP_1'
 
     """
-    # # #  mpQP problem solution in Neuromancer
+    # # #  mpLP problem solution in Neuromancer
     """
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
@@ -218,27 +229,42 @@ if __name__ == "__main__":
     # plot_loss_mpp(model, train_data, xmin=-2, xmax=2, save_path=None)
     # plot_solution_mpp(sol_map, xmin=-2, xmax=2, save_path=None)
 
-    # test problem parameter
-    p = 10.0
+    # # # Plot the solution # # #
+
+    # test problem parameters
+    a1 = 0.5
+    a2 = 1.0
+    p1 = 6.0
+    p2 = 8.0
+    p3 = 9.0
+
     x1 = np.arange(-1.0, 10.0, 0.05)
     y1 = np.arange(-1.0, 10.0, 0.05)
     xx, yy = np.meshgrid(x1, y1)
 
     # eval objective and constraints
-    J = xx ** 2 + yy ** 2
-    c1 = xx + yy - p
+    J = a1 * xx + a2 * yy
+    c1 = xx + yy - p1
+    c2 = -2 * xx + yy + p2
+    c3 = xx - 2 * yy + p3
 
     # Plot
     fig, ax = plt.subplots(1, 1)
     cp = ax.contourf(xx, yy, J,
                      alpha=0.6)
     fig.colorbar(cp)
-    ax.set_title('Quadratic problem')
+    ax.set_title('Linear problem')
     cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
     plt.setp(cg1.collections,
              path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+    cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
+    plt.setp(cg2.collections,
+             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+    cg3 = ax.contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
+    plt.setp(cg3.collections,
+             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
 
-    params = torch.tensor([p])
+    params = torch.tensor([a1, a2, p1, p2, p3])
     xy_optim = model.components[0].net(params).detach().numpy()
     print(xy_optim[0])
     print(xy_optim[1])

@@ -140,13 +140,13 @@ class Loss(nn.Module):
         self.metric = metric
         self.weight = weight
         if name is None:
-            self.name = f'{self.var}_{self.metric}'
+            self.name = f'{self.var.name}_{self.metric}'
         else:
             self.name = name
 
     @property
     def variable_names(self):
-        return [self.expr.key]
+        return [self.var.name]
 
     def forward(self, variables):
         """
@@ -155,6 +155,9 @@ class Loss(nn.Module):
         :return: 0-dimensional torch.Tensor that can be cast as a floating point number
         """
         return self.weight*self.metric(self.var(variables))
+
+    def __repr__(self):
+        return f"{self.name}({', '.join(self.variable_names)}) = {self.weight} * {self.metric}({', '.join(self.variable_names)})"
 
 
 class Constraint(nn.Module):
@@ -190,7 +193,7 @@ class Constraint(nn.Module):
 
     @property
     def variable_names(self):
-        return [self.left.key, self.right.key]
+        return [self.left.name, self.right.name]
 
     def __xor__(self, norm):
         comparator = type(self.comparator)(norm=norm)
@@ -235,6 +238,7 @@ class Variable:
         :param name: (str) Optional intuitive name for Variable for storage in a Problem's output dictionary.
         """
 
+        # TODO: when we use slice name is not overwritten by name argument
         self.key = key
         self.left = left
         self.right = right
@@ -323,6 +327,7 @@ class Variable:
     Numeric operators. Numeric operators return a variable with a special __call__ function which first retrieves instantiated
     numeric quantities for the left and right hand side and performs the corresponding pytorch operator on the instantiate quantities
     """
+    # TODO: add name argument to support broadcasting intuitive names of composite vars?
     def __add__(self, other):
         if not type(other) is Variable:
             other = Variable(str(other), value=other)
@@ -411,5 +416,6 @@ class Variable:
     def __eq__(self, other):
         return Constraint(self, other, Eq())
 
-
+    def minimize(self, metric=torch.mean, weight=1.0, name=None):
+        return Loss(self, metric=metric, weight=weight, name=name)
 

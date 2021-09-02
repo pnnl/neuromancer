@@ -155,8 +155,11 @@ if __name__ == "__main__":
     )
 
     # variables
-    x = Variable(f"U_pred_{sol_map.name}")[:, 0]
-    y = Variable(f"U_pred_{sol_map.name}")[:, 1]
+    x = Variable(f"U_pred_{sol_map.name}", name='x')[:, 0]
+    y = Variable(f"U_pred_{sol_map.name}", name='y')[:, 1]
+    # x = Variable(f"U_pred_{sol_map.name}", name='x')
+    # y = Variable(f"U_pred_{sol_map.name}", name='y')
+
     # sampled parameters
     p = Variable('p')
 
@@ -166,10 +169,14 @@ if __name__ == "__main__":
     # loss.name = 'loss'
 
     # # Option 2
-    loss = Loss(x**2 + y**2, weight=args.Q, name='loss')
-    # constraints
-    con_1 = args.Q_con*(x + y - p >= 0)
+    # loss = Loss(x**2 + y**2, weight=args.Q, name='loss')
 
+    # Option 3
+    f = x ** 2 + y ** 2
+    loss = f.minimize(weight=args.Q, name='loss')
+
+    # constraints
+    con_1 = args.Q_con * (x + y - p >= 0)
 
     # constrained optimization problem construction
     objectives = [loss]

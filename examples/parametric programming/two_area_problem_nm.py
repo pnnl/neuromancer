@@ -38,15 +38,15 @@ def arg_mpLP_problem(prefix=''):
            help="regularization weight.")
     gp.add("-Q_con", type=float, default=1.0,
            help="constraints penalty weight.")
-    gp.add("-nx_hidden", type=int, default=40,
+    gp.add("-nx_hidden", type=int, default=20,
            help="Number of hidden states of the solution map")
-    gp.add("-n_layers", type=int, default=4,
+    gp.add("-n_layers", type=int, default=2,
            help="Number of hidden layers of the solution map")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
-    gp.add("-epochs", type=int, default=1000,
+    gp.add("-epochs", type=int, default=5000,
            help='Number of training epochs')
-    gp.add("-lr", type=float, default=0.001,
+    gp.add("-lr", type=float, default=0.05,
            help="Step size for gradient descent.")
     gp.add("-patience", type=int, default=200,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
@@ -124,6 +124,7 @@ if __name__ == "__main__":
     """
     system = '200bus_boundary'         # keyword of selected system
     data = read_file(psl.datasets[system])
+    # TODO: update datasets to load multi-experiment static dataset from multiple files
     nsim = data['Y'].shape[0]
     # dataset variables
     V = data['Y'][:,[0]]
@@ -137,9 +138,10 @@ if __name__ == "__main__":
     Q_0 = Q[0, 0]
     V_0 = V[0, 0]
     # data loaders for training
-    samples = {"V(t)": V, "I(t)": I, "P*(t)": P, "Q*(t)": Q}
-    norm_type = None
-    # norm_type = "one-one"
+    samples = {"V(t)": V, "I(t)": I, "theta_V": theta_V, "theta_I": theta_I, "P*(t)": P, "Q*(t)": Q}
+    # norm_type = None
+    norm_type = "one-one"
+    # norm_type = "zscore"
     split_data, dims = get_dataloaders(samples, norm_type=norm_type)
     train_data, dev_data, test_data = split_data
 
@@ -158,6 +160,7 @@ if __name__ == "__main__":
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
         input_keys=["V(t)"],
+        # input_keys=["V(t)", "I(t)", "theta_V", "theta_I"],
         name='regressor',
     )
 
@@ -197,7 +200,7 @@ if __name__ == "__main__":
     Q_tilde = Q_0*(beta_p+beta_i*V_t/V_0+beta_z*V_t**2/V_0**2)
 
     # convex combination of polynomial and neural model
-    a, b = 0, 0         # a,b = 1 -> polynomial model,  a,b = 0 -> neural model
+    a, b = 0.5, 0.5         # a,b = 1 -> polynomial model,  a,b = 0 -> neural model
     P_mix = a*P_tilde + (1-a)*P_hat
     Q_mix = b*Q_tilde + (1-b)*Q_hat
 
@@ -207,15 +210,15 @@ if __name__ == "__main__":
     loss_2 = args.Q*(Q_mix - Q_star == 0)^2
     loss_2.name = 'Q_loss'
 
-    loss_1 = args.Q*(P_hat - P_star == 0)^2
-    loss_1.name = 'P_loss'
-    loss_2 = args.Q*(Q_hat - Q_star == 0)^2
-    loss_2.name = 'Q_loss'
+    # loss_1 = args.Q*(P_hat - P_star == 0)^2
+    # loss_1.name = 'P_loss'
+    # loss_2 = args.Q*(Q_hat - Q_star == 0)^2
+    # loss_2.name = 'Q_loss'
 
-    loss_1 = args.Q*(P_tilde - P_star == 0)^2
-    loss_1.name = 'P_loss'
-    loss_2 = args.Q*(Q_tilde - Q_star == 0)^2
-    loss_2.name = 'Q_loss'
+    # loss_1 = args.Q*(P_tilde - P_star == 0)^2
+    # loss_1.name = 'P_loss'
+    # loss_2 = args.Q*(Q_tilde - Q_star == 0)^2
+    # loss_2.name = 'Q_loss'
 
     # constraints
     con_1 = args.Q_con*(alpha_p >= 0)
@@ -227,6 +230,7 @@ if __name__ == "__main__":
 
     # constrained optimization problem construction
     objectives = [loss_1, loss_2]
+    # objectives = [loss_1]
     components = [sol_map]
     # components = [nn_map]
     # constraints = []
@@ -283,8 +287,10 @@ if __name__ == "__main__":
     P = all_data_dict['P*(t)']
     Q = all_data_dict['Q*(t)']
     # normalized independent variables
-    P = all_data_dict['V(t)']
-    Q = all_data_dict['I(t)']
+    V = all_data_dict['V(t)']
+    I = all_data_dict['I(t)']
+    theta_V = all_data_dict['theta_V']
+    theta_I = all_data_dict['theta_I']
     # outputs of the trained polynomial model
     P_tilde_out = P_tilde(all_data_dict).detach().numpy()
     Q_tilde_out = Q_tilde(all_data_dict).detach().numpy()
@@ -312,12 +318,16 @@ if __name__ == "__main__":
     ax[1].set(ylabel='$Q$')
     ax[1].set(xlabel='$time$')
     # plot independent variables
-    fig, ax = plt.subplots(2, 1)
+    fig, ax = plt.subplots(4, 1)
     ax[0].plot(V)
     ax[0].set(ylabel='$V$')
     ax[1].plot(I)
-    ax[1].set(ylabel='$I$')
-    ax[1].set(xlabel='$time$')
+    ax[1].set(ylabel='I')
+    ax[2].plot(theta_V)
+    ax[2].set(ylabel='$theta_V$')
+    ax[3].plot(theta_I)
+    ax[3].set(ylabel='$theta_I$')
+    ax[3].set(xlabel='$time$')
 
 
     ###########################################

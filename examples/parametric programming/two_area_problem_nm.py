@@ -44,7 +44,7 @@ def arg_mpLP_problem(prefix=''):
            help="Number of hidden layers of the solution map")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
-    gp.add("-epochs", type=int, default=5000,
+    gp.add("-epochs", type=int, default=3000,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.05,
            help="Step size for gradient descent.")
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     """
     args.savedir = 'test_two_area'
     args.verbosity = 1
-    metrics = ["dev_loss"]
+    metrics = ["train_loss", "dev_loss"]
     logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
     logger.args.system = 'two_area'
 
@@ -264,7 +264,7 @@ if __name__ == "__main__":
         train_metric="train_loss",
         dev_metric="dev_loss",
         test_metric="test_loss",
-        eval_metric="dev_loss",
+        eval_metric="train_loss",
         patience=args.patience,
         warmup=args.warmup,
         device=device,

@@ -38,15 +38,15 @@ def arg_mpLP_problem(prefix=''):
            help="regularization weight.")
     gp.add("-Q_con", type=float, default=1.0,
            help="constraints penalty weight.")
-    gp.add("-nx_hidden", type=int, default=20,
+    gp.add("-nx_hidden", type=int, default=200,
            help="Number of hidden states of the solution map")
-    gp.add("-n_layers", type=int, default=2,
+    gp.add("-n_layers", type=int, default=4,
            help="Number of hidden layers of the solution map")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
-    gp.add("-epochs", type=int, default=3000,
+    gp.add("-epochs", type=int, default=2000,
            help='Number of training epochs')
-    gp.add("-lr", type=float, default=0.05,
+    gp.add("-lr", type=float, default=0.01,
            help="Step size for gradient descent.")
     gp.add("-patience", type=int, default=200,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
@@ -133,12 +133,21 @@ if __name__ == "__main__":
     theta_I = data['Y'][:,[3]]
     P = V*I*np.cos(theta_V-theta_I)
     Q = V*I*np.sin(theta_V-theta_I)
+    S = V*I
+    # S^2 = P^ + Q^2
     # Constants - first time instance of P*(t), Q*(t), V(t)
-    P_0 = P[0, 0]
-    Q_0 = Q[0, 0]
-    V_0 = V[0, 0]
+    P_0 = P[1, 0]
+    Q_0 = Q[1, 0]
+    V_0 = V[1, 0]
+    # auxiliary features: explicit time, finite difference of V and theta_v
+    dV = np.diff(V, axis=0)
+    dtheta_V = np.diff(theta_V, axis=0)
+    time = np.linspace((0,), (1,), nsim)
     # data loaders for training
-    samples = {"V(t)": V, "I(t)": I, "theta_V": theta_V, "theta_I": theta_I, "P*(t)": P, "Q*(t)": Q}
+    samples = {"V(t)": V[1:], "I(t)": I[1:], "S(t)": S[1:],
+               "theta_V": theta_V[1:], "theta_I": theta_I[1:],
+               "P*(t)": P[1:], "Q*(t)": Q[1:],
+               "time": time[1:], "dV(t)": dV, "dtheta_V":dtheta_V}
     # norm_type = None
     norm_type = "one-one"
     # norm_type = "zscore"
@@ -149,9 +158,11 @@ if __name__ == "__main__":
     # # #  Constrained regression problem formulation in Neuromancer
     """
     n_var = 2           # number of decision variables: P(t), Q(t)
+    # n_var = 3           # number of decision variables: P(t), Q(t), S(t)
     # define solution map as MLP
     dims['U'] = (nsim, n_var)  # defining expected dimensions of the solution variable: internal policy key 'U'
-    activation = activations['relu']
+    activation = activations['softexp']
+    # TODO: try different acivations: elu, selu, gelu, softexp
     linmap = slim.maps['linear']
     sol_map = policies.MLPPolicy(
         {**dims},
@@ -159,7 +170,9 @@ if __name__ == "__main__":
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=["V(t)"],
+        # input_keys=["V(t)"],
+        input_keys=["V(t)", "theta_V"],
+        # input_keys=["V(t)", "theta_V", "dV(t)", "dtheta_V"],
         # input_keys=["V(t)", "I(t)", "theta_V", "theta_I"],
         name='regressor',
     )
@@ -185,6 +198,7 @@ if __name__ == "__main__":
     # neural model output variables
     P_hat = Variable(f"U_pred_{sol_map.name}")[:, 0]
     Q_hat = Variable(f"U_pred_{sol_map.name}")[:, 1]
+    # S_hat = Variable(f"U_pred_{sol_map.name}")[:, 2]
     # P_hat = Variable(nn_map.output_keys)[:, 0]
     # Q_hat = Variable(nn_map.output_keys)[:, 1]
 
@@ -200,7 +214,7 @@ if __name__ == "__main__":
     Q_tilde = Q_0*(beta_p+beta_i*V_t/V_0+beta_z*V_t**2/V_0**2)
 
     # convex combination of polynomial and neural model
-    a, b = 0.5, 0.5         # a,b = 1 -> polynomial model,  a,b = 0 -> neural model
+    a, b = 0.5, 0.5        # a,b = 1 -> polynomial model,  a,b = 0 -> neural model
     P_mix = a*P_tilde + (1-a)*P_hat
     Q_mix = b*Q_tilde + (1-b)*Q_hat
 
@@ -209,6 +223,9 @@ if __name__ == "__main__":
     loss_1.name = 'P_loss'
     loss_2 = args.Q*(Q_mix - Q_star == 0)^2
     loss_2.name = 'Q_loss'
+    # # # additional loss
+    # loss_3 = args.Q*(S_hat - S == 0)^2
+    # loss_3.name = 'S_loss'
 
     # loss_1 = args.Q*(P_hat - P_star == 0)^2
     # loss_1.name = 'P_loss'
@@ -227,6 +244,8 @@ if __name__ == "__main__":
     con_4 = args.Q_con*(beta_p >= 0)
     con_5 = args.Q_con*(beta_i >= 0)
     con_6 = args.Q_con*(beta_z >= 0)
+    # # additional constraint from power triangle
+    # con_7 = args.Q_con*(S_hat**2 == P_mix**2 + Q_mix**2)
 
     # constrained optimization problem construction
     objectives = [loss_1, loss_2]

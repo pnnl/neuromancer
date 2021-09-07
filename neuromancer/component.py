@@ -173,12 +173,29 @@ class Function(Component):
     def forward(self, data):
         x = [data[k] for k in self.input_keys]
         out = self.func(*x)
-        return {
+
+        out_d = {
             k: v for k, v in zip(
                 self.output_keys,
                 out if isinstance(out, tuple) else (out,)
             )
         }
+
+        # TODO: testing this stuff
+        print(x[0].shape)
+        print(out.shape)
+        print(out_d.keys())
+        print(out_d[list(out_d.keys())[0]].shape)
+        # TODO: something gets overwritten here
+        # TODO: returns empty dict instead of out_d
+        return out_d
+
+        # return {
+        #     k: v for k, v in zip(
+        #         self.output_keys,
+        #         out if isinstance(out, tuple) else (out,)
+        #     )
+        # }
 
 
 class RecurrentFunction(Function):

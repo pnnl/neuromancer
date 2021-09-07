@@ -5,11 +5,10 @@ Two area problem
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
-import slim
 import matplotlib.pyplot as plt
-import matplotlib.patheffects as patheffects
+import slim
+import psl
 
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
@@ -18,8 +17,9 @@ from neuromancer.constraint import Variable, Objective, Loss
 from neuromancer.activations import activations
 from neuromancer import policies
 from neuromancer.loggers import BasicLogger
-from neuromancer.dataset import normalize_data, split_static_data, StaticDataset
-from neuromancer.plot import plot_loss_mpp, plot_solution_mpp
+from neuromancer.dataset import read_file, normalize_data, split_static_data, StaticDataset
+from neuromancer.component import Function
+import neuromancer.blocks as blocks
 
 
 def arg_mpLP_problem(prefix=''):
@@ -33,20 +33,18 @@ def arg_mpLP_problem(prefix=''):
     parser = arg.ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("mpLP")
     gp.add("-Q", type=float, default=1.0,
-           help="loss function weight.")  # tuned value: 1.0
+           help="loss function weight.")
     gp.add("-Q_sub", type=float, default=0.0,
            help="regularization weight.")
-    gp.add("-Q_con", type=float, default=25.0,
-           help="constraints penalty weight.")  # tuned value: 50.0
+    gp.add("-Q_con", type=float, default=1.0,
+           help="constraints penalty weight.")
     gp.add("-nx_hidden", type=int, default=40,
            help="Number of hidden states of the solution map")
-    gp.add("-n_layers", type=int, default=2,
+    gp.add("-n_layers", type=int, default=4,
            help="Number of hidden layers of the solution map")
-    gp.add("-bias", action="store_true",
-           help="Whether to use bias in the neural network block component models.")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
-    gp.add("-epochs", type=int, default=800,
+    gp.add("-epochs", type=int, default=1000,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
@@ -113,7 +111,7 @@ def get_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
 
 if __name__ == "__main__":
     """
-    # # #  optimization problem hyperparameters
+    # # #  Optimization problem hyperparameters
     """
     parser = arg.ArgParser(parents=[arg.log(),
                                     arg_mpLP_problem()])
@@ -124,25 +122,32 @@ if __name__ == "__main__":
     """
     # # #  Dataset 
     """
-
-
     system = '200bus_boundary'         # keyword of selected system
-
-
-    np.random.seed(args.data_seed)
-    nsim = 10000  # number of datapoints: increase sample density for more robust results
-    # TODO: load true train data V(t), P*(t), Q*(t),
-    samples = {"V(t)": np.random.uniform(low=0.0, high=5.0, size=(nsim, 1)),
-               "P*(t)": np.random.uniform(low=0.0, high=5.0, size=(nsim, 1)),
-               "Q*(t)": np.random.uniform(low=0.0, high=5.0, size=(nsim, 1))}
-    nstep_data, dims = get_dataloaders(samples)
-    train_data, dev_data, test_data = nstep_data
+    data = read_file(psl.datasets[system])
+    nsim = data['Y'].shape[0]
+    # dataset variables
+    V = data['Y'][:,[0]]
+    theta_V = data['Y'][:,[1]]
+    I = data['Y'][:,[2]]
+    theta_I = data['Y'][:,[3]]
+    P = V*I*np.cos(theta_V-theta_I)
+    Q = V*I*np.sin(theta_V-theta_I)
+    # Constants - first time instance of P*(t), Q*(t), V(t)
+    P_0 = P[0, 0]
+    Q_0 = Q[0, 0]
+    V_0 = V[0, 0]
+    # data loaders for training
+    samples = {"V(t)": V, "I(t)": I, "P*(t)": P, "Q*(t)": Q}
+    norm_type = None
+    # norm_type = "one-one"
+    split_data, dims = get_dataloaders(samples, norm_type=norm_type)
+    train_data, dev_data, test_data = split_data
 
     """
-    # # #  constrained regression problem formulation in Neuromancer
+    # # #  Constrained regression problem formulation in Neuromancer
     """
     n_var = 2           # number of decision variables: P(t), Q(t)
-    # define solution map as MLP policy
+    # define solution map as MLP
     dims['U'] = (nsim, n_var)  # defining expected dimensions of the solution variable: internal policy key 'U'
     activation = activations['relu']
     linmap = slim.maps['linear']
@@ -156,66 +161,76 @@ if __name__ == "__main__":
         name='regressor',
     )
 
-    # variables
+    # TODO: use of function under construction
+    n_out = 2           # number of output variables: P(t), Q(t)
+    n_in = 1           # number of input variables: V(t)
+    # define neural net
+    net = blocks.MLP(insize=n_in,
+                     outsize=n_out,
+                     bias=args.bias,
+                     linear_map=linmap,
+                     nonlin=activation,
+                     hsizes=[args.nx_hidden] * args.n_layers,)
+    # define neuromancer function mapping input keys to output keys via function (nn.Module)
+    nn_map = Function(func=net, input_keys=["V(t)"], output_keys=["PQ(t)"],
+                      name='net')
+
+    # dataset variables
     V_t = Variable('V(t)')
     P_star = Variable('P*(t)')
     Q_star = Variable('Q*(t)')
-    P_net = Variable(f"U_pred_{sol_map.name}")[:, 0]
-    Q_net = Variable(f"U_pred_{sol_map.name}")[:, 1]
+    # neural model output variables
+    P_hat = Variable(f"U_pred_{sol_map.name}")[:, 0]
+    Q_hat = Variable(f"U_pred_{sol_map.name}")[:, 1]
+    # P_hat = Variable(nn_map.output_keys)[:, 0]
+    # Q_hat = Variable(nn_map.output_keys)[:, 1]
 
-    # Constants
-    P_0 = 1
-    Q_0 = 1
-    V_0 = 1
-
-    # alpha_p = torch.relu(torch.nn.Parameter(torch.tensor(0.1)))
-
-    # TODO: support variable initialized with parameter values to log parameters in problem params
     # trainable parameters of the polynomial regressor as variables
-    alpha_p = Variable('alpha_p', value= torch.nn.Parameter(torch.tensor(0.1)))
-    alpha_i = Variable('alpha_i', value= torch.nn.Parameter(torch.tensor(0.1)))
-    alpha_z = Variable('alpha_z', value= torch.nn.Parameter(torch.tensor(0.1)))
-    beta_p = Variable('beta_p', value= torch.nn.Parameter(torch.tensor(0.1)))
-    beta_i = Variable('beta_i', value= torch.nn.Parameter(torch.tensor(0.1)))
-    beta_z = Variable('beta_z', value= torch.nn.Parameter(torch.tensor(0.1)))
-    a = Variable('a', value= torch.nn.Parameter(torch.tensor(0.1)))
-    b = Variable('b', value= torch.nn.Parameter(torch.tensor(0.1)))
+    alpha_p = Variable('alpha_p', value=torch.nn.Parameter(torch.tensor(0.1)))
+    alpha_i = Variable('alpha_i', value=torch.nn.Parameter(torch.tensor(0.1)))
+    alpha_z = Variable('alpha_z', value=torch.nn.Parameter(torch.tensor(0.1)))
+    beta_p = Variable('beta_p', value=torch.nn.Parameter(torch.tensor(0.1)))
+    beta_i = Variable('beta_i', value=torch.nn.Parameter(torch.tensor(0.1)))
+    beta_z = Variable('beta_z', value=torch.nn.Parameter(torch.tensor(0.1)))
+    # polynomial model output variables
+    P_tilde = P_0*(alpha_p+alpha_i*V_t/V_0+alpha_z*V_t**2/V_0**2)
+    Q_tilde = Q_0*(beta_p+beta_i*V_t/V_0+beta_z*V_t**2/V_0**2)
 
-    # polynomial model
-    P = P_0*(alpha_p+alpha_i*V_t/V_0+alpha_z*V_t**2/V_0)
-    Q = Q_0*(beta_p+beta_i*V_t/V_0+beta_z*V_t**2/V_0)
+    # convex combination of polynomial and neural model
+    a, b = 0, 0         # a,b = 1 -> polynomial model,  a,b = 0 -> neural model
+    P_mix = a*P_tilde + (1-a)*P_hat
+    Q_mix = b*Q_tilde + (1-b)*Q_hat
 
     # objective function
-    # loss_1 = args.Q*(P - P_star == 0)^2
-    # loss_1.name = 'P_loss'
-    # loss_2 = args.Q*(Q - Q_star == 0)^2
-    # loss_2.name = 'Q_loss'
-
-    loss_1 = args.Q*(P_net - P_star == 0)^2
+    loss_1 = args.Q*(P_mix - P_star == 0)^2
     loss_1.name = 'P_loss'
-    loss_2 = args.Q*(Q_net - Q_star == 0)^2
+    loss_2 = args.Q*(Q_mix - Q_star == 0)^2
+    loss_2.name = 'Q_loss'
+
+    loss_1 = args.Q*(P_hat - P_star == 0)^2
+    loss_1.name = 'P_loss'
+    loss_2 = args.Q*(Q_hat - Q_star == 0)^2
+    loss_2.name = 'Q_loss'
+
+    loss_1 = args.Q*(P_tilde - P_star == 0)^2
+    loss_1.name = 'P_loss'
+    loss_2 = args.Q*(Q_tilde - Q_star == 0)^2
     loss_2.name = 'Q_loss'
 
     # constraints
-    con_1 = args.Q_con*(alpha_p + alpha_i + alpha_z == a)
-    con_2 = args.Q_con*(beta_p + beta_i + beta_z == b)
-
-    # TODO: we can avoid these soft constraints by using projections via ReLUs in the model architecture
-    con_3 = args.Q_con*(alpha_p >= 0)
-    con_4 = args.Q_con*(alpha_i >= 0)
-    con_5 = args.Q_con*(alpha_z >= 0)
-    con_6 = args.Q_con*(beta_p >= 0)
-    con_7 = args.Q_con*(beta_i >= 0)
-    con_8 = args.Q_con*(beta_z >= 0)
-    con_9 = args.Q_con*(a >= 0)
-    con_10 = args.Q_con*(b >= 0)
+    con_1 = args.Q_con*(alpha_p >= 0)
+    con_2 = args.Q_con*(alpha_i >= 0)
+    con_3 = args.Q_con*(alpha_z >= 0)
+    con_4 = args.Q_con*(beta_p >= 0)
+    con_5 = args.Q_con*(beta_i >= 0)
+    con_6 = args.Q_con*(beta_z >= 0)
 
     # constrained optimization problem construction
     objectives = [loss_1, loss_2]
-    constraints = []
     components = [sol_map]
-    # constraints = [con_1, con_2, con_3, con_4, con_5, con_6, con_7, con_8, con_9, con_10]
-    # components = []
+    # components = [nn_map]
+    # constraints = []
+    constraints = [con_1, con_2, con_3, con_4, con_5, con_6]
     model = Problem(objectives, constraints, components)
     model = model.to(device)
 
@@ -229,13 +244,9 @@ if __name__ == "__main__":
     logger.args.system = 'two_area'
 
     """
-    # # #  mpQP problem solution in Neuromancer
+    # # #  Constrained least squares problem solution in Neuromancer
     """
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-
-    # for name, param in model.named_parameters():
-    #     if param.requires_grad:
-    #         print(param)
 
     # define trainer
     trainer = Trainer(
@@ -255,7 +266,71 @@ if __name__ == "__main__":
         device=device,
     )
 
-    # Train mpLP solution map
+    # learn solution
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
 
+
+    """
+    # # #  Plots
+    """
+    # get the dict of the whole dataset
+    if norm_type is not None:
+        samples, _ = normalize_data(samples, norm_type=norm_type)
+    all_data = StaticDataset(samples, name="dataset")
+    all_data_dict = all_data.get_full_batch()
+    # normalized targets
+    P = all_data_dict['P*(t)']
+    Q = all_data_dict['Q*(t)']
+    # normalized independent variables
+    P = all_data_dict['V(t)']
+    Q = all_data_dict['I(t)']
+    # outputs of the trained polynomial model
+    P_tilde_out = P_tilde(all_data_dict).detach().numpy()
+    Q_tilde_out = Q_tilde(all_data_dict).detach().numpy()
+    # outputs of the trained neural model
+    net_out = sol_map(all_data_dict)
+    P_hat_out = net_out[f"U_pred_{sol_map.name}"][0, :, [0]].detach().numpy()
+    Q_hat_out = net_out[f"U_pred_{sol_map.name}"][0, :, [1]].detach().numpy()
+    # combined model
+    P_mix_out = a*P_tilde_out + (1-a)*P_hat_out
+    Q_mix_out = b*Q_tilde_out + (1-b)*Q_hat_out
+
+    # plot regressors
+    fig, ax = plt.subplots(2, 1)
+    ax[0].plot(P)
+    ax[0].plot(P_mix_out)
+    ax[0].plot(P_tilde_out)
+    ax[0].plot(P_hat_out)
+    ax[0].set(ylabel='$P$')
+    ax[0].legend(['P', 'P_mix', 'P_tilde', 'P_hat'])
+    ax[1].plot(Q)
+    ax[1].plot(Q_mix_out)
+    ax[1].plot(Q_tilde_out)
+    ax[1].plot(Q_hat_out)
+    ax[1].legend(['Q', 'Q_mix', 'Q_tilde', 'Q_hat'])
+    ax[1].set(ylabel='$Q$')
+    ax[1].set(xlabel='$time$')
+    # plot independent variables
+    fig, ax = plt.subplots(2, 1)
+    ax[0].plot(V)
+    ax[0].set(ylabel='$V$')
+    ax[1].plot(I)
+    ax[1].set(ylabel='$I$')
+    ax[1].set(xlabel='$time$')
+
+
+    ###########################################
+    # TODO: testing function
+    train_d = train_data.dataset.get_full_batch()
+    net_out = sol_map(train_d)
+    fun_out = nn_map(train_d)
+
+    x = [train_d[k] for k in nn_map.input_keys]
+    out = nn_map.func(*x)
+    fun_out2 = {
+            k: v for k, v in zip(
+                nn_map.output_keys,
+                out if isinstance(out, tuple) else (out,)
+            )
+        }

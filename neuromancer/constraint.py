@@ -120,6 +120,7 @@ class Eq(nn.Module):
             return F.mse_loss(left, right)
 
 
+# TODO: swap Loss with Objective for convention
 class Loss(nn.Module):
     """
     Drop in replacement for an Objective object constructed via neuromancer Variable object
@@ -214,7 +215,7 @@ class Constraint(nn.Module):
         return self.weight*self.comparator(self.left(variables), self.right(variables))
 
 
-class Variable:
+class Variable(nn.Module):
     """
     Variable is an abstraction that allows for the definition of constraints and objectives with some nice
     syntactic sugar. When a Variable object is called given a dictionary a pytorch tensor is returned, and when
@@ -237,6 +238,7 @@ class Variable:
         :param slice: (Slice) Indicates if and where Variable is to be indexed
         :param name: (str) Optional intuitive name for Variable for storage in a Problem's output dictionary.
         """
+        super().__init__()
 
         # TODO: when we use slice name is not overwritten by name argument
         self.key = key
@@ -418,4 +420,10 @@ class Variable:
 
     def minimize(self, metric=torch.mean, weight=1.0, name=None):
         return Loss(self, metric=metric, weight=weight, name=name)
+
+    # TODO: this is a hack to fix a bug with variables being nn.module
+    # https://github.com/pytorch/pytorch/issues/16756
+    # Hacky hash bypass
+    def __hash__(self):
+        return nn.Module.__hash__(self)
 

@@ -169,7 +169,7 @@ if __name__ == "__main__":
     # loss.name = 'loss'
 
     # # Option 2
-    # loss = Loss(x**2 + y**2, weight=args.Q, name='loss')
+    loss = Loss(x**2 + y**2, weight=args.Q, name='loss')
 
     # Option 3
     f = x ** 2 + y ** 2
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     constraints = [con_1]
     components = [sol_map]
     model = Problem(objectives, constraints, components)
-    model = model.to(device)
+    # model = model.to(device)
 
     """
     # # # Metrics and Logger

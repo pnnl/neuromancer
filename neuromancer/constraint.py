@@ -37,6 +37,9 @@ class Objective(nn.Module):
         """
         return self.weight*self.loss(*[variables[k] for k in self.variable_names])
 
+    def __repr__(self):
+        return f"{self.name}({', '.join(self.variable_names)}) -> {self.loss} * {self.weight}"
+
 
 class LT(nn.Module):
     """

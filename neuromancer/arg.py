@@ -162,7 +162,7 @@ def data(prefix='', system='CSTR'):
     gp.add("-nsteps", type=int, default=32,
            help="Number of steps for open loop during training.")
 
-    gp.add("-system", type=str, default=system,
+    gp.add("-dataset", type=str, default=system,
            help="select particular dataset with keyword")
 
     gp.add("-nsim", type=int, default=10000,

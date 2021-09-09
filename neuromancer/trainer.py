@@ -1,5 +1,6 @@
 """
 
+
 """
 from copy import deepcopy
 
@@ -9,8 +10,11 @@ import numpy as np
 
 from neuromancer.loggers import BasicLogger
 from neuromancer.problem import Problem
-from neuromancer.datasets import Dataset
 from neuromancer.callbacks import Callback
+
+
+def move_batch_to_device(batch, device="cpu"):
+    return {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
 
 class Trainer:
@@ -22,7 +26,9 @@ class Trainer:
     def __init__(
         self,
         problem: Problem,
-        dataset: Dataset,
+        train_data: torch.utils.data.DataLoader,
+        dev_data: torch.utils.data.DataLoader,
+        test_data: torch.utils.data.DataLoader,
         optimizer: torch.optim.Optimizer,
         logger: BasicLogger = None,
         callback=Callback(),
@@ -36,6 +42,7 @@ class Trainer:
         eval_metric="loop_dev_loss",
         eval_mode="min",
         clip=100.0,
+        device="cpu"
     ):
         """
 
@@ -50,7 +57,9 @@ class Trainer:
         """
         self.model = problem
         self.optimizer = optimizer
-        self.dataset = dataset
+        self.train_data = train_data
+        self.dev_data = dev_data
+        self.test_data = test_data
         self.callback = callback
         self.logger = logger
         self.epochs = epochs
@@ -72,6 +81,7 @@ class Trainer:
         self.clip = clip
         self.best_devloss = np.finfo(np.float32).max if self._eval_min else 0.
         self.best_model = deepcopy(self.model.state_dict())
+        self.device = device
 
     def train(self):
         """
@@ -80,11 +90,13 @@ class Trainer:
         """
         self.callback.begin_train(self)
 
+        #best_model = deepcopy(self.model.state_dict())
         for i in range(self.epochs):
             self.current_epoch = i
             self.model.train()
             losses = []
-            for t_batch in self.dataset.train_data:
+            for t_batch in self.train_data:
+                t_batch = move_batch_to_device(t_batch, self.device)
                 output = self.model(t_batch)
                 self.optimizer.zero_grad()
                 output[self.train_metric].backward()
@@ -101,7 +113,8 @@ class Trainer:
             with torch.no_grad():
                 self.model.eval()
                 losses = []
-                for d_batch in self.dataset.dev_data:
+                for d_batch in self.dev_data:
+                    d_batch = move_batch_to_device(d_batch, self.device)
                     eval_output = self.model(d_batch)
                     losses.append(eval_output[self.dev_metric])
                 eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
@@ -143,10 +156,11 @@ class Trainer:
         with torch.no_grad():
             self.callback.begin_test(self)  # setup simulator
             output = {}
-            for dset, metric in zip([self.dataset.train_data, self.dataset.dev_data, self.dataset.test_data],
+            for dset, metric in zip([self.train_data, self.dev_data, self.test_data],
                                     [self.train_metric, self.dev_metric, self.test_metric]):
                 losses = []
                 for batch in dset:
+                    batch = move_batch_to_device(batch, self.device)
                     batch_output = self.model(batch)
                     losses.append(batch_output[metric])
                 output[f'mean_{metric}'] = torch.mean(torch.stack(losses))

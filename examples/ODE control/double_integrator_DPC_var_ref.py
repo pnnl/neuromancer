@@ -1,42 +1,13 @@
 """
+Differentiable predictive control (DPC)
+
 DPC double integrator example with given system dynamics model
 time varying reference tracking problem
-Augmented state space model with offset-free tracking penalty
 
-background theory references:
-https://aiche.onlinelibrary.wiley.com/doi/10.1002/aic.690490213
-https://www.sciencedirect.com/science/article/pii/S0959152401000518
-https://arxiv.org/abs/2011.14006
+observation: with increasing predicion horizon we need to retune the relative weights,
+            otherwise the performance deteriorates
+open problem: automatic retuning based on prediction horizon length
 
-    MODEL architectre:
-    # U_policy = p(x_k, Rf)
-    # u_k = U_policy[0]
-    # e_k+1 = e_k + r_k - y_k
-    # [x_k+1; e_k+1] = [A, 0; -C, I] [x_k; e_k] + [B; 0] u_k + [0; I] r_k
-    # y_k+1 = [C, 0] [x_k+1; e_k+1]
-    # DPC losses + loss(||e_k||^2)
-
-    # TODO: train with nonzero d0 - inputs as Ep[-1]
-
-    # TODO: test with plant model mismatch and additive noise
-
-    # TODO: augmented disturbance observer with initial conditions as input parameter
-    # TODO: unfreeze and train only disturbance gain in A?
-    # check eq. 1 in: https://arxiv.org/pdf/2011.14006.pdf
-
-    # TODO: integrator via state augmentation:
-    # TODO: 1, new wrapper of the state space models: augmentation
-    # TODO: 2, new class: closed loop?
-    # TODO: 3, new SSM class with augmentation as option
-
-    # TODO: simpler implementation without augmented observer:
-    # C_aug = [C, 0; 0, I]
-    # expand reference R with zero targets for augmeted states
-
-    # TODO: recursive policy based on model rollouts
-
-# TODO: tracking in error coordinates
-# TODO: stability penalties via contraction towards desired references
 """
 
 import torch
@@ -56,14 +27,12 @@ import copy
 from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
 from neuromancer.trainer import Trainer
-from neuromancer.simulators import ClosedLoopSimulator
 from neuromancer.problem import Problem, Objective
 from neuromancer import policies
 import neuromancer.arg as arg
-from neuromancer.datasets import Dataset
+from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
+from torch.utils.data import DataLoader
 from neuromancer.loggers import BasicLogger
-from neuromancer.visuals import VisualizerClosedLoop
-from neuromancer.callbacks import SysIDCallback
 
 
 def arg_dpc_problem(prefix=''):
@@ -82,8 +51,6 @@ def arg_dpc_problem(prefix=''):
            help="prediction horizon.")          # tuned values: 1, 2
     gp.add("-Qr", type=float, default=5.0,
            help="reference tracking weight.")   # tuned value: 5.0
-    gp.add("-Q_osf", type=float, default=5.0,
-           help="offset-free disturbance rejection weight.")   # tuned value: 5.0
     gp.add("-Qu", type=float, default=0.0,
            help="control action weight.")       # tuned value: 0.0
     gp.add("-Qdu", type=float, default=0.1,
@@ -96,8 +63,6 @@ def arg_dpc_problem(prefix=''):
            help="state constraints penalty weight.")  # tuned value: 10.0
     gp.add("-Q_con_u", type=float, default=50.0,
            help="Input constraints penalty weight.")  # tuned value: 50.0
-    gp.add("-Q_Ki", type=float, default=1000.0,
-           help="Integrator form penalty.")            # tuned value: 1000.0
     gp.add("-nx_hidden", type=int, default=20,
            help="Number of hidden states")
     gp.add("-n_layers", type=int, default=4,
@@ -114,13 +79,81 @@ def arg_dpc_problem(prefix=''):
            help="Step size for gradient descent.")
     gp.add("-patience", type=int, default=100,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
-    gp.add("-warmup", type=int, default=100,
+    gp.add("-warmup", type=int, default=10,
            help="Number of epochs to wait before enacting early stopping policy.")
     return parser
 
 
-def cl_simulate(A, B, policy, args, K_i=None, err_add=0.0, err_param=1.0,
-                nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
+def get_sequence_dataloaders(
+    data, nsteps, moving_horizon=False, norm_type=None, split_ratio=None, num_workers=0,
+):
+    """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
+    data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
+    training setup.
+
+    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
+        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
+        computed over the number of sequences rather than their lengths.
+    :param nsteps: (int) length of windowed subsequences for N-step training.
+    :param moving_horizon: (bool) whether to use moving horizon batching.
+    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
+    :param split_ratio: (list float) percentage of data in train and development splits; see
+        function `split_sequence_data` for more info.
+    """
+
+    if norm_type is not None:
+        data, _ = normalize_data(data, norm_type)
+    train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
+
+    train_data = SequenceDataset(
+        train_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="train",
+    )
+    dev_data = SequenceDataset(
+        dev_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="dev",
+    )
+    test_data = SequenceDataset(
+        test_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="test",
+    )
+
+    train_loop = train_data.get_full_sequence()
+    dev_loop = dev_data.get_full_sequence()
+    test_loop = test_data.get_full_sequence()
+
+    train_data = DataLoader(
+        train_data,
+        batch_size=len(train_data),
+        shuffle=False,
+        collate_fn=train_data.collate_fn,
+        num_workers=num_workers,
+    )
+    dev_data = DataLoader(
+        dev_data,
+        batch_size=len(dev_data),
+        shuffle=False,
+        collate_fn=dev_data.collate_fn,
+        num_workers=num_workers,
+    )
+    test_data = DataLoader(
+        test_data,
+        batch_size=len(test_data),
+        shuffle=False,
+        collate_fn=test_data.collate_fn,
+        num_workers=num_workers,
+    )
+
+    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
+
+
+def cl_simulate(A, B, policy, args, nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
     """
 
     :param A:
@@ -130,41 +163,30 @@ def cl_simulate(A, B, policy, args, K_i=None, err_add=0.0, err_param=1.0,
     :param x0:
     :return:
     """
-    N = args.nsteps
     Anp = A.detach().numpy()
     Bnp = B.detach().numpy()
     x = x0
-    d_int = torch.zeros([1, 1])
-    X = N*[x]
+    X = [x]
     U = []
+    N = args.nsteps
     if ref is None:
-        ref = np.zeros([nstep+N, 1])
-    for k in range(N, nstep+1-N):
+        ref = np.zeros([nstep, 1])
+
+    for k in range(nstep+1-N):
         x_torch = torch.tensor(x).float().transpose(0, 1)
-        d_k = torch.tensor(ref[k]-x[args.controlled_outputs]).float().transpose(0, 1)
-        d_int = d_k + d_int  # integrating tracking error
-        d_int = torch.clamp(d_int, min=-1.0, max=1.0)
-        x_aug = torch.cat([x_torch, d_int], 1)
         # taking a first control action based on RHC principle
-        Rf = torch.tensor([ref[k:k+N, :]]).float().transpose(0, 1)
-        u_nominal = policy({'x0_estimator_ctrl': x_torch, 'Rf': Rf})['U_pred_policy'][0, :, :]
-        # u_nominal = policy({'x0_estimator': x_aug, 'Rf': Rf})['U_pred_policy'][0, :, :]
-        # integrator gain
-        if K_i is not None:
-            # pick only the compensator row for controlled states
-            u_int = K_i(x_aug)[:, args.controlled_outputs]
-            u_nominal = u_nominal + u_int
-            u_nominal = torch.clamp(u_nominal, min=args.umin, max=args.umax)
-        u = u_nominal.detach().numpy().transpose()
+        r_k = torch.tensor([ref[k:k+N, :]]).float().transpose(0, 1)
+        uout = policy({'x0_estimator': x_torch, 'Rf': r_k})
+        u = uout['U_pred_policy'][0,:,:].detach().numpy().transpose()
         # closed loop dynamics
-        x = err_param*np.matmul(Anp, x) + np.matmul(Bnp, u) + err_add
+        x = np.matmul(Anp, x) + np.matmul(Bnp, u)
         X.append(x)
         U.append(u)
-    Xnp = np.asarray(X[N:])[:, :, 0]
+    Xnp = np.asarray(X)[:, :, 0]
     Unp = np.asarray(U)[:, :, 0]
 
     fig, ax = plt.subplots(2, 1)
-    ax[0].plot(ref[N:], 'k--', label='r', linewidth=2)
+    ax[0].plot(ref, 'k--', label='r', linewidth=2)
     ax[0].plot(Xnp, label='x', linewidth=2)
     ax[0].set(ylabel='$x$')
     ax[0].set(xlabel='time')
@@ -177,7 +199,7 @@ def cl_simulate(A, B, policy, args, K_i=None, err_add=0.0, err_param=1.0,
     ax[1].set_xlim(0, nstep)
     plt.tight_layout()
     if save_path is not None:
-        plt.savefig(save_path+'/closed_loop_dpc_osf_int.pdf')
+        plt.savefig(save_path+'/closed_loop_dpc.pdf')
 
 
 def lpv_batched(fx, x):
@@ -226,17 +248,13 @@ if __name__ == "__main__":
     nx = 2
     ny = 2
     nu = 1
-    nd = 1
-    nr = 1
     # number of datapoints
-    nsim = 50000    # increase sample density for more robust results
+    nsim = 10000        # rule of thumb: more data samples -> improved control performance
     # constraints bounds
     umin = -1
     umax = 1
     xmin = -10
     xmax = 10
-    args.umin = umin
-    args.umax = umax
     # terminal constraints as deviations from desired reference
     xN_min = -0.1
     xN_max = 0.1
@@ -259,76 +277,21 @@ if __name__ == "__main__":
         "R": np.concatenate([np.random.uniform(low=ref_min, high=ref_max)*np.ones([args.nsteps, 1])
                              for i in range(int(np.ceil(nsim/args.nsteps)))])[:nsim, :],
     }
-    sequences['E'] = sequences['R'] - sequences['Y'][:, args.controlled_outputs]
-    dataset = Dataset(nsim=nsim, ninit=0, norm=args.norm, nsteps=args.nsteps,
-                      device='cpu', sequences=sequences, name='closedloop')
+    nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps)
+    train_data, dev_data, test_data = nstep_data
+    train_loop, dev_loop, test_loop = loop_data
 
     """
-    # # #  System model augmeted with disturbance model
+    # # #  System model and Control policy
     """
-    # Fully observable estimator as identity map:
-    # x_0 = [Yp[-1], 0]
+    # Fully observable estimator as identity map: x0 = Yp[-1]
+    # x_0 = Yp
     # Yp = [y_-N, ..., y_0]
-    estimator = estimators.FullyObservableAugmented({**dataset.dims, "x0": (nx+nd,)},
+    estimator = estimators.FullyObservable({**dims, "x0": (nx,)},
                                            nsteps=args.nsteps,  # future window Nf
                                            window_size=1,  # past window Np <= Nf
-                                           nd=1, d0=0.0,    # dimensions and initial values of augmented states
                                            input_keys=["Yp"],
                                            name='estimator')
-
-    estimator_ctrl = estimators.FullyObservable({**dataset.dims, "x0": (nx,)},
-                                           nsteps=args.nsteps,  # future window Nf
-                                           window_size=1,  # past window Np <= Nf
-                                           input_keys=["Yp"],
-                                           name='estimator_ctrl')
-    # LTI SSM
-    fu = slim.maps['linear'](nu, nx+nd)     #  [B; 0] u_k
-    fx = slim.maps['linear'](nx+nd, nx+nd)  #  [x_k+1; e_k+1] = [A, 0; -C, I] [x_k; e_k]
-    fy = slim.maps['linear'](nx+nd, ny)     #  [C, 0] [x_k+1; e_k+1]
-    fd = slim.maps['linear'](nr, nx + nd)   #  [0; I] r_k   - we treat reference signal as additive disturbance
-    fe = slim.maps['linear'](nx + nd, nx + nd)   #  [0, K_i; 0, 0] [x_k+1; e_k+1]   -  learnable integrator feedback K_i
-    # x_k+1 = Ax_k + Bu_k + Ee_k
-    # y_k+1 = Cx_k+1
-    dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, name='dynamics',
-                                       input_keys={'x0': f'x0_{estimator.name}', 'Df': 'Rf'})
-    # model matrices values
-    A = torch.tensor([[1.2, 1.0],
-                     [0.0, 1.0]])
-    B = torch.tensor([[1.0],
-                      [0.5]])
-    C = torch.tensor([[1.0, 0.0],
-                      [0.0, 1.0]])
-    # augmented system matrix with disturbances
-    # [x_k+1; e_k+1] = [A, 0; -C, I] [x_k; e_k] + [B; 0] u_k + [0; I] r_k
-    # y_k+1 = [C, 0] [x_k+1; e_k+1]
-    A_up = torch.cat((A, torch.zeros(nx, nd)), 1)
-    A_low = torch.cat((torch.zeros(nd, nx), torch.eye(nd, nd)), 1)
-    A_low[args.controlled_outputs, args.controlled_outputs] =\
-        -C[args.controlled_outputs, args.controlled_outputs]
-    A_aug = torch.cat((A_up, A_low), 0)
-    B_aug = torch.cat((B, torch.zeros(nd, nu)), 0)
-    C_aug = torch.cat((C, torch.zeros(nx, nd)), 1)
-    E_aug = torch.cat((torch.zeros(nx, nr), torch.eye(nd, nr)), 0)
-    # A_aug = torch.tensor([[1.2, 1.0, 0.0],
-    #                   [0.0, 1.0, 0.0],
-    #                   [-1.0, 0.0, 1.0]])
-    K_i = 0.1       # initial integrator gain initial value
-    F_aug = torch.zeros(nx+nd, nx+nd)
-    F_aug[args.controlled_outputs, nx:] = K_i
-    # set of model parameters
-    dynamics_model.fx.linear.weight = torch.nn.Parameter(A_aug)
-    dynamics_model.fu.linear.weight = torch.nn.Parameter(B_aug)
-    dynamics_model.fy.linear.weight = torch.nn.Parameter(C_aug)
-    dynamics_model.fd.linear.weight = torch.nn.Parameter(E_aug)
-    dynamics_model.fe.linear.weight = torch.nn.Parameter(F_aug)
-    # freeze model parameters
-    dynamics_model.requires_grad_(False)
-    # unfreeze model compensator - the desired zeros would need to be penalized as constraints
-    dynamics_model.fe.linear.weight.requires_grad_(True)
-
-    """
-    # # #  Control policy + offset-free (OSF) feedback compensator
-    """
     # full state feedback control policy with reference preview Rf
     # U_policy = p(x_0, Rf)
     # U_policy = [u_0, ..., u_N]
@@ -337,17 +300,38 @@ if __name__ == "__main__":
     linmap = slim.maps['linear']
     block = blocks.MLP
     policy = policies.MLPPolicy(
-        {f'x0_{estimator_ctrl.name}': (nx,), **dataset.dims},
+        {f'x0_{estimator.name}': (nx,), **dims},
         nsteps=args.nsteps,
         bias=args.bias,
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=[f'x0_{estimator_ctrl.name}', 'Rf'],
+        input_keys=[f'x0_{estimator.name}', 'Rf'],
         name='policy',
     )
-    # link policy with the model through the input keys
-    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = f'U_pred_{policy.name}'
+
+    # A, B, C linear maps
+    fu = slim.maps['linear'](nu, nx)
+    fx = slim.maps['linear'](nx, nx)
+    fy = slim.maps['linear'](nx, ny)
+    # LTI SSM
+    # x_k+1 = Ax_k + Bu_k
+    # y_k+1 = Cx_k+1
+    dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics',
+                                       input_keys={f'x0_{estimator.name}': 'x0',
+                                                   'U_pred_policy': 'Uf'})
+    # model matrices values
+    A = torch.tensor([[1.2, 1.0],
+                      [0.0, 1.0]])
+    B = torch.tensor([[1.0],
+                      [0.5]])
+    C = torch.tensor([[1.0, 0.0],
+                      [0.0, 1.0]])
+    dynamics_model.fx.linear.weight = torch.nn.Parameter(A)
+    dynamics_model.fu.linear.weight = torch.nn.Parameter(B)
+    dynamics_model.fy.linear.weight = torch.nn.Parameter(C)
+    # fix model parameters
+    dynamics_model.requires_grad_(False)
 
     """
     # # #  DPC objectives and constraints
@@ -358,12 +342,6 @@ if __name__ == "__main__":
         lambda pred, ref: F.mse_loss(pred[:, :, args.controlled_outputs], ref),
         weight=args.Qr,
         name="ref_loss",
-    )
-    osf_loss = Objective(
-        [f'X_pred_{dynamics_model.name}'],
-        lambda x: torch.norm(x[:, :, nx:], 2),
-        weight=args.Q_osf,
-        name="osf_loss",  # penalizing augmented states towards zero: loss(||e_k||^2)
     )
     action_loss = Objective(
         [f"U_pred_{policy.name}"],
@@ -380,7 +358,7 @@ if __name__ == "__main__":
     # regularization
     regularization = Objective(
         [f"reg_error_{policy.name}"], lambda reg: reg,
-        weight=args.Q_sub, name="reg_loss1",
+        weight=args.Q_sub, name="reg_loss",
     )
     # constraints
     state_lower_bound_penalty = Objective(
@@ -407,11 +385,6 @@ if __name__ == "__main__":
         weight=args.Qn,
         name="terminl_upper_bound",
     )
-
-    # TODO: bounds on integral control action?
-    # u_int = K_i(x_aug)[:, args.controlled_outputs]
-    # u_nominal = u_nominal + u_int
-
     # alternative definition: args.nsteps*torch.mean(F.relu(-u + umin))
     inputs_lower_bound_penalty = Objective(
         [f"U_pred_{policy.name}", "U_minf"],
@@ -426,29 +399,8 @@ if __name__ == "__main__":
         weight=args.Q_con_u,
         name="input_upper_bound",
     )
-    # integrator feedback penalty
-    mask = torch.ones(dynamics_model.fe.linear.weight.shape, dtype=torch.bool)
-    mask[args.controlled_outputs, nx:] = False
-    # dummy callable: argument x is not used
-    Ki_form_penalty = Objective(["Rf"],
-        lambda x: torch.norm(torch.masked_select(dynamics_model.fe.linear.weight, mask), 1),
-        weight=args.Q_Ki*nsim,
-        name="Ki_form_penalty",
-    )
-    Ki_min = 0
-    Ki_max = 1.0
-    Ki_upper_boud_penalty = Objective([],
-        lambda: torch.norm(F.relu(dynamics_model.fe.linear.weight - Ki_max), 1),
-        weight=args.Q_Ki*nsim,
-        name="Ki_upper_bound_penalty",
-    )
-    Ki_lower_boud_penalty = Objective([],
-        lambda: torch.norm(F.relu(-dynamics_model.fe.linear.weight + Ki_min), 1),
-        weight=args.Q_Ki*nsim,
-        name="Ki_lower_bound_penalty",
-    )
 
-    objectives = [regularization, reference_loss, du_loss, osf_loss]
+    objectives = [regularization, reference_loss, du_loss]
     constraints = [
         state_lower_bound_penalty,
         state_upper_bound_penalty,
@@ -456,16 +408,13 @@ if __name__ == "__main__":
         inputs_upper_bound_penalty,
         terminal_lower_bound_penalty,
         terminal_upper_bound_penalty,
-        Ki_form_penalty,
-        Ki_upper_boud_penalty,
-        Ki_lower_boud_penalty,
     ]
 
     """
     # # #  DPC problem = objectives + constraints + trainable components 
     """
     # data (y_k) -> estimator (x_k) -> policy (u_k) -> dynamics (x_k+1, y_k+1)
-    components = [estimator, estimator_ctrl, policy, dynamics_model]
+    components = [estimator, policy, dynamics_model]
     model = Problem(
         objectives,
         constraints,
@@ -478,36 +427,31 @@ if __name__ == "__main__":
     # logger and metrics
     args.savedir = 'test_control'
     args.verbosity = 1
-    metrics = ["nstep_dev_loss", "loop_dev_loss", "best_loop_dev_loss",
-               "nstep_dev_ref_loss", "loop_dev_ref_loss"]
+    metrics = ["nstep_dev_loss"]
+
     logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'integrator'
+    logger.args.system = 'dpc_var_ref'
     # device and optimizer
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
     model = model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    # simulator
-    simulator = ClosedLoopSimulator(
-        model=model, dataset=dataset, emulator=dynamics_model, policy=policy
-    )
-    # visualizer
-    plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
-    visualizer = VisualizerClosedLoop(
-        dataset, policy, plot_keys, args.verbosity, savedir=args.savedir
-    )
+
     # trainer
     trainer = Trainer(
         model,
-        dataset,
+        train_data,
+        dev_data,
+        test_data,
         optimizer,
         logger=logger,
-        callback=SysIDCallback(simulator, visualizer),
         epochs=args.epochs,
         patience=args.patience,
+        eval_metric='nstep_dev_loss',
         warmup=args.warmup,
     )
     # Train control policy
     best_model = trainer.train()
+    best_outputs = trainer.test(best_model)
 
     """
     # # #  Plots and Analysis
@@ -516,5 +460,5 @@ if __name__ == "__main__":
     ref_step = 40
     R = np.concatenate([0.5*np.ones([ref_step, 1]),
                         1*np.ones([ref_step, 1]), 0*np.ones([ref_step, 1])])
-    cl_simulate(A, B, policy, K_i=dynamics_model.fe, args=args, nstep=R.shape[0],
+    cl_simulate(A, B, policy, args=args, nstep=R.shape[0],
                 x0=1.5*np.ones([2, 1]), ref=R, save_path='test_control')

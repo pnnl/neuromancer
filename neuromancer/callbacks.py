@@ -2,6 +2,8 @@
 Callback classes for versatile behavior in the Trainer object at specified checkpoints.
 """
 
+from copy import deepcopy
+
 
 class Callback:
     """
@@ -65,8 +67,51 @@ class SysIDCallback(Callback):
             trainer.logger.log_artifacts(plots)
 
 
+class ControlCallback(Callback):
+    """
+    Callbacks for closed loop control training. May refactor to put visualization and simulation
+    functionality directly in the callback at which point there will be separate sysID and control callbacks.
+    """
+    def __init__(self, simulator=None, visualizer=None):
+        super().__init__()
+        self.simulator, self.visualizer = simulator, visualizer
+
+    def end_test(self, trainer, output):
+        plots = {}
+        if self.simulator is not None:
+            # simulate closed-loop control of system model and emulator (if specified)
+            out_model, out_emul = self.simulator.test_eval()
+            if self.visualizer is not None:
+                # visualize closed-loop control of system model
+                plots_model = self.visualizer.eval(out_model, plot_weights=True, figname='CL_model.png')
+                plots["plt_model"] = plots_model
+                if out_emul is not None:
+                    # visualize closed-loop control of emulator
+                    plots_emul = self.visualizer.eval(out_emul, figname='CL_emul.png')
+                    plots["plt_emul"] = plots_emul
+        trainer.logger.log_artifacts(plots)
 
 
+class DoubleIntegratorCallback(Callback):
+    def __init__(self, visualizer):
+        super().__init__()
+        self.visualizer = visualizer
+        self.epoch_model = dict()
+        self.epoch_policy = dict()
 
+    def end_epoch(self, trainer, output):
+        # save current copies of the system model and control policy
+        self.epoch_model[trainer.current_epoch] = deepcopy(trainer.model.state_dict())
+        self.epoch_policy[trainer.current_epoch] = \
+            deepcopy(trainer.model.components[1].state_dict())
 
+    def end_train(self, trainer, output):
+        plots = self.visualizer.train_output(trainer, self.epoch_policy) \
+            if self.visualizer is not None else {}
+        if plots is not None:
+            trainer.logger.log_artifacts(plots)
 
+    def end_test(self, trainer, output):
+        if self.visualizer is not None:
+            plots = self.visualizer.eval(trainer)
+            trainer.logger.log_artifacts(plots)

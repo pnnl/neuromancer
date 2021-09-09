@@ -421,8 +421,8 @@ class Variable(nn.Module):
         return Objective(self, metric=metric, weight=weight, name=name)
 
     # TODO: this is a hack to fix a bug with variables being nn.module
+    # without this hack we have: TypeError: unhashable type: 'Variable'
     # https://github.com/pytorch/pytorch/issues/16756
-    # Hacky hash bypass
     def __hash__(self):
         return nn.Module.__hash__(self)
 

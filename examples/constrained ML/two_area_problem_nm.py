@@ -189,7 +189,7 @@ if __name__ == "__main__":
                      hsizes=[args.nx_hidden] * args.n_layers,)
     # define neuromancer function mapping input keys to output keys via function (nn.Module)
     nn_map = Function(func=net, input_keys=["V(t)"], output_keys=["PQ(t)"],
-                      name='net')
+                      name=None)
 
     # dataset variables
     V_t = Variable('V(t)')

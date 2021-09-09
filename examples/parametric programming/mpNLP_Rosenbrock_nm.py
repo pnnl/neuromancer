@@ -165,30 +165,21 @@ if __name__ == "__main__":
     p = Variable('p')
     a = Variable('a')
 
-    # TODO: how to deal with generic minimization problems what can have negative loss
-    # TODO: solution calling nm.min(var)?
-    # TODO: switch Loss and Objective names
-
     # objective function
-
     # # Option 1
-    loss = args.Q*((1-x)**2 + a*(y-x**2)**2 == -5)
-    loss.name = 'loss'
-
-    # # Option 2
-    loss = Objective(
+    loss1 = Loss(
         ['a', 'p', f"U_pred_{sol_map.name}"],
         lambda a, p, xy: torch.mean((1-xy[:, 0])**2 + a*(xy[:, 1]-xy[:, 0]**2)**2),
         weight=args.Q,
         name="loss",
     )
 
-    # # Option 3
+    # # Option 2
     f = (1-x)**2 + a*(y-x**2)**2
-    f.minimize(weight=args.Q, name='loss')
+    loss2 = f.minimize(weight=args.Q, name='loss')
 
     # # Option 3
-    loss = Loss((1-x)**2 + a*(y-x**2)**2, weight=args.Q, name='loss')
+    loss3 = Objective((1-x)**2 + a*(y-x**2)**2, weight=args.Q, name='loss')
 
     # constraints
     con_1 = args.Q_con*(x >= y)
@@ -196,7 +187,7 @@ if __name__ == "__main__":
     con_3 = args.Q_con*(x**2+y**2 <= p**2)
 
     # constrained optimization problem construction
-    objectives = [loss]
+    objectives = [loss2]
     constraints = [con_1, con_2, con_3]
     # constraints = []
     components = [sol_map]

@@ -169,11 +169,11 @@ if __name__ == "__main__":
     # loss.name = 'loss'
 
     # # Option 2
-    loss = Loss(x**2 + y**2, weight=args.Q, name='loss')
+    loss = Objective(x**2 + y**2, weight=args.Q, name='loss')
 
-    # Option 3
-    f = x ** 2 + y ** 2
-    loss = f.minimize(weight=args.Q, name='loss')
+    # # Option 3
+    # f = x ** 2 + y ** 2
+    # loss = f.minimize(weight=args.Q, name='loss')
 
     # constraints
     con_1 = args.Q_con * (x + y - p >= 0)

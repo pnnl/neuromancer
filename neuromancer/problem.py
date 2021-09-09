@@ -8,23 +8,23 @@ from typing import Dict, List, Callable
 import torch
 import torch.nn as nn
 
-from neuromancer.constraint import Variable, Objective
+from neuromancer.constraint import Variable, Loss
 
 
 class Problem(nn.Module):
 
-    def __init__(self, objectives: List[Objective], constraints: List[Objective],
+    def __init__(self, objectives: List[Loss], constraints: List[Loss],
                  components: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]]):
         """
         This is similar in spirit to a nn.Sequential module. However,
         by concatenating input and output dictionaries for each component
         module we can represent arbitrary directed acyclic computation graphs.
         In addition the Problem module takes care of calculating weighted multi-objective
-        loss functions via the lists of Objective objects (constraints and objectives) which calculate loss terms
+        loss functions via the lists of Loss objects (constraints and objectives) which calculate loss terms
         from aggregated input and set of outputs from the component modules.
 
-        :param objectives: list of Objective objects
-        :param constraints: list of Objective objects
+        :param objectives: list of Loss objects
+        :param constraints: list of Loss objects
         :param components: list of objects which implement the component interface
         """
         super().__init__()
@@ -95,7 +95,7 @@ class Problem(nn.Module):
         return s
 
 
-class MSELoss(Objective):
+class MSELoss(Loss):
     def __init__(self, variable_names, weight=1.0, name="mse_loss"):
         super().__init__(
             variable_names,
@@ -105,7 +105,7 @@ class MSELoss(Objective):
         )
 
 
-class RegularizationLoss(Objective):
+class RegularizationLoss(Loss):
     def __init__(self, variable_names, weight=1.0, name="reg_loss"):
         super().__init__(
             variable_names,

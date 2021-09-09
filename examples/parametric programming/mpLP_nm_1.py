@@ -171,12 +171,7 @@ if __name__ == "__main__":
     p3 = Variable('p3')
 
     # objective function
-    # # Option 1
-    # loss = args.Q*(x**2 + y**2 == 0)
-    # loss.name = 'loss'
-
-    # # Option 2
-    loss = Loss(a1*x+a2*y, weight=args.Q, name='loss')
+    loss = Objective(a1*x+a2*y, weight=args.Q, name='loss')
     # constraints
     con_1 = args.Q_con*(x+y-p1 >= 0)
     con_2 = args.Q_con*(-2*x+y+p2 >= 0)

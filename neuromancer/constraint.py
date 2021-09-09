@@ -1,6 +1,6 @@
 """
 Definition of neuromancer.Constraint class used in conjunction with neuromancer.Variable class. A Constraint has the
-same behavior as an Objective but with intuitive syntax for defining via Variable objects.
+same behavior as a Loss but with intuitive syntax for defining via Variable objects.
 """
 from typing import Dict, List, Callable
 
@@ -9,18 +9,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Objective(nn.Module):
+class Loss(nn.Module):
     """
     Drop in replacement for a Constraint object but relies on a list of dictionary keys and a callable function
     to instantiate.
     """
-    def __init__(self, variable_names: List[str], loss: Callable[..., torch.Tensor], weight=1.0, name='objective'):
+    def __init__(self, variable_names: List[str], loss: Callable[..., torch.Tensor], weight=1.0, name='loss'):
         """
 
         :param variable_names: List of str
         :param loss: (callable) Number of arguments of the callable should equal the number of strings in variable names.
                                 Arguments to callable should be torch.Tensor and return type a 0-dimensional torch.Tensor
-        :param weight: (float) Weight of objective for calculating multi-objective loss function
+        :param weight: (float) Weight of loss for calculating multi-term loss function
         :param name: (str) Name for tracking output
         """
         super().__init__()
@@ -120,10 +120,9 @@ class Eq(nn.Module):
             return F.mse_loss(left, right)
 
 
-# TODO: swap Loss with Objective for convention
-class Loss(nn.Module):
+class Objective(nn.Module):
     """
-    Drop in replacement for an Objective object constructed via neuromancer Variable object
+    Drop in replacement for a Loss object constructed via neuromancer Variable object
     in the forward pass evaluates metric as torch function on Variable values
     """
     def __init__(self, var, metric=torch.mean, weight=1.0, name=None):
@@ -163,7 +162,7 @@ class Loss(nn.Module):
 
 class Constraint(nn.Module):
     """
-    Drop in replacement for an Objective object but constructed by a composition of Variable objects
+    Drop in replacement for a Loss object but constructed by a composition of Variable objects
     using comparative infix operators, '<', '>', '==', '<=', '>=' and '*' to weight loss component and '^' to
     determine l-norm of constraint violation in determining loss.
     """
@@ -419,7 +418,7 @@ class Variable(nn.Module):
         return Constraint(self, other, Eq())
 
     def minimize(self, metric=torch.mean, weight=1.0, name=None):
-        return Loss(self, metric=metric, weight=weight, name=name)
+        return Objective(self, metric=metric, weight=weight, name=name)
 
     # TODO: this is a hack to fix a bug with variables being nn.module
     # https://github.com/pytorch/pytorch/issues/16756

@@ -4,20 +4,6 @@ import torch
 from torch import nn
 
 
-def check_keys(k1, k2):
-    """
-    Check that some elements in k1 are contained in k2
-
-    :param k1: iterable of str
-    :param k2: iterable of str
-    """
-    common_keys = set(k1) - set(k2)
-
-    assert len(common_keys) == 0, \
-            f'Missing values in dataset: {common_keys}\n' \
-            f'  input_keys: {set(k1)}\n  data_keys: {set(k2)}'
-
-
 def _validate_key_params(keys):
     return keys is None or isinstance(keys, dict) or isinstance(keys, list)
 
@@ -83,55 +69,35 @@ class Component(nn.Module):
         self._do_input_remap = isinstance(input_keys, dict)
 
         if self._do_input_remap:
-            input_keys = {
+            self.input_keys = {
                 **{k: k for k in self.DEFAULT_INPUT_KEYS if k not in input_keys.values()},
                 **input_keys
             }
-            # conversion of dict to list of tuples used because torch handles dicts weirdly in module hooks
-            self._input_keys = [(k, v) for k, v in input_keys.items()]
-            self.register_forward_pre_hook(self._remap_input)
+            assert len(self.input_keys) == len(self.DEFAULT_INPUT_KEYS), \
+                " Length of given input keys must equal the length of default input keys"
+            self.register_forward_pre_hook(self._check_inputs)
         else:
-            self._input_keys = [(k, k) for k in input_keys]
+            self.input_keys = self.DEFAULT_INPUT_KEYS
 
-        self._output_keys = [(k, f"{k}_{name}") for k in output_keys]
+        self.output_keys = [f"{k}_{name}" if self.name is not None else k for k in output_keys]
         self.register_forward_hook(self._remap_output)
 
-    def _remap_input(self, module, input_data):
+    def _check_inputs(self, module, input_data):
         input_data = input_data[0]
-        #check_keys({x[0] for x in self._input_keys}, input_data.keys())
-        return {
-            k2: input_data[k1] for k1, k2 in self._input_keys
-            if k1 in input_data
-        }
+        set_diff = set(self.input_keys) - set(input_data)
+        assert len(set_diff) == 0, \
+            f" Missing input keys {set_diff}"
 
     def _remap_output(self, module, input_data, output_data):
-        # check_keys(output_data.keys(), {x[0] for x in self._output_keys})
-        return {
-            k2: output_data[k1] for k1, k2 in self._output_keys
-            if k1 in output_data
-        }
-
-    @property
-    def input_keys(self):
-        """
-        Retrieve component's input variable names. This returns remapped names if `input_keys` was
-        given a mapping; to see a component's canonical input keys, see class attribute `DEFAULT_INPUT_KEYS`.
-        """
-        # reverse mapping
-        if len(self._input_keys) == 0:
-            rvalues = []
-        else:
-            rvalues, _ = zip(*self._input_keys)
-        return list(rvalues)
-
-    @property
-    def output_keys(self):
-        """
-        Retrieve component's output variable names. This returns remapped names if `output_keys` was
-        given a mapping; to see a component's canonical output keys, see class attribute `DEFAULT_OUTPUT_KEYS`.
-        """
-        rkeys = dict(self._output_keys)
-        return [rkeys.get(k, k) for k in self.DEFAULT_OUTPUT_KEYS]
+        assert set(output_data.keys()) == set(self.DEFAULT_OUTPUT_KEYS), \
+            f' Key mismatch\n' \
+            f' Forward pass keys: {set(output_data.keys())}\n  ' \
+            f' Default output keys: {set(self.DEFAULT_OUTPUT_KEYS)}'
+        if self.name is not None:
+            output_data = {
+                f"{k}_{self.name}": output_data[k] for k in self.DEFAULT_OUTPUT_KEYS
+            }
+        return output_data
 
 
 # TODO: just use output_keys list
@@ -143,19 +109,38 @@ class Function(Component):
         output_keys,
         name,
     ):
+        # TODO: continue
+        self.DEFAULT_INPUT_KEYS = input_keys if input_keys is not None else []
         self.DEFAULT_OUTPUT_KEYS = output_keys if isinstance(output_keys, list) else [output_keys]
-        super().__init__(input_keys, output_keys, name)
+        super().__init__(self.DEFAULT_INPUT_KEYS, output_keys, name)
         self.func = func
 
     def forward(self, data):
         x = [data[k] for k in self.input_keys]
         out = self.func(*x)
-        return {
+
+        out_d = {
             k: v for k, v in zip(
-                self.output_keys,
+                self.DEFAULT_OUTPUT_KEYS,
                 out if isinstance(out, tuple) else (out,)
             )
         }
+
+        # TODO: testing this stuff
+        print(x[0].shape)
+        print(out.shape)
+        print(out_d.keys())
+        print(out_d[list(out_d.keys())[0]].shape)
+        # TODO: something gets overwritten here
+        # TODO: returns empty dict instead of out_d
+        return out_d
+
+        # return {
+        #     k: v for k, v in zip(
+        #         self.output_keys,
+        #         out if isinstance(out, tuple) else (out,)
+        #     )
+        # }
 
 
 class RecurrentFunction(Function):

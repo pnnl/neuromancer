@@ -12,7 +12,8 @@ import torch.nn.functional as F
 
 from neuromancer.estimators import MLPEstimator
 from neuromancer.dynamics import block_model, BlockSSM
-from neuromancer.problem import Problem, Objective
+from neuromancer.problem import Problem
+from neuromancer.constraint import Loss
 from neuromancer.blocks import MLP
 from neuromancer.plot import plot_model_graph
 import slim
@@ -106,9 +107,9 @@ which can reference either the input data or the output of any component in the 
 
 For alternative way of defining objectives and constraints via high-level variable abstractions see constraints_tutorial.py
 """
-reference_loss = Objective(["Y_pred_dynamics", "Yf"], F.mse_loss, name="reference_loss")
-estimator_loss = Objective(["X_pred_dynamics", "x0_estim"], lambda x, y: F.mse_loss(x[-1, :-1, :], y[1:]), name="estimator_loss")
-bounds_constraint = Objective(["Y_pred_dynamics"], lambda x: F.relu(0.5 - x).mean(), name="bounds_constraint")
+reference_loss = Loss(["Y_pred_dynamics", "Yf"], F.mse_loss, name="reference_loss")
+estimator_loss = Loss(["X_pred_dynamics", "x0_estim"], lambda x, y: F.mse_loss(x[-1, :-1, :], y[1:]), name="estimator_loss")
+bounds_constraint = Loss(["Y_pred_dynamics"], lambda x: F.relu(0.5 - x).mean(), name="bounds_constraint")
 
 """
 At last, let's put together a `Problem` class to combine everything. Like `Component`s, when we instantiate a `Problem` 

@@ -18,7 +18,8 @@ import slim
 from neuromancer.activations import BLU, SoftExponential
 from neuromancer import policies, arg
 from neuromancer.activations import activations
-from neuromancer.problem import Problem, Objective
+from neuromancer.problem import Problem
+from neuromancer.constraint import Loss
 from torch.utils.data import DataLoader
 from neuromancer.simulators import ClosedLoopSimulator
 from neuromancer.trainer import Trainer, freeze_weight, unfreeze_weight
@@ -249,40 +250,40 @@ def get_objective_terms(args, policy):
         output_key = "Y_pred_dynamics"
 
     # control second state towards reference
-    reference_loss = Objective(
+    reference_loss = Loss(
         [output_key, "Rf"],
         lambda pred, ref: F.mse_loss(pred[:,:,1], ref[:,:,1]),
         weight=args.Q_r,
         name="ref_loss",
     )
-    regularization = Objective(
+    regularization = Loss(
         [f"reg_error_{policy.name}"], lambda reg: reg, weight=args.Q_sub, name="reg_loss",
     )
-    control_smoothing = Objective(
+    control_smoothing = Loss(
         [f"U_pred_{policy.name}"],
         lambda x: F.mse_loss(x[1:], x[:-1]),
         weight=args.Q_du,
         name="control_smoothing",
     )
-    observation_lower_bound_penalty = Objective(
+    observation_lower_bound_penalty = Loss(
         [output_key, "Y_minf"],
         lambda x, xmin: torch.mean(F.relu(-x + xmin)),
         weight=args.Q_con_y,
         name="observation_lower_bound",
     )
-    observation_upper_bound_penalty = Objective(
+    observation_upper_bound_penalty = Loss(
         [output_key, "Y_maxf"],
         lambda x, xmax: torch.mean(F.relu(x - xmax)),
         weight=args.Q_con_y,
         name="observation_upper_bound",
     )
-    inputs_lower_bound_penalty = Objective(
+    inputs_lower_bound_penalty = Loss(
         [f"U_pred_{policy.name}", "U_minf"],
         lambda x, xmin: torch.mean(F.relu(-x + xmin)),
         weight=args.Q_con_u,
         name="input_lower_bound",
     )
-    inputs_upper_bound_penalty = Objective(
+    inputs_upper_bound_penalty = Loss(
         [f"U_pred_{policy.name}", "U_maxf"],
         lambda x, xmax: torch.mean(F.relu(x - xmax)),
         weight=args.Q_con_u,
@@ -291,25 +292,25 @@ def get_objective_terms(args, policy):
 
     # Constraints tightening
     if args.con_tighten:
-        observation_lower_bound_penalty = Objective(
+        observation_lower_bound_penalty = Loss(
             [output_key, "Y_minf"],
             lambda x, xmin: torch.mean(F.relu(-x + xmin + args.tighten)),
             weight=args.Q_con_y,
             name="observation_lower_bound",
         )
-        observation_upper_bound_penalty = Objective(
+        observation_upper_bound_penalty = Loss(
             [output_key, "Y_maxf"],
             lambda x, xmax: torch.mean(F.relu(x - xmax + args.tighten)),
             weight=args.Q_con_y,
             name="observation_upper_bound",
         )
-        inputs_lower_bound_penalty = Objective(
+        inputs_lower_bound_penalty = Loss(
             [f"U_pred_{policy.name}", "U_minf"],
             lambda x, xmin: torch.mean(F.relu(-x + xmin + args.tighten)),
             weight=args.Q_con_u,
             name="input_lower_bound",
         )
-        inputs_upper_bound_penalty = Objective(
+        inputs_upper_bound_penalty = Loss(
             [f"U_pred_{policy.name}", "U_maxf"],
             lambda x, xmax: torch.mean(F.relu(x - xmax + args.tighten)),
             weight=args.Q_con_u,
@@ -318,7 +319,7 @@ def get_objective_terms(args, policy):
 
     # Loss clipping
     if args.loss_clip:
-        reference_loss = Objective(
+        reference_loss = Loss(
             [output_key, "Rf", "Y_minf", "Y_maxf"],
             lambda pred, ref, xmin, xmax: F.mse_loss(
                 pred * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),

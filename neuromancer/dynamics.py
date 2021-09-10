@@ -37,16 +37,9 @@ from neuromancer.component import Component
 
 
 class BlockSSM(Component):
-    # TODO: make canonical inputs depend on which components are actually enabled for the SSM
-    # e.g. if fu is not None, add "Uf" as required input key and "fU" as output key.
+
     DEFAULT_INPUT_KEYS = ["x0", "Yf"]
     DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "reg_error"]
-
-    OPTIONAL_INPUT_KEYS = ["Uf", "Df"]
-    OPTIONAL_OUTPUT_KEYS = ["fU", "fD", "fE"]
-
-    _ALL_INPUTS = DEFAULT_INPUT_KEYS + OPTIONAL_INPUT_KEYS
-    _ALL_OUTPUTS = DEFAULT_OUTPUT_KEYS + OPTIONAL_OUTPUT_KEYS
 
     def __init__(self, fx, fy, fu=None, fd=None, fe=None, fyu=None,
                  xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, residual=False, name='block_ssm',
@@ -68,17 +61,18 @@ class BlockSSM(Component):
         :param name: (str) Name for tracking output
         :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
         """
-        input_keys = BlockSSM.add_optional_inputs(
-            [x for x, c in zip(self.OPTIONAL_INPUT_KEYS, [fu, fd]) if c is not None],
-            remapping=input_keys,
-        )
-        output_keys = BlockSSM.add_optional_outputs(
-            [x for x, c in zip(self.OPTIONAL_OUTPUT_KEYS, [fu, fd, fe]) if c is not None]
-        )
+        if fu is not None:
+            self.DEFAULT_INPUT_KEYS += ['Uf']
+            self.DEFAULT_OUTPUT_KEYS += ['fU']
+        if fd is not None:
+            self.DEFAULT_INPUT_KEYS += ['Dp']
+            self.DEFAULT_OUTPUT_KEYS += ['fD']
+        if fe is not None:
+            self.DEFAULT_OUTPUT_KEYS = ['fE']
 
         super().__init__(
             input_keys,
-            output_keys,
+            self.DEFAULT_OUTPUT_KEYS,
             name,
         )
         self.fx, self.fy, self.fu, self.fd, self.fe, self.fyu = fx, fy, fu, fd, fe, fyu
@@ -125,9 +119,6 @@ class BlockSSM(Component):
         :param data: (dict: {str: Tensor})
         :return: output (dict: {str: Tensor})
         """
-        # TODO: in future version treat nsteps as item in the data dictionary
-        # x_in, u_in, d_in = self._ALL_INPUTS
-        # nsteps = data['nsteps']
         x_in, y_out, u_in, d_in = self._ALL_INPUTS
         nsteps = data[y_out].shape[0]
         X, Y, FD, FU, FE = [], [], [], [], []

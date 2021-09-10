@@ -133,29 +133,6 @@ class Component(nn.Module):
         rkeys = dict(self._output_keys)
         return [rkeys.get(k, k) for k in self.DEFAULT_OUTPUT_KEYS]
 
-    # NOTE: the following two methods may become unnecessary if certain components are broken up into
-    # separate components and composed in a Problem.
-    @classmethod
-    def add_optional_inputs(cls, new_keys, remapping=[]):
-        # assert isinstance(remapping, list) or isinstance(remapping, dict)
-        if isinstance(remapping, dict) and len(remapping) > 0:
-            reverse_map = dict(zip(remapping.values(), remapping.keys()))
-            keys = {
-                **{k: k for k in cls.DEFAULT_INPUT_KEYS if k not in remapping.values()},
-                **{k: v for k, v in remapping.items() if v not in new_keys},
-                **{reverse_map[k] if k in reverse_map else k: k for k in new_keys},
-            }
-        else:
-            keys = cls.DEFAULT_INPUT_KEYS + new_keys
-        return keys
-
-    @classmethod
-    def add_optional_outputs(cls, new_keys):
-        return cls.DEFAULT_OUTPUT_KEYS + new_keys
-
-    def __repr__(self):
-        return f"{self.name}({', '.join(self.input_keys)}) -> {', '.join(self.output_keys)}"
-
 
 # TODO: just use output_keys list
 class Function(Component):

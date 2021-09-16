@@ -2,16 +2,40 @@ from hypothesis import given, settings, strategies as st
 
 import torch
 import slim
-from neuromancer.component import Component
+from neuromancer.component import Component, Function
 from neuromancer import (
-    blocks,
-    dynamics,
     estimators,
-    policies,
+    blocks,
     problem,
+    policies,
+    dynamics,
 )
 
 _ = torch.set_grad_enabled(False)
+
+def test_function_no_name_output_keys():
+    block = blocks.MLP(5,4)
+    data = {'x': torch.rand(500, 500, 5)}
+    func = Function(block, input_keys=['x'], output_keys=['fx'], name=None)
+    output_keys = list(func(data).keys())
+    assert len(output_keys) == 1
+    assert output_keys[0] == 'fx'
+
+
+def test_function_output():
+    block = blocks.MLP(5,4)
+    data = {'x': torch.rand(500, 500, 5)}
+    assert torch.all(block(data['x']) == (Function(block, input_keys=['x'], output_keys=['fx'], name=None)(data))['fx'])
+
+
+def test_named_function_output_keys():
+    block = blocks.MLP(5,4)
+    data = {'x': torch.rand(500, 500, 5)}
+    func = Function(block, input_keys=['x'], output_keys=['fx'], name='mlp')
+    output_keys = list(func(data).keys())
+    assert len(output_keys) == 1
+    assert output_keys[0] == 'fx_mlp'
+
 
 
 def get_test_data(dims, batch_size, nsteps):
@@ -24,7 +48,7 @@ def get_test_data(dims, batch_size, nsteps):
     data["name"] = "test"
     return data
 
-    
+
 @given(
     st.sampled_from(list(estimators.estimators)),
     st.integers(1, 50),
@@ -52,7 +76,7 @@ def test_estimators(kind, x0_dim, y_dim, u_dim, batch_size, nsteps):
     output = estim(test_data)
 
     assert all([k in output for k in estim.output_keys])
-    
+
 
 # dynamics models
 ## standard block SSMs
@@ -76,7 +100,7 @@ def test_block_ssm(kind, x0_dim, y_dim, u_dim, d_dim, batch_size, nsteps):
     assert all([k in output for k in ssm.output_keys])
 
 
-## blackbox SSM
+# blackbox SSM
 @given(
     st.integers(1, 50),
     st.integers(1, 50),
@@ -88,13 +112,18 @@ def test_block_ssm(kind, x0_dim, y_dim, u_dim, d_dim, batch_size, nsteps):
 @settings(max_examples=1000, deadline=None)
 def test_black_ssm(x0_dim, y_dim, u_dim, d_dim, batch_size, nsteps):
     dims = {k: (s,) for k, s in zip(["x0", "Yf", "Uf", "Df"], [x0_dim, y_dim, u_dim, d_dim]) if s != 0}
+    extra_inputs = []
+    if u_dim != 0:
+        extra_inputs += ['Uf']
+    if d_dim != 0:
+        extra_inputs += ['Df']
     ssm = dynamics.blackbox_model(
         dims,
         slim.Linear,
         blocks.MLP,
         bias=False,
         n_layers=1,
-        input_keys=dims.keys(),
+        extra_inputs=extra_inputs,
         name="blackbox",
     )
 
@@ -137,75 +166,46 @@ def test_policies(constructor, x0_dim, r_dim, u_dim, past_u, d_dim, batch_size, 
 
 class DummyComponent(Component):
     DEFAULT_INPUT_KEYS = ["X", "Y"]
-    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "reg_error"]
+    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred"]
 
     def __init__(
         self,
-        input_keys=None,
-        output_keys=None,
+        input_key_map={},
         name="dummy",
     ):
         super().__init__(
-            input_keys=input_keys or DummyComponent.DEFAULT_INPUT_KEYS,
-            output_keys=output_keys or DummyComponent.DEFAULT_OUTPUT_KEYS,
+            input_key_map=input_key_map,
             name=name,
         )
 
     def forward(self, data):
-        return {
-            "X_pred": data["X"],
-            "Y_pred": data["Y"],
-            "reg_error": 13.0,
-        }
-
-
-def test_input_key_list():
-    input_keys = ["X", "Y", "Z"]
-    component = DummyComponent(
-        input_keys=input_keys,
-        name="input_list_test",
-    )
-
-    data = {"X": 123, "Y": 321}
-
-    out = component(data)
+        return {k: v for k, v in zip(self.DEFAULT_OUTPUT_KEYS, data.values())}
 
 
 def test_input_remap():
-    remapped_keys = {"X_renamed": "X", "Y_renamed": "Y"}
+    remapped_keys = {"X": 'X_renamed', "Y": "Y_renamed"}
     component = DummyComponent(
-        input_keys=remapped_keys,
+        input_key_map=remapped_keys,
         name="input_remap_test",
     )
-
     data = {"X_renamed": 123, "Y_renamed": 321}
-    out = component._remap_input(component, (data,))
-
-    assert all([k in remapped_keys.values() for k in out.keys()])
-
+    out = component(data)
+    assert component.input_keys == ["X_renamed", "Y_renamed"]
 
 def test_output_remap():
-    remapped_keys = {"X_pred": "X_renamed", "Y_pred": "Y_renamed"}
     component = DummyComponent(
-        output_keys=remapped_keys,
-        name="output_remap_test",
+        name="remap",
     )
 
-    data = {"X_pred": 123, "Y_pred": 321}
-    out = component._remap_output(component, {}, data)
-
-    print(out)
-
-    assert all([k in component.output_keys for k in out.keys()])
+    data = {"X": 123, "Y": 321}
+    assert component(data) == {"X_pred_remap": 123, "Y_pred_remap": 321}
 
 
 def test_forward_remap():
-    remapped_input = {"X_renamed": "X", "Y_renamed": "Y"}
-    remapped_output = {"X_pred": "X_renamed", "Y_pred": "Y_renamed"}
+    remapped_input = {"X": 'X_renamed', "Y": "Y_renamed"}
     component = DummyComponent(
-        input_keys=remapped_input,
-        output_keys=remapped_output,
-        name="full_remap_test",
+        input_key_map=remapped_input,
+        name="remap",
     )
 
     data = {"X_renamed": 123, "Y_renamed": 321}

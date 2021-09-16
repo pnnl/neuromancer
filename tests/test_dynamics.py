@@ -26,7 +26,7 @@ def test_block_ssm_shape(samples, nsteps, nx, ny, nu, nd, hsize, nlayers, blk):
     hsizes = [hsize for k in range(nlayers)]
     fx, fu, fd = [blk(insize, nx, hsizes=hsizes) for insize in [nx, nu, nd]]
     fy = blk(nx, ny, hsizes=hsizes)
-    model = dynamics.BlockSSM(fx, fy, fu, fd)
+    model = dynamics.BlockSSM(fx, fy, fu=fu, fd=fd, name='block_ssm')
     output = model(data)
 
     assert output['X_pred_block_ssm'].shape[0] == nsteps
@@ -65,7 +65,7 @@ def test_black_ssm_shape(samples, nsteps, nx, ny, nu, nd, hsize, nlayers, blk):
     hsizes = [hsize for k in range(nlayers)]
     fxud = blk(nx + nu + nd, nx, hsizes=hsizes)
     fy = blk(nx, ny, hsizes=hsizes)
-    model = dynamics.BlackSSM(fxud, fy, input_keys={"Uf": "Uf"})
+    model = dynamics.BlackSSM(fxud, fy, extra_inputs=['Uf', 'Df'])
     output = model(data)
 
     assert output['X_pred_black_ssm'].shape[0] == nsteps
@@ -144,7 +144,7 @@ def test_tdblack_ssm_shape(samples, nsteps, time_delay, nx, ny, nu, nd, hsize, n
     hsizes = [hsize for k in range(nlayers)]
     fxud = blk(insize, nx, hsizes=hsizes)
     fy = blk(nx_td, ny, hsizes=hsizes)
-    model = dynamics.TimeDelayBlackSSM(fxud, fy, timedelay=td)
+    model = dynamics.TimeDelayBlackSSM(fxud, fy, timedelay=td, extra_inputs=['Up', 'Uf', 'Dp', 'Df'])
     output = model(data)
 
     assert output['X_pred_black_ssm'].shape[0] == nsteps
@@ -154,3 +154,4 @@ def test_tdblack_ssm_shape(samples, nsteps, time_delay, nx, ny, nu, nd, hsize, n
     assert output['Y_pred_black_ssm'].shape[0] == nsteps
     assert output['Y_pred_black_ssm'].shape[1] == samples
     assert output['Y_pred_black_ssm'].shape[2] == ny
+

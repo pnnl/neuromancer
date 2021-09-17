@@ -54,22 +54,21 @@ class Component(nn.Module):
         super().__init__()
 
         self.name = name
+        self.update_input_keys(input_key_map=input_key_map)
+        self.register_forward_pre_hook(self._check_inputs)
+        self.output_keys = [f"{k}_{name}" if self.name is not None else k for k in self.DEFAULT_OUTPUT_KEYS]
+        self.register_forward_hook(self._remap_output)
 
+    def update_input_keys(self, input_key_map={}):
         assert isinstance(input_key_map, dict), \
-            f"{type(self).__name__} input_key_map must dict for remapping input variable names; "
-
+            f"{type(self).__name__} input_key_map must be dict for remapping input variable names; "
         self.input_key_map = {
             **{k: k for k in self.DEFAULT_INPUT_KEYS if k not in input_key_map.keys()},
             **input_key_map
         }
         self.input_keys = list(self.input_key_map.values())
-
         assert len(self.input_keys) == len(self.DEFAULT_INPUT_KEYS), \
             "Length of given input keys must equal the length of default input keys"
-        self.register_forward_pre_hook(self._check_inputs)
-
-        self.output_keys = [f"{k}_{name}" if self.name is not None else k for k in self.DEFAULT_OUTPUT_KEYS]
-        self.register_forward_hook(self._remap_output)
 
     def _check_inputs(self, module, input_data):
         input_data = input_data[0]

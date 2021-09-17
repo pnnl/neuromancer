@@ -319,8 +319,8 @@ if __name__ == "__main__":
     # x_k+1 = Ax_k + Bu_k
     # y_k+1 = Cx_k+1
     dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics',
-                                       input_keys={f'x0_{estimator.name}': 'x0',
-                                                   'U_pred_policy': 'Uf'})
+                                       input_key_map={'x0': f'x0_{estimator.name}',
+                                                   'Uf': 'U_pred_policy'})
     # model matrices values
     A = torch.tensor([[1.2, 1.0],
                       [0.0, 1.0]])

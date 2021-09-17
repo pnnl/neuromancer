@@ -88,7 +88,7 @@ def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth
     # POLICY
     gp.add("-policy", type=str, choices=["mlp", "linear"], default="mlp",
            help='Choice of architecture for modeling control policy.')
-    gp.add("-policy_features", nargs="+", default=['Y_ctrl_p', 'Rf'],
+    gp.add("-policy_features", nargs="+", default=['Yp', 'Rf'],
            help="Policy features")  # reference tracking option
     gp.add("-n_layers", type=int, default=2,
            help="Number of hidden layers of single time-step state transition")
@@ -387,9 +387,8 @@ if __name__ == "__main__":
         "Y_min": xmin*np.ones([nsim, ny]),
         "U_max": umax*np.ones([nsim, nu]),
         "U_min": umin*np.ones([nsim, nu]),
-        # "R": 0.5 * np.ones([nsim, nu]),
         "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=60, xmax=0.6, xmin=0.4)[:nsim, :],
-        "Y_ctrl_": np.random.uniform(low=-1.5, high=1.5, size=(nsim, ny)),
+        "Y": np.random.uniform(low=-1.5, high=1.5, size=(nsim, ny)),
         "U": np.random.randn(nsim, nu),
     }
     # note: sampling of the past trajectories "Y_ctrl_" has a significant effect on learned control performance
@@ -402,16 +401,15 @@ if __name__ == "__main__":
     """
     # # #  Component Models
     """
-    # update model dimensions and input output keys
-    # todo: add method to component class to update I/O keys
-    dynamics_model._input_keys[2] = ('U_pred_policy', 'Uf')     # this key matching links policy output with control inputs to the model
-    dynamics_model._input_keys[0] = ('Rf', 'Yf')        # this key is needed to infer the prediction horizon from the dataset
-    estimator._input_keys[0] = ('Y_ctrl_p', 'Yp')
+    # update model input keys
+    print(dynamics_model.DEFAULT_INPUT_KEYS)   #  see default input keys of the dynamics component
+    control_input_key_map = {'x0': 'x0_estim', 'Uf': 'U_pred_policy', 'Yf': 'Rf'}
+    dynamics_model.update_input_keys(input_key_map=control_input_key_map)
+    print(dynamics_model.input_keys)   #  see updated input keys of the dynamics component
     estimator.data_dims = dims
     estimator.nsteps = args.nsteps
     # define policy
     policy = get_policy_components(args, dims, dynamics_model, policy_name="policy")
-
 
     """
     # # #  Differentiable Predictive Control Problem Definition

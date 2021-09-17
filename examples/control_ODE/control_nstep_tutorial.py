@@ -190,7 +190,7 @@ if __name__ == "__main__":
         "U_max": umax*np.ones([nsim, nu]),
         "U_min": umin*np.ones([nsim, nu]),
         "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=60, xmax=0.6, xmin=0.4)[:nsim, :],
-        "Y_ctrl_": np.random.uniform(low=-1.5, high=1.5, size=(nsim, ny)),
+        "Y": np.random.uniform(low=-1.5, high=1.5, size=(nsim, ny)),
         "U": np.random.randn(nsim, nu),
     }
     # note: sampling of the past trajectories "Y_ctrl_" has a significant effect on learned control performance
@@ -203,11 +203,11 @@ if __name__ == "__main__":
     """
     # # #  Component Models
     """
-    # update model dimensions and input output keys
-    dynamics_model._input_keys[2] = ('U_pred_policy', 'Uf')     # this key matching links policy output with control inputs to the model
-    dynamics_model._input_keys[0] = ('Rf', 'Yf')        # this key is needed to infer the prediction horizon from the dataset
-    estimator._input_keys[0] = ('Y_ctrl_p', 'Yp')
-    estimator.data_dims = dims
+    # update model input keys
+    print(dynamics_model.DEFAULT_INPUT_KEYS)   #  see default input keys of the dynamics component
+    control_input_key_map = {'x0': 'x0_estim', 'Uf': 'U_pred_policy', 'Yf': 'Rf'}
+    dynamics_model.update_input_keys(input_key_map=control_input_key_map)
+    print(dynamics_model.input_keys)   #  see updated input keys of the dynamics component
     estimator.nsteps = nsteps
 
     # construct policy
@@ -222,7 +222,7 @@ if __name__ == "__main__":
         linear_map=linmap,
         nonlin=activation,
         hsizes=[nh_policy] * n_layers,
-        input_keys=['Y_ctrl_p', 'Rf'],
+        input_keys=['Yp', 'Rf'],
         name="policy",
     )
 

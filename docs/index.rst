@@ -16,7 +16,7 @@ NeuroMANCER
    dynamics.rst
    activations.rst
    blocks.rst
-   datasets.rst
+   dataset.rst
    estimators.rst
    loggers.rst
    operators.rst
@@ -29,6 +29,9 @@ NeuroMANCER
    visuals.rst
    arg.rst
    callbacks.rst
+   component.rst
+   constraint.rst
+
 
 
 

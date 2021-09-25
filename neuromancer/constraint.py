@@ -29,6 +29,10 @@ class Loss(nn.Module):
         self.loss = loss
         self.name = name
 
+    # TODO: shall we have a grad method here calling grad on forward output and selected data keys?
+    def grad(self):
+        pass
+
     def forward(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
 
@@ -148,6 +152,8 @@ class Objective(nn.Module):
     def variable_names(self):
         return [self.var.name]
 
+    # TODO: shall we have a grad method here calling grad on forward output and selected data keys?
+
     def forward(self, variables):
         """
 
@@ -205,6 +211,8 @@ class Constraint(nn.Module):
     def __rmul__(self, weight):
         return Constraint(self.left, self.right, self.comparator, weight=weight, name=self.name)
 
+    # TODO: shall we have a grad method here calling grad on forward output and selected data keys?
+
     def forward(self, variables):
         """
 
@@ -249,7 +257,13 @@ class Variable(nn.Module):
         self.slice = slice
         self._check_()
         if name is None:
+            # OLD
             self.name = self.key
+            # # TODO: new name construction
+            # if slice is None:
+            #     self.name = self.key
+            # else:
+            #     self.name = f'{self.key}_{str(slice)}'
         else:
             self.name = name
 
@@ -269,6 +283,10 @@ class Variable(nn.Module):
             assert self.right is not None
         if self.right is not None:
             assert self.left is not None
+
+    # TODO: shall we have a grad method?
+    def grad(self, data):
+        pass
 
     def __call__(self, data):
         """
@@ -299,6 +317,9 @@ class Variable(nn.Module):
         elif self.op == 'div':
             value = self.left(data) / self.right(data)
         else:
+            # # # TODO: no need to remove slice
+            # value = data[self.key]
+            # # OLD
             if self.slice is not None:
                 key = self.key[:-len(str(self.slice))-1]
             else:
@@ -310,6 +331,10 @@ class Variable(nn.Module):
             return value[self.slice]
 
     def __getitem__(self, slice):
+        # # TODO: shall we use just self.key to always have access to original key?
+        # return Variable(self.key, value=self.value, left=self.left,
+        #                 right=self.right, operator=self.op, slice=slice)
+        # #  OLD
         return Variable(f'{self.key}_{str(slice)}', value=self.value, left=self.left,
                         right=self.right, operator=self.op, slice=slice)
 
@@ -327,6 +352,11 @@ class Variable(nn.Module):
     Numeric operators. Numeric operators return a variable with a special __call__ function which first retrieves instantiated
     numeric quantities for the left and right hand side and performs the corresponding pytorch operator on the instantiate quantities
     """
+    # TODO: these constructors create new variables with new nested keys
+    # TODO: if we want to compute gradient we need to track back to the keys on the first level
+    # TODO: Should we instead of key use these strings as names?
+    #  and should we use keys list to track all keys necessary to compute the variable value?
+    # TODO: or should we compute gradients recursively?
     def __add__(self, other):
         if not type(other) is Variable:
             other = Variable(str(other), value=other)

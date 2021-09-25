@@ -49,6 +49,7 @@ class Problem(nn.Module):
         for constraint in self.constraints:
             input_dict[constraint.name] = constraint(input_dict)
             loss += input_dict[constraint.name]
+        #     TODO: add KKT penalties here
         input_dict['loss'] = loss
 
     def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -57,6 +58,7 @@ class Problem(nn.Module):
         return {f'{data["name"]}_{k}': v for k, v in output_dict.items()}
 
     def step(self, input_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        # TODO: dual network needs to be part of the components to predict dual variables
         for component in self.components:
             output_dict = component(input_dict)
             if isinstance(output_dict, torch.Tensor):
@@ -66,6 +68,42 @@ class Problem(nn.Module):
                 f'Output_keys: {output_dict.keys()}'
             input_dict = {**input_dict, **output_dict}
         return input_dict
+
+    def compute_KKT(self, input_dict):
+        """
+        computing KKT conditions of the problem by using autodiff
+        https://en.wikipedia.org/wiki/Karush%E2%80%93Kuhn%E2%80%93Tucker_conditions
+
+        how it should work:
+            1, we need dual network predicting dual variables as extra component before KKT eval
+            2, KKT constraints need to be included in the forward pass
+            3, penalties on KKT violations as additional loss term
+
+        should it be method on in the problem class
+        or standalone class taking constrants and objectives as arguments
+        and creating new constraints corresponding to the KKT conditions
+        and taking these new objects as additional constraints because that's what they are
+
+        :return:
+        """
+        pass
+    #     TODO: how to implement gradients of functions w.r.t. inputs?
+    #      should we go component level or here?
+
+        # TODO example
+        var = self.objectives[0].var
+        con = self.constraints[0]
+        loss = self.objectives[0]
+        key = var.key
+        # TODO: slicing seems to overwrite the variable key
+        # TODO: for each loss and constraints term include keys to be able to pull out the data from ditct
+        # TODO: compute gradients of all constraints and losses
+        var_grad = torch.autograd.grad(var(input_dict)[:, 0], input_dict[key])
+        con_grad = torch.autograd.grad(con(input_dict), input_dict[key])
+        loss_grad = torch.autograd.grad(loss(input_dict), input_dict[key])
+    #     TODO: 1, using use_dual argument: after problem init instantiate new internal model (dual net) for learning dual variables?
+    #     TODO: 2, OR in components include dual solution network whose outputs are dual variables
+
 
     def __repr__(self):
         s = "### MODEL SUMMARY ###\n\nCOMPONENTS:"

@@ -40,7 +40,7 @@ def arg_mpLP_problem(prefix=''):
            help="loss function weight.")  # tuned value: 1.0
     gp.add("-Q_sub", type=float, default=0.0,
            help="regularization weight.")
-    gp.add("-Q_con", type=float, default=25.0,
+    gp.add("-Q_con", type=float, default=20.0,
            help="constraints penalty weight.")  # tuned value: 50.0
     gp.add("-nx_hidden", type=int, default=40,
            help="Number of hidden states of the solution map")
@@ -155,8 +155,8 @@ if __name__ == "__main__":
     )
 
     # variables
-    x = Variable(f"U_pred_{sol_map.name}", name='x')[:, 0]
-    y = Variable(f"U_pred_{sol_map.name}", name='y')[:, 1]
+    x = Variable(f"U_pred_{sol_map.name}", name='x')[:, :, 0]
+    y = Variable(f"U_pred_{sol_map.name}", name='y')[:, :, 1]
     # x = Variable(f"U_pred_{sol_map.name}", name='x')
     # y = Variable(f"U_pred_{sol_map.name}", name='y')
 

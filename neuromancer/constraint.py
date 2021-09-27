@@ -43,7 +43,7 @@ class Loss(nn.Module):
         return self.weight*self.loss(*[variables[k] for k in self.variable_names])
 
     def __repr__(self):
-        return f"{self.name}({', '.join(self.variable_names)}) -> {self.loss} * {self.weight}"
+        return f"Loss: {self.name}({', '.join(self.variable_names)}) -> {self.loss} * {self.weight}"
 
 
 class LT(nn.Module):
@@ -153,7 +153,20 @@ class Objective(nn.Module):
     def variable_names(self):
         return [self.var.name]
 
-    # TODO: shall we have a grad method here calling grad on forward output and selected data keys?
+    def grad(self, variables, input_key=None):
+        """
+         returns gradient of the loss w.r.t. input variables
+
+        :param variables:
+        :param input_key: string
+        :return:
+        """
+        return gradient(self.forward(variables), variables[input_key])
+
+    def make_component(self):
+        # TODO: make a component out of this class to be used in forward pass and in construction of constraints
+        # TODO: OR use function interface instead??
+        pass
 
     def forward(self, variables):
         """
@@ -164,7 +177,7 @@ class Objective(nn.Module):
         return self.weight*self.metric(self.var(variables))
 
     def __repr__(self):
-        return f"{self.name}({', '.join(self.variable_names)}) = {self.weight} * {self.metric}({', '.join(self.variable_names)})"
+        return f"Objective: {self.name}({', '.join(self.variable_names)}) = {self.weight} * {self.metric}({', '.join(self.variable_names)})"
 
 
 class Constraint(nn.Module):
@@ -212,7 +225,7 @@ class Constraint(nn.Module):
     def __rmul__(self, weight):
         return Constraint(self.left, self.right, self.comparator, weight=weight, name=self.name)
 
-    # TODO: shall we have a grad method here calling grad on forward output and selected data keys?
+    # TODO: we shall  have a grad method here calling grad on forward output and selected data keys
 
     def forward(self, variables):
         """
@@ -351,11 +364,6 @@ class Variable(nn.Module):
     Numeric operators. Numeric operators return a variable with a special __call__ function which first retrieves instantiated
     numeric quantities for the left and right hand side and performs the corresponding pytorch operator on the instantiate quantities
     """
-    # TODO: these constructors create new variables with new nested keys
-    # TODO: if we want to compute gradient we need to track back to the keys on the first level
-    # TODO: Should we instead of key use these strings as names?
-    #  and should we use keys list to track all keys necessary to compute the variable value?
-    # TODO: or should we compute gradients recursively?
     def __add__(self, other):
         if not type(other) is Variable:
             other = Variable(str(other), value=other)

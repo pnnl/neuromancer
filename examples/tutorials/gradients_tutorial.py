@@ -7,9 +7,9 @@ This script demonstrates how to differentiate NeuroMANCER variables and constrai
 
 import neuromancer as nm
 import torch
-from neuromancer.constraint import Variable, Constraint
+from neuromancer.constraint import Variable, Constraint, Objective
 from neuromancer import policies
-from neuromancer.gradients import gradient, Gradient
+from neuromancer.gradients import gradient, jacobian, Gradient
 
 
 """
@@ -32,13 +32,16 @@ cnstr = (math_exp_var < 2.0)^2
 # and evaluate its aggregate violations on dataset with random variable x
 cnstr(data)
 
+# obtain gradients of the constraints w.r.t. inputs via nm.gradient function
+con_grad1 = gradient(cnstr(data), data['x'])
+print(con_grad1)
+# obtain gradients of the constraints w.r.t. inputs via pytorch's grad function
+con_grad2 = torch.autograd.grad(cnstr(data), data['x'])[0]
+print(con_grad2)
 # obtain gradients of the constraints w.r.t. inputs via backprop - not a prefered option
 cnstr(data).backward()
 dc_dx = data['x'].grad
 print(dc_dx)
-# obtain gradients of the constraints w.r.t. inputs via pytorch's grad functio
-con_grad = torch.autograd.grad(cnstr(data), data['x'])
-print(con_grad[0])
 
 
 """
@@ -69,11 +72,17 @@ cnstr1 = (math_exp_var1 < 1.0)^2
 print(cnstr1(out))
 
 # obtain gradients of the constraints w.r.t. component outputs z
-con3_grad_z = torch.autograd.grad(cnstr1(out), out[z.key])
-print(con3_grad_z[0])
+con3_grad_z1 = gradient(cnstr1(out), out[z.key])
+print(con3_grad_z1)
+# obtain gradients of the constraints w.r.t. component outputs z - low level
+con3_grad_z2 = torch.autograd.grad(cnstr1(out), out[z.key])[0]
+print(con3_grad_z2)
 # obtain gradients of the constraints w.r.t. parameter inputs p
-con3_grad_p = torch.autograd.grad(cnstr1(sol_map(data2)), data2['p'])
-print(con3_grad_p[0])
+con3_grad_p1 = gradient(cnstr1(sol_map(data2)), data2['p'])
+print(con3_grad_p1)
+# obtain gradients of the constraints w.r.t. parameter inputs p - low level
+con3_grad_p2 = torch.autograd.grad(cnstr1(sol_map(data2)), data2['p'])[0]
+print(con3_grad_p2)
 
 """
 compute gradients of variables w.r.t. tensor inputs from the sampled dataset using nm.gradient function
@@ -92,6 +101,13 @@ print(var_grad_p)
 # obtain second order gradients
 var_grad2_p = gradient(var_grad_p,  data2['p'])
 print(var_grad2_p)
+
+# dz/dp gradients
+z_grad_p1 = gradient(z(out), data2['p'])
+# gradient function under the hood computation
+grad_outputs = torch.ones_like(z(out),)
+z_grad_p2 = torch.autograd.grad(z(out), [data2['p']], grad_outputs=grad_outputs, create_graph=True)[0]
+
 
 """
 compute gradients of components w.r.t. tensor inputs from the sampled dataset using nm.gradient function
@@ -121,7 +137,7 @@ dz_dp = gradient(z(out), data2['p'])
 print(dz_dp)
 
 """
-compute gradients of neurmancer variables via nn.Variable grad method
+compute higher order gradients of neurmancer variables via nn.Variable grad method
 """
 # define variable p comming from te dataset
 p = Variable('p')
@@ -135,3 +151,90 @@ grad2_z_p = grad_z_p.grad(p)
 # evaluate d2z/dp^2 on the dataset
 d2z_dp2_1 = grad2_z_p(data3)
 print(d2z_dp2_1)
+
+"""
+compute gradients of sliced variables
+"""
+# separate model outputs into two variables z1 and z2
+z1 = Variable(f"U_pred_{sol_map.name}", name='z1')[:, :, 0]
+z2 = Variable(f"U_pred_{sol_map.name}", name='z2')[:, :, 1]
+# symbolic gradients of sliced variables
+grad_z1_p = z1.grad(p)
+grad_z2_p = z2.grad(p)
+# evaluate gradients
+dz1_dp = grad_z1_p(data3)
+dz2_dp = grad_z2_p(data3)
+print(dz1_dp)
+print(dz2_dp)
+# compare with gradient function
+grad_z1_p_2 = gradient(sol_map(data2)[z.key][:, :, 0],  data2['p'])
+grad_z2_p_2 = gradient(sol_map(data2)[z.key][:, :, 1],  data2['p'])
+print(grad_z1_p_2)
+print(grad_z2_p_2)
+
+"""
+compute gradients of loss functions via nm.Objective class
+"""
+# Let's define a neuromancer variable
+x = Variable('x')
+# Let's create a dataset dictionary with randomly sampled datapoints for variable x
+data = {'x': torch.rand([10,3], requires_grad=True)}
+# now let's create new variable as algebraic expression of variables
+math_exp_var = (3*x + 1)**2
+# let's define loss function
+loss = math_exp_var.minimize()
+# evaluate loss on the dataset
+loss_value = loss(data)
+# compute gradient of the loss w.r.t. data x via gradient function
+dl_dx1 = gradient(loss_value, data['x'])
+print(dl_dx1)
+# compute gradient of the loss w.r.t. data x via grad method on nm.Objective
+dl_dx2 = loss.grad(data, input_key='x')
+print(dl_dx2)
+
+# Let's create a dataset dictionary with randomly sampled datapoints for parameter p
+nsim = 20
+data2 = {'p': torch.rand([nsim, 3], requires_grad=True)}
+dims = {}
+dims['p'] = data2['p'].shape
+dims['U'] = (nsim, 2)  # defining expected dimensions of the solution variable: internal policy key 'U'
+# create neural model
+sol_map = policies.MLPPolicy(
+    {**dims},
+    hsizes=[10] * 2,
+    input_keys=["p"],
+    name='sol_map',
+)
+# make a forward pass on the component model
+out = sol_map(data2)
+# concatenate sampled dataset with model output
+data3 = {**out, **data2}
+# define variable z as output of the neural model
+z = Variable(f"U_pred_{sol_map.name}", name='z')
+# define loss on the component model outputs expression
+loss2 = (z**2 + 5).minimize()
+# compute gradient of the loss w.r.t. data p via gradient function
+dl_dp = gradient(loss2(data3), data2['p'])
+print(dl_dp)
+# compute gradient of the loss w.r.t. data p via grad method on nm.Objective
+dl_dp_2 = loss2.grad(data3, input_key='p')
+print(dl_dp_2)
+# compute gradient of the loss w.r.t. variable z via gradient function
+dl_dz = gradient(loss2(data3), data3[z.key])
+print(dl_dz)
+# compute gradient of the loss w.r.t. variable z grad method on nm.Objective
+dl_dz_2 = loss2.grad(data3, input_key=z.key)
+print(dl_dz_2)
+
+
+"""
+compute higher order gradients of loss functions and constraints via variable object
+"""
+# TODO: this would require redefining the forward pass of constraints and objectives to be dictionaries
+# TODO: such that we can treat them as components for constructing computational graphs
+
+
+"""
+compute jacobians
+"""
+# TODO: debug and test

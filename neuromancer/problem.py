@@ -42,6 +42,9 @@ class Problem(nn.Module):
         """
 
         """
+        # TODO: shall return dicts via objectives and constraints?
+        # TODO: this would allow us to construct as proxies to variables on constraints and objectives
+        # TODO: thus we could compute higher order derivatives or do algebra on constraints and objectives
         loss = 0.0
         for objective in self.objectives:
             input_dict[objective.name] = objective(input_dict)

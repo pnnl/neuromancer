@@ -54,7 +54,7 @@ def arg_mpLP_problem(prefix=''):
            help="Random seed used for simulated data")
     gp.add("-epochs", type=int, default=800,
            help='Number of training epochs')
-    gp.add("-lr", type=float, default=0.001,
+    gp.add("-lr", type=float, default=0.0001,
            help="Step size for gradient descent.")
     gp.add("-patience", type=int, default=200,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     #  randomly sampled parameters theta generating superset of:
     #  theta_samples.min() <= theta <= theta_samples.max()
     np.random.seed(args.data_seed)
-    nsim = 30000  # number of datapoints: increase sample density for more robust results
+    nsim = 10000  # number of datapoints: increase sample density for more robust results
     samples = {"a1": np.random.uniform(low=0.1, high=1.5, size=(nsim, 1)),
                "a2": np.random.uniform(low=0.1, high=2.0, size=(nsim, 1)),
                "p1": np.random.uniform(low=5.0, high=10.0, size=(nsim, 1)),
@@ -161,8 +161,8 @@ if __name__ == "__main__":
     )
 
     # variables
-    x = Variable(f"U_pred_{sol_map.name}")[:, 0]
-    y = Variable(f"U_pred_{sol_map.name}")[:, 1]
+    x = Variable(f"U_pred_{sol_map.name}")[:, :, 0]
+    y = Variable(f"U_pred_{sol_map.name}")[:, :, 1]
     # sampled parameters
     a1 = Variable('a1')
     a2 = Variable('a2')

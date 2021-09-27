@@ -159,8 +159,8 @@ if __name__ == "__main__":
     )
 
     # variables
-    x = Variable(f"U_pred_{sol_map.name}")[:, 0]
-    y = Variable(f"U_pred_{sol_map.name}")[:, 1]
+    x = Variable(f"U_pred_{sol_map.name}")[:, :, 0]
+    y = Variable(f"U_pred_{sol_map.name}")[:, :, 1]
     # sampled parameters
     p = Variable('p')
     a = Variable('a')
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     # # Option 1
     loss1 = Loss(
         ['a', 'p', f"U_pred_{sol_map.name}"],
-        lambda a, p, xy: torch.mean((1-xy[:, 0])**2 + a*(xy[:, 1]-xy[:, 0]**2)**2),
+        lambda a, p, xy: torch.mean((1-xy[:, :, 0])**2 + a*(xy[:, 1]-xy[:, :, 0]**2)**2),
         weight=args.Q,
         name="loss",
     )

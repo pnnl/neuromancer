@@ -9,7 +9,7 @@ import neuromancer as nm
 import torch
 from neuromancer.constraint import Variable, Constraint
 from neuromancer import policies
-from neuromancer.gradients import gradient
+from neuromancer.gradients import gradient, Gradient
 
 
 """
@@ -83,9 +83,15 @@ print(math_exp_var1(out))
 # obtain gradients of the variable w.r.t. component outputs z
 var_grad_z = gradient(math_exp_var1(out), out[z.key])
 print(var_grad_z)
+# obtain second order gradients
+var_grad2_z = gradient(var_grad_z, out[z.key])
+print(var_grad2_z)
 # obtain gradients of the variable w.r.t. data parameters p
 var_grad_p = gradient(math_exp_var1(out), data2['p'])
 print(var_grad_p)
+# obtain second order gradients
+var_grad2_p = gradient(var_grad_p,  data2['p'])
+print(var_grad2_p)
 
 """
 compute gradients of components w.r.t. tensor inputs from the sampled dataset using nm.gradient function
@@ -93,3 +99,39 @@ compute gradients of components w.r.t. tensor inputs from the sampled dataset us
 # obtain gradients of the component outputs w.r.t. data parameters p
 comp_grad_p = gradient(sol_map(data2)[z.key],  data2['p'])
 print(comp_grad_p)
+# obtain second order gradients
+comp_grad2_p = gradient(comp_grad_p,  data2['p'])
+print(comp_grad2_p)
+
+"""
+compute gradients using nm.Gradient component class
+"""
+# create component for computing gradient dz/dp
+grad_comp = Gradient(input_key_map={"y": z.key, "x": "p"})
+# make a forward pass on the component model
+out = sol_map(data2)
+# concatenate sampled dataset with model output
+data3 = {**out, **data2}
+# compute gradients dz/dp
+grad_out = grad_comp(data3)
+print(grad_out.keys())
+print(grad_out['dy/dx'])
+# compare dz/dp
+dz_dp = gradient(z(out), data2['p'])
+print(dz_dp)
+
+"""
+compute gradients of neurmancer variables via nn.Variable grad method
+"""
+# define variable p comming from te dataset
+p = Variable('p')
+# create a new symbolic gradient variable dz/dp
+grad_z_p = z.grad(p)
+# evaluate dz/dp on the dataset
+dz_dp_1 = grad_z_p(data3)
+print(dz_dp_1)
+# obtain higher order derivatives of z
+grad2_z_p = grad_z_p.grad(p)
+# evaluate d2z/dp^2 on the dataset
+d2z_dp2_1 = grad2_z_p(data3)
+print(d2z_dp2_1)

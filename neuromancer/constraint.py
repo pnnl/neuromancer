@@ -7,6 +7,7 @@ from typing import Dict, List, Callable
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from neuromancer.gradients import gradient
 
 
 class Loss(nn.Module):
@@ -284,10 +285,6 @@ class Variable(nn.Module):
         if self.right is not None:
             assert self.left is not None
 
-    # TODO: shall we have a grad method?
-    def grad(self, data):
-        pass
-
     def __call__(self, data):
         """
         The call function is going to hand back a pytorch tensor. In the base case the call function will simply look
@@ -316,6 +313,8 @@ class Variable(nn.Module):
             value = -data[self.key.strip('neg_')]
         elif self.op == 'div':
             value = self.left(data) / self.right(data)
+        elif self.op == 'grad':
+            value = gradient(self.left(data), self.right(data))
         else:
             # # # TODO: no need to remove slice
             # value = data[self.key]
@@ -419,6 +418,9 @@ class Variable(nn.Module):
 
     def __neg__(self):
         return Variable(f'neg_{self.key}', operator='neg')
+
+    def grad(self, other):
+        return Variable(f'd{self.key}/d{other.key}', left=self, right=other, operator='grad')
 
     """
     Comparison operators. When a variable and numeric value (float, int, Tensor) are compared a constraint is implicitly 

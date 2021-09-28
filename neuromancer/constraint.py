@@ -30,9 +30,15 @@ class Loss(nn.Module):
         self.loss = loss
         self.name = name
 
-    # TODO: shall we have a grad method here calling grad on forward output and selected data keys?
-    def grad(self):
-        pass
+    def grad(self, variables, input_key=None):
+        """
+         returns gradient of the loss w.r.t. input variables
+
+        :param variables:
+        :param input_key: string
+        :return:
+        """
+        return gradient(self.forward(variables)[self.name], variables[input_key])
 
     def forward(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
@@ -40,7 +46,7 @@ class Loss(nn.Module):
         :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
         :return: 0-dimensional torch.Tensor that can be cast as a floating point number
         """
-        return self.weight*self.loss(*[variables[k] for k in self.variable_names])
+        return {self.name: self.weight*self.loss(*[variables[k] for k in self.variable_names])}
 
     def __repr__(self):
         return f"Loss: {self.name}({', '.join(self.variable_names)}) -> {self.loss} * {self.weight}"
@@ -161,20 +167,15 @@ class Objective(nn.Module):
         :param input_key: string
         :return:
         """
-        return gradient(self.forward(variables), variables[input_key])
-
-    def make_component(self):
-        # TODO: make a component out of this class to be used in forward pass and in construction of constraints
-        # TODO: OR use function interface instead??
-        pass
+        return gradient(self.forward(variables)[self.name], variables[input_key])
 
     def forward(self, variables):
         """
 
         :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
-        :return: 0-dimensional torch.Tensor that can be cast as a floating point number
+        :return:  (dict, {str: 0-dimensional torch.Tensor}) tensor value can be cast as a floating point number
         """
-        return self.weight*self.metric(self.var(variables))
+        return {self.name: self.weight*self.metric(self.var(variables))}
 
     def __repr__(self):
         return f"Objective: {self.name}({', '.join(self.variable_names)}) = {self.weight} * {self.metric}({', '.join(self.variable_names)})"
@@ -225,7 +226,15 @@ class Constraint(nn.Module):
     def __rmul__(self, weight):
         return Constraint(self.left, self.right, self.comparator, weight=weight, name=self.name)
 
-    # TODO: we shall  have a grad method here calling grad on forward output and selected data keys
+    def grad(self, variables, input_key=None):
+        """
+         returns gradient of the loss w.r.t. input variables
+
+        :param variables:
+        :param input_key: string
+        :return:
+        """
+        return gradient(self.forward(variables)[self.name], variables[input_key])
 
     def forward(self, variables):
         """
@@ -233,7 +242,7 @@ class Constraint(nn.Module):
         :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
         :return: 0-dimensional torch.Tensor that can be cast as a floating point number
         """
-        return self.weight*self.comparator(self.left(variables), self.right(variables))
+        return {self.name: self.weight*self.comparator(self.left(variables), self.right(variables))}
 
 
 class Variable(nn.Module):

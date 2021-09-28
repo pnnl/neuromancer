@@ -38,26 +38,29 @@ class Problem(nn.Module):
         num_objectives = len(self.objectives) + len(self.constraints)
         assert num_unique == num_objectives, "All objectives and constraints must have unique names."
 
-    def _calculate_loss(self, input_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def calculate_loss(self, input_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
 
         """
+        # TODO: check this change!
         # TODO: shall return dicts via objectives and constraints?
         # TODO: this would allow us to construct as proxies to variables on constraints and objectives
         # TODO: thus we could compute higher order derivatives or do algebra on constraints and objectives
         loss = 0.0
-        for objective in self.objectives:
-            input_dict[objective.name] = objective(input_dict)
-            loss += input_dict[objective.name]
         for constraint in self.constraints:
-            input_dict[constraint.name] = constraint(input_dict)
-            loss += input_dict[constraint.name]
-        #     TODO: add KKT penalties here
+            output_dict = constraint(input_dict)
+            input_dict = {**input_dict, **output_dict}
+            loss += output_dict[constraint.name]
+        for objective in self.objectives:
+            output_dict = objective(input_dict)
+            input_dict = {**input_dict, **output_dict}
+            loss += output_dict[objective.name]
         input_dict['loss'] = loss
+        return input_dict
 
     def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         output_dict = self.step(data)
-        self._calculate_loss(output_dict)
+        output_dict = self.calculate_loss(output_dict)
         return {f'{data["name"]}_{k}': v for k, v in output_dict.items()}
 
     def step(self, input_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:

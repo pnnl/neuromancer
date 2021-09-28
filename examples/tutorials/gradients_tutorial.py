@@ -33,13 +33,13 @@ cnstr = (math_exp_var < 2.0)^2
 cnstr(data)
 
 # obtain gradients of the constraints w.r.t. inputs via nm.gradient function
-con_grad1 = gradient(cnstr(data), data['x'])
+con_grad1 = gradient(cnstr(data)[cnstr.name], data['x'])
 print(con_grad1)
 # obtain gradients of the constraints w.r.t. inputs via pytorch's grad function
-con_grad2 = torch.autograd.grad(cnstr(data), data['x'])[0]
+con_grad2 = torch.autograd.grad(cnstr(data)[cnstr.name], data['x'])[0]
 print(con_grad2)
 # obtain gradients of the constraints w.r.t. inputs via backprop - not a prefered option
-cnstr(data).backward()
+cnstr(data)[cnstr.name].backward()
 dc_dx = data['x'].grad
 print(dc_dx)
 
@@ -72,16 +72,16 @@ cnstr1 = (math_exp_var1 < 1.0)^2
 print(cnstr1(out))
 
 # obtain gradients of the constraints w.r.t. component outputs z
-con3_grad_z1 = gradient(cnstr1(out), out[z.key])
+con3_grad_z1 = gradient(cnstr1(out)[cnstr1.name], out[z.key])
 print(con3_grad_z1)
 # obtain gradients of the constraints w.r.t. component outputs z - low level
-con3_grad_z2 = torch.autograd.grad(cnstr1(out), out[z.key])[0]
+con3_grad_z2 = torch.autograd.grad(cnstr1(out)[cnstr1.name], out[z.key])[0]
 print(con3_grad_z2)
 # obtain gradients of the constraints w.r.t. parameter inputs p
-con3_grad_p1 = gradient(cnstr1(sol_map(data2)), data2['p'])
+con3_grad_p1 = gradient(cnstr1(sol_map(data2))[cnstr1.name], data2['p'])
 print(con3_grad_p1)
 # obtain gradients of the constraints w.r.t. parameter inputs p - low level
-con3_grad_p2 = torch.autograd.grad(cnstr1(sol_map(data2)), data2['p'])[0]
+con3_grad_p2 = torch.autograd.grad(cnstr1(sol_map(data2))[cnstr1.name], data2['p'])[0]
 print(con3_grad_p2)
 
 """
@@ -186,7 +186,7 @@ loss = math_exp_var.minimize()
 # evaluate loss on the dataset
 loss_value = loss(data)
 # compute gradient of the loss w.r.t. data x via gradient function
-dl_dx1 = gradient(loss_value, data['x'])
+dl_dx1 = gradient(loss_value[loss.name], data['x'])
 print(dl_dx1)
 # compute gradient of the loss w.r.t. data x via grad method on nm.Objective
 dl_dx2 = loss.grad(data, input_key='x')
@@ -214,13 +214,13 @@ z = Variable(f"U_pred_{sol_map.name}", name='z')
 # define loss on the component model outputs expression
 loss2 = (z**2 + 5).minimize()
 # compute gradient of the loss w.r.t. data p via gradient function
-dl_dp = gradient(loss2(data3), data2['p'])
+dl_dp = gradient(loss2(data3)[loss2.name], data2['p'])
 print(dl_dp)
 # compute gradient of the loss w.r.t. data p via grad method on nm.Objective
 dl_dp_2 = loss2.grad(data3, input_key='p')
 print(dl_dp_2)
 # compute gradient of the loss w.r.t. variable z via gradient function
-dl_dz = gradient(loss2(data3), data3[z.key])
+dl_dz = gradient(loss2(data3)[loss2.name], data3[z.key])
 print(dl_dz)
 # compute gradient of the loss w.r.t. variable z grad method on nm.Objective
 dl_dz_2 = loss2.grad(data3, input_key=z.key)

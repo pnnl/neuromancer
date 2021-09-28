@@ -53,6 +53,13 @@ class Problem(nn.Module):
         #  this syntax will allow us to create variables as proxies to constraints and objectives -
         #  this in turn will allow to construct gradients and algebra on losses
         loss = 0.0
+        for objective in self.objectives:
+            output_dict = objective(input_dict)
+            if isinstance(output_dict, torch.Tensor):
+                output_dict = {objective.name: output_dict}
+            self._check_name_collision_dicts(input_dict, output_dict)
+            input_dict = {**input_dict, **output_dict}
+            loss += output_dict[objective.name]
         for constraint in self.constraints:
             output_dict = constraint(input_dict)
             if isinstance(output_dict, torch.Tensor):
@@ -60,13 +67,6 @@ class Problem(nn.Module):
             self._check_name_collision_dicts(input_dict, output_dict)
             input_dict = {**input_dict, **output_dict}
             loss += output_dict[constraint.name]
-        for objective in self.objectives:
-            output_dict = objective(input_dict)
-            if isinstance(output_dict, torch.Tensor):
-                output_dict = {constraint.name: output_dict}
-            self._check_name_collision_dicts(input_dict, output_dict)
-            input_dict = {**input_dict, **output_dict}
-            loss += output_dict[objective.name]
         input_dict['loss'] = loss
         return input_dict
 

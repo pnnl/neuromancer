@@ -5,6 +5,8 @@ subject to   x+y-p >= 0
 
 problem parameters:            p
 problem decition variables:    x, y
+
+Primal-dual solution with KKT conditions
 """
 
 import numpy as np
@@ -42,6 +44,8 @@ def arg_mpLP_problem(prefix=''):
            help="regularization weight.")
     gp.add("-Q_con", type=float, default=20.0,
            help="constraints penalty weight.")  # tuned value: 20.0
+    gp.add("-Q_kkt", type=float, default=20.0,
+           help="KKT constraints penalty weight.")  # tuned value: 20.0
     gp.add("-nx_hidden", type=int, default=40,
            help="Number of hidden states of the solution map")
     gp.add("-n_layers", type=int, default=2,
@@ -139,8 +143,8 @@ if __name__ == "__main__":
     """
     # # #  mpLP problem formulation in Neuromancer
     """
-    n_var = 2           # number of decision variables
-    # define solution map as MLP policy
+    n_var = 2           # number of primal decision variables
+    # define primal solution map as MLP policy
     dims['U'] = (nsim, n_var)  # defining expected dimensions of the solution variable: internal policy key 'U'
     activation = activations['relu']
     linmap = slim.maps['linear']
@@ -151,39 +155,58 @@ if __name__ == "__main__":
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
         input_keys=["p"],
-        name='sol_map',
+        name='primal_sol_map',
+    )
+
+    n_var = 1           # number of dual variables (nr. of constraints)
+    dims['U'] = (nsim, n_var)  # defining expected dimensions of the solution variable: internal policy key 'U'
+    # define dual solution map
+    dual_sol_map = policies.MLPPolicy(
+        {**dims},
+        bias=args.bias,
+        linear_map=linmap,
+        nonlin=activation,
+        hsizes=[args.nx_hidden] * args.n_layers,
+        input_keys=["p"],
+        name='dual_sol_map',
     )
 
     # variables
     x = Variable(f"U_pred_{sol_map.name}", name='x')[:, :, 0]
     y = Variable(f"U_pred_{sol_map.name}", name='y')[:, :, 1]
-    # x = Variable(f"U_pred_{sol_map.name}", name='x')
-    # y = Variable(f"U_pred_{sol_map.name}", name='y')
-
+    xy = Variable(f"U_pred_{sol_map.name}", name='xy')
+    mu = Variable(f"U_pred_{dual_sol_map.name}", name='mu')
     # sampled parameters
     p = Variable('p')
 
     # objective function
-    # # Option 1
-    # loss = args.Q*(x**2 + y**2 == 0)
-    # loss.name = 'loss'
-
-    # # Option 2
-    loss = Objective(x**2 + y**2, weight=args.Q, name='loss')
-
-    # # Option 3
-    # f = x ** 2 + y ** 2
-    # loss = f.minimize(weight=args.Q, name='loss')
-
+    f = x ** 2 + y ** 2
+    obj = f.minimize(weight=args.Q, name='loss')
     # constraints
     con_1 = args.Q_con * (x + y - p >= 0)
+    con_1.name = 'ineq_c1'
 
+    # create variables as proxies to constraints and objective
+    l_var = Variable(obj.name, name='l_var')
+    ineq_var = Variable(con_1.name, name='ineq_var')
+    # symbolic derivatives of objective and constraints
+    dl_dxy = l_var.grad(xy)
+    dq_dxy = ineq_var.grad(xy)
+
+    # KKT conditions
+    stat = args.Q_kkt*(dl_dxy + mu * dq_dxy == 0)                # stationarity
+    dual_feas = args.Q_kkt*(mu >= 0)                             # dual feasibility
+    g = con_1.weight * (con_1.left - con_1.right)                # g <= 0
+    comp_slack = args.Q_kkt*(mu * g == 0)                        # complementarity slackness
+    KKT = [stat, dual_feas, comp_slack]
+    # KKT = [dual_feas, comp_slack]
+
+    # TODO debug stationarity
     # constrained optimization problem construction
-    objectives = [loss]
-    constraints = [con_1]
-    components = [sol_map]
+    objectives = [obj]
+    constraints = [con_1] + KKT
+    components = [sol_map, dual_sol_map]
     model = Problem(objectives, constraints, components)
-    # model = model.to(device)
 
     """
     # # # Metrics and Logger

@@ -38,21 +38,33 @@ class Problem(nn.Module):
         num_objectives = len(self.objectives) + len(self.constraints)
         assert num_unique == num_objectives, "All objectives and constraints must have unique names."
 
+    def _check_name_collision_dicts(self, input_dict: Dict[str, torch.Tensor],
+                                  output_dict: Dict[str, torch.Tensor]):
+        assert set(output_dict.keys()) - set(input_dict.keys()) == set(output_dict.keys()), \
+            f'Name collision in input and output dictionaries, Input_keys: {input_dict.keys()},' \
+            f'Output_keys: {output_dict.keys()}'
+
     def calculate_loss(self, input_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
 
         """
         # TODO: check this change!
-        # TODO: shall return dicts via objectives and constraints?
-        # TODO: this would allow us to construct as proxies to variables on constraints and objectives
-        # TODO: thus we could compute higher order derivatives or do algebra on constraints and objectives
+        # TODO: now all losses and constraints return dict -
+        #  this syntax will allow us to create variables as proxies to constraints and objectives -
+        #  this in turn will allow to construct gradients and algebra on losses
         loss = 0.0
         for constraint in self.constraints:
             output_dict = constraint(input_dict)
+            if isinstance(output_dict, torch.Tensor):
+                output_dict = {constraint.name: output_dict}
+            self._check_name_collision_dicts(input_dict, output_dict)
             input_dict = {**input_dict, **output_dict}
             loss += output_dict[constraint.name]
         for objective in self.objectives:
             output_dict = objective(input_dict)
+            if isinstance(output_dict, torch.Tensor):
+                output_dict = {constraint.name: output_dict}
+            self._check_name_collision_dicts(input_dict, output_dict)
             input_dict = {**input_dict, **output_dict}
             loss += output_dict[objective.name]
         input_dict['loss'] = loss
@@ -64,14 +76,11 @@ class Problem(nn.Module):
         return {f'{data["name"]}_{k}': v for k, v in output_dict.items()}
 
     def step(self, input_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        # TODO: dual network needs to be part of the components to predict dual variables
         for component in self.components:
             output_dict = component(input_dict)
             if isinstance(output_dict, torch.Tensor):
                 output_dict = {component.name: output_dict}
-            assert set(output_dict.keys()) - set(input_dict.keys()) == set(output_dict.keys()), \
-                f'Name collision in input and output dictionaries, Input_keys: {input_dict.keys()},' \
-                f'Output_keys: {output_dict.keys()}'
+            self._check_name_collision_dicts(input_dict, output_dict)
             input_dict = {**input_dict, **output_dict}
         return input_dict
 

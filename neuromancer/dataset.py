@@ -427,10 +427,8 @@ def split_sequence_data(data, nsteps, moving_horizon=False, split_ratio=None):
         dev_slice = slice(split_len, split_len * 2 + nsteps * (not multisequence))
         test_slice = slice(split_len * 2, nsim)
     else:
-        dev_start = math.ceil(split_ratio[0] / 100.) * nsim
-        dev_start -= dev_start % split_mod
-        test_start = dev_start + math.ceil(split_ratio[1] / 100.) * nsim
-        test_start -= test_start % split_mod
+        dev_start = math.ceil(split_ratio[0] * nsim / 100.)
+        test_start = dev_start + math.ceil(split_ratio[1] * nsim / 100.)
         train_slice = slice(0, dev_start)
         dev_slice = slice(dev_start, test_start)
         test_slice = slice(test_start, nsim)
@@ -463,8 +461,8 @@ def split_static_data(data, split_ratio=None):
         dev_slice = slice(split_len, split_len * 2)
         test_slice = slice(split_len * 2, nsim)
     else:
-        dev_start = math.ceil(split_ratio[0] / 100.) * nsim
-        test_start = dev_start + math.ceil(split_ratio[1] / 100.) * nsim
+        dev_start = math.ceil(split_ratio[0] * nsim / 100.)
+        test_start = dev_start + math.ceil(split_ratio[1] * nsim / 100.)
         train_slice = slice(0, dev_start)
         dev_slice = slice(dev_start, test_start)
         test_slice = slice(test_start, nsim)

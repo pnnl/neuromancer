@@ -183,25 +183,32 @@ if __name__ == "__main__":
     f = x ** 2 + y ** 2
     obj = f.minimize(weight=args.Q, name='loss')
     # constraints
+    # TODO: use version with g
+    # g = -(x + y - p)
+    # con_1 = args.Q_con * (g <= 0)
     con_1 = args.Q_con * (x + y - p >= 0)
     con_1.name = 'ineq_c1'
 
     # create variables as proxies to constraints and objective
     l_var = Variable(obj.name, name='l_var')
     ineq_var = Variable(con_1.name, name='ineq_var')
-    # symbolic derivatives of objective and constraints
-    dl_dxy = l_var.grad(xy)
-    dq_dxy = ineq_var.grad(xy)
+    # symbolic derivatives of objective and constraints penalties
+    dloss_dxy = l_var.grad(xy)
+    dcon_dxy = ineq_var.grad(xy)
+
+    # # TODO: symbolic derivatives of objective and constraints functions
+    # df_dxy = f.grad(xy)
+    # dg_dxy = g.grad(xy)
 
     # KKT conditions
-    stat = args.Q_kkt*(dl_dxy + mu * dq_dxy == 0)                # stationarity
+    stat = args.Q_kkt*(dloss_dxy + mu * dcon_dxy == 0)                # stationarity
     dual_feas = args.Q_kkt*(mu >= 0)                             # dual feasibility
     g = con_1.weight * (con_1.left - con_1.right)                # g <= 0
     comp_slack = args.Q_kkt*(mu * g == 0)                        # complementarity slackness
     KKT = [stat, dual_feas, comp_slack]
     # KKT = [dual_feas, comp_slack]
 
-    # TODO debug stationarity
+    # TODO evaluate variables as components
     # constrained optimization problem construction
     objectives = [obj]
     constraints = [con_1] + KKT

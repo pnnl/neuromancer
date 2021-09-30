@@ -29,51 +29,55 @@ primal_sol_map = policies.MLPPolicy(
 z = Variable(f"U_pred_{primal_sol_map.name}", name='z')
 
 # define objective on the component model outputs expression
-obj = (z**2 + 5).minimize()
+f = (z**2 + 5)
+obj = f.minimize()
 # define equuality constraint
-con_eq = 3*(z**2 == 10)
+h = z**2 - 10
+con_eq = 3*(h == 0)
 # define inequality constraint
-con_ineq = 3*(z >= 3)
+g = z - 3
+con_ineq = 3*(g >= 0)
+
+# create variables as proxies to constraints and objective
+l_var = Variable(obj.name, name='l_var')
+eq_var = Variable(con_eq.name, name='eq_var')
+ineq_var = Variable(con_ineq.name, name='ineq_var')
 
 """
-Make forward pass on the constructed component, constraints, and loss
+Make forward pass on the constructed component, constraints, and objective functions
 """
 # make a forward pass on the primal model
 out = primal_sol_map(data)
 # concatenate sampled dataset with model output
 data1 = {**out, **data}
 # forward pass on the loss and constraints
-l_out = obj(data1)
+f_out = obj(data1)
 eq_out = con_eq(data1)
 ineq_out = con_ineq(data1)
 # concatenate output dictionaries
-data2 = {**data1, **l_out, **eq_out, **ineq_out}
+data2 = {**data1, **f_out, **eq_out, **ineq_out}
 
 """
-Create neuromancer variables as proxies to objective and constraints and their derivatives
+Create neuromancer derivatives to objective and constraints and their derivatives
 """
-# create variables as proxies to constraints and objective
-l_var = Variable(obj.name, name='l_var')
-eq_var = Variable(con_eq.name, name='eq_var')
-ineq_var = Variable(con_ineq.name, name='ineq_var')
 
 # create a new symbolic gradient variable dl/dz
-dl_dz = l_var.grad(z)
+df_dz = f.grad(z)
 # evaluate dl/dz on the dataset
-dl_dz_val = dl_dz(data2)
-print(dl_dz_val)
+df_val = df_dz(data2)
+print(df_val)
 
-# create a new symbolic gradient variable deq_var/dz
-deq_dz = eq_var.grad(z)
+# create a new symbolic gradient variable dh/dz
+dh_dz = h.grad(z)
 # evaluate dl/dz on the dataset
-deq_var_val = deq_dz(data2)
-print(deq_var_val)
+dh_val = dh_dz(data2)
+print(dh_val)
 
-# create a new symbolic gradient variable dineq_var/dz
-dineq_dz = ineq_var.grad(z)
+# create a new symbolic gradient variable dg/dz
+dg_dz = g.grad(z)
 # evaluate dl/dz on the dataset
-dineq_var_val = dineq_dz(data2)
-print(dineq_var_val)
+dg_val = dg_dz(data2)
+print(dg_val)
 
 """
 Define dual solution map and dual variables
@@ -98,11 +102,10 @@ Formulate KKT conditions as neuromancer constraints
 https://en.wikipedia.org/wiki/Karush%E2%80%93Kuhn%E2%80%93Tucker_conditions
 """
 # stationarity
-stat = dl_dz + mu*dineq_dz + lambd*deq_dz == 0
+stat = df_dz + mu*dg_dz + lambd*dh_dz == 0
 # dual feasibility
 dual_feas = mu >= 0
 # complementarity slackness
-g = con_ineq.weight*(con_ineq.left - con_ineq.right)      # g <= 0
 comp_slack = mu*g == 0
 
 # evaluate KKT conditions

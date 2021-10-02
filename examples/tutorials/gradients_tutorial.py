@@ -7,9 +7,30 @@ This script demonstrates how to differentiate NeuroMANCER variables and constrai
 
 import neuromancer as nm
 import torch
+import math
+import matplotlib.pyplot as plt
 from neuromancer.constraint import Variable, Constraint, Objective
 from neuromancer import policies
 from neuromancer.gradients import gradient, jacobian, Gradient
+
+
+"""
+test torch gradients for visual check
+"""
+x = torch.linspace(0.0, 2.0*math.pi, requires_grad=True)
+y = torch.sin(x)
+
+dy_dx_1 = gradient(y, x)
+grad_outputs = torch.ones_like(y)
+dy_dx_2 = torch.autograd.grad(y, x, grad_outputs=grad_outputs, create_graph=True)[0]
+
+plt.plot(x.detach(), y.detach())
+plt.plot(x.detach(), dy_dx_1.detach())
+plt.plot(x.detach(), dy_dx_2.detach(), '--')
+
+print(x.shape)
+print(y.shape)
+print(dy_dx_2.shape)
 
 
 """
@@ -42,6 +63,10 @@ print(con_grad2)
 cnstr(data)[cnstr.name].backward()
 dc_dx = data['x'].grad
 print(dc_dx)
+
+print(cnstr(data)[cnstr.name].shape)
+print(data['x'].shape)
+print(con_grad1.shape)
 
 
 """
@@ -107,6 +132,11 @@ z_grad_p1 = gradient(z(out), data2['p'])
 # gradient function under the hood computation
 grad_outputs = torch.ones_like(z(out),)
 z_grad_p2 = torch.autograd.grad(z(out), [data2['p']], grad_outputs=grad_outputs, create_graph=True)[0]
+
+# check dimensions
+print(math_exp_var1(out).shape)
+print(out[z.key].shape)
+print(var_grad_z.shape)
 
 
 """
@@ -227,11 +257,6 @@ dl_dz_2 = loss2.grad(data3, input_key=z.key)
 print(dl_dz_2)
 
 
-"""
-compute higher order gradients of loss functions and constraints via variable object
-"""
-# TODO: this would require redefining the forward pass of constraints and objectives to be dictionaries
-# TODO: such that we can treat them as components for constructing computational graphs
 
 
 """

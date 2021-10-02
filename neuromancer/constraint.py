@@ -280,9 +280,8 @@ class Variable(nn.Module):
         self.slice = slice
         self._check_()
         if name is None:
-            # OLD
             self.name = self.key
-            # # TODO: new name construction
+            # # # TODO: new name construction
             # if slice is None:
             #     self.name = self.key
             # else:
@@ -343,13 +342,20 @@ class Variable(nn.Module):
             # # OLD
             if self.slice is not None:
                 key = self.key[:-len(str(self.slice))-1]
+                value = data[key]
             else:
                 key = self.key
-            value = data[key]
+                return data[key]
+        # assert self.key not in data, f'duplicate key {self.key}'
+
         if self.slice is None:
-            return value
+            data[self.key] = value
+            return data[self.key]
         else:
-            return value[self.slice]
+            data[self.key] = value[self.slice]
+            return data[self.key]
+    #     TODO check for name collision
+
 
     def __getitem__(self, slice):
         # # TODO: shall we use just self.key to always have access to original key?

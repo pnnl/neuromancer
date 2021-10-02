@@ -44,7 +44,7 @@ def arg_mpLP_problem(prefix=''):
            help="regularization weight.")
     gp.add("-Q_con", type=float, default=20.0,
            help="constraints penalty weight.")  # tuned value: 20.0
-    gp.add("-Q_kkt", type=float, default=20.0,
+    gp.add("-Q_kkt", type=float, default=40.0,
            help="KKT constraints penalty weight.")  # tuned value: 20.0
     gp.add("-nx_hidden", type=int, default=40,
            help="Number of hidden states of the solution map")
@@ -158,7 +158,7 @@ if __name__ == "__main__":
         name='primal_sol_map',
     )
 
-    n_var = 1           # number of dual variables (nr. of constraints)
+    n_var = 1          # number of dual variables (nr. of constraints gradients)
     dims['U'] = (nsim, n_var)  # defining expected dimensions of the solution variable: internal policy key 'U'
     # define dual solution map
     dual_sol_map = policies.MLPPolicy(
@@ -183,10 +183,9 @@ if __name__ == "__main__":
     f = x ** 2 + y ** 2
     obj = f.minimize(weight=args.Q, name='loss')
     # constraints
-    # TODO: use version with g
-    # g = -(x + y - p)
-    # con_1 = args.Q_con * (g <= 0)
-    con_1 = args.Q_con * (x + y - p >= 0)
+    g = -x - y + p
+    con_1 = args.Q_con*(g <= 0)
+    # con_1 = (x + y - p >= 0)
     con_1.name = 'ineq_c1'
 
     # create variables as proxies to constraints and objective
@@ -195,20 +194,17 @@ if __name__ == "__main__":
     # symbolic derivatives of objective and constraints penalties
     dloss_dxy = l_var.grad(xy)
     dcon_dxy = ineq_var.grad(xy)
-
-    # # TODO: symbolic derivatives of objective and constraints functions
-    # df_dxy = f.grad(xy)
-    # dg_dxy = g.grad(xy)
+    # symbolic derivatives of objective and constraints functions
+    df_dxy = f.grad(xy)
+    dg_dxy = g.grad(xy)
 
     # KKT conditions
-    stat = args.Q_kkt*(dloss_dxy + mu * dcon_dxy == 0)                # stationarity
-    dual_feas = args.Q_kkt*(mu >= 0)                             # dual feasibility
-    g = con_1.weight * (con_1.left - con_1.right)                # g <= 0
-    comp_slack = args.Q_kkt*(mu * g == 0)                        # complementarity slackness
+    stat = args.Q_kkt*(dloss_dxy + mu * dcon_dxy == 0)             # stationarity via implicit gradients
+    # stat = args.Q_kkt*(df_dxy + mu * dg_dxy == 0)     # stationarity via explicit gradients
+    dual_feas = args.Q_kkt*(mu >= 0)                               # dual feasibility
+    comp_slack = args.Q_kkt*(mu * g == 0)                          # complementarity slackness
     KKT = [stat, dual_feas, comp_slack]
-    # KKT = [dual_feas, comp_slack]
 
-    # TODO evaluate variables as components
     # constrained optimization problem construction
     objectives = [obj]
     constraints = [con_1] + KKT
@@ -256,17 +252,49 @@ if __name__ == "__main__":
     # plot_solution_mpp(sol_map, xmin=-2, xmax=2, save_path=None)
 
     # test problem parameter
+
+    params = [6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0]
     p = 10.0
     x1 = np.arange(-1.0, 10.0, 0.05)
     y1 = np.arange(-1.0, 10.0, 0.05)
     xx, yy = np.meshgrid(x1, y1)
+    fig, ax = plt.subplots(3,3)
+    row_id = 0
+    column_id = 0
+    for i, p in enumerate(params):
+        if i % 3 == 0 and i != 0:
+            row_id += 1
+            column_id = 0
+        print(column_id)
+        print(row_id)
+        # eval objective and constraints
+        J = xx ** 2 + yy ** 2
+        c1 = xx + yy - p
+        # Plot
+        cp = ax[row_id,column_id].contourf(xx, yy, J,
+                         alpha=0.6)
+        ax[row_id,column_id].set_title(f'QP p={p}')
+        cg1 = ax[row_id,column_id].contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
+        plt.setp(cg1.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        fig.colorbar(cp, ax=ax[row_id,column_id])
+        params = torch.tensor([p])
+        xy_optim = model.components[0].net(params).detach().numpy()
+        print(xy_optim[0])
+        print(xy_optim[1])
+        ax[row_id,column_id].plot(xy_optim[0], xy_optim[1], 'r*', markersize=10)
+        column_id +=1
+    plt.show()
 
+
+    p = 10.0
+    x1 = np.arange(-1.0, 10.0, 0.05)
+    y1 = np.arange(-1.0, 10.0, 0.05)
+    xx, yy = np.meshgrid(x1, y1)
     # eval objective and constraints
     J = xx ** 2 + yy ** 2
     c1 = xx + yy - p
-
     # Plot
-    fig, ax = plt.subplots(1, 1)
     cp = ax.contourf(xx, yy, J,
                      alpha=0.6)
     fig.colorbar(cp)

@@ -169,7 +169,7 @@ class Trainer:
             output[f'mean_{metric}'] = torch.mean(torch.stack(losses))
             output = {**output, **batch_output}
 
-            self.callback.end_test(self, output)    # simulator/visualizations/output concat
+        self.callback.end_test(self, output)    # simulator/visualizations/output concat
 
         self.logger.log_metrics({f"best_{k}": v for k, v in output.items()})
 

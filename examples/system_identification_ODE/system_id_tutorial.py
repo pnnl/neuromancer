@@ -162,7 +162,8 @@ if __name__ == "__main__":
     # load argument parser
     parser = arg.ArgParser(parents=[arg_sys_id_problem(system=system)])
     args, grps = parser.parse_arg_groups()
-    logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=args.metrics)
+    logger = BasicLogger(args=args, savedir=args.savedir,
+                         verbosity=args.verbosity, stdout=args.metrics)
 
     """
     # # # # # # # # # # # # # # # # # # #

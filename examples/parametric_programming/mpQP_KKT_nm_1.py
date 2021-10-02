@@ -172,8 +172,8 @@ if __name__ == "__main__":
     )
 
     # variables
-    x = Variable(f"U_pred_{sol_map.name}", name='x')[:, :, 0]
-    y = Variable(f"U_pred_{sol_map.name}", name='y')[:, :, 1]
+    x = Variable(f"U_pred_{sol_map.name}", name='x')[:, :, [0]]
+    y = Variable(f"U_pred_{sol_map.name}", name='y')[:, :, [1]]
     xy = Variable(f"U_pred_{sol_map.name}", name='xy')
     mu = Variable(f"U_pred_{dual_sol_map.name}", name='mu')
     # sampled parameters
@@ -295,6 +295,7 @@ if __name__ == "__main__":
     J = xx ** 2 + yy ** 2
     c1 = xx + yy - p
     # Plot
+    fig, ax = plt.subplots(1,1)
     cp = ax.contourf(xx, yy, J,
                      alpha=0.6)
     fig.colorbar(cp)

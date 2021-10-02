@@ -159,8 +159,8 @@ if __name__ == "__main__":
     )
 
     # variables
-    x = Variable(f"U_pred_{sol_map.name}")[:, :, 0]
-    y = Variable(f"U_pred_{sol_map.name}")[:, :, 1]
+    x = Variable(f"U_pred_{sol_map.name}")[:, :, [0]]
+    y = Variable(f"U_pred_{sol_map.name}")[:, :, [1]]
     # sampled parameters
     p = Variable('p')
     a = Variable('a')

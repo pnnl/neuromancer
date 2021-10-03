@@ -16,6 +16,8 @@ from torch.utils.data import DataLoader
 import slim
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
+import cvxpy as cp
+import numpy as np
 
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
@@ -44,8 +46,10 @@ def arg_mpLP_problem(prefix=''):
            help="regularization weight.")
     gp.add("-Q_con", type=float, default=20.0,
            help="constraints penalty weight.")  # tuned value: 20.0
-    gp.add("-Q_kkt", type=float, default=40.0,
+    gp.add("-Q_kkt", type=float, default=20.0,
            help="KKT constraints penalty weight.")  # tuned value: 20.0
+    # gp.add("-Q_kkt_stat", type=float, default=2.0,
+    #        help="KKT constraints penalty weight for stationarity condition.")  # tuned value: 2.0
     gp.add("-nx_hidden", type=int, default=40,
            help="Number of hidden states of the solution map")
     gp.add("-n_layers", type=int, default=2,
@@ -216,17 +220,33 @@ if __name__ == "__main__":
     dcon_dxy4 = ineq_var4.grad(xy)
     # symbolic derivatives of objective and constraints functions
     df_dxy = f.grad(xy)
-    dg_dxy = g1.grad(xy)
+    dg1_dxy = g1.grad(xy)
+    dg2_dxy = g2.grad(xy)
+    dg3_dxy = g3.grad(xy)
+    dg4_dxy = g4.grad(xy)
+
 
     # KKT conditions
-    stat = args.Q_kkt*(dloss_dxy + mu1*dcon_dxy1 + \
-                       mu2*dcon_dxy2 + mu3*dcon_dxy3 + mu3*dcon_dxy3 == 0)     # stationarity via implicit gradients
+    L = f + mu1*g1 + mu2*g2 + mu3*g3 + mu4*g4   # Lagrangian
+    L.name = 'Lagrangian'
+    dL_dxy = L.grad(xy)                           # gradient of the lagrangian
+    stat = 0.1*args.Q_kkt*(dL_dxy == 0)                               # stationarity condition
+    # stat = 0.1*args.Q_kkt*(df_dxy + mu1*dg1_dxy + \
+    #                    mu2*dg2_dxy + mu3*dg3_dxy + mu3*dg4_dxy == 0)     # stationarity via explicit gradients
+    # stat = 0.1*args.Q_kkt*(dloss_dxy + mu1*dcon_dxy1 + \
+    #                    mu2*dcon_dxy2 + mu3*dcon_dxy3 + mu3*dcon_dxy3 == 0)     # stationarity via implicit gradients
     dual_feas = args.Q_kkt*(mu >= 0)                                # dual feasibility
     comp_slack1 = args.Q_kkt*(mu1 * g1 == 0)                          # complementarity slackness
     comp_slack2 = args.Q_kkt*(mu2 * g2 == 0)                          # complementarity slackness
     comp_slack3 = args.Q_kkt*(mu3 * g3 == 0)                          # complementarity slackness
     comp_slack4 = args.Q_kkt*(mu4 * g4 == 0)                          # complementarity slackness
     KKT = [stat, dual_feas, comp_slack1, comp_slack2, comp_slack3, comp_slack4]
+
+    # TODO: implement sufficient conditions
+    # https://en.wikipedia.org/wiki/Karush%E2%80%93Kuhn%E2%80%93Tucker_conditions#Second-order_sufficient_conditions
+
+    # TODO: create helper function in gradients
+    #  to create KKT constraints from given objective and constraints and dual solution map
 
     # constrained optimization problem construction
     objectives = [obj]
@@ -270,7 +290,26 @@ if __name__ == "__main__":
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
 
-    # # # plots
+
+    """
+    CVXPY benchmark
+    """
+    # Define and solve the CVXPY problem.
+    x = cp.Variable(1)
+    y = cp.Variable(1)
+    p1 = 10.0  # problem parameter
+    p2 = 10.0  # problem parameter
+    def QP_param(p1, p2):
+        prob = cp.Problem(cp.Minimize(x ** 2 + y ** 2),
+                          [-x - y + p1 <= 0,
+                           x + y - p1 - 5 <= 0,
+                           x - y + p2 - 5 <= 0,
+                           -x + y - p2 <= 0])
+        return prob
+
+    """
+    Plots
+    """
     # test problem parameters
     params = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
     p = 10.0
@@ -293,8 +332,7 @@ if __name__ == "__main__":
         c3 = -xx + yy - p + 5
         c4 = xx - yy + p
         # Plot
-        cp = ax[row_id,column_id].contourf(xx, yy, J,
-                         alpha=0.6)
+        cp_plot = ax[row_id,column_id].contourf(xx, yy, J, 50, alpha=0.4)
         ax[row_id,column_id].set_title(f'QP p={p}')
         cg1 = ax[row_id,column_id].contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
         cg2 = ax[row_id,column_id].contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
@@ -308,11 +346,22 @@ if __name__ == "__main__":
                  path_effects=[patheffects.withTickedStroke()], alpha=0.7)
         plt.setp(cg4.collections,
                  path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-        fig.colorbar(cp, ax=ax[row_id,column_id])
+        fig.colorbar(cp_plot, ax=ax[row_id,column_id])
+
+        # Solve DPP
         params = torch.tensor([p, p])
         xy_optim = model.components[0].net(params).detach().numpy()
-        print(xy_optim[0])
-        print(xy_optim[1])
+        print(f'primal solution DPP x1={xy_optim[0]}, x2={xy_optim[1]}')
+        mu_optim = model.components[1].net(params).detach().numpy()
+        print(f'dual solution DPP mu={mu_optim}')
+
+        # Solve QP
+        prob = QP_param(p, p)
+        prob.solve()
+        print(f'primal solution QP x={x.value}, y={y.value}')
+
+        # Plot optimal solutions
+        ax[row_id, column_id].plot(x.value, y.value, 'g*', markersize=10)
         ax[row_id,column_id].plot(xy_optim[0], xy_optim[1], 'r*', markersize=10)
         column_id +=1
     plt.show()

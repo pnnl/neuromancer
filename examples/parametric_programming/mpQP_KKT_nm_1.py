@@ -271,7 +271,7 @@ if __name__ == "__main__":
         J = xx ** 2 + yy ** 2
         c1 = xx + yy - p
         # Plot
-        cp = ax[row_id,column_id].contourf(xx, yy, J,
+        cp = ax[row_id,column_id].contourf(xx, yy, J, 25,
                          alpha=0.6)
         ax[row_id,column_id].set_title(f'QP p={p}')
         cg1 = ax[row_id,column_id].contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)

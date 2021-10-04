@@ -40,7 +40,7 @@ def arg_mpLP_problem(prefix=''):
     """
     parser = arg.ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("mpLP")
-    gp.add("-Q", type=float, default=0.0,
+    gp.add("-Q", type=float, default=1.0,
            help="loss function weight.")  # tuned value: 1.0
     gp.add("-Q_sub", type=float, default=0.0,
            help="regularization weight.")
@@ -48,9 +48,9 @@ def arg_mpLP_problem(prefix=''):
            help="constraints penalty weight.")  # tuned value: 20.0
     gp.add("-Q_kkt", type=float, default=20.0,
            help="KKT constraints penalty weight.")  # tuned value: 20.0
-    gp.add("-Q_kkt_stat", type=float, default=10.0,  # tuned value: 10.0
-           help="KKT constraints penalty weight for stationarity condition.")  # tuned value: 2.0
-    gp.add("-nx_hidden", type=int, default=80,
+    # gp.add("-Q_kkt_stat", type=float, default=2.0,
+    #        help="KKT constraints penalty weight for stationarity condition.")  # tuned value: 2.0
+    gp.add("-nx_hidden", type=int, default=40,
            help="Number of hidden states of the solution map")
     gp.add("-n_layers", type=int, default=2,
            help="Number of hidden layers of the solution map")
@@ -191,20 +191,20 @@ if __name__ == "__main__":
 
     # objective function
     f = x ** 2 + y ** 2
-    obj = f.minimize(weight=args.Q, name='obj')
+    obj = f.minimize(weight=args.Q, name='loss')
     # constraints
     g1 = -x - y + p1
-    con_1 = (g1 <= 0)
-    con_1.name = 'c1'
+    con_1 = args.Q_con*(g1 <= 0)
+    con_1.name = 'ineq_c1'
     g2 = x + y - p1 - 5
-    con_2 = (g2 <= 0)
-    con_2.name = 'c2'
+    con_2 = args.Q_con*(g2 <= 0)
+    con_2.name = 'ineq_c2'
     g3 = x - y + p2 - 5
-    con_3 = (g3 <= 0)
-    con_3.name = 'c3'
+    con_3 = args.Q_con*(g3 <= 0)
+    con_3.name = 'ineq_c3'
     g4 = -x + y - p2
-    con_4 = (g4 <= 0)
-    con_4.name = 'c4'
+    con_4 = args.Q_con*(g4 <= 0)
+    con_4.name = 'ineq_c4'
 
     # create variables as proxies to constraints and objective
     l_var = Variable(obj.name, name='l_var')
@@ -225,38 +225,24 @@ if __name__ == "__main__":
     dg3_dxy = g3.grad(xy)
     dg4_dxy = g4.grad(xy)
 
-    # TODO: tune weight factors of KKT
+
     # KKT conditions
-    # L = f + mu1*g1 + mu2*g2 + mu3*g3 + mu4*g4   # Lagrangian
-    L = f + mu1*ineq_var1 + mu2*ineq_var2 + mu3*ineq_var3 + mu4*ineq_var4   # Lagrangian
+    L = f + mu1*g1 + mu2*g2 + mu3*g3 + mu4*g4   # Lagrangian
     L.name = 'Lagrangian'
     dL_dxy = L.grad(xy)                           # gradient of the lagrangian
-    stat = args.Q_kkt_stat*(dL_dxy == 0)                               # stationarity condition
-    # dummy conditions for evaluating and checking gradients
-    stat_dummy1 = 0 * (df_dxy + mu1 * dg1_dxy + mu2*dg2_dxy + mu3*dg3_dxy + mu3*dg4_dxy == 0)
-    stat_dummy2 = 0 * (df_dxy + mu1*dcon_dxy1 + mu2*dcon_dxy2 + mu3*dcon_dxy3 + mu3*dcon_dxy4 == 0)
-    # stat = args.Q_kkt_stat*(df_dxy + mu1*dg1_dxy + \
+    stat = args.Q_kkt*(dL_dxy == 0)                               # stationarity condition
+    # stat = 0.1*args.Q_kkt*(df_dxy + mu1*dg1_dxy + \
     #                    mu2*dg2_dxy + mu3*dg3_dxy + mu3*dg4_dxy == 0)     # stationarity via explicit gradients
-    # stat = args.Q_kkt*(dloss_dxy + mu1*dcon_dxy1 + \
+    # stat = 0.1*args.Q_kkt*(dloss_dxy + mu1*dcon_dxy1 + \
     #                    mu2*dcon_dxy2 + mu3*dcon_dxy3 + mu3*dcon_dxy3 == 0)     # stationarity via implicit gradients
     dual_feas = args.Q_kkt*(mu >= 0)                                # dual feasibility
-    comp_slack1 = args.Q_kkt*(mu1 * ineq_var1 == 0)                          # complementarity slackness
-    comp_slack2 = args.Q_kkt*(mu2 * ineq_var2 == 0)                          # complementarity slackness
-    comp_slack3 = args.Q_kkt*(mu3 * ineq_var3 == 0)                          # complementarity slackness
-    comp_slack4 = args.Q_kkt*(mu4 * ineq_var4 == 0)                          # complementarity slackness
-    # comp_slack1 = args.Q_kkt*(mu1 * g1 == 0)                          # complementarity slackness
-    # comp_slack2 = args.Q_kkt*(mu2 * g2 == 0)                          # complementarity slackness
-    # comp_slack3 = args.Q_kkt*(mu3 * g3 == 0)                          # complementarity slackness
-    # comp_slack4 = args.Q_kkt*(mu4 * g4 == 0)                          # complementarity slackness
-    stat.name = 'stat'
-    dual_feas.name = 'df'
-    comp_slack1.name = 'cs1'
-    comp_slack2.name = 'cs2'
-    comp_slack3.name = 'cs3'
-    comp_slack4.name = 'cs4'
-    KKT = [stat, stat_dummy1, stat_dummy2, dual_feas, comp_slack1, comp_slack2, comp_slack3, comp_slack4]
+    comp_slack1 = args.Q_kkt*(mu1 * g1 == 0)                          # complementarity slackness
+    comp_slack2 = args.Q_kkt*(mu2 * g2 == 0)                          # complementarity slackness
+    comp_slack3 = args.Q_kkt*(mu3 * g3 == 0)                          # complementarity slackness
+    comp_slack4 = args.Q_kkt*(mu4 * g4 == 0)                          # complementarity slackness
+    KKT = [stat, dual_feas, comp_slack1, comp_slack2, comp_slack3, comp_slack4]
 
-    #  Second Order Sufficient Conditions (SOSC)
+    # TODO:  Second Order Sufficient Conditions (SOSC)
     # https://en.wikipedia.org/wiki/Karush%E2%80%93Kuhn%E2%80%93Tucker_conditions#Second-order_sufficient_conditions
 
 
@@ -265,8 +251,7 @@ if __name__ == "__main__":
 
     # constrained optimization problem construction
     objectives = [obj]
-    constraints = [args.Q_con*con_1, args.Q_con*con_2,
-                   args.Q_con*con_3, args.Q_con*con_4] + KKT
+    constraints = [con_1, con_2, con_3, con_4] + KKT
     components = [sol_map, dual_sol_map]
     model = Problem(objectives, constraints, components)
 
@@ -275,9 +260,7 @@ if __name__ == "__main__":
     """
     args.savedir = 'test_mpQP_1'
     args.verbosity = 1
-    metrics = ["dev_loss", "dev_obj", "dev_stat", "dev_df",
-               "dev_cs1", "dev_cs2", "dev_cs3", "dev_cs4",
-               "dev_c1", "dev_c2", "dev_c3", "dev_c4"]
+    metrics = ["dev_loss"]
     logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
     logger.args.system = 'mpQP_1'
 
@@ -341,13 +324,14 @@ if __name__ == "__main__":
         if i % 3 == 0 and i != 0:
             row_id += 1
             column_id = 0
+        print(column_id)
+        print(row_id)
         # eval objective and constraints
         J = xx ** 2 + yy ** 2
         c1 = xx + yy - p
         c2 = -xx - yy + p + 5
         c3 = -xx + yy - p + 5
         c4 = xx - yy + p
-
         # Plot
         cp_plot = ax[row_id,column_id].contourf(xx, yy, J, 50, alpha=0.4)
         ax[row_id,column_id].set_title(f'QP p={p}')
@@ -365,38 +349,17 @@ if __name__ == "__main__":
                  path_effects=[patheffects.withTickedStroke()], alpha=0.7)
         fig.colorbar(cp_plot, ax=ax[row_id,column_id])
 
-        # Solve QP
-        prob = QP_param(p, p)
-        prob.solve()
-
         # Solve DPP
         params = torch.tensor([p, p])
         xy_optim = model.components[0].net(params).detach().numpy()
-        mu_optim = model.components[1].net(params).detach().numpy()
-        datapoint = {}
-        datapoint['p1'] = torch.tensor([[p]])
-        datapoint['p2'] = torch.tensor([[p]])
-        datapoint['name'] = "test"
-        model_out = model(datapoint)
-
-        print(f'primal solution QP x={x.value}, y={y.value}')
-        print(f'parameter p={p, p}')
         print(f'primal solution DPP x1={xy_optim[0]}, x2={xy_optim[1]}')
+        mu_optim = model.components[1].net(params).detach().numpy()
         print(f'dual solution DPP mu={mu_optim}')
-        print(f' L: {model_out["test_" + L.key]}')
-        print(f' dL: {model_out["test_" + dL_dxy.key]}')
-        print(f' g1: {model_out["test_" + g1.key]}')
-        print(f' g2: {model_out["test_" + g2.key]}')
-        print(f' g3: {model_out["test_" + g3.key]}')
-        print(f' g4: {model_out["test_" + g4.key]}')
-        print(f' dg1: {model_out["test_" + dg1_dxy.key]}')
-        print(f' dg2: {model_out["test_" + dg3_dxy.key]}')
-        print(f' dg3: {model_out["test_" + dg3_dxy.key]}')
-        print(f' dg4: {model_out["test_" + dg4_dxy.key]}')
-        print(f' dineq1: {model_out["test_" + dcon_dxy1.key]}')
-        print(f' dineq2: {model_out["test_" + dcon_dxy2.key]}')
-        print(f' dineq3: {model_out["test_" + dcon_dxy3.key]}')
-        print(f' dineq4: {model_out["test_" + dcon_dxy4.key]}')
+
+        # Solve QP
+        prob = QP_param(p, p)
+        prob.solve()
+        print(f'primal solution QP x={x.value}, y={y.value}')
 
         # Plot optimal solutions
         ax[row_id, column_id].plot(x.value, y.value, 'g*', markersize=10)

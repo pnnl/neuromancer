@@ -9,6 +9,7 @@ from neuromancer.component import Component
 
 
 # TODO: check for dimensions for accurate computation
+# TODO: check if we need to compute grad_outputs
 def gradient(y, x, grad_outputs=None):
     """
     Compute gradients dy/dx

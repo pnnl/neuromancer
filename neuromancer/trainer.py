@@ -110,35 +110,33 @@ class Trainer:
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step(output[f'mean_{self.train_metric}'])
 
-            # TODO: with no grad creates problems when we want to compute derivatives
-            # TODO: how to compute gradients in constraints but not on weights?
-            # with torch.no_grad():
-            self.model.eval()
-            losses = []
-            for d_batch in self.dev_data:
-                d_batch = move_batch_to_device(d_batch, self.device)
-                eval_output = self.model(d_batch)
-                losses.append(eval_output[self.dev_metric])
-            eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
-            output = {**output, **eval_output}
-            self.callback.begin_eval(self, output)  # potential simulator
+            with torch.set_grad_enabled(self.model.grad_inference):
+                self.model.eval()
+                losses = []
+                for d_batch in self.dev_data:
+                    d_batch = move_batch_to_device(d_batch, self.device)
+                    eval_output = self.model(d_batch)
+                    losses.append(eval_output[self.dev_metric])
+                eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
+                output = {**output, **eval_output}
+                self.callback.begin_eval(self, output)  # potential simulator
 
-            if (self._eval_min and output[self.eval_metric] < self.best_devloss)\
-                    or (not self._eval_min and output[self.eval_metric] > self.best_devloss):
-                self.best_model = deepcopy(self.model.state_dict())
-                self.best_devloss = output[self.eval_metric]
-                self.badcount = 0
-            else:
-                if i > self.warmup:
-                    self.badcount += 1
-            self.logger.log_metrics(output, step=i)
+                if (self._eval_min and output[self.eval_metric] < self.best_devloss)\
+                        or (not self._eval_min and output[self.eval_metric] > self.best_devloss):
+                    self.best_model = deepcopy(self.model.state_dict())
+                    self.best_devloss = output[self.eval_metric]
+                    self.badcount = 0
+                else:
+                    if i > self.warmup:
+                        self.badcount += 1
+                self.logger.log_metrics(output, step=i)
 
-            self.callback.end_eval(self, output)  # visualizations
+                self.callback.end_eval(self, output)  # visualizations
 
-            self.callback.end_epoch(self, output)
+                self.callback.end_epoch(self, output)
 
-            if self.badcount > self.patience:
-                break
+                if self.badcount > self.patience:
+                    break
 
         self.callback.end_train(self, output)  # write training visualizations
 
@@ -155,22 +153,20 @@ class Trainer:
         self.model.load_state_dict(best_model)
         self.model.eval()
 
-        # TODO: with no graf will create problems when using gradients in the constraints
-        # with torch.no_grad():
-        self.callback.begin_test(self)  # setup simulator
-        output = {}
-        for dset, metric in zip([self.train_data, self.dev_data, self.test_data],
-                                [self.train_metric, self.dev_metric, self.test_metric]):
-            losses = []
-            for batch in dset:
-                batch = move_batch_to_device(batch, self.device)
-                batch_output = self.model(batch)
-                losses.append(batch_output[metric])
-            output[f'mean_{metric}'] = torch.mean(torch.stack(losses))
-            output = {**output, **batch_output}
+        with torch.set_grad_enabled(self.model.grad_inference):
+            self.callback.begin_test(self)  # setup simulator
+            output = {}
+            for dset, metric in zip([self.train_data, self.dev_data, self.test_data],
+                                    [self.train_metric, self.dev_metric, self.test_metric]):
+                losses = []
+                for batch in dset:
+                    batch = move_batch_to_device(batch, self.device)
+                    batch_output = self.model(batch)
+                    losses.append(batch_output[metric])
+                output[f'mean_{metric}'] = torch.mean(torch.stack(losses))
+                output = {**output, **batch_output}
 
         self.callback.end_test(self, output)    # simulator/visualizations/output concat
-
         self.logger.log_metrics({f"best_{k}": v for k, v in output.items()})
 
         return output

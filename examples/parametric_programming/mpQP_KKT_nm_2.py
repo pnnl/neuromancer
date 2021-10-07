@@ -252,7 +252,17 @@ if __name__ == "__main__":
     dg3_dxy = g3.grad(xy)
     dg4_dxy = g4.grad(xy)
 
-    # TODO: tune weight factors of KKT
+    # TODO: OPTION 1 apply constraints correction via constraints penalties gradients: dcon_dxy1
+    # https: // arxiv.org / pdf / 2104.12225.pdf
+    # TODO: apply this correction on original constraints and on KKT
+    # TODO: correction as a new component model taking values of decision variables
+    #  and constraints gradients as inputs - apply on both equality and inequality?
+
+    # TODO: OPTION 2 - implement offset free control principles
+    # TODO: augment state space to track constraints violation errors in our model
+    # TODO: all of these errors will be penalized to zero in an implicit gradient updates scheme
+
+    # TODO: OPTION 3 tune weight factors of KKT
     # KKT conditions
     # L = f + mu1*g1 + mu2*g2 + mu3*g3 + mu4*g4   # Lagrangian
     L = f + mu1*ineq_var1 + mu2*ineq_var2 + mu3*ineq_var3 + mu4*ineq_var4   # Lagrangian
@@ -307,7 +317,7 @@ if __name__ == "__main__":
                    # con_3_o, con_4_o,
                    ] + KKT
     components = [sol_map, dual_sol_map]
-    model = Problem(objectives, constraints, components)
+    model = Problem(objectives, constraints, components, grad_inference=True)
 
     """
     # # # Metrics and Logger

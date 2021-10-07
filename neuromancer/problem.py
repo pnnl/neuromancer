@@ -14,7 +14,8 @@ from neuromancer.constraint import Variable, Loss
 class Problem(nn.Module):
 
     def __init__(self, objectives: List[Loss], constraints: List[Loss],
-                 components: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]]):
+                 components: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]],
+                 grad_inference=False):
         """
         This is similar in spirit to a nn.Sequential module. However,
         by concatenating input and output dictionaries for each component
@@ -32,6 +33,7 @@ class Problem(nn.Module):
         self.constraints = nn.ModuleList(constraints)
         self.components = nn.ModuleList(components)
         self._check_unique_names()
+        self.grad_inference = grad_inference
 
     def _check_unique_names(self):
         num_unique = len(set([o.name for o in self.objectives] + [c.name for c in self.constraints]))
@@ -50,6 +52,8 @@ class Problem(nn.Module):
         :param input_dict:
         :return:
         """
+        # TODO: how to deal with objectives and constraints we don't want to add in the loss
+        #  but we want to evaluate for more complex constraints or analysis
         loss = 0.0
         for objective in self.objectives:
             output_dict = objective(input_dict)

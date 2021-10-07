@@ -346,6 +346,8 @@ class Variable(nn.Module):
             else:
                 key = self.key
                 return data[key]
+
+        #     TODO check for name collision
         # assert self.key not in data, f'duplicate key {self.key}'
 
         if self.slice is None:
@@ -354,7 +356,6 @@ class Variable(nn.Module):
         else:
             data[self.key] = value[self.slice]
             return data[self.key]
-    #     TODO check for name collision
 
 
     def __getitem__(self, slice):

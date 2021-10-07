@@ -61,6 +61,36 @@ class Linear(nn.Module):
         return self.linear(x)
 
 
+class Dropout(nn.Module):
+    def __init__(self, p=0.0, at_train=False, at_test=True):
+        """Wrapper for standard dropout that allows its use at test time.
+        By default, dropout is disabled during training as it appears difficult
+        to train SSMs with it enabled.
+
+        :param p: probability that an input component will be set to zero
+        :param at_train: enable dropout during training
+        :param at_test: enable dropout during testing
+        """
+        super().__init__()
+        self.p = p
+        self.at_train = at_train
+        self.at_test = at_test
+
+    def forward(self, x):
+        use_dropout = (self.training and self.at_train) or (not self.training and self.at_test)
+        return torch.nn.functional.dropout(x, p=self.p, training=use_dropout)
+
+
+def set_model_dropout_mode(model, at_train=None, at_test=None):
+    """Change dropout mode, useful for enabling MC sampling during inference time.
+    """
+    def _apply_fn(x):
+        if type(x) == Dropout:
+            if at_test is not None: x.at_test = at_test
+            if at_train is not None: x.at_train = at_train
+    model.apply(_apply_fn)
+
+
 class MLP(nn.Module):
     """
     Multi-Layer Perceptron consistent with blocks interface
@@ -84,6 +114,7 @@ class MLP(nn.Module):
         :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape
         :param hsizes: (list of ints) List of hidden layer sizes
         :param linargs: (dict) Arguments for instantiating linear layer
+        :param dropout: (float) Dropout probability
         """
         super().__init__()
         self.in_features, self.out_features = insize, outsize
@@ -108,6 +139,121 @@ class MLP(nn.Module):
         """
         for lin, nlin in zip(self.linear, self.nonlin):
             x = nlin(lin(x))
+        return x
+
+class InteractionEmbeddingMLP(nn.Module):
+    """
+    Multi-Layer Perceptron which is a hypernetwork hidden state embeddings decided by interaction type and concatenated
+    to hidden state.
+    """
+    def __init__(
+        self,
+        insize,
+        outsize,
+        bias=True,
+        linear_map=slim.Linear,
+        nonlin=SoftExponential,
+        hsizes=[64],
+        linargs=dict(),
+        n_interactors=9,
+    ):
+        """
+
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Linear map class from slim.linear
+        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape
+        :param hsizes: (list of ints) List of hidden layer sizes
+        :param linargs: (dict) Arguments for instantiating linear layer
+        :param dropout: (float) Dropout probability
+        :param n_intractors: (int) Number of interacting entity types number of interactions is n_interactors squared.
+        """
+        super().__init__()
+        self.in_features, self.out_features = insize, outsize
+        self.nhidden = len(hsizes)
+        self.n_interactors = n_interactors
+        em_sizes = [hsizes[0], *hsizes]
+        sizes = [insize] + hsizes
+        sizes = [size + em_size for size, em_size in zip(sizes, em_sizes)]
+        sizes += [outsize]
+        self.nonlin = [nonlin() for k in range(self.nhidden)] + [nn.Identity()]
+        self.embeddings = [nn.Embedding(int(n_interactors**2), n_embed) for n_embed in em_sizes]
+        self.linear = nn.ModuleList(
+            [
+                linear_map(sizes[k], sizes[k + 1], bias=bias, **linargs)
+                for k in range(self.nhidden + 1)
+            ]
+        )
+
+    def reg_error(self):
+        return sum([k.reg_error() for k in self.linear if hasattr(k, "reg_error")])
+
+    def forward(self, x, i, j):
+        """
+
+        :param x: (torch.Tensor, shape=[batchsize, insize])
+        :return: (torch.Tensor, shape=[batchsize, outsize])
+        """
+        for lin, nlin, embedder in zip(self.linear, self.nonlin, self.embeddings):
+            x = torch.cat([x, embedder(self.n_interactors*i + j)])
+            x = nlin(lin(x))
+        return x
+
+
+class MLPDropout(nn.Module):
+    """
+    Multi-Layer Perceptron consistent with blocks interface
+    """
+    def __init__(
+        self,
+        insize,
+        outsize,
+        bias=True,
+        linear_map=slim.Linear,
+        nonlin=SoftExponential,
+        hsizes=[64],
+        linargs=dict(),
+        dropout=0.0
+    ):
+        """
+
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Linear map class from slim.linear
+        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape
+        :param hsizes: (list of ints) List of hidden layer sizes
+        :param linargs: (dict) Arguments for instantiating linear layer
+        :param dropout: (float) Dropout probability
+        """
+        super().__init__()
+        self.in_features, self.out_features = insize, outsize
+        self.nhidden = len(hsizes)
+        sizes = [insize] + hsizes + [outsize]
+        self.nonlin = [nonlin() for k in range(self.nhidden)] + [nn.Identity()]
+        self.linear = nn.ModuleList(
+            [
+                linear_map(sizes[k], sizes[k + 1], bias=bias, **linargs)
+                for k in range(self.nhidden + 1)
+            ]
+        )
+        self.dropout = nn.ModuleList(
+            [Dropout(p=dropout) if dropout > 0.0 else nn.Identity() for _ in range(self.nhidden)]
+            + [nn.Identity()]
+        )
+
+    def reg_error(self):
+        return sum([k.reg_error() for k in self.linear if hasattr(k, "reg_error")])
+
+    def forward(self, x):
+        """
+
+        :param x: (torch.Tensor, shape=[batchsize, insize])
+        :return: (torch.Tensor, shape=[batchsize, outsize])
+        """
+        for lin, nlin, drop in zip(self.linear, self.nonlin, self.dropout):
+            x = drop(nlin(lin(x)))
         return x
 
 

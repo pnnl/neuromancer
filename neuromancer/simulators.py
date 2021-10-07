@@ -407,4 +407,3 @@ class ClosedLoopSimulator:
         for key in cl_data.keys():
             cl_data[key] = torch.cat(cl_data[key])
         return cl_data
-

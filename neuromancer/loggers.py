@@ -5,6 +5,7 @@
 import time
 import os
 import shutil
+from neuromancer.pnl_mlflow_secrets import set_environment_variables
 
 # machine learning/data science imports
 import mlflow
@@ -93,12 +94,20 @@ class MLFlowLogger(BasicLogger):
         """
 
         :param args: (Namespace) returned by argparse.ArgumentParser.parse_args()
+                                args.location (str): path to directory on file system to store experiment results via mlflow
+                                                     or if 'pnl_dadaist_store' then will save to our instance of the pnl mlflow
+                                                     server. Must have copy of pnl_mlflow_secrets.py (containing a funtion to set
+                                                     necessary environment variables) located in neuromancer/neuromancer/
+                                                     where main modules are located.
         :param savedir: Unique folder name to temporarily save artifacts
         :param verbosity: (int) Print to stdout every verbosity steps
         :param id: (int) Optional unique experiment ID for hyperparameter optimization
         :param stdout: (list of str) Metrics to print to stdout. These should correspond to keys in the output dictionary of the Problem
         """
-        mlflow.set_tracking_uri(args.location)
+        if args.location == 'pnl_dadaist_store':
+            set_environment_variables()
+        else:
+            mlflow.set_tracking_uri(args.location)
         mlflow.set_experiment(args.exp)
         mlflow.start_run(run_name=args.run, run_id=id)
         super().__init__(args=args, savedir=savedir, verbosity=verbosity, stdout=stdout)

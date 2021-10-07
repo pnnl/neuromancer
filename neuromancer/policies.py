@@ -36,11 +36,9 @@ class Policy(Component):
         :param input_keys: (List of str) List of input variable names
         :param name: (str) Name for tracking output of module.
         """
-        super().__init__(
-            input_keys,
-            Policy.DEFAULT_OUTPUT_KEYS,
-            name,
-        )
+        self.DEFAULT_INPUT_KEYS = input_keys or self.DEFAULT_INPUT_KEYS
+        super().__init__(name=name)
+
         self.name, self.data_dims = name, data_dims
         self.nsteps = nsteps
         self.data_dims = data_dims

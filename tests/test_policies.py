@@ -2,10 +2,10 @@ import torch
 from hypothesis import given, settings, strategies as st
 
 from neuromancer.policies import policies
-from slim.linear import square_maps, maps
+from slim.linear import square_maps, maps, TrivialNullSpaceLinear
 from neuromancer.activations import activations
 
-rect_maps = [v for k, v in maps.items() if v not in square_maps]
+rect_maps = [v for k, v in maps.items() if v not in square_maps and v is not TrivialNullSpaceLinear]
 activations = [v for k, v in activations.items()]
 
 

@@ -22,7 +22,8 @@ import copy
 from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
 from neuromancer.trainer import Trainer
-from neuromancer.problem import Problem, Objective
+from neuromancer.problem import Problem
+from neuromancer.constraint import Loss
 from neuromancer import policies
 import neuromancer.arg as arg
 from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
@@ -439,57 +440,57 @@ if __name__ == "__main__":
     # # #  DPC objectives and constraints
     """
     # objectives
-    reference_loss = Objective(
+    reference_loss = Loss(
         [f'Y_pred_{dynamics_model.name}', "Rf"],
         lambda pred, ref: F.mse_loss(pred[:, :, args.controlled_outputs], ref),
         weight=args.Qr,
         name="ref_loss",
     )
-    action_loss = Objective(
+    action_loss = Loss(
         [f"U_pred_{policy.name}"],
         lambda x:  torch.norm(x, 2),
         weight=args.Qu,
         name="u^T*Qu*u",
     )
     # regularization
-    regularization = Objective(
+    regularization = Loss(
         [f"reg_error_{policy.name}"], lambda reg: reg,
         weight=args.Q_sub, name="reg_loss",
     )
     # constraints
-    state_lower_bound_penalty = Objective(
+    state_lower_bound_penalty = Loss(
         [f'Y_pred_{dynamics_model.name}', "Y_minf"],
         lambda x, xmin: torch.norm(F.relu(-x + xmin), 1),
         weight=args.Q_con_x,
         name="state_lower_bound",
     )
-    state_upper_bound_penalty = Objective(
+    state_upper_bound_penalty = Loss(
         [f'Y_pred_{dynamics_model.name}', "Y_maxf"],
         lambda x, xmax: torch.norm(F.relu(x - xmax), 1),
         weight=args.Q_con_x,
         name="state_upper_bound",
     )
-    terminal_lower_bound_penalty = Objective(
+    terminal_lower_bound_penalty = Loss(
         [f'Y_pred_{dynamics_model.name}', "Y_minf"],
         lambda x, xmin: torch.norm(F.relu(-x[:, :, args.controlled_outputs] + xN_min), 1),
         weight=args.Qn,
         name="terminl_lower_bound",
     )
-    terminal_upper_bound_penalty = Objective(
+    terminal_upper_bound_penalty = Loss(
         [f'Y_pred_{dynamics_model.name}', "Y_maxf"],
         lambda x, xmax: torch.norm(F.relu(x[:, :, args.controlled_outputs] - xN_max), 1),
         weight=args.Qn,
         name="terminl_upper_bound",
     )
     # alternative definition: args.nsteps*torch.mean(F.relu(-u + umin))
-    inputs_lower_bound_penalty = Objective(
+    inputs_lower_bound_penalty = Loss(
         [f"U_pred_{policy.name}", "U_minf"],
         lambda u, umin: torch.norm(F.relu(-u + umin), 1),
         weight=args.Q_con_u,
         name="input_lower_bound",
     )
     # alternative definition: args.nsteps*torch.mean(F.relu(u - umax))
-    inputs_upper_bound_penalty = Objective(
+    inputs_upper_bound_penalty = Loss(
         [f"U_pred_{policy.name}", "U_maxf"],
         lambda u, umax: torch.norm(F.relu(u - umax), 1),
         weight=args.Q_con_u,

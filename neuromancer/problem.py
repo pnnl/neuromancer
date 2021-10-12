@@ -52,23 +52,23 @@ class Problem(nn.Module):
         :param input_dict:
         :return:
         """
-        # TODO: how to deal with objectives and constraints we don't want to add in the loss
-        #  but we want to evaluate for more complex constraints or analysis
         loss = 0.0
         for objective in self.objectives:
-            output_dict = objective(input_dict)
-            if isinstance(output_dict, torch.Tensor):
-                output_dict = {objective.name: output_dict}
-            self._check_name_collision_dicts(input_dict, output_dict)
-            input_dict = {**input_dict, **output_dict}
-            loss += output_dict[objective.name]
+            if objective not in self.components:
+                output_dict = objective(input_dict)
+                if isinstance(output_dict, torch.Tensor):
+                    output_dict = {objective.name: output_dict}
+                self._check_name_collision_dicts(input_dict, output_dict)
+                input_dict = {**input_dict, **output_dict}
+            loss += input_dict[objective.name]
         for constraint in self.constraints:
-            output_dict = constraint(input_dict)
-            if isinstance(output_dict, torch.Tensor):
-                output_dict = {constraint.name: output_dict}
-            self._check_name_collision_dicts(input_dict, output_dict)
-            input_dict = {**input_dict, **output_dict}
-            loss += output_dict[constraint.name]
+            if constraint not in self.components:
+                output_dict = constraint(input_dict)
+                if isinstance(output_dict, torch.Tensor):
+                    output_dict = {constraint.name: output_dict}
+                self._check_name_collision_dicts(input_dict, output_dict)
+                input_dict = {**input_dict, **output_dict}
+            loss += input_dict[constraint.name]
         input_dict['loss'] = loss
         return input_dict
 

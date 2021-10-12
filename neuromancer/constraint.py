@@ -159,7 +159,7 @@ class Objective(nn.Module):
     def variable_names(self):
         return [self.var.name]
 
-    def grad(self, variables, input_key=None):
+    def grad(self, input_dict, input_key=None):
         """
          returns gradient of the loss w.r.t. input variables
 
@@ -167,15 +167,15 @@ class Objective(nn.Module):
         :param input_key: string
         :return:
         """
-        return gradient(self.forward(variables)[self.name], variables[input_key])
+        return gradient(self.forward(input_dict)[self.name], input_dict[input_key])
 
-    def forward(self, variables):
+    def forward(self, input_dict):
         """
 
-        :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
+        :param input_dict: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
         :return:  (dict, {str: 0-dimensional torch.Tensor}) tensor value can be cast as a floating point number
         """
-        return {self.name: self.weight*self.metric(self.var(variables))}
+        return {self.name: self.weight*self.metric(self.var(input_dict))}
 
     def __repr__(self):
         return f"Objective: {self.name}({', '.join(self.variable_names)}) = {self.weight} * {self.metric}({', '.join(self.variable_names)})"
@@ -236,13 +236,13 @@ class Constraint(nn.Module):
         """
         return gradient(self.forward(variables)[self.name], variables[input_key])
 
-    def forward(self, variables):
+    def forward(self, input_dict):
         """
 
-        :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
+        :param input_dict: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
         :return: 0-dimensional torch.Tensor that can be cast as a floating point number
         """
-        return {self.name: self.weight*self.comparator(self.left(variables), self.right(variables))}
+        return {self.name: self.weight*self.comparator(self.left(input_dict), self.right(input_dict))}
 
 
 class Variable(nn.Module):
@@ -299,12 +299,6 @@ class Variable(nn.Module):
             assert type(self.right) is Variable
         if self.left is not None or self.right is not None:
             assert self.op is not None
-        if self.op == 'neg':
-            assert self.left is None and self.right is None
-        if self.left is not None:
-            assert self.right is not None
-        if self.right is not None:
-            assert self.left is not None
 
     def __call__(self, data):
         """
@@ -331,7 +325,7 @@ class Variable(nn.Module):
         elif self.op == 'matmul':
             value = self.left(data) @ self.right(data)
         elif self.op == 'neg':
-            value = -data[self.key.strip('neg_')]
+            value = -self.left(data)
         elif self.op == 'div':
             value = self.left(data) / self.right(data)
         elif self.op == 'grad':
@@ -441,7 +435,7 @@ class Variable(nn.Module):
         return Variable(f'{self.key}_div_{other.key}', left=other, right=self, operator='div')
 
     def __neg__(self):
-        return Variable(f'neg_{self.key}', operator='neg')
+        return Variable(f'neg_{self.key}', left=self, operator='neg')
 
     def grad(self, other):
         return Variable(f'd{self.key}/d{other.key}', left=self, right=other, operator='grad')

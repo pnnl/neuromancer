@@ -3,9 +3,9 @@
 # Load modules
 source /etc/profile.d/modules.sh
 module purge
-module load python/anaconda3.2019.3
+module load python/miniconda3.9
 ulimit
-source /share/apps/python/anaconda3.2019.3/etc/profile.d/conda.sh
+source /share/apps/python/miniconda3.9/etc/profile.d/conda.sh
 
 # Activate the conda environment
 env_dir='/qfs/projects/dadaist/conda-env/neuromancer'
@@ -25,6 +25,11 @@ conda activate $env_dir
 #   - git add (psl/sim) # To update HEAD pointer for submodule
 #   - git commit ...; git push...
 
+# Run this in order to update psl / slim with new master branches
+# git submodule update --remote
+# In order to commit these updated branch pointers:
+# git add psl
+# git add slim
 
 # Note that `pip install` is required in CI
 # Feel free to use an alternative to develop w/ PSL/slim:
@@ -32,16 +37,16 @@ conda activate $env_dir
 #   - conda develop .
 
 cd psl # Change this directory for non-submodule psl
-pip install -e . --prefix .
+pip install --user -e .
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 cd -
 
 cd slim # Change this directory for non-submodule slim
-pip install -e . --prefix .
+pip install --user -e .
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 cd -
 
-pip install -e . --prefix .
+pip install --user -e .
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 # Run tests

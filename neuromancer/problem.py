@@ -74,7 +74,7 @@ class Problem(nn.Module):
 
     def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         output_dict = self.step(data)
-        output_dict = self.calculate_loss(output_dict)
+        output_dict = self._calculate_loss(output_dict)
         return {f'{data["name"]}_{k}': v for k, v in output_dict.items()}
 
     def step(self, input_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -83,6 +83,9 @@ class Problem(nn.Module):
             if isinstance(output_dict, torch.Tensor):
                 output_dict = {component.name: output_dict}
             self._check_name_collision_dicts(input_dict, output_dict)
+            assert set(output_dict.keys()) - set(input_dict.keys()) == set(output_dict.keys()), \
+                f'Name collision in input and output dictionaries, Input_keys: {input_dict.keys()},' \
+                f'Output_keys: {output_dict.keys()}'
             input_dict = {**input_dict, **output_dict}
         return input_dict
 

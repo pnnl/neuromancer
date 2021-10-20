@@ -280,12 +280,10 @@ class Variable(nn.Module):
         self.slice = slice
         self._check_()
         if name is None:
-            self.name = self.key
-            # # # TODO: new name construction
-            # if slice is None:
-            #     self.name = self.key
-            # else:
-            #     self.name = f'{self.key}_{str(slice)}'
+            if slice is None:
+                self.name = self.key
+            else:
+                self.name = f'{self.key}_{str(slice)}'
         else:
             self.name = name
 
@@ -331,18 +329,12 @@ class Variable(nn.Module):
         elif self.op == 'grad':
             value = gradient(self.left(data), self.right(data))
         else:
-            # # # TODO: no need to remove slice
-            # value = data[self.key]
-            # # OLD
             if self.slice is not None:
                 key = self.key[:-len(str(self.slice))-1]
                 value = data[key]
             else:
                 key = self.key
                 return data[key]
-
-        #     TODO check for name collision
-        # assert self.key not in data, f'duplicate key {self.key}'
 
         if self.slice is None:
             data[self.key] = value
@@ -351,12 +343,8 @@ class Variable(nn.Module):
             data[self.key] = value[self.slice]
             return data[self.key]
 
-
     def __getitem__(self, slice):
-        # # TODO: shall we use just self.key to always have access to original key?
-        # return Variable(self.key, value=self.value, left=self.left,
-        #                 right=self.right, operator=self.op, slice=slice)
-        # #  OLD
+
         return Variable(f'{self.key}_{str(slice)}', value=self.value, left=self.left,
                         right=self.right, operator=self.op, slice=slice)
 

@@ -18,6 +18,8 @@ from neuromancer.plot import plot_policy, plot_policy_train, \
 
 
 import neuromancer.blocks as blocks
+
+
 class Visualizer:
 
     def train_plot(self, outputs, epochs):

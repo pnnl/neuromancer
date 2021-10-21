@@ -1,4 +1,4 @@
-variants and extensions of: double_integrator_DPC_OSF_var_ref.py 
+variants and extensions of: double_integrator_DPC_OSF_var_ref.py
     # TODO: augmented disturbance observer with initial conditions as input parameter
     # TODO: unfreeze and train only disturbance gain in A?
     # check eq. 1 in: https://arxiv.org/pdf/2011.14006.pdf

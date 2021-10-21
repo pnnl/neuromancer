@@ -60,7 +60,7 @@ dynamics = block_model(
     slim.Linear,
     MLP,
     bias=False,
-    input_keys={"x0_estim": "x0", "Uf_renamed": "Uf"},
+    input_key_map={"x0": "x0_estim", "Uf": "Uf_renamed"},
     name="dynamics"
 )
 # mapping: dynamics(Yf, x0_estim, Uf_renamed) -> X_pred_dynamics, Y_pred_dynamics, reg_error_dynamics

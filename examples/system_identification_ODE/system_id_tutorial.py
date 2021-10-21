@@ -162,7 +162,8 @@ if __name__ == "__main__":
     # load argument parser
     parser = arg.ArgParser(parents=[arg_sys_id_problem(system=system)])
     args, grps = parser.parse_arg_groups()
-    logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=args.metrics)
+    logger = BasicLogger(args=args, savedir=args.savedir,
+                         verbosity=args.verbosity, stdout=args.metrics)
 
     """
     # # # # # # # # # # # # # # # # # # #
@@ -238,7 +239,7 @@ if __name__ == "__main__":
     fu = blocks.MLP(nu, nx, hsizes=[60, 60]) if nu != 0 else None
 
     dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics', xou=torch.add,
-                                       input_keys={f"x0_{estimator.name}": "x0"})
+                                       input_key_map={"x0": f"x0_{estimator.name}"})
     # Yf = dynamics_model(x0, Uf)
     # Uf: future control actions
     # Yf: predicted outputs

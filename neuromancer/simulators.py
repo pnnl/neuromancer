@@ -327,8 +327,8 @@ class ClosedLoopSimulator:
         """
         # TODO update U and Y automatically based on specified input output keys in arguments
         # TODO we need to link history data e.g. "Yp" with future predictions "Y_pred" to close the loop
-        sim_data['Y_ctrl_p'][k, :, :] = step_data[self.system_model.output_keys[1]]
-        sim_data['Up'][k, :, :] = step_data[self.policy.output_keys[0]]
+        sim_data['Yp'][k, :, :] = step_data['Y_pred_dynamics']
+        sim_data['Up'][k, :, :] = step_data['U_pred_policy']
         return sim_data
 
     def rhc(self, policy_out):
@@ -337,19 +337,31 @@ class ClosedLoopSimulator:
         :param policy_out:
         :return:
         """
-        key = self.policy.output_keys[0]
+        key = 'U_pred_policy'
         policy_out[key] = policy_out[key][[0], :, :]
         return policy_out
 
     def append_data(self, sim_data, step_data):
         for key in sim_data.keys():
-            sim_data[key].append(step_data[key])
+            # print(key)
+            # print(sim_data.keys())
+            # print(step_data.keys())
+            # print(key in step_data.keys())
+            if key in step_data.keys():
+                # print(step_data[key].shape)
+                sim_data[key].append(step_data[key])
+            # print(len(sim_data[key]))
         return sim_data
 
     def simulate(self, nsim, use_emulator=False):
         # set initial keys for closed loop simulation data
-        cl_keys = self.estimator.output_keys+self.policy.output_keys+\
-                  self.policy.input_keys+self.system_model.output_keys
+        # TODO: fix model output keys
+        cl_keys = self.estimator.output_keys + self.policy.output_keys + \
+                  self.policy.input_keys
+        if use_emulator:
+            cl_keys = cl_keys+self.emulator_output_keys
+        else:
+            cl_keys = cl_keys+self.system_model.output_keys
         cl_keys = [k for k in cl_keys if not k.startswith('reg_error')]
         cl_data = {}
         for key in cl_keys:
@@ -402,7 +414,6 @@ class ClosedLoopSimulator:
 
             # append closed-loop step to simulation data
             cl_data = self.append_data(cl_data, cl_step_data)
-
         # concatenate step data in a single tensor
         for key in cl_data.keys():
             cl_data[key] = torch.cat(cl_data[key])

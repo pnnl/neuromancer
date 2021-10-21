@@ -90,7 +90,6 @@ class Trainer:
         """
         self.callback.begin_train(self)
 
-        #best_model = deepcopy(self.model.state_dict())
         for i in range(self.epochs):
             self.current_epoch = i
             self.model.train()
@@ -110,7 +109,7 @@ class Trainer:
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step(output[f'mean_{self.train_metric}'])
 
-            with torch.no_grad():
+            with torch.set_grad_enabled(self.model.grad_inference):
                 self.model.eval()
                 losses = []
                 for d_batch in self.dev_data:
@@ -133,10 +132,10 @@ class Trainer:
 
                 self.callback.end_eval(self, output)  # visualizations
 
-            self.callback.end_epoch(self, output)
+                self.callback.end_epoch(self, output)
 
-            if self.badcount > self.patience:
-                break
+                if self.badcount > self.patience:
+                    break
 
         self.callback.end_train(self, output)  # write training visualizations
 
@@ -153,7 +152,7 @@ class Trainer:
         self.model.load_state_dict(best_model)
         self.model.eval()
 
-        with torch.no_grad():
+        with torch.set_grad_enabled(self.model.grad_inference):
             self.callback.begin_test(self)  # setup simulator
             output = {}
             for dset, metric in zip([self.train_data, self.dev_data, self.test_data],
@@ -166,8 +165,7 @@ class Trainer:
                 output[f'mean_{metric}'] = torch.mean(torch.stack(losses))
                 output = {**output, **batch_output}
 
-            self.callback.end_test(self, output)    # simulator/visualizations/output concat
-
+        self.callback.end_test(self, output)    # simulator/visualizations/output concat
         self.logger.log_metrics({f"best_{k}": v for k, v in output.items()})
 
         return output

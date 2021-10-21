@@ -5,11 +5,10 @@ Neural network module building blocks for neural state space models, state estim
 import numpy as np
 import torch
 import torch.nn as nn
-
 import slim
 
 import neuromancer.rnn as rnn
-from neuromancer.activations import SoftExponential
+from neuromancer.activations import SoftExponential, SmoothedReLU
 
 
 def get_modules(model):
@@ -141,6 +140,7 @@ class MLP(nn.Module):
             x = nlin(lin(x))
         return x
 
+
 class InteractionEmbeddingMLP(nn.Module):
     """
     Multi-Layer Perceptron which is a hypernetwork hidden state embeddings decided by interaction type and concatenated
@@ -167,7 +167,7 @@ class InteractionEmbeddingMLP(nn.Module):
         :param hsizes: (list of ints) List of hidden layer sizes
         :param linargs: (dict) Arguments for instantiating linear layer
         :param dropout: (float) Dropout probability
-        :param n_intractors: (int) Number of interacting entity types number of interactions is n_interactors squared.
+        :param n_interactors: (int) Number of interacting entity types number of interactions is n_interactors squared.
         """
         super().__init__()
         self.in_features, self.out_features = insize, outsize
@@ -349,27 +349,32 @@ class InputConvexNN(MLP):
         ), "All hidden sizes should be equal for residual network"
 
         sizes = hsizes + [outsize]
+        self.linear = nn.ModuleList(
+            [
+                linear_map(insize, sizes[k + 1], bias=bias, **linargs)
+                for k in range(self.nhidden)
+            ]
+        )
         self.poslinear = nn.ModuleList(
             [
                 slim.NonNegativeLinear(sizes[k], sizes[k + 1], bias=False, **linargs)
                 for k in range(self.nhidden)
             ]
         )
-        # assert(hsizes[0] == outsize)
+        self.nonlin = [nonlin() for k in range(self.nhidden + 1)]
+
         self.inmap = linear_map(insize, hsizes[0], bias=bias, **linargs)
-        # Final layer of W, multiplies input vector x
-        self.outmap = linear_map(insize, outsize, bias=bias, **linargs)
         self.in_features, self.out_features = insize, outsize
 
     def forward(self, x):
         xi = x
         px = self.inmap(xi)
         x = self.nonlin[0](px)
-        for layer, (linU, nlin, linW) in enumerate(zip(self.poslinear[:-1], self.nonlin[:-1], self.linear[:-1])):
+        for layer, (linU, nlin, linW) in enumerate(zip(self.poslinear, self.nonlin[1:], self.linear)):
             px = linW(xi)
             ux = linU(x)
             x = nlin(ux + px)
-        return self.nonlin[-1](self.outmap(xi) + self.poslinear[-1](x))
+        return x
 
 
 class PosDef(nn.Module):
@@ -377,17 +382,25 @@ class PosDef(nn.Module):
     Enforce positive-definiteness of lyapunov function ICNN, V = g(x)
     Equation 12 from https://arxiv.org/abs/2001.06116
     """
-    def __init__(self, g, n, eps=0.01, d=1.0):
+    def __init__(self, g, eps=0.01, d=1.0):
+        """
+
+        :param g: (nn.Module) An ICNN network
+        :param eps: (float)
+        :param d: (float)
+        """
         super().__init__()
+        self.in_features = self.g.in_features
+        self.out_features = self.g.out_features
         self.g = g
-        self.zero = torch.nn.Parameter(f(torch.zeros(1,n)), requires_grad=False)
+        self.zero = torch.nn.Parameter(torch.zeros(1, self.g.in_features), requires_grad=False)
         self.eps = eps
         self.d = d
         self.smReLU = SmoothedReLU(self.d)
 
     def forward(self, x):
-        shift_to_zero = self.smReLU(self.g(x) - self.zero)
-        quad_psd = self.eps*(x**2).sum(1,keepdim=True)
+        shift_to_zero = self.smReLU(self.g(x) - self.g(self.zero))
+        quad_psd = self.eps*(x**2).sum(1, keepdim=True)
         return shift_to_zero + quad_psd
 
 
@@ -608,43 +621,6 @@ blocks = {
     "residual_mlp": ResMLP,
     "basislinear": BasisLinear,
     "bilinear": BilinearTorch,
-    # "icnn": InputConvexNN,
+    "icnn": InputConvexNN,
+    "pos_def": PosDef
 }
-
-
-if __name__ == "__main__":
-    y = torch.randn([25, 5])
-    for name, block in blocks.items():
-        block = block(5, 7, bias=True, hsizes=[64, 64, 64, 64, 64, 64])
-        print(name)
-        print(block(y).shape)
-
-    expand = Poly2()
-    print(expand(torch.tensor([[2, 3]])))
-
-    expand = Poly2()
-    print(expand(torch.tensor([[2, 5]])))
-
-    block = MLP(5, 7, bias=True, hsizes=[5, 10, 2, 7])
-    y = torch.randn([25, 5])
-    print(block(y).shape)
-
-    block = ResMLP(5, 7, bias=True, hsizes=[64, 64, 64, 64, 64, 64], skip=3)
-    y = torch.randn([25, 5])
-    print(block(y).shape)
-
-    block = RNN(5, 7, bias=True, hsizes=[64, 64, 64, 64, 64, 64])
-    y = torch.randn([32, 25, 5])
-    print(block(y).shape)
-
-    block = PytorchRNN(5, 7, bias=True, hsizes=[64, 64, 64, 64, 64, 64])
-    y = torch.randn([32, 25, 5])
-    print(block(y).shape)
-
-    block = BasisLinear(5, 7, bias=True)
-    y = torch.randn([25, 5])
-    print(block(y).shape)
-
-    block = InputConvexNN(5, 1, bias=True, hsizes=[64, 64])
-    y = torch.randn([25, 5])
-    print(block(y).shape)

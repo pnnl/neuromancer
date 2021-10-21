@@ -60,7 +60,7 @@ class BlockSSM(Component):
         """
         if fu is not None:
             self.DEFAULT_INPUT_KEYS = ['Uf'] + self.DEFAULT_INPUT_KEYS
-            self.DEFAULT_OUTPUT_KEYS =  ['fU'] + self.DEFAULT_OUTPUT_KEYS
+            self.DEFAULT_OUTPUT_KEYS = ['fU'] + self.DEFAULT_OUTPUT_KEYS
         if fd is not None:
             self.DEFAULT_INPUT_KEYS = ['Df'] + self.DEFAULT_INPUT_KEYS
             self.DEFAULT_OUTPUT_KEYS = ['fD'] + self.DEFAULT_OUTPUT_KEYS

@@ -7,6 +7,7 @@ from typing import Dict, List, Callable
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from neuromancer.gradients import gradient
 
 
 class Loss(nn.Module):
@@ -29,16 +30,26 @@ class Loss(nn.Module):
         self.loss = loss
         self.name = name
 
+    def grad(self, variables, input_key=None):
+        """
+         returns gradient of the loss w.r.t. input variables
+
+        :param variables:
+        :param input_key: string
+        :return:
+        """
+        return gradient(self.forward(variables)[self.name], variables[input_key])
+
     def forward(self, variables: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
 
         :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
         :return: 0-dimensional torch.Tensor that can be cast as a floating point number
         """
-        return self.weight*self.loss(*[variables[k] for k in self.variable_names])
+        return {self.name: self.weight*self.loss(*[variables[k] for k in self.variable_names])}
 
     def __repr__(self):
-        return f"{self.name}({', '.join(self.variable_names)}) -> {self.loss} * {self.weight}"
+        return f"Loss: {self.name}({', '.join(self.variable_names)}) -> {self.loss} * {self.weight}"
 
 
 class LT(nn.Module):
@@ -148,16 +159,26 @@ class Objective(nn.Module):
     def variable_names(self):
         return [self.var.name]
 
-    def forward(self, variables):
+    def grad(self, input_dict, input_key=None):
+        """
+         returns gradient of the loss w.r.t. input variables
+
+        :param input_dict:
+        :param input_key: string
+        :return:
+        """
+        return gradient(self.forward(input_dict)[self.name], input_dict[input_key])
+
+    def forward(self, input_dict):
         """
 
-        :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
-        :return: 0-dimensional torch.Tensor that can be cast as a floating point number
+        :param input_dict: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
+        :return:  (dict, {str: 0-dimensional torch.Tensor}) tensor value can be cast as a floating point number
         """
-        return self.weight*self.metric(self.var(variables))
+        return {self.name: self.weight*self.metric(self.var(input_dict))}
 
     def __repr__(self):
-        return f"{self.name}({', '.join(self.variable_names)}) = {self.weight} * {self.metric}({', '.join(self.variable_names)})"
+        return f"Objective: {self.name}({', '.join(self.variable_names)}) = {self.weight} * {self.metric}({', '.join(self.variable_names)})"
 
 
 class Constraint(nn.Module):
@@ -205,13 +226,23 @@ class Constraint(nn.Module):
     def __rmul__(self, weight):
         return Constraint(self.left, self.right, self.comparator, weight=weight, name=self.name)
 
-    def forward(self, variables):
+    def grad(self, input_dict, input_key=None):
+        """
+         returns gradient of the loss w.r.t. input key
+
+        :param input_dict: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
+        :param input_key: (str) Name of variable in input dict to take gradient with respect to.
+        :return: (torch.Tensor)
+        """
+        return gradient(self.forward(input_dict)[self.name], input_dict[input_key])
+
+    def forward(self, input_dict):
         """
 
-        :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
+        :param input_dict: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
         :return: 0-dimensional torch.Tensor that can be cast as a floating point number
         """
-        return self.weight*self.comparator(self.left(variables), self.right(variables))
+        return {self.name: self.weight*self.comparator(self.left(input_dict), self.right(input_dict))}
 
 
 class Variable(nn.Module):
@@ -249,7 +280,10 @@ class Variable(nn.Module):
         self.slice = slice
         self._check_()
         if name is None:
-            self.name = self.key
+            if slice is None:
+                self.name = self.key
+            else:
+                self.name = f'{self.key}_{str(slice)}'
         else:
             self.name = name
 
@@ -263,14 +297,8 @@ class Variable(nn.Module):
             assert type(self.right) is Variable
         if self.left is not None or self.right is not None:
             assert self.op is not None
-        if self.op == 'neg':
-            assert self.left is None and self.right is None
-        if self.left is not None:
-            assert self.right is not None
-        if self.right is not None:
-            assert self.left is not None
 
-    def __call__(self, data):
+    def forward(self, data):
         """
         The call function is going to hand back a pytorch tensor. In the base case the call function will simply look
         up the tensor in the data dictionary. More complicated cases will involve calling the left and calling the right
@@ -295,21 +323,28 @@ class Variable(nn.Module):
         elif self.op == 'matmul':
             value = self.left(data) @ self.right(data)
         elif self.op == 'neg':
-            value = -data[self.key.strip('neg_')]
+            value = -self.left(data)
         elif self.op == 'div':
             value = self.left(data) / self.right(data)
+        elif self.op == 'grad':
+            value = gradient(self.left(data), self.right(data))
         else:
             if self.slice is not None:
                 key = self.key[:-len(str(self.slice))-1]
+                value = data[key]
             else:
                 key = self.key
-            value = data[key]
+                return data[key]
+
         if self.slice is None:
-            return value
+            data[self.key] = value
+            return data[self.key]
         else:
-            return value[self.slice]
+            data[self.key] = value[self.slice]
+            return data[self.key]
 
     def __getitem__(self, slice):
+
         return Variable(f'{self.key}_{str(slice)}', value=self.value, left=self.left,
                         right=self.right, operator=self.op, slice=slice)
 
@@ -388,7 +423,10 @@ class Variable(nn.Module):
         return Variable(f'{self.key}_div_{other.key}', left=other, right=self, operator='div')
 
     def __neg__(self):
-        return Variable(f'neg_{self.key}', operator='neg')
+        return Variable(f'neg_{self.key}', left=self, operator='neg')
+
+    def grad(self, other):
+        return Variable(f'd{self.key}/d{other.key}', left=self, right=other, operator='grad')
 
     """
     Comparison operators. When a variable and numeric value (float, int, Tensor) are compared a constraint is implicitly 

@@ -20,8 +20,10 @@ from neuromancer.constraint import Variable, Constraint
 x = Variable('x')
 # Let's create a constraint by comparing variable and a constant
 cnstr = x < 1.0
-# Let's evaluate constrant violation at a given value of variable
+# Let's evaluate constraint violation at a given value of variable
 print(cnstr({'x': 5.00}))
+# take the value of the constraint violation
+print(cnstr({'x': 5.00})[cnstr.name])
 
 # Let's create a dataset dictionary with randomly sampled variable x
 data = {'x': torch.rand([2,2,3])}

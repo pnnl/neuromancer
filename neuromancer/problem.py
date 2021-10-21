@@ -14,7 +14,8 @@ from neuromancer.constraint import Variable, Loss
 class Problem(nn.Module):
 
     def __init__(self, objectives: List[Loss], constraints: List[Loss],
-                 components: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]]):
+                 components: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]],
+                 grad_inference=False):
         """
         This is similar in spirit to a nn.Sequential module. However,
         by concatenating input and output dictionaries for each component
@@ -32,28 +33,48 @@ class Problem(nn.Module):
         self.constraints = nn.ModuleList(constraints)
         self.components = nn.ModuleList(components)
         self._check_unique_names()
+        self.grad_inference = grad_inference
 
     def _check_unique_names(self):
         num_unique = len(set([o.name for o in self.objectives] + [c.name for c in self.constraints]))
         num_objectives = len(self.objectives) + len(self.constraints)
         assert num_unique == num_objectives, "All objectives and constraints must have unique names."
 
-    def _calculate_loss(self, input_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def _check_name_collision_dicts(self, input_dict: Dict[str, torch.Tensor],
+                                  output_dict: Dict[str, torch.Tensor]):
+        assert set(output_dict.keys()) - set(input_dict.keys()) == set(output_dict.keys()), \
+            f'Name collision in input and output dictionaries, Input_keys: {input_dict.keys()},' \
+            f'Output_keys: {output_dict.keys()}'
+
+    def calculate_loss(self, input_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
 
+        :param input_dict:
+        :return:
         """
         loss = 0.0
         for objective in self.objectives:
-            input_dict[objective.name] = objective(input_dict)
+            if objective not in self.components:
+                output_dict = objective(input_dict)
+                if isinstance(output_dict, torch.Tensor):
+                    output_dict = {objective.name: output_dict}
+                self._check_name_collision_dicts(input_dict, output_dict)
+                input_dict = {**input_dict, **output_dict}
             loss += input_dict[objective.name]
         for constraint in self.constraints:
-            input_dict[constraint.name] = constraint(input_dict)
+            if constraint not in self.components:
+                output_dict = constraint(input_dict)
+                if isinstance(output_dict, torch.Tensor):
+                    output_dict = {constraint.name: output_dict}
+                self._check_name_collision_dicts(input_dict, output_dict)
+                input_dict = {**input_dict, **output_dict}
             loss += input_dict[constraint.name]
         input_dict['loss'] = loss
+        return input_dict
 
     def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         output_dict = self.step(data)
-        self._calculate_loss(output_dict)
+        output_dict = self._calculate_loss(output_dict)
         return {f'{data["name"]}_{k}': v for k, v in output_dict.items()}
 
     def step(self, input_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -61,6 +82,7 @@ class Problem(nn.Module):
             output_dict = component(input_dict)
             if isinstance(output_dict, torch.Tensor):
                 output_dict = {component.name: output_dict}
+            self._check_name_collision_dicts(input_dict, output_dict)
             assert set(output_dict.keys()) - set(input_dict.keys()) == set(output_dict.keys()), \
                 f'Name collision in input and output dictionaries, Input_keys: {input_dict.keys()},' \
                 f'Output_keys: {output_dict.keys()}'

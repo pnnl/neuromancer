@@ -1,4 +1,4 @@
-Callbacks
+Gradients
 =========
 
 .. automodule:: gradients

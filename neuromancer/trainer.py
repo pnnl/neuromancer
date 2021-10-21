@@ -90,7 +90,6 @@ class Trainer:
         """
         self.callback.begin_train(self)
 
-        #best_model = deepcopy(self.model.state_dict())
         for i in range(self.epochs):
             self.current_epoch = i
             self.model.train()

@@ -163,7 +163,7 @@ class Objective(nn.Module):
         """
          returns gradient of the loss w.r.t. input variables
 
-        :param variables:
+        :param input_dict:
         :param input_key: string
         :return:
         """
@@ -226,15 +226,15 @@ class Constraint(nn.Module):
     def __rmul__(self, weight):
         return Constraint(self.left, self.right, self.comparator, weight=weight, name=self.name)
 
-    def grad(self, variables, input_key=None):
+    def grad(self, input_dict, input_key=None):
         """
-         returns gradient of the loss w.r.t. input variables
+         returns gradient of the loss w.r.t. input key
 
-        :param variables:
-        :param input_key: string
-        :return:
+        :param input_dict: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
+        :param input_key: (str) Name of variable in input dict to take gradient with respect to.
+        :return: (torch.Tensor)
         """
-        return gradient(self.forward(variables)[self.name], variables[input_key])
+        return gradient(self.forward(input_dict)[self.name], input_dict[input_key])
 
     def forward(self, input_dict):
         """
@@ -298,7 +298,7 @@ class Variable(nn.Module):
         if self.left is not None or self.right is not None:
             assert self.op is not None
 
-    def __call__(self, data):
+    def forward(self, data):
         """
         The call function is going to hand back a pytorch tensor. In the base case the call function will simply look
         up the tensor in the data dictionary. More complicated cases will involve calling the left and calling the right

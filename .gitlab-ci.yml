@@ -1,4 +1,16 @@
 # CI constraints for every branch
+pages:
+  script:
+  - pip install -U sphinx
+  - pip install sphinx_rtd_theme
+  - sphinx-build -d _build/doctrees docs/source _build/html
+  - mv _build/html public
+  artifacts:
+        paths:
+        - public
+  only:
+  - master
+
 workflow:
   rules:
     # Only run if source is an open merge request or a branch push

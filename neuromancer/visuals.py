@@ -93,8 +93,6 @@ class VisualizerOpen(Visualizer):
         plt.style.use('dark_background')
         if rows == 1:
             fig, (eigax, matax) = plt.subplots(rows, 2)
-            # eigax.set_ylim(-1.1, 1.1)
-            # eigax.set_xlim(-1.1, 1.1)
             eigax.set_aspect(1)
             matax.axis('off')
             matax.set_title('State Transition Weights')

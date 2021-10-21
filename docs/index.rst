@@ -31,6 +31,7 @@ NeuroMANCER
    callbacks.rst
    component.rst
    constraint.rst
+   gradients.rst
 
 
 

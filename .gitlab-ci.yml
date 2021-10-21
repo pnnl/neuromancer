@@ -75,6 +75,7 @@ workflow:
     - if: '$CI_PROJECT_ROOT_NAMESPACE == "dadaist"'
 
 stages:
+  - docs
   - build
 
 # PNNL CI
@@ -90,7 +91,7 @@ build_on_marianas:
 # ---
 
 pages:
-  stage: build
+  stage: docs
   script:
   - pip install -U sphinx
   - pip install sphinx_rtd_theme
@@ -98,6 +99,10 @@ pages:
   artifacts:
     paths:
     - public
-  <<: *pnnl_tags_definition
+  tags:
+    - dadaist
+    - ikp
+    - k8s
+    - basic
   <<: *pnnl_rules_definition
 

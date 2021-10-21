@@ -98,5 +98,6 @@ pages:
   artifacts:
     paths:
     - public
-  only:
-    - master
+  <<: *pnnl_tags_definition
+  <<: *pnnl_rules_definition
+

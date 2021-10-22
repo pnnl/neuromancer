@@ -3,8 +3,9 @@ from neuromancer import dynamics
 from neuromancer import blocks
 from hypothesis import given, settings, strategies as st
 import math
+import inspect
 
-blks = [v for k, v in blocks.blocks.items()]
+blks = [v for k, v in blocks.blocks.items() if 'hsizes' in inspect.signature(v).parameters]
 
 
 @given(st.integers(1, 10),

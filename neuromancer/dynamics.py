@@ -1,4 +1,4 @@
-r"""
+"""
 State space models (SSMs) for dynamical modeling.
 
 Nomenclature:

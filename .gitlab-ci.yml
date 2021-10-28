@@ -70,13 +70,20 @@ workflow:
     - k8s
     - marianas
 
+.pnnl_nohpc_template: &pnnl_nohpc_definition
+  tags:
+    - dadaist
+    - ikp
+    - k8s
+    - basic
+
 .pnnl_rules_template: &pnnl_rules_definition
   rules:
     - if: '$CI_PROJECT_ROOT_NAMESPACE == "dadaist"'
 
 stages:
-  - docs
   - build
+  - docs
 
 # PNNL CI
 build_on_marianas:
@@ -90,19 +97,20 @@ build_on_marianas:
   <<: *pnnl_rules_definition
 # ---
 
+# Documentation Generation
 pages:
   stage: docs
+  allow_failure: true
+  image: ubuntu:20.04
   script:
+  - set -x
+  - apt update && apt install -y python3 python3-pip
   - pip install -U sphinx
   - pip install sphinx_rtd_theme
   - sphinx-build -b html . public
   artifacts:
     paths:
     - public
-  tags:
-    - dadaist
-    - ikp
-    - k8s
-    - basic
+  <<: *pnnl_nohpc_definition
   <<: *pnnl_rules_definition
-
+# ---

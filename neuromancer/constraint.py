@@ -242,7 +242,7 @@ class Constraint(nn.Module):
         :param input_dict: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
         :return: 0-dimensional torch.Tensor that can be cast as a floating point number
         """
-        return self.weight*self.comparator(self.left(input_dict), self.right(input_dict))
+        return {self.name: self.weight*self.comparator(self.left(input_dict), self.right(input_dict))}
 
 
 class Variable(nn.Module):

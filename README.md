@@ -45,6 +45,8 @@ user@machine:~$ source activate neuromancer
 
 Feel free to use `pip install -e .` or `python setup.py develop` to configure the neuromancer, psl and slim python modules.
 
+You may have to install using the `--user` option when sharing base conda environments accross users.
+
 ```console
 (neuromancer) user@machine:~$ cd psl
 (neuromancer) user@machine:~$ python setup.py develop

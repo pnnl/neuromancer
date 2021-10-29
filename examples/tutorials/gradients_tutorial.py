@@ -256,10 +256,3 @@ print(dl_dz)
 dl_dz_2 = loss2.grad(data3, input_key=z.key)
 print(dl_dz_2)
 
-
-
-
-"""
-compute jacobians
-"""
-# TODO: debug and test

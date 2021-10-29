@@ -157,24 +157,11 @@ if __name__ == "__main__":
     # variables
     x = Variable(f"U_pred_{sol_map.name}", name='x')[:, :, [0]]
     y = Variable(f"U_pred_{sol_map.name}", name='y')[:, :, [1]]
-    # x = Variable(f"U_pred_{sol_map.name}", name='x')
-    # y = Variable(f"U_pred_{sol_map.name}", name='y')
-
     # sampled parameters
     p = Variable('p')
 
     # objective function
-    # # Option 1
-    # loss = args.Q*(x**2 + y**2 == 0)
-    # loss.name = 'loss'
-
-    # # Option 2
     loss = Objective(x**2 + y**2, weight=args.Q, name='loss')
-
-    # # Option 3
-    # f = x ** 2 + y ** 2
-    # loss = f.minimize(weight=args.Q, name='loss')
-
     # constraints
     con_1 = args.Q_con * (x + y - p >= 0)
 

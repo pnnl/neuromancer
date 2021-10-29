@@ -141,16 +141,10 @@ if __name__ == "__main__":
     n_x = 3         # number of decision variables
     n_theta = 2     # number of parameters
     n_con = 5       # number of constraints
-
     # fixed problem parameters
     A = torch.randn(n_x, n_con).t()
     b = torch.randn(n_con)
     E = torch.randn(n_theta, n_con).t()
-
-    # A = torch.randn(n_con, n_x)
-    # b = torch.randn(n_con)
-    # E = torch.randn(n_con, n_theta)
-
 
     """
     # # #  Dataset 
@@ -160,7 +154,6 @@ if __name__ == "__main__":
     np.random.seed(args.data_seed)
     nsim = 10000  # number of datapoints: increase sample density for more robust results
     sequences = {"theta": 0.5 * np.random.randn(nsim, n_theta)}
-
     nstep_data, dims = get_dataloaders(sequences)
     train_data, dev_data, test_data = nstep_data
 
@@ -189,9 +182,7 @@ if __name__ == "__main__":
     loss.name = 'loss'
     # constraints: C = [ A*x <= b + E*theta, x >= 0]
     con_1 = args.Q_con * (x@A.t() <= b + theta@E.t())
-    # con_2 = args.Q_con * (x**2 <= 1)
     con_2 = args.Q_con * (x**2 == 1)
-
 
     objectives = [loss]
     constraints = [con_1, con_2]

@@ -14,7 +14,7 @@ This high-level abstraction allows for intuitive formulation of constrained opti
 
 import neuromancer as nm
 import torch
-from neuromancer.constraint import Variable, Constraint
+from neuromancer.constraint import Variable, Constraint, Objective, Loss
 
 # Let's make a Variable to use in defining a constraint
 x = Variable('x')
@@ -40,3 +40,14 @@ cnstr2(data)
 y = Variable('y')
 cnstr3 = torch.nn.Parameter(torch.tensor(0.1))*(x == y)^2
 cnstr3({'x': torch.tensor(1.0), 'y': torch.tensor(0.5)})
+
+# creating objective functions from variables and objective object
+loss1 = math_exp_var.minimize(weight=10, name='loss1')
+loss2 = Objective(math_exp_var, weight=10, name='loss2')
+# creating objective via lambda functions through loss object
+loss3 = Loss(
+    ['a','x'],
+    lambda a, x: torch.mean((3*x+1-0.5*a)**2),
+    weight=10,
+    name="loss3",
+)

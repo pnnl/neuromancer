@@ -8,8 +8,6 @@ import torch
 from neuromancer.component import Component
 
 
-# TODO: check for dimensions for accurate computation
-# TODO: check if we need to compute grad_outputs
 def gradient(y, x, grad_outputs=None):
     """
     Compute gradients dy/dx
@@ -22,6 +20,7 @@ def gradient(y, x, grad_outputs=None):
         grad_outputs = torch.ones_like(y)
     grad = torch.autograd.grad(y, [x], grad_outputs=grad_outputs, create_graph=True)[0]
     return grad
+
 
 def jacobian(y, x):
     """

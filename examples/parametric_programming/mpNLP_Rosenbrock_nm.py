@@ -166,20 +166,8 @@ if __name__ == "__main__":
     a = Variable('a')
 
     # objective function
-    # # Option 1
-    loss1 = Loss(
-        ['a', 'p', f"U_pred_{sol_map.name}"],
-        lambda a, p, xy: torch.mean((1-xy[:, :, 0])**2 + a*(xy[:, 1]-xy[:, :, 0]**2)**2),
-        weight=args.Q,
-        name="loss",
-    )
-
-    # # Option 2
     f = (1-x)**2 + a*(y-x**2)**2
     loss2 = f.minimize(weight=args.Q, name='loss')
-
-    # # Option 3
-    loss3 = Objective((1-x)**2 + a*(y-x**2)**2, weight=args.Q, name='loss')
 
     # constraints
     con_1 = args.Q_con*(x >= y)

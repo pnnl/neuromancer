@@ -196,7 +196,7 @@ if __name__ == "__main__":
     loss.name = 'loss'
     # constraints: C = [ A*x <= b + E*theta, x >= 0]
     con_1 = args.Q_con * (x@A.t() <= b + theta@E.t())
-    # con_2 = args.Q_con * (x >= 0)
+    con_2 = args.Q_con * (x >= 0)
 
     objectives = [loss]
     constraints = [con_1]

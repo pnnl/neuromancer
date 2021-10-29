@@ -209,7 +209,7 @@ if __name__ == "__main__":
     objectives = [obj]
     constraints = [con_1] + KKT
     components = [sol_map, dual_sol_map]
-    model = Problem(objectives, constraints, components)
+    model = Problem(objectives, constraints, components, grad_inference=True)
 
     """
     # # # Metrics and Logger

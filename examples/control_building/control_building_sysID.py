@@ -27,7 +27,7 @@ from neuromancer.constraint import Variable
 from neuromancer.plot import pltCL
 
 
-def arg_control_problem(prefix='', system='TwoTank'):
+def arg_control_problem(prefix='', system='Reno_ROM40'):
     """
     Command line parser for differentiable predictive (DPC) problem arguments
 
@@ -52,16 +52,18 @@ def arg_control_problem(prefix='', system='TwoTank'):
     gp.add("-metrics", nargs="+", default=["nstep_dev_loss", "loop_dev_loss", "best_loop_dev_loss",
                "nstep_dev_ref_loss", "loop_dev_ref_loss"],
            help="Metrics to be logged")
+    gp.add("-downsample", type=int, default=10, help="Number of timesteps to downsample")
+
     #  OPTIMIZATION
     gp.add("-eval_metric", type=str, default="loop_dev_ref_loss",
             help="Metric for model selection and early stopping.")
-    gp.add("-epochs", type=int, default=300,
+    gp.add("-epochs", type=int, default=2000,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
     gp.add("-patience", type=int, default=100,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
-    gp.add("-warmup", type=int, default=10,
+    gp.add("-warmup", type=int, default=100,
            help="Number of epochs to wait before enacting early stopping policy.")
     gp.add("-skip_eval_sim", action="store_true",
            help="Whether to run simulator during evaluation phase of training.")
@@ -144,20 +146,21 @@ if __name__ == "__main__":
     # # #  Arguments, logger
     """
     # for available systems and datasets in PSL library check: psl.systems.keys() and psl.datasets.keys()
-    system = "TwoTank"  # keyword of selected system to control
+    system = "Reno_ROM40"  # keyword of selected system to control
     parser = arg.ArgParser(parents=[arg_control_problem(system=system)])
     args, grps = parser.parse_arg_groups()
     log_constructor = MLFlowLogger if args.logger == 'mlflow' else BasicLogger
     logger = log_constructor(args=args, savedir=args.savedir,
                              verbosity=args.verbosity, stdout=args.metrics)
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
-    torch.manual_seed(args.seed)
+    # TODO: turn on seed
+    # torch.manual_seed(args.seed)
 
     """
     # # #  Load trained dynamics model
     """
     # path with saved model parameters obtained from system identification
-    path = f'./trained_models/{system}_best_model.pth'
+    path = f'./trained_models/{system}_model_unorm.pth'
     sysid_model = torch.load(path, pickle_module=dill,
                              map_location=torch.device(device))
     dynamics_model = sysid_model.components[1]
@@ -170,33 +173,53 @@ if __name__ == "__main__":
     nx = dynamics_model.nx
     ny = dynamics_model.ny
     nu = dynamics_model.nu
+    nd = dynamics_model.nd
     # constraints bounds
     umin = 0
-    umax = 1
+    umax = 10000
     xmin = 0
-    xmax = 1
+    xmax = 30
     # prediction horizon
-    nsteps = 8
+    nsteps = estimator.nsteps
     # number of sampled datapoints
-    nsim = 10000
+    nsimulate = 100000
+
+    # TODO: debug normalization and tuning
 
     """
     # # #  Dataset
     """
+    #  load and split the dataset
+    data_sim = psl.emulators[args.dataset](nsim=nsimulate, ninit=0, seed=args.data_seed).simulate()
+    # subsampling
+    if args.downsample != 0:
+        data_sim['Y'] = data_sim['Y'][::args.downsample, :]
+        data_sim['U'] = data_sim['U'][::args.downsample, :]
+        data_sim['D'] = data_sim['D'][::args.downsample, :]
+        data_sim['X'] = data_sim['X'][::args.downsample, :]
+
+    # control samples
+    nsim = data_sim['Y'].shape[0]
+
     # sample raw dataset
     data = {
         "Y_max": xmax*np.ones([nsim, ny]),
         "Y_min": xmin*np.ones([nsim, ny]),
         "U_max": umax*np.ones([nsim, nu]),
         "U_min": umin*np.ones([nsim, nu]),
-        "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=60, xmax=0.6, xmin=0.4)[:nsim, :],
-        "Y": np.random.uniform(low=-1.5, high=1.5, size=(nsim, ny)),
-        "U": np.random.randn(nsim, nu),
+        # "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=60, xmax=0.6, xmin=0.4)[:nsim, :],
+        # "Y": np.random.uniform(low=-1.5, high=1.5, size=(nsim, ny)),
+        "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=60, xmax=24, xmin=18)[:nsim, :],
+        "Y": np.random.uniform(low=10.0, high=30.0, size=(nsim, ny)),
+        "U": data_sim['U'],
+        "D": data_sim['D'],
     }
     # note: sampling of the past trajectories "Y_ctrl_" has a significant effect on learned control performance
 
     # get torch dataloaders
-    nstep_data, loop_data, dims = get_sequence_dataloaders(data, nsteps)
+    # norm_type = "zero-one"
+    norm_type = None
+    nstep_data, loop_data, dims = get_sequence_dataloaders(data, nsteps, norm_type=norm_type)
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data
 
@@ -205,7 +228,7 @@ if __name__ == "__main__":
     """
     # update model input keys
     print(dynamics_model.DEFAULT_INPUT_KEYS)   #  see default input keys of the dynamics component
-    control_input_key_map = {'x0': 'x0_estim', 'Uf': 'U_pred_policy', 'Yf': 'Rf'}
+    control_input_key_map = {'x0': 'x0_estimator', 'Uf': 'U_pred_policy', 'Yf': 'Rf'}
     dynamics_model.update_input_keys(input_key_map=control_input_key_map)
     print(dynamics_model.input_keys)   #  see updated input keys of the dynamics component
     estimator.nsteps = nsteps
@@ -242,12 +265,12 @@ if __name__ == "__main__":
     ymax = Variable("Y_maxf")
 
     # weight factors of loss function terms and constraints
-    Q_r = 10.0
+    Q_r = 1.0
     Q_du = 0.1
     Q_con_u = 1.0
     Q_con_y = 1.0
     # define loss function terms and constraints via neuromancer constraints syntax
-    reference_loss = Q_r*((r[:,:,1] == y[:,:,1])^2)         # track reference with second output (index 1)
+    reference_loss = Q_r*((r == y)^2)                       # track reference
     control_smoothing = Q_du*((u[1:] == u[:-1])^2)          # delta u penalty
     output_lower_bound_penalty = Q_con_y*(y > ymin)
     output_upper_bound_penalty = Q_con_y*(y < ymax)
@@ -315,9 +338,11 @@ if __name__ == "__main__":
     best_outputs = trainer.test(best_model)
     logger.clean_up()
 
-    # simulate and plot outside of the callback
-    sim_out_model = simulator.simulate(nsim=400)
-    Y = sim_out_model['Y_pred_dynamics'].detach().numpy()
-    U = sim_out_model['U_pred_policy'].detach().numpy()
-    R = sim_out_model['Rf'].detach().numpy()
-    pltCL(Y=Y, U=U, R=R)
+
+    # TODO: debug
+    # # simulate and plot outside of the callback
+    # sim_out_model = simulator.simulate(nsim=400)
+    # Y = sim_out_model['Y_pred_dynamics'].detach().numpy()
+    # U = sim_out_model['U_pred_policy'].detach().numpy()
+    # R = sim_out_model['Rf'].detach().numpy()
+    # pltCL(Y=Y, U=U, R=R)

@@ -5,6 +5,8 @@ Learning predictive control policies based on learned neural state space model
 of unknown nonlinear dynamical system
 
 
+TODO: finish model-based DPC for building
+
 """
 
 import numpy as np
@@ -25,9 +27,10 @@ from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.callbacks import ControlCallback
 from neuromancer.constraint import Variable
 from neuromancer.plot import pltCL
+from neuromancer import blocks, estimators, dynamics
 
 
-def arg_control_problem(prefix='', system='TwoTank'):
+def arg_control_problem(prefix='', system='Reno_ROM40'):
     """
     Command line parser for differentiable predictive (DPC) problem arguments
 
@@ -54,7 +57,7 @@ def arg_control_problem(prefix='', system='TwoTank'):
            help="Metrics to be logged")
     #  OPTIMIZATION
     gp.add("-eval_metric", type=str, default="loop_dev_ref_loss",
-            help="Metric for model selection and early stopping.")
+            help="Metric for model selection and early stopping.")  # TODO: change this
     gp.add("-epochs", type=int, default=300,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
@@ -144,7 +147,7 @@ if __name__ == "__main__":
     # # #  Arguments, logger
     """
     # for available systems and datasets in PSL library check: psl.systems.keys() and psl.datasets.keys()
-    system = "TwoTank"  # keyword of selected system to control
+    system = 'Reno_ROM40'  # keyword of selected system to control
     parser = arg.ArgParser(parents=[arg_control_problem(system=system)])
     args, grps = parser.parse_arg_groups()
     log_constructor = MLFlowLogger if args.logger == 'mlflow' else BasicLogger
@@ -154,22 +157,20 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
 
     """
-    # # #  Load trained dynamics model
+    # # #  Load dynamics model matrices
     """
-    # path with saved model parameters obtained from system identification
-    path = f'./trained_models/{system}_best_model.pth'
-    sysid_model = torch.load(path, pickle_module=dill,
-                             map_location=torch.device(device))
-    dynamics_model = sysid_model.components[1]
-    estimator = sysid_model.components[0]
+    # psl system model
+    system_model = psl.systems[system](system=system)
 
     """
     # # #  Problem Dimensions
     """
     # problem dimensions
-    nx = dynamics_model.nx
-    ny = dynamics_model.ny
-    nu = dynamics_model.nu
+    nx = system_model.nx
+    ny = system_model.ny
+    nu = system_model.nu
+    nd = system_model.nd
+
     # constraints bounds
     umin = 0
     umax = 1
@@ -183,6 +184,7 @@ if __name__ == "__main__":
     """
     # # #  Dataset
     """
+    # TODO: obtain dataset D from the psl, sample X, R and constraints
     # sample raw dataset
     data = {
         "Y_max": xmax*np.ones([nsim, ny]),
@@ -191,6 +193,7 @@ if __name__ == "__main__":
         "U_min": umin*np.ones([nsim, nu]),
         "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=60, xmax=0.6, xmin=0.4)[:nsim, :],
         "Y": np.random.uniform(low=-1.5, high=1.5, size=(nsim, ny)),
+        "X": np.random.uniform(low=-1.5, high=1.5, size=(nsim, nx)),
         "U": np.random.randn(nsim, nu),
     }
     # note: sampling of the past trajectories "Y_ctrl_" has a significant effect on learned control performance
@@ -203,12 +206,37 @@ if __name__ == "__main__":
     """
     # # #  Component Models
     """
-    # update model input keys
-    print(dynamics_model.DEFAULT_INPUT_KEYS)   #  see default input keys of the dynamics component
-    control_input_key_map = {'x0': 'x0_estim', 'Uf': 'U_pred_policy', 'Yf': 'Rf'}
-    dynamics_model.update_input_keys(input_key_map=control_input_key_map)
-    print(dynamics_model.input_keys)   #  see updated input keys of the dynamics component
-    estimator.nsteps = nsteps
+    # TODO fully observable estimator
+
+    # instantiate A, B, C linear maps
+    fu = slim.maps['linear'](nu, nx)
+    fd = slim.maps['linear'](nd, nx)
+    fx = slim.maps['linear'](nx, nx)
+    fy = slim.maps['linear'](nx, ny)
+    # LTI SSM
+    # x_k+1 = Ax_k + Bu_k
+    # y_k+1 = Cx_k+1
+    dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, fd=fd, name='dynamics',
+                                       input_key_map={'x0': f'x0_{estimator.name}',
+                                                      'Uf': 'U_pred_policy'})
+
+    # TODO: we need to compensate for these offsets
+    # self.G = file['Gd']
+    # self.F = file['Fd']
+
+    # model matrices values
+    A = torch.tensor(system_model.A)
+    B = torch.tensor(system_model.B)
+    C = torch.tensor(system_model.C)
+    E = torch.tensor(system_model.E)
+    dynamics_model.fx.linear.weight = torch.nn.Parameter(A)
+    dynamics_model.fu.linear.weight = torch.nn.Parameter(B)
+    dynamics_model.fy.linear.weight = torch.nn.Parameter(C)
+    dynamics_model.fd.linear.weight = torch.nn.Parameter(E)
+
+    # fix model parameters
+    dynamics_model.requires_grad_(False)
+
 
     # construct policy
     activation = activations['gelu']
@@ -222,7 +250,7 @@ if __name__ == "__main__":
         linear_map=linmap,
         nonlin=activation,
         hsizes=[nh_policy] * n_layers,
-        input_keys=['Yp', 'Rf'],
+        input_keys=['Xp', 'Rf'],
         name="policy",
     )
 
@@ -263,7 +291,7 @@ if __name__ == "__main__":
         input_upper_bound_penalty,
     ]
     # define component models
-    components = [estimator, policy, dynamics_model]
+    components = [policy, dynamics_model]
 
     # define constrained optimal control problem
     model = Problem(
@@ -278,7 +306,7 @@ if __name__ == "__main__":
     """
     # train only policy component
     freeze_weight(model, module_names=[""])                  # freeze all components
-    unfreeze_weight(model, module_names=["components.1"])    # unfreeze policy component
+    unfreeze_weight(model, module_names=["components.0"])    # unfreeze policy component
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
@@ -291,7 +319,6 @@ if __name__ == "__main__":
     )
     simulator = ClosedLoopSimulator(
         sim_data=train_loop, policy=policy,
-        system_model=dynamics_model, estimator=estimator,
         emulator=psl.systems[system](),
         emulator_output_keys=[y.name, "X_pred_dynamics"],
         emulator_input_keys=[u.name],

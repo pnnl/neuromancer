@@ -185,6 +185,7 @@ if __name__ == "__main__":
     nsimulate = 100000
 
     # TODO: debug normalization and tuning
+    # TODO: chek system ID model and the effect of disturbances
 
     """
     # # #  Dataset
@@ -245,7 +246,7 @@ if __name__ == "__main__":
         linear_map=linmap,
         nonlin=activation,
         hsizes=[nh_policy] * n_layers,
-        input_keys=['Yp', 'Rf'],
+        input_keys=['Yp', 'Rf', 'Df'],
         name="policy",
     )
 
@@ -265,8 +266,8 @@ if __name__ == "__main__":
     ymax = Variable("Y_maxf")
 
     # weight factors of loss function terms and constraints
-    Q_r = 1.0
-    Q_du = 0.1
+    Q_r = 5.0
+    Q_du = 0.0
     Q_con_u = 1.0
     Q_con_y = 1.0
     # define loss function terms and constraints via neuromancer constraints syntax
@@ -280,10 +281,10 @@ if __name__ == "__main__":
     # list of objectives and constraints
     objectives = [reference_loss, control_smoothing]
     constraints = [
-        output_lower_bound_penalty,
-        output_upper_bound_penalty,
-        input_lower_bound_penalty,
-        input_upper_bound_penalty,
+        # output_lower_bound_penalty,
+        # output_upper_bound_penalty,
+        # input_lower_bound_penalty,
+        # input_upper_bound_penalty,
     ]
     # define component models
     components = [estimator, policy, dynamics_model]

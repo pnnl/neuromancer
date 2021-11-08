@@ -5,8 +5,6 @@ Learning predictive control policies based on learned neural state space model
 of unknown nonlinear dynamical system
 
 
-TODO: finish model-based DPC for building
-
 """
 
 import numpy as np
@@ -28,6 +26,7 @@ from neuromancer.callbacks import ControlCallback
 from neuromancer.constraint import Variable
 from neuromancer.plot import pltCL
 from neuromancer import blocks, estimators, dynamics
+from neuromancer.dynamics import BlockSSM
 
 
 def arg_control_problem(prefix='', system='Reno_ROM40'):
@@ -45,6 +44,8 @@ def arg_control_problem(prefix='', system='Reno_ROM40'):
            help="select particular dataset with keyword")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
+    gp.add("-nsteps", type=int, default=8,
+           help="prediction horizon.")          # tuned values:
     #  LOG
     gp.add("-logger", type=str, choices=["mlflow", "stdout"], default="stdout",
            help="Logging setup to use")
@@ -55,22 +56,63 @@ def arg_control_problem(prefix='', system='Reno_ROM40'):
     gp.add("-metrics", nargs="+", default=["nstep_dev_loss", "loop_dev_loss", "best_loop_dev_loss",
                "nstep_dev_ref_loss", "loop_dev_ref_loss"],
            help="Metrics to be logged")
+    gp.add("-downsample", type=int, default=10, help="Number of timesteps to downsample")
     #  OPTIMIZATION
     gp.add("-eval_metric", type=str, default="loop_dev_ref_loss",
-            help="Metric for model selection and early stopping.")  # TODO: change this
-    gp.add("-epochs", type=int, default=300,
+            help="Metric for model selection and early stopping.")
+    gp.add("-epochs", type=int, default=2000,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
     gp.add("-patience", type=int, default=100,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
-    gp.add("-warmup", type=int, default=10,
+    gp.add("-warmup", type=int, default=100,
            help="Number of epochs to wait before enacting early stopping policy.")
     gp.add("-skip_eval_sim", action="store_true",
            help="Whether to run simulator during evaluation phase of training.")
     gp.add("-seed", type=int, default=408, help="Random seed used for weight initialization.")
     gp.add("-gpu", type=int, help="GPU to use")
     return parser
+
+
+class BuildingSSM(BlockSSM):
+    def __init__(self, fx, fy, fu=None, fd=None, fe=None, F=None, G=None, x_ss=20.0, y_ss=273.15,
+                 name='block_ssm', input_key_map={}):
+        super().__init__(fx, fy, fu=fu, fd=fd, fe=fe,
+                         input_key_map=input_key_map, name=name)
+        self.F = F
+        self.G = G
+        self.x_ss = x_ss
+        self.y_ss = y_ss
+
+    def forward(self, data):
+        """
+
+        :param data: (dict: {str: Tensor})
+        :return: output (dict: {str: Tensor})
+        """
+        nsteps = data[self.input_key_map['Yf']].shape[0]
+        X, Y, FD, FU, FE = [], [], [], [], []
+        x = data[self.input_key_map['x0']]
+        for i in range(nsteps):
+            x = self.fx(x)
+            fu = self.fu(data[self.input_key_map['Uf']][i])
+            x = x + fu
+            FU.append(fu)
+            fd = self.fd(data[self.input_key_map['Df']][i])
+            x = x + fd
+            FD.append(fd)
+            x = x + self.G
+            y = self.fy(x) + self.F
+            X.append(x+self.x_ss)
+            Y.append(y-self.y_ss)
+
+        output = {name: torch.stack(tensor_list) for tensor_list, name
+                  in zip([X, Y, FU, FD, FE], ['X_pred', 'Y_pred', 'fU', 'fD', 'fE'])
+                  if tensor_list}
+        output['reg_error'] = self.reg_error()
+        return output
+
 
 
 def get_sequence_dataloaders(
@@ -147,101 +189,119 @@ if __name__ == "__main__":
     # # #  Arguments, logger
     """
     # for available systems and datasets in PSL library check: psl.systems.keys() and psl.datasets.keys()
-    system = 'Reno_ROM40'  # keyword of selected system to control
+    system = "Reno_ROM40"  # keyword of selected system to control
     parser = arg.ArgParser(parents=[arg_control_problem(system=system)])
     args, grps = parser.parse_arg_groups()
     log_constructor = MLFlowLogger if args.logger == 'mlflow' else BasicLogger
     logger = log_constructor(args=args, savedir=args.savedir,
                              verbosity=args.verbosity, stdout=args.metrics)
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
-    torch.manual_seed(args.seed)
+    # TODO: turn on seed
+    # torch.manual_seed(args.seed)
 
     """
-    # # #  Load dynamics model matrices
+    # # #  Load system dynamics model from psl
     """
     # psl system model
     system_model = psl.systems[system](system=system)
-
-    """
-    # # #  Problem Dimensions
-    """
     # problem dimensions
     nx = system_model.nx
     ny = system_model.ny
     nu = system_model.nu
     nd = system_model.nd
-
     # constraints bounds
     umin = 0
-    umax = 1
+    umax = 10000
     xmin = 0
-    xmax = 1
+    xmax = 30
     # prediction horizon
-    nsteps = 8
+    nsteps = args.nsteps
     # number of sampled datapoints
-    nsim = 10000
+    nsimulate = 100000
+
+    # TODO: debug model scales
 
     """
     # # #  Dataset
     """
-    # TODO: obtain dataset D from the psl, sample X, R and constraints
+    #  load and split the dataset
+    data_sim = psl.emulators[args.dataset](nsim=nsimulate, ninit=0, seed=args.data_seed).simulate()
+    # subsampling
+    if args.downsample != 0:
+        data_sim['Y'] = data_sim['Y'][::args.downsample, :]
+        data_sim['U'] = data_sim['U'][::args.downsample, :]
+        data_sim['D'] = data_sim['D'][::args.downsample, :]
+        data_sim['X'] = data_sim['X'][::args.downsample, :]
+
+    # control samples
+    nsim = data_sim['Y'].shape[0]
+
     # sample raw dataset
     data = {
         "Y_max": xmax*np.ones([nsim, ny]),
         "Y_min": xmin*np.ones([nsim, ny]),
         "U_max": umax*np.ones([nsim, nu]),
         "U_min": umin*np.ones([nsim, nu]),
-        "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=60, xmax=0.6, xmin=0.4)[:nsim, :],
-        "Y": np.random.uniform(low=-1.5, high=1.5, size=(nsim, ny)),
-        "X": np.random.uniform(low=-1.5, high=1.5, size=(nsim, nx)),
-        "U": np.random.randn(nsim, nu),
+        # "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=60, xmax=0.6, xmin=0.4)[:nsim, :],
+        # "Y": np.random.uniform(low=-1.5, high=1.5, size=(nsim, ny)),
+        "R": psl.Periodic(nx=ny, nsim=nsim, numPeriods=60, xmax=24, xmin=18)[:nsim, :],
+        "Y": np.random.uniform(low=16.0, high=26.0, size=(nsim, ny)),
+        "X": np.random.uniform(low=-4.0, high=4.0, size=(nsim, nx)),
+        "U": data_sim['U'],
+        "D": data_sim['D'],
     }
     # note: sampling of the past trajectories "Y_ctrl_" has a significant effect on learned control performance
 
     # get torch dataloaders
-    nstep_data, loop_data, dims = get_sequence_dataloaders(data, nsteps)
+    # norm_type = "zero-one"
+    norm_type = None
+    nstep_data, loop_data, dims = get_sequence_dataloaders(data, nsteps, norm_type=norm_type)
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data
 
     """
     # # #  Component Models
     """
-    # TODO fully observable estimator
-
-    # instantiate A, B, C linear maps
+    # Fully observable estimator as identity map: x0 = Xp[-1]
+    # Xp = [x_-N, ..., y_0]
+    estimator = estimators.FullyObservable({**dims, "x0": (nx,)},
+                                           nsteps=args.nsteps,  # future window Nf
+                                           window_size=1,  # past window Np <= Nf
+                                           input_keys=["Xp"],
+                                           name='estimator')
+    # A, B, C, E, F, G linear maps
     fu = slim.maps['linear'](nu, nx)
-    fd = slim.maps['linear'](nd, nx)
     fx = slim.maps['linear'](nx, nx)
     fy = slim.maps['linear'](nx, ny)
+    fd = slim.maps['linear'](nd, nx)
+    F = torch.tensor(system_model.F, dtype=torch.float32)[0]
+    G = torch.tensor(system_model.G, dtype=torch.float32)[0]
+    x_ss = torch.tensor(system_model.x_ss, dtype=torch.float32)[0][0]
+    y_ss = torch.tensor(system_model.y_ss, dtype=torch.float32)[0][0]
     # LTI SSM
     # x_k+1 = Ax_k + Bu_k
     # y_k+1 = Cx_k+1
-    dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, fd=fd, name='dynamics',
+    dynamics_model = BuildingSSM(fx, fy, fu=fu, fd=fd, name='dynamics', F=F, G=G,
+                                 x_ss=x_ss, y_ss=y_ss,
                                        input_key_map={'x0': f'x0_{estimator.name}',
-                                                      'Uf': 'U_pred_policy'})
-
-    # TODO: we need to compensate for these offsets
-    # self.G = file['Gd']
-    # self.F = file['Fd']
+                                                      'Uf': 'U_pred_policy', 'Yf': 'Rf'})
 
     # model matrices values
-    A = torch.tensor(system_model.A)
-    B = torch.tensor(system_model.B)
-    C = torch.tensor(system_model.C)
-    E = torch.tensor(system_model.E)
+    A = torch.tensor(system_model.A, dtype=torch.float32)
+    B = torch.tensor(system_model.B, dtype=torch.float32)
+    C = torch.tensor(system_model.C, dtype=torch.float32)
+    E = torch.tensor(system_model.E, dtype=torch.float32)
     dynamics_model.fx.linear.weight = torch.nn.Parameter(A)
     dynamics_model.fu.linear.weight = torch.nn.Parameter(B)
     dynamics_model.fy.linear.weight = torch.nn.Parameter(C)
     dynamics_model.fd.linear.weight = torch.nn.Parameter(E)
-
     # fix model parameters
     dynamics_model.requires_grad_(False)
-
 
     # construct policy
     activation = activations['gelu']
     linmap = slim.maps['linear']       # type of weights
-    n_layers = 2        # number of layers
+    n_layers = 4        # number of layers
     nh_policy = 32      # number of hidden states
     policy = policies.MLPPolicy(
         dims,
@@ -250,7 +310,7 @@ if __name__ == "__main__":
         linear_map=linmap,
         nonlin=activation,
         hsizes=[nh_policy] * n_layers,
-        input_keys=['Xp', 'Rf'],
+        input_keys=['Xp', 'Rf', 'Df'],
         name="policy",
     )
 
@@ -270,12 +330,12 @@ if __name__ == "__main__":
     ymax = Variable("Y_maxf")
 
     # weight factors of loss function terms and constraints
-    Q_r = 10.0
+    Q_r = 1.0
     Q_du = 0.1
     Q_con_u = 1.0
     Q_con_y = 1.0
     # define loss function terms and constraints via neuromancer constraints syntax
-    reference_loss = Q_r*((r[:,:,1] == y[:,:,1])^2)         # track reference with second output (index 1)
+    reference_loss = Q_r*((r == y)^2)                       # track reference
     control_smoothing = Q_du*((u[1:] == u[:-1])^2)          # delta u penalty
     output_lower_bound_penalty = Q_con_y*(y > ymin)
     output_upper_bound_penalty = Q_con_y*(y < ymax)
@@ -291,7 +351,7 @@ if __name__ == "__main__":
         input_upper_bound_penalty,
     ]
     # define component models
-    components = [policy, dynamics_model]
+    components = [estimator, policy, dynamics_model]
 
     # define constrained optimal control problem
     model = Problem(
@@ -306,7 +366,7 @@ if __name__ == "__main__":
     """
     # train only policy component
     freeze_weight(model, module_names=[""])                  # freeze all components
-    unfreeze_weight(model, module_names=["components.0"])    # unfreeze policy component
+    unfreeze_weight(model, module_names=["components.1"])    # unfreeze policy component
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
@@ -319,6 +379,7 @@ if __name__ == "__main__":
     )
     simulator = ClosedLoopSimulator(
         sim_data=train_loop, policy=policy,
+        system_model=dynamics_model, estimator=estimator,
         emulator=psl.systems[system](),
         emulator_output_keys=[y.name, "X_pred_dynamics"],
         emulator_input_keys=[u.name],
@@ -342,9 +403,13 @@ if __name__ == "__main__":
     best_outputs = trainer.test(best_model)
     logger.clean_up()
 
-    # simulate and plot outside of the callback
-    sim_out_model = simulator.simulate(nsim=400)
-    Y = sim_out_model['Y_pred_dynamics'].detach().numpy()
-    U = sim_out_model['U_pred_policy'].detach().numpy()
-    R = sim_out_model['Rf'].detach().numpy()
-    pltCL(Y=Y, U=U, R=R)
+    # TODO: test forward pass building model
+
+
+    # TODO: debug
+    # # simulate and plot outside of the callback
+    # sim_out_model = simulator.simulate(nsim=400)
+    # Y = sim_out_model['Y_pred_dynamics'].detach().numpy()
+    # U = sim_out_model['U_pred_policy'].detach().numpy()
+    # R = sim_out_model['Rf'].detach().numpy()
+    # pltCL(Y=Y, U=U, R=R)

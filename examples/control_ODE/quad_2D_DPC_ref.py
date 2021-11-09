@@ -1,12 +1,10 @@
 """
 Differentiable predictive control (DPC)
 
-Learning to stabilize VTOL aircraft model
+Learning to control 2D quadcopter model
 
-aircraft model from the text Feedback Systems by Astrom and Murray
-http://www.cds.caltech.edu/~murray/books/AM08/pdf/fbs-statefbk_24Jul2020.pdf
-LQR code example at
-https://python-control.readthedocs.io/en/0.8.3/pvtol-lqr.html
+based on 2D quadcopter LQR example with LTI model from:
+https://github.com/charlestytler/QuadcopterSim/blob/master/quad2D_lqr.py
 """
 
 import torch
@@ -22,6 +20,9 @@ DENSITY_PALETTE = sns.color_palette("crest_r", as_cmap=True)
 DENSITY_FACECLR = DENSITY_PALETTE(0.01)
 sns.set_theme(style="white")
 from scipy.signal import cont2discrete, lti, dlti, dstep
+from pylab import *
+import numpy as np
+import scipy.linalg as splin
 
 from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
@@ -63,7 +64,6 @@ def arg_dpc_problem(prefix=''):
     gp.add("-warmup", type=int, default=10,
            help="Number of epochs to wait before enacting early stopping policy.")
     return parser
-
 
 
 def get_sequence_dataloaders(
@@ -197,57 +197,90 @@ if __name__ == "__main__":
     args.bias = True
 
     """
-    # # #  VTOL aircraft model 
+    # # # 2D quadcopter model 
     """
-    # System parameters
-    m = 4  # mass of aircraft
-    J = 0.0475  # inertia around pitch axis
-    r = 0.25  # distance to center of force
-    g = 9.8  # gravitational constant
-    c = 0.05  # damping factor (estimated)
-    # State space dynamics
-    xe = [0, 0, 0, 0, 0, 0]  # equilibrium point of interest
-    ue = [0, m * g]
-    # model matrices
-    A = np.array(
-        [[0, 0, 0, 1, 0, 0],
-         [0, 0, 0, 0, 1, 0],
-         [0, 0, 0, 0, 0, 1],
-         [0, 0, (-ue[0] * np.sin(xe[2]) - ue[1] * np.cos(xe[2])) / m, -c / m, 0, 0],
-         [0, 0, (ue[0] * np.cos(xe[2]) - ue[1] * np.sin(xe[2])) / m, 0, -c / m, 0],
-         [0, 0, 0, 0, 0, 0]]
-    )
-    # Input matrix
-    B = np.array(
-        [[0, 0], [0, 0], [0, 0],
-         [np.cos(xe[2]) / m, -np.sin(xe[2]) / m],
-         [np.sin(xe[2]) / m, np.cos(xe[2]) / m],
-         [r / J, 0]]
-    )
-    # Output matrix
-    C = np.array([[1., 0., 0., 0., 0., 0.], [0., 1., 0., 0., 0., 0.]])
-    D = np.array([[0, 0], [0, 0]])
-    # reference
-    x_ref = np.array([[0], [0], [0], [0], [0], [0]])
-    # control equilibria
-    u_ss = np.array([[0], [m * g]])
+    # Constants
+    m = 2
+    I = 1
+    d = 0.2
+    g = 9.8  # m/s/s
+    DTR = 1 / 57.3
+    RTD = 57.3
+
+    # Nonlinear Dynamics Equations of Motion of a 2D quadcopter
+    def f(x, u):
+        # idx  0,1,2,3,4,5
+        # x = [u,v,q,x,y,theta]
+        xnew = zeros(6)
+        xnew[0] = -1 * x[2] * x[1] + 1 / m * (u[0] + u[1]) * math.sin(x[5])
+        xnew[1] = x[2] * x[0] + 1 / m * (u[0] + u[1]) * math.cos(x[5]) - g
+        xnew[2] = 1 / I * (u[0] - u[1]) * d
+        xnew[3] = x[0]
+        xnew[4] = x[1]
+        xnew[5] = x[2]
+        return xnew
+
+    # 4th Order Runge Kutta integrator
+    def RK4(x, u, dt):
+        K1 = f(x, u)
+        K2 = f(x + K1 * dt / 2, u)
+        K3 = f(x + K2 * dt / 2, u)
+        K4 = f(x + K3 * dt, u)
+        xest = x + 1 / 6 * (K1 + 2 * K2 + 2 * K3 + K4) * dt
+        return xest
+
+    # Initial Conditions
+    x_4 = 20  # y 20m
+    x_5 = 20 * DTR  # theta 20deg
+    # Calculate equilibrium values
+    ue = 0
+    ve = 0
+    qe = 0
+    theta_e = 0
+    T1e = g * m / 2 / math.cos(theta_e)
+    T2e = g * m / 2 / math.cos(theta_e)
+    # Initial inputs
+    u_0 = T1e
+    u_1 = T2e
+
+    # Create Jacobian matrix
+    A = np.array([[0, -qe, -ve, 0, 0, g],
+                  [qe, 0, ue, 0, 0, 0],
+                  [0, 0, 0, 0, 0, 0],
+                  [1, 0, 0, 0, 0, 0],
+                  [0, 1, 0, 0, 0, 0],
+                  [0, 0, 1, 0, 0, 0]])
+    # Create linear Input matrix
+    B = np.array([[0, 0],
+                  [1 / m, 1 / m],
+                  [d / I, -d / I],
+                  [0, 0],
+                  [0, 0],
+                  [0, 0]])
+    # output matrix
+    C = np.eye(A.shape[0])
     # problem dimensions
     nx = A.shape[0]
     ny = C.shape[0]
     nu = B.shape[1]
+    # D matrix
+    D = np.zeros([ny, nu])
 
     # discretize model with sampling time dt
     l_system = lti(A, B, C, D)
-    d_system = cont2discrete((A, B, C, D), dt=0.2, method='euler')
+    tstep = .01  # sec
+    d_system = cont2discrete((A, B, C, D), dt=tstep, method='euler')
     A, B, C, D, dt = d_system
 
     # number of datapoints
     nsim = 6000
     # constraints bounds
-    umin = -5
-    umax = 5
-    xmin = -5
-    xmax = 5
+    umin = -50
+    umax = 50
+    xmin = -10
+    xmax = 30
+
+    # TODO: track reference only for coordinate states 4th and 5th
 
     """
     # # #  Dataset 
@@ -259,10 +292,10 @@ if __name__ == "__main__":
         "X_min": xmin*np.ones([nsim, nx]),
         "U_max": umax*np.ones([nsim, nu]),
         "U_min": umin*np.ones([nsim, nu]),
-        "X": 0.5*np.random.randn(nsim, nx),
-        "Y": 0.5*np.random.randn(nsim, ny),
+        "X": np.random.uniform(low=-10, high=30, size=(nsim,nx)),
+        "Y": np.random.uniform(low=-10, high=30, size=(nsim,ny)),
+        "R": 20*np.ones([nsim, 1]),
         "U": np.random.randn(nsim, nu),
-        "R": np.ones([nsim, 1]) * x_ref.T,
     }
     nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps)
     train_data, dev_data, test_data = nstep_data
@@ -326,12 +359,12 @@ if __name__ == "__main__":
     xmin = Variable("X_minf")
     xmax = Variable("X_maxf")
     # weight factors of loss function terms and constraints
-    Q_r = 2.0
-    Q_u = 0.1
+    Q_r = 1.0
+    Q_u = 0.0
     Q_dx = 0.0
     Q_du = 0.0
-    Q_con_u = 2.0
-    Q_con_x = 1.0
+    Q_con_u = 0.0
+    Q_con_x = 0.0
     # define loss function terms and constraints via neuromancer constraints syntax
     reference_loss = Q_r*((r == x)^2)                       # track reference
     control_smoothing = Q_du*((u[1:] == u[:-1])^2)          # delta u penalty
@@ -342,12 +375,12 @@ if __name__ == "__main__":
     input_lower_bound_penalty = Q_con_u*(u > umin)
     input_upper_bound_penalty = Q_con_u*(u < umax)
 
-    objectives = [reference_loss, action_loss]
+    objectives = [reference_loss]
     constraints = [
         # state_lower_bound_penalty,
         # state_upper_bound_penalty,
-        input_lower_bound_penalty,
-        input_upper_bound_penalty,
+        # input_lower_bound_penalty,
+        # input_upper_bound_penalty,
     ]
 
     """
@@ -397,10 +430,8 @@ if __name__ == "__main__":
     """
     # plot closed loop trajectories from different initial conditions
     cl_simulate(A, B, C, policy, nstep=100,
-                x0=0.5*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
+                x0=10*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
     cl_simulate(A, B, C, policy, nstep=100,
-                x0=-0.5*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
+                x0=5*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
     cl_simulate(A, B, C, policy, nstep=100,
                 x0=1.0*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
-    cl_simulate(A, B, C, policy, nstep=100,
-                x0=-1.0*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')

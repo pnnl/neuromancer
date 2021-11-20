@@ -1,7 +1,7 @@
 """
 Functions for obtaining local affine maps of fully connected neural networks
 
-TODO: debug batched versions
+
 """
 
 
@@ -69,12 +69,8 @@ def pwa_batched(fx, x, use_bias=True):
             # network-wise local bias
             # b*_l+1 = Lambda_l+1 * A_l+1 * (Lambda_l * b_l + sigma(0)_l) + Lambda_l+1 * b_l+1 + sigma(0)_l+1
             # b*_l+1 = A'_l+1 * b'_l + b'_l+1
-
-            bstar = torch.matmul(bstar, Aprime) + bprime
-
-            # TODO: this broadcasting does not work
-            # Aprime_bstar = Aprime.bmm(bstar.unsqueeze(2))
-            # bstar = Aprime_bstar.squeeze(2) + bprime
+            Aprime_bstar = torch.bmm(Aprime.transpose(1,2), bstar.unsqueeze(2))
+            bstar = Aprime_bstar.squeeze(2) + bprime
 
             # network-wise local linear map
             # A* = A'_L ... A'_1
@@ -124,82 +120,15 @@ def lpv_batched(fx, x, use_bias=False):
     return Astar, bstar, Aprime_mats, bprimes, activation_mats
 
 
-def lpv(fx, x):
-    """pared-down version of LPV_net"""
-
-    x_layer = x
-    x_layer_b = x
-    x_layer_orig = x
-    Aprime_mats = []
-    Aprime_b_mats = []
-    activation_mats = []
-    activation_bias_mats = []
-    bprimes = []
-
-    for nlin, lin in zip(fx.nonlin, fx.linear):
-        x_layer_orig = nlin(lin(x_layer_orig))
-
-        A = lin.effective_W()  # layer weight
-        Ax = torch.matmul(x_layer, A)  # linear transform
-
-        # TODO: if *any* are zero, this will break
-        # need to compute derivatives of activations where Ax == 0
-        if sum(Ax.squeeze()) == 0:
-            lambda_h = torch.zeros(Ax.shape)
-        else:
-            lambda_h = nlin(Ax) / Ax  # activation scaling
-
-        lambda_h_matrix = torch.diag(lambda_h.squeeze())
-        activation_mats += [lambda_h_matrix]
-
-        x_layer = torch.matmul(Ax, lambda_h_matrix)
-
-        # compute layer-wise parameter-varying linear map
-        Aprime = torch.matmul(A, lambda_h_matrix)
-        # x_layer_Aprime = torch.matmul(x_layer_Aprime, Aprime)
-
-        Aprime_mats += [Aprime]
-
-        b = lin.bias if lin.bias is not None else torch.zeros(x_layer_b.shape)
-        Ax_b = torch.matmul(x_layer_b, A) + b  # affine transform
-
-        if sum(Ax_b.squeeze()) == 0:
-            lambda_h_b = torch.zeros(Ax_b.shape)
-        else:
-            lambda_h_b = nlin(Ax_b) / Ax_b     # activation scaling
-
-        lambda_h_b_mat = torch.diag(lambda_h_b.squeeze())
-        activation_bias_mats += [lambda_h_b_mat]
-
-        x_layer_b = torch.matmul(Ax_b, lambda_h_b_mat)
-
-        Aprime_b = torch.matmul(A, lambda_h_b_mat)
-        Aprime_b_mats += [Aprime_b]
-
-        bprime = lambda_h_b * b
-        bprimes += [bprime]
-        # x_layer_Aprime_b = torch.matmul(x_layer_Aprime_b, Aprime_b) + bprime
-
-    bstar = bprimes[0]
-    for Aprime_b, bprime in zip(Aprime_b_mats[1:], bprimes[1:]):
-        bstar = torch.matmul(bstar, Aprime_b) + bprime
-
-    # network-wise parameter varying linear map:  A* = A'_L ... A'_1
-    Astar = torch.chain_matmul(*Aprime_mats)
-    Astar_b = torch.chain_matmul(*Aprime_b_mats)
-
-    return Astar, Astar_b, bstar, Aprime_mats, Aprime_b_mats, bprimes
-
-
 if __name__ == "__main__":
-    import time
     torch.manual_seed(2)
     np.random.seed(2)
     nx = 3
     test_bias = True
+    batches = 2
 
     # random feature point
-    x_z = torch.randn(1, nx)
+    x_z = torch.randn(batches, nx)
 
     # verify different activations
     activations = [nn.ReLU6, nn.LeakyReLU, nn.ReLU, nn.PReLU, nn.GELU, nn.CELU, nn.ELU,
@@ -212,12 +141,17 @@ if __name__ == "__main__":
         print(f'MLP: {mlp_out}')
 
         Astar, bstar, *_ = pwa_batched(fx_a, x_z)
-        x_pwa_batched = torch.matmul(x_z, Astar) + bstar
+        # unbatched and batched evaluation
+        if batches == 1:
+            x_pwa_batched = (torch.matmul(x_z, Astar)).squeeze(1) + bstar
+        else:
+            x_pwa_batched = torch.bmm(Astar.transpose(1, 2), x_z.unsqueeze(2)).squeeze(2) + bstar
         print(f'pwa_batched: {x_pwa_batched}')
 
-        difference = torch.norm(mlp_out - x_pwa_batched[0], p=2)
+        difference = torch.norm(mlp_out - x_pwa_batched, p=2)
         print(difference < 1e-6)
 
+        # lpv_batched is depreciated
         Astar, bstar, *_ = lpv_batched(fx_a, x_z)
         x_lpv_batched = torch.matmul(x_z, Astar) + bstar if test_bias else torch.matmul(x_z, Astar)
         print(f'lpv_batched: {x_lpv_batched}')

@@ -1,3 +1,10 @@
+"""
+Functions for obtaining local affine maps of fully connected neural networks
+
+TODO: debug batched versions
+"""
+
+
 import numpy as np
 import scipy as sp
 import torch
@@ -7,10 +14,18 @@ import matplotlib.pyplot as plt
 import slim
 from neuromancer import blocks
 
-# TODO: debug PWA maps: they break with bias, they also break on activations without trivial nullspace
-# TODO: LPV maps break with bias
 
 def pwa_batched(fx, x, use_bias=True):
+    """
+    function returning parameters of a local affine map of a fully connected neural network
+    for a given input x, where the following holds:
+    y = fx(x) = Astar*x + bstar
+
+    :param fx: (nn.Module) fully connected neural network
+    :param x: (torch.Tensor, shape=[batchsize, in_features])
+    :param use_bias: flag for turning bias on and off
+    :return: Astar, bstar of a local affine map of the network fx: y = Astar*x + bstar
+    """
     x_layer = x
 
     Aprime_mats = []
@@ -18,6 +33,7 @@ def pwa_batched(fx, x, use_bias=True):
     bprimes = []
     weights = []
     biases = []
+    iter = 0
 
     for nlin, lin in zip(fx.nonlin, fx.linear):
 
@@ -35,12 +51,8 @@ def pwa_batched(fx, x, use_bias=True):
         Lambda = torch.stack([torch.diag(v) for v in lambda_vec])  # activation scaling matrix Lambda
         Lambdas.append(Lambda)
 
-        # print(nlin(lin(x_layer)))
-        # print(nlin(z))
-
         # layer transform:  Lambda*(A*x + b) + sigma(0)
         x_layer = z * lambda_vec + sigma_null_space
-        # print(x_layer)
 
         # A' = Lambda*A
         Aprime = torch.matmul(A, Lambda)
@@ -50,21 +62,24 @@ def pwa_batched(fx, x, use_bias=True):
         bprime = torch.matmul(b, Lambda) + sigma_null_space
         bprimes += [bprime]
 
-    # network-wise local linear map
-    # A* = A'_L ... A'_1
-    Astar = Aprime_mats[0]
-    for Aprime in Aprime_mats[1:]:
-        Astar = torch.bmm(Astar, Aprime)
+        if iter == 0:
+            bstar = bprime
+            Astar = Aprime
+        else:
+            # network-wise local bias
+            # b*_l+1 = Lambda_l+1 * A_l+1 * (Lambda_l * b_l + sigma(0)_l) + Lambda_l+1 * b_l+1 + sigma(0)_l+1
+            # b*_l+1 = A'_l+1 * b'_l + b'_l+1
 
-    # TODO: correct until this point - there are small errors in bias
-    # network-wise local bias
-    # b* = b*_L
-    # b*_0 = Lambda_0*b_0 + sigma(0)_0    ->    b*_0 = b'_0
-    bstar = bprime[0]
-    for Aprime, bprime in zip(Aprime_mats[1:], bprimes[1:]):
-        # b*_l = Lambda_l+1 * A_l+1 * (Lambda_l * b_l + sigma(0)_l) + Lambda_l+1 * b_l+1 + sigma(0)_l+1
-        # b*_l = A'_l * b*_l-1 + b'_l
-        bstar = torch.matmul(bstar, Aprime) + bprime
+            bstar = torch.matmul(bstar, Aprime) + bprime
+
+            # TODO: this broadcasting does not work
+            # Aprime_bstar = Aprime.bmm(bstar.unsqueeze(2))
+            # bstar = Aprime_bstar.squeeze(2) + bprime
+
+            # network-wise local linear map
+            # A* = A'_L ... A'_1
+            Astar = torch.bmm(Astar, Aprime)
+        iter += 1
 
     return Astar, bstar, Aprime_mats, bprimes, Lambdas
 
@@ -186,24 +201,6 @@ if __name__ == "__main__":
     # random feature point
     x_z = torch.randn(1, nx)
 
-    # define single layer square neural net
-    fx_layer = blocks.MLP(nx, nx, nonlin=nn.ReLU, hsizes=[], bias=test_bias)
-    # verify linear operations on MLP layers
-    fx_layer.linear[0](x_z)
-    z = torch.matmul(x_z, fx_layer.linear[0].effective_W())
-    if test_bias:
-        z += fx_layer.linear[0].bias
-    # verify single layer linear parameter varying form
-    lpv(fx_layer, torch.randn(1, nx))
-
-    # define square neural net
-    fx = blocks.MLP(nx, nx, nonlin=nn.ReLU, hsizes=[nx, nx, nx], bias=test_bias)
-    if test_bias:
-        for i in range(nx):
-            fx.linear[i].bias.data = torch.randn(1, nx)
-    # verify multi-layer linear parameter varying form
-    lpv(fx, torch.randn(1, nx))
-
     # verify different activations
     activations = [nn.ReLU6, nn.LeakyReLU, nn.ReLU, nn.PReLU, nn.GELU, nn.CELU, nn.ELU,
                 nn.LogSigmoid, nn.Sigmoid, nn.Tanh]
@@ -211,32 +208,17 @@ if __name__ == "__main__":
         print(f'\n current activation {act()}')
 
         fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx, nx, nx], linear_map=slim.Linear, bias=test_bias)
-        print(f'MLP: {fx_a(x_z)}')
+        mlp_out = fx_a(x_z)
+        print(f'MLP: {mlp_out}')
 
         Astar, bstar, *_ = pwa_batched(fx_a, x_z)
-        # x_pwa_batched = torch.matmul(x_z, Astar) + bstar if test_bias else torch.matmul(x_z, Astar)
         x_pwa_batched = torch.matmul(x_z, Astar) + bstar
         print(f'pwa_batched: {x_pwa_batched}')
 
-        Astar, Astar_b, bstar, *_ = lpv(fx_a, x_z)
-        x_lpv = torch.matmul(x_z, Astar) + bstar if test_bias else torch.matmul(x_z, Astar)
-        print(f'lpv: {x_lpv}')
+        difference = torch.norm(mlp_out - x_pwa_batched[0], p=2)
+        print(difference < 1e-6)
 
         Astar, bstar, *_ = lpv_batched(fx_a, x_z)
         x_lpv_batched = torch.matmul(x_z, Astar) + bstar if test_bias else torch.matmul(x_z, Astar)
         print(f'lpv_batched: {x_lpv_batched}')
 
-    # # perf testing for batched vs. sequential LPV implementations
-    # for act in activations:
-    #     print(f'current activation {act}')
-    #     batch = torch.randn(2, nx)
-    #     fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx]*8, linear_map=slim.Linear, bias=test_bias)
-    #
-    #     t = time.time()
-    #     Astar, _, _, _, _ = lpv_batched(fx_a, batch)
-    #     print("batched:   ", time.time() - t)
-    #
-    #     t = time.time()
-    #     for x in batch:
-    #         Astar, Astar_b, _, _, _, _ = lpv(fx_a, x)
-    #     print("sequential:", time.time() - t)

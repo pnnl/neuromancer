@@ -7,14 +7,14 @@ import matplotlib.pyplot as plt
 import slim
 from neuromancer import blocks
 
-# TODO: debug PWA maps: they break with and without bias
+# TODO: debug PWA maps: they break with bias, they also break on activations without trivial nullspace
 # TODO: LPV maps break with bias
 
 def pwa_batched(fx, x, use_bias=True):
     x_layer = x
 
     Aprime_mats = []
-    activation_mats = []
+    Lambdas = []
     bprimes = []
     weights = []
     biases = []
@@ -31,47 +31,42 @@ def pwa_batched(fx, x, use_bias=True):
         # sigma(z) = Lambda*z + sigma(0)
         sigma_null_space = nlin(torch.zeros(z.shape[-1]))     # sigma(0)
         lambda_vec = (nlin(z) - sigma_null_space) / z  # activation scaling vector
+        lambda_vec[z == 0] = 0.                     # fixing division by zero
         Lambda = torch.stack([torch.diag(v) for v in lambda_vec])  # activation scaling matrix Lambda
-        activation_mats.append(Lambda)
+        Lambdas.append(Lambda)
 
-        # print('sigma, Lambda')
-        # print(sigma_null_space.shape)
-        # print(Lambda.shape)
+        # print(nlin(lin(x_layer)))
+        # print(nlin(z))
 
         # layer transform:  Lambda*(A*x + b) + sigma(0)
         x_layer = z * lambda_vec + sigma_null_space
+        # print(x_layer)
 
-        # A' = A*Lambda
+        # A' = Lambda*A
         Aprime = torch.matmul(A, Lambda)
-
         Aprime_mats += [Aprime]
+
         # b' = Lambda*b + sigma(0)
-        bprime = torch.matmul(Lambda, b) + sigma_null_space
+        bprime = torch.matmul(b, Lambda) + sigma_null_space
         bprimes += [bprime]
 
-    # network-wise parameter varying affine map:
+    # network-wise local linear map
     # A* = A'_L ... A'_1
-    # b* = b*_L
-    # b*_l = A_l * b'_l-1 + b_l
     Astar = Aprime_mats[0]
-    bstar = bprimes[0]  # b x nx
-    for Aprime, bprime, A, b in zip(Aprime_mats[1:], bprimes[1:], weights[1:], biases[1:]):
-        # print("Astar")
-        # print(Astar.shape)
-        # print("Aprime")
-        # print(Aprime.shape)
-        # print("bprime")
-        # print(bprime.shape)
-        # print("A")
-        # print(A.shape)
-        # print("b")
-        # print(b.shape)
-
+    for Aprime in Aprime_mats[1:]:
         Astar = torch.bmm(Astar, Aprime)
-        bstar += torch.matmul(bprime, A) + b
-        # bstar = torch.bmm(bstar.unsqueeze(-2), Aprime).squeeze(-2) + bprime
 
-    return Astar, bstar, Aprime_mats, bprimes, activation_mats
+    # TODO: correct until this point - there are small errors in bias
+    # network-wise local bias
+    # b* = b*_L
+    # b*_0 = Lambda_0*b_0 + sigma(0)_0    ->    b*_0 = b'_0
+    bstar = bprime[0]
+    for Aprime, bprime in zip(Aprime_mats[1:], bprimes[1:]):
+        # b*_l = Lambda_l+1 * A_l+1 * (Lambda_l * b_l + sigma(0)_l) + Lambda_l+1 * b_l+1 + sigma(0)_l+1
+        # b*_l = A'_l * b*_l-1 + b'_l
+        bstar = torch.matmul(bstar, Aprime) + bprime
+
+    return Astar, bstar, Aprime_mats, bprimes, Lambdas
 
 
 def lpv_batched(fx, x, use_bias=False):
@@ -89,7 +84,7 @@ def lpv_batched(fx, x, use_bias=False):
 
         zeros = Ax == 0
         lambda_h = nlin(Ax) / Ax  # activation scaling
-        lambda_h[zeros] = 0.  # this is an approximation
+        lambda_h[zeros] = 0.
 
         lambda_h_mats = [torch.diag(v) for v in lambda_h]
         activation_mats += lambda_h_mats
@@ -186,7 +181,7 @@ if __name__ == "__main__":
     torch.manual_seed(2)
     np.random.seed(2)
     nx = 3
-    test_bias = False
+    test_bias = True
 
     # random feature point
     x_z = torch.randn(1, nx)
@@ -210,31 +205,38 @@ if __name__ == "__main__":
     lpv(fx, torch.randn(1, nx))
 
     # verify different activations
-    activations = [nn.ReLU6, nn.ReLU, nn.PReLU, nn.GELU, nn.CELU, nn.ELU,
+    activations = [nn.ReLU6, nn.LeakyReLU, nn.ReLU, nn.PReLU, nn.GELU, nn.CELU, nn.ELU,
                 nn.LogSigmoid, nn.Sigmoid, nn.Tanh]
     for act in activations:
-        print(f'current activation {act}')
+        print(f'\n current activation {act()}')
+
         fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx, nx, nx], linear_map=slim.Linear, bias=test_bias)
         print(f'MLP: {fx_a(x_z)}')
+
         Astar, bstar, *_ = pwa_batched(fx_a, x_z)
-        print(f'pwa_batched: {torch.matmul(x_z, Astar) + bstar}')
-        Astar, Astar_b, *_ = lpv(fx_a, x_z)
-        print(f'lpv: {torch.matmul(x_z, Astar_b if test_bias else Astar)}')
-        Astar, *_ = lpv_batched(fx_a, x_z)
-        print(torch.matmul(x_z, Astar))
-        print(f'lpv_batched: {torch.matmul(x_z, Astar)}')
+        # x_pwa_batched = torch.matmul(x_z, Astar) + bstar if test_bias else torch.matmul(x_z, Astar)
+        x_pwa_batched = torch.matmul(x_z, Astar) + bstar
+        print(f'pwa_batched: {x_pwa_batched}')
 
-    # perf testing for batched vs. sequential LPV implementations
-    for act in activations:
-        print(f'current activation {act}')
-        batch = torch.randn(2, nx)
-        fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx]*8, linear_map=slim.Linear, bias=test_bias)
+        Astar, Astar_b, bstar, *_ = lpv(fx_a, x_z)
+        x_lpv = torch.matmul(x_z, Astar) + bstar if test_bias else torch.matmul(x_z, Astar)
+        print(f'lpv: {x_lpv}')
 
-        t = time.time()
-        Astar, _, _, _, _ = lpv_batched(fx_a, batch)
-        print("batched:   ", time.time() - t)
+        Astar, bstar, *_ = lpv_batched(fx_a, x_z)
+        x_lpv_batched = torch.matmul(x_z, Astar) + bstar if test_bias else torch.matmul(x_z, Astar)
+        print(f'lpv_batched: {x_lpv_batched}')
 
-        t = time.time()
-        for x in batch:
-            Astar, Astar_b, _, _, _, _ = lpv(fx_a, x)
-        print("sequential:", time.time() - t)
+    # # perf testing for batched vs. sequential LPV implementations
+    # for act in activations:
+    #     print(f'current activation {act}')
+    #     batch = torch.randn(2, nx)
+    #     fx_a = blocks.MLP(nx, nx, nonlin=act, hsizes=[nx]*8, linear_map=slim.Linear, bias=test_bias)
+    #
+    #     t = time.time()
+    #     Astar, _, _, _, _ = lpv_batched(fx_a, batch)
+    #     print("batched:   ", time.time() - t)
+    #
+    #     t = time.time()
+    #     for x in batch:
+    #         Astar, Astar_b, _, _, _, _ = lpv(fx_a, x)
+    #     print("sequential:", time.time() - t)

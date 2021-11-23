@@ -135,7 +135,9 @@ def get_sequence_dataloaders(
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
-def cl_simulate(A, B, C, policy, nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
+def cl_simulate(A, B, C, policy, nstep=50,
+                umin=-5, umax=5, xmin=-5, xmax=5,
+                x0=np.ones([2, 1]), ref=None, save_path=None):
     """
 
     :param A:
@@ -169,14 +171,20 @@ def cl_simulate(A, B, C, policy, nstep=50, x0=np.ones([2, 1]), ref=None, save_pa
     else:
         ref = ref[0:Ynp.shape[0], :]
 
+    line = np.ones([Ynp.shape[0], 1])
+
     fig, ax = plt.subplots(2, 1)
     ax[0].plot(Xnp, label='x', linewidth=2)
-    ax[0].plot(ref, 'k--', label='r', linewidth=2)
+    # ax[0].plot(ref, 'k--', label='r', linewidth=2)
+    ax[0].plot(xmin*line, 'k--', linewidth=2)
+    ax[0].plot(xmax*line, 'k--', linewidth=2)
     ax[0].set(ylabel='$x$')
     ax[0].set(xlabel='time')
     ax[0].grid()
     ax[0].set_xlim(0, nstep)
     ax[1].plot(Unp, label='u', drawstyle='steps',  linewidth=2)
+    ax[1].plot(umin*line, 'k--',  linewidth=2)
+    ax[1].plot(umax*line, 'k--',  linewidth=2)
     ax[1].set(ylabel='$u$')
     ax[1].set(xlabel='time')
     ax[1].grid()
@@ -242,7 +250,7 @@ if __name__ == "__main__":
     A, B, C, D, dt = d_system
 
     # number of datapoints
-    nsim = 6000
+    nsim = 9000
     # constraints bounds
     umin = -5
     umax = 5
@@ -259,7 +267,8 @@ if __name__ == "__main__":
         "X_min": xmin*np.ones([nsim, nx]),
         "U_max": umax*np.ones([nsim, nu]),
         "U_min": umin*np.ones([nsim, nu]),
-        "X": 0.5*np.random.randn(nsim, nx),
+        "X": np.random.randn(nsim, nx),
+        # "X": np.random.uniform(xmin, xmax, [nsim, nx]),
         "Y": 0.5*np.random.randn(nsim, ny),
         "U": np.random.randn(nsim, nu),
         "R": np.ones([nsim, 1]) * x_ref.T,
@@ -326,7 +335,7 @@ if __name__ == "__main__":
     xmin = Variable("X_minf")
     xmax = Variable("X_maxf")
     # weight factors of loss function terms and constraints
-    Q_r = 2.0
+    Q_r = 3.0
     Q_u = 0.1
     Q_dx = 0.0
     Q_du = 0.0
@@ -396,11 +405,11 @@ if __name__ == "__main__":
     # # #  Plots and Analysis
     """
     # plot closed loop trajectories from different initial conditions
-    cl_simulate(A, B, C, policy, nstep=100,
+    cl_simulate(A, B, C, policy, nstep=60, umin=-5, umax=5, xmin=-5, xmax=5,
                 x0=0.5*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
-    cl_simulate(A, B, C, policy, nstep=100,
+    cl_simulate(A, B, C, policy, nstep=60, umin=-5, umax=5, xmin=-5, xmax=5,
                 x0=-0.5*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
-    cl_simulate(A, B, C, policy, nstep=100,
-                x0=1.0*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
-    cl_simulate(A, B, C, policy, nstep=100,
-                x0=-1.0*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
+    cl_simulate(A, B, C, policy, nstep=60, umin=-5, umax=5, xmin=-5, xmax=5,
+                x0=0.7*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
+    cl_simulate(A, B, C, policy, nstep=60, umin=-5, umax=5, xmin=-5, xmax=5,
+                x0=-0.7*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')

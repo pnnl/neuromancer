@@ -137,7 +137,7 @@ def get_sequence_dataloaders(
 
 def cl_simulate(A, B, C, policy, nstep=50,
                 umin=-5, umax=5, xmin=-5, xmax=5,
-                x0=np.ones([2, 1]), ref=None, save_path=None):
+                x0=np.ones([6, 1]), ref=None, save_path=None):
     """
 
     :param A:
@@ -340,7 +340,7 @@ if __name__ == "__main__":
     Q_dx = 0.0
     Q_du = 0.0
     Q_con_u = 2.0
-    Q_con_x = 1.0
+    Q_con_x = 2.0
     # define loss function terms and constraints via neuromancer constraints syntax
     reference_loss = Q_r*((r == x)^2)                       # track reference
     control_smoothing = Q_du*((u[1:] == u[:-1])^2)          # delta u penalty
@@ -353,8 +353,8 @@ if __name__ == "__main__":
 
     objectives = [reference_loss, action_loss]
     constraints = [
-        # state_lower_bound_penalty,
-        # state_upper_bound_penalty,
+        state_lower_bound_penalty,
+        state_upper_bound_penalty,
         input_lower_bound_penalty,
         input_upper_bound_penalty,
     ]

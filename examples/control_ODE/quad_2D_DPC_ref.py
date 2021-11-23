@@ -210,7 +210,13 @@ if __name__ == "__main__":
     # Nonlinear Dynamics Equations of Motion of a 2D quadcopter
     def f(x, u):
         # idx  0,1,2,3,4,5
-        # x = [u,v,q,x,y,theta]
+        # states = [u,v,q,x,y,theta]
+        # u = longitudal velocity
+        # v = lateral velocity
+        # q = pitch rate
+        # x = longitudal position
+        # y = lateral position
+        # theta = pitch attitude
         xnew = zeros(6)
         xnew[0] = -1 * x[2] * x[1] + 1 / m * (u[0] + u[1]) * math.sin(x[5])
         xnew[1] = x[2] * x[0] + 1 / m * (u[0] + u[1]) * math.cos(x[5]) - g
@@ -273,18 +279,26 @@ if __name__ == "__main__":
     A, B, C, D, dt = d_system
 
     # number of datapoints
-    nsim = 6000
-    # constraints bounds
+    nsim = 12000
+    # constraints bounds - TODO: apply indivodual constraints on states
     umin = -50
     umax = 50
     xmin = -10
     xmax = 30
 
-    # TODO: track reference only for coordinate states 4th and 5th
-
     """
     # # #  Dataset 
     """
+
+    # state distributions:
+    X_1 = np.random.uniform(low=-6, high=6, size=(1, nsim))
+    X_2 = np.random.uniform(low=-6, high=6, size=(1, nsim))
+    X_3 = np.random.uniform(low=-1, high=1, size=(1, nsim))
+    X_4 = np.random.uniform(low=-5, high=20, size=(1, nsim))
+    X_5 = np.random.uniform(low=10, high=25, size=(1, nsim))
+    X_6 = np.random.uniform(low=-1, high=1, size=(1, nsim))
+    X = np.concatenate([X_1, X_2, X_3, X_4, X_5, X_6])
+
     #  randomly sampled input output trajectories for training
     #  we treat states as observables, i.e. Y = X
     sequences = {
@@ -292,9 +306,10 @@ if __name__ == "__main__":
         "X_min": xmin*np.ones([nsim, nx]),
         "U_max": umax*np.ones([nsim, nu]),
         "U_min": umin*np.ones([nsim, nu]),
-        "X": np.random.uniform(low=-10, high=30, size=(nsim,nx)),
+        # "X": np.random.uniform(low=-10, high=30, size=(nsim,nx)),
+        "X": X.T,
         "Y": np.random.uniform(low=-10, high=30, size=(nsim,ny)),
-        "R": 20*np.ones([nsim, 1]),
+        "R": 10*np.ones([nsim, 2]),
         "U": np.random.randn(nsim, nu),
     }
     nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps)
@@ -349,7 +364,8 @@ if __name__ == "__main__":
     """
     # # #  DPC objectives and constraints
     """
-    y = Variable(f"Y_pred_{dynamics_model.name}")       # system outputs
+    y_c = Variable(f"X_pred_{dynamics_model.name}")[:,:,3:5]       # controller system outputs (positions)
+    y_s = Variable(f"X_pred_{dynamics_model.name}")[:,:,[0,1,2,5]]       # stabilized system outputs (velocities, angles)
     x = Variable(f"X_pred_{dynamics_model.name}")       # system states
     r = Variable("Rf")                                  # references
     u = Variable(f"U_pred_{policy.name}")
@@ -360,22 +376,26 @@ if __name__ == "__main__":
     xmax = Variable("X_maxf")
     # weight factors of loss function terms and constraints
     Q_r = 1.0
+    Q_s = 10.0
     Q_u = 0.0
     Q_dx = 0.0
     Q_du = 0.0
     Q_con_u = 0.0
     Q_con_x = 0.0
     # define loss function terms and constraints via neuromancer constraints syntax
-    reference_loss = Q_r*((r == x)^2)                       # track reference
+    reference_loss = Q_r*((r == y_c)^2)                       # track reference
+    stabilize_loss = Q_s*((0 == y_s)^2)                       # stabilize system
+    action_loss = Q_u*((u==0)^2)                       # control penalty
+
     control_smoothing = Q_du*((u[1:] == u[:-1])^2)          # delta u penalty
     state_smoothing = Q_dx*((x[1:] == x[:-1])^2)           # delta x penalty
-    action_loss = Q_u*((u==0)^2)                       # control penalty
+
     state_lower_bound_penalty = Q_con_x*(x > xmin)
     state_upper_bound_penalty = Q_con_x*(x < xmax)
     input_lower_bound_penalty = Q_con_u*(u > umin)
     input_upper_bound_penalty = Q_con_u*(u < umax)
 
-    objectives = [reference_loss]
+    objectives = [reference_loss, stabilize_loss, action_loss]
     constraints = [
         # state_lower_bound_penalty,
         # state_upper_bound_penalty,
@@ -429,6 +449,7 @@ if __name__ == "__main__":
     # # #  Plots and Analysis
     """
     # plot closed loop trajectories from different initial conditions
+    # TODO: initialize states in their correct distributions
     cl_simulate(A, B, C, policy, nstep=100,
                 x0=10*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
     cl_simulate(A, B, C, policy, nstep=100,

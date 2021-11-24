@@ -249,8 +249,9 @@ if __name__ == "__main__":
     d_system = cont2discrete((A, B, C, D), dt=0.2, method='euler')
     A, B, C, D, dt = d_system
 
-    # number of datapoints
+    # number of total datapoints: split into 1/3 for train, dev, and test set
     nsim = 9000
+
     # constraints bounds
     umin = -5
     umax = 5

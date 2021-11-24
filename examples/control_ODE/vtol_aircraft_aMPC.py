@@ -1,10 +1,12 @@
 """
-Differentiable predictive control (DPC)
+approximate model predictive control (aMPC)
 
-Learning to control 2D quadcopter model
+Learning to stabilize VTOL aircraft model from sampled MPC examples
 
-based on 2D quadcopter LQR example with LTI model from:
-https://github.com/charlestytler/QuadcopterSim/blob/master/quad2D_lqr.py
+aircraft model from the text Feedback Systems by Astrom and Murray
+http://www.cds.caltech.edu/~murray/books/AM08/pdf/fbs-statefbk_24Jul2020.pdf
+LQR code example at
+https://python-control.readthedocs.io/en/0.8.3/pvtol-lqr.html
 """
 
 import torch
@@ -20,18 +22,16 @@ DENSITY_PALETTE = sns.color_palette("crest_r", as_cmap=True)
 DENSITY_FACECLR = DENSITY_PALETTE(0.01)
 sns.set_theme(style="white")
 from scipy.signal import cont2discrete, lti, dlti, dstep
-from pylab import *
-import numpy as np
-import scipy.linalg as splin
+from scipy.io import loadmat
 
 from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
-from neuromancer.constraint import Loss
 from neuromancer import policies
 import neuromancer.arg as arg
-from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
+from neuromancer.dataset import normalize_data, split_sequence_data, \
+    SequenceDataset, split_static_data, StaticDataset
 from torch.utils.data import DataLoader
 from neuromancer.loggers import BasicLogger
 from neuromancer.constraint import Variable
@@ -64,6 +64,60 @@ def arg_dpc_problem(prefix=''):
     gp.add("-warmup", type=int, default=10,
            help="Number of epochs to wait before enacting early stopping policy.")
     return parser
+
+
+def get_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
+    """This will generate dataloaders for a given dictionary of data.
+    Dataloaders are hard-coded for full-batch training to match NeuroMANCER's training setup.
+
+    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
+        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
+        computed over the number of sequences rather than their lengths.
+    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
+    :param split_ratio: (list float) percentage of data in train and development splits; see
+        function `split_sequence_data` for more info.
+    """
+
+    if norm_type is not None:
+        data, _ = normalize_data(data, norm_type)
+    train_data, dev_data, test_data = split_static_data(data, split_ratio)
+
+    train_data = StaticDataset(
+        train_data,
+        name="train",
+    )
+    dev_data = StaticDataset(
+        dev_data,
+        name="dev",
+    )
+    test_data = StaticDataset(
+        test_data,
+        name="test",
+    )
+
+    train_data = DataLoader(
+        train_data,
+        batch_size=len(train_data),
+        shuffle=False,
+        collate_fn=train_data.collate_fn,
+        num_workers=num_workers,
+    )
+    dev_data = DataLoader(
+        dev_data,
+        batch_size=len(dev_data),
+        shuffle=False,
+        collate_fn=dev_data.collate_fn,
+        num_workers=num_workers,
+    )
+    test_data = DataLoader(
+        test_data,
+        batch_size=len(test_data),
+        shuffle=False,
+        collate_fn=test_data.collate_fn,
+        num_workers=num_workers,
+    )
+
+    return (train_data, dev_data, test_data), train_data.dataset.dims
 
 
 def get_sequence_dataloaders(
@@ -135,7 +189,9 @@ def get_sequence_dataloaders(
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
-def cl_simulate(A, B, C, policy, nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
+def cl_simulate(A, B, C, policy, nstep=50,
+                umin=-5, umax=5, xmin=-5, xmax=5,
+                x0=np.ones([6, 1]), ref=None, save_path=None):
     """
 
     :param A:
@@ -152,7 +208,7 @@ def cl_simulate(A, B, C, policy, nstep=50, x0=np.ones([2, 1]), ref=None, save_pa
     for k in range(nstep+1):
         x_torch = torch.tensor(x).float().transpose(0, 1)
         # taking a first control action based on RHC principle
-        uout = policy({'x0_estimator': x_torch})
+        uout = policy({'X': x_torch})
         u = uout['U_pred_policy'][0,:,:].detach().numpy().transpose()
         # closed loop dynamics
         x = np.matmul(A, x) + np.matmul(B, u)
@@ -169,14 +225,20 @@ def cl_simulate(A, B, C, policy, nstep=50, x0=np.ones([2, 1]), ref=None, save_pa
     else:
         ref = ref[0:Ynp.shape[0], :]
 
+    line = np.ones([Ynp.shape[0], 1])
+
     fig, ax = plt.subplots(2, 1)
     ax[0].plot(Xnp, label='x', linewidth=2)
-    ax[0].plot(ref, 'k--', label='r', linewidth=2)
+    # ax[0].plot(ref, 'k--', label='r', linewidth=2)
+    ax[0].plot(xmin*line, 'k--', linewidth=2)
+    ax[0].plot(xmax*line, 'k--', linewidth=2)
     ax[0].set(ylabel='$x$')
     ax[0].set(xlabel='time')
     ax[0].grid()
     ax[0].set_xlim(0, nstep)
     ax[1].plot(Unp, label='u', drawstyle='steps',  linewidth=2)
+    ax[1].plot(umin*line, 'k--',  linewidth=2)
+    ax[1].plot(umax*line, 'k--',  linewidth=2)
     ax[1].set(ylabel='$u$')
     ax[1].set(xlabel='time')
     ax[1].grid()
@@ -197,136 +259,87 @@ if __name__ == "__main__":
     args.bias = True
 
     """
-    # # # 2D quadcopter model 
+    # # #  VTOL aircraft model 
     """
-    # Constants
-    m = 2
-    I = 1
-    d = 0.2
-    g = 9.8  # m/s/s
-    DTR = 1 / 57.3
-    RTD = 57.3
-
-    # Nonlinear Dynamics Equations of Motion of a 2D quadcopter
-    def f(x, u):
-        # idx  0,1,2,3,4,5
-        # states = [u,v,q,x,y,theta]
-        # u = longitudal velocity
-        # v = lateral velocity
-        # q = pitch rate
-        # x = longitudal position
-        # y = lateral position
-        # theta = pitch attitude
-        xnew = zeros(6)
-        xnew[0] = -1 * x[2] * x[1] + 1 / m * (u[0] + u[1]) * math.sin(x[5])
-        xnew[1] = x[2] * x[0] + 1 / m * (u[0] + u[1]) * math.cos(x[5]) - g
-        xnew[2] = 1 / I * (u[0] - u[1]) * d
-        xnew[3] = x[0]
-        xnew[4] = x[1]
-        xnew[5] = x[2]
-        return xnew
-
-    # 4th Order Runge Kutta integrator
-    def RK4(x, u, dt):
-        K1 = f(x, u)
-        K2 = f(x + K1 * dt / 2, u)
-        K3 = f(x + K2 * dt / 2, u)
-        K4 = f(x + K3 * dt, u)
-        xest = x + 1 / 6 * (K1 + 2 * K2 + 2 * K3 + K4) * dt
-        return xest
-
-    # Initial Conditions
-    x_4 = 20  # y 20m
-    x_5 = 20 * DTR  # theta 20deg
-    # Calculate equilibrium values
-    ue = 0
-    ve = 0
-    qe = 0
-    theta_e = 0
-    T1e = g * m / 2 / math.cos(theta_e)
-    T2e = g * m / 2 / math.cos(theta_e)
-    # Initial inputs
-    u_0 = T1e
-    u_1 = T2e
-
-    # Create Jacobian matrix
-    A = np.array([[0, -qe, -ve, 0, 0, g],
-                  [qe, 0, ue, 0, 0, 0],
-                  [0, 0, 0, 0, 0, 0],
-                  [1, 0, 0, 0, 0, 0],
-                  [0, 1, 0, 0, 0, 0],
-                  [0, 0, 1, 0, 0, 0]])
-    # Create linear Input matrix
-    B = np.array([[0, 0],
-                  [1 / m, 1 / m],
-                  [d / I, -d / I],
-                  [0, 0],
-                  [0, 0],
-                  [0, 0]])
-    # output matrix
-    C = np.eye(A.shape[0])
+    # System parameters
+    m = 4  # mass of aircraft
+    J = 0.0475  # inertia around pitch axis
+    r = 0.25  # distance to center of force
+    g = 9.8  # gravitational constant
+    c = 0.05  # damping factor (estimated)
+    # State space dynamics
+    xe = [0, 0, 0, 0, 0, 0]  # equilibrium point of interest
+    ue = [0, m * g]
+    # model matrices
+    A = np.array(
+        [[0, 0, 0, 1, 0, 0],
+         [0, 0, 0, 0, 1, 0],
+         [0, 0, 0, 0, 0, 1],
+         [0, 0, (-ue[0] * np.sin(xe[2]) - ue[1] * np.cos(xe[2])) / m, -c / m, 0, 0],
+         [0, 0, (ue[0] * np.cos(xe[2]) - ue[1] * np.sin(xe[2])) / m, 0, -c / m, 0],
+         [0, 0, 0, 0, 0, 0]]
+    )
+    # Input matrix
+    B = np.array(
+        [[0, 0], [0, 0], [0, 0],
+         [np.cos(xe[2]) / m, -np.sin(xe[2]) / m],
+         [np.sin(xe[2]) / m, np.cos(xe[2]) / m],
+         [r / J, 0]]
+    )
+    # Output matrix
+    C = np.array([[1., 0., 0., 0., 0., 0.], [0., 1., 0., 0., 0., 0.]])
+    D = np.array([[0, 0], [0, 0]])
+    # reference
+    x_ref = np.array([[0], [0], [0], [0], [0], [0]])
+    # control equilibria
+    u_ss = np.array([[0], [m * g]])
     # problem dimensions
     nx = A.shape[0]
     ny = C.shape[0]
     nu = B.shape[1]
-    # D matrix
-    D = np.zeros([ny, nu])
 
     # discretize model with sampling time dt
     l_system = lti(A, B, C, D)
-    tstep = .01  # sec
-    d_system = cont2discrete((A, B, C, D), dt=tstep, method='euler')
+    d_system = cont2discrete((A, B, C, D), dt=0.2, method='euler')
     A, B, C, D, dt = d_system
 
-    # number of datapoints
-    nsim = 15000
-    # constraints bounds - TODO: apply indivodual constraints on states
-    umin = -50
-    umax = 50
-    xmin = -10
-    xmax = 30
+    # constraints bounds
+    umin = -5
+    umax = 5
+    xmin = -5
+    xmax = 5
 
     """
-    # # #  Dataset 
+    # # #  Dataset - examples from MPC
     """
 
-    # state distributions:
-    X_1 = np.random.uniform(low=-6, high=6, size=(1, nsim))
-    X_2 = np.random.uniform(low=-6, high=6, size=(1, nsim))
-    X_3 = np.random.uniform(low=-1, high=1, size=(1, nsim))
-    X_4 = np.random.uniform(low=-5, high=20, size=(1, nsim))
-    X_5 = np.random.uniform(low=10, high=25, size=(1, nsim))
-    X_6 = np.random.uniform(low=-1, high=1, size=(1, nsim))
-    X = np.concatenate([X_1, X_2, X_3, X_4, X_5, X_6])
+    # supervised dataset generated by sampling initial conditions and solving the MPC problem
+    f = loadmat("./Benchmarks/aMPC_dataset.mat")
+    U = f.get("samples_u", None)  # inputs
+    X = f.get("samples_x", None)  # states
+
+    # number of total datapoints: split into 1/3 for train, dev, and test set
+    # nsim = U.shape[1]
+    nsim = 6000
 
     #  randomly sampled input output trajectories for training
     #  we treat states as observables, i.e. Y = X
-    sequences = {
-        "X_max": xmax*np.ones([nsim, nx]),
-        "X_min": xmin*np.ones([nsim, nx]),
-        "U_max": umax*np.ones([nsim, nu]),
-        "U_min": umin*np.ones([nsim, nu]),
-        # "X": np.random.uniform(low=-10, high=30, size=(nsim,nx)),
-        "X": X.T,
-        "Y": np.random.uniform(low=-10, high=30, size=(nsim,ny)),
-        "R": 10*np.ones([nsim, 2]),
-        "U": np.random.randn(nsim, nu),
+    samples = {
+        # "X_max": xmax*np.ones([nsim, nx]),
+        # "X_min": xmin*np.ones([nsim, nx]),
+        # "U_max": umax*np.ones([nsim, nu]),
+        # "U_min": umin*np.ones([nsim, nu]),
+        "U": U[:,0:nsim].T,
+        "X": X[:,0:nsim].T,
     }
-    nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps)
+
+    nstep_data, dims = get_dataloaders(samples)
     train_data, dev_data, test_data = nstep_data
-    train_loop, dev_loop, test_loop = loop_data
 
     """
     # # #  System model and Control policy
     """
-    # Fully observable estimator as identity map: x0 = Yp[-1]
-    # x_0 = Yp
-    # Yp = [y_-N, ..., y_0]
-    estimator = estimators.FullyObservable({**dims, "x0": (nx,)},
-                                           nsteps=args.nsteps,  # future window Nf
-                                           window_size=1,  # past window Np <= Nf
-                                           input_keys=["Xp"],
-                                           name='estimator')
+
     # full state feedback control policy
     # Uf = p(x_0)
     # Uf = [u_0, ..., u_N]
@@ -334,81 +347,38 @@ if __name__ == "__main__":
     linmap = slim.maps['linear']
     block = blocks.MLP
     policy = policies.MLPPolicy(
-        {f'x0_{estimator.name}': (nx,), **dims},
-        nsteps=args.nsteps,
+        {**dims},
         bias=args.bias,
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=[f'x0_{estimator.name}'],
+        input_keys=["X"],
         name='policy',
     )
-
-    # TODO: apply steady state forces into the model
-    # A, B, C linear maps
-    fu = slim.maps['linear'](nu, nx)
-    fx = slim.maps['linear'](nx, nx)
-    fy = slim.maps['linear'](nx, ny)
-    # LTI SSM
-    # x_k+1 = Ax_k + Bu_k
-    # y_k+1 = Cx_k+1
-    dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics',
-                                       input_key_map={'x0': f'x0_{estimator.name}',
-                                                   'Uf': 'U_pred_policy'})
-    # model matrices values
-    dynamics_model.fx.linear.weight = torch.nn.Parameter(torch.tensor(A, dtype=torch.float32))
-    dynamics_model.fu.linear.weight = torch.nn.Parameter(torch.tensor(B, dtype=torch.float32))
-    dynamics_model.fy.linear.weight = torch.nn.Parameter(torch.tensor(C, dtype=torch.float32))
-    # fix model parameters
-    dynamics_model.requires_grad_(False)
 
     """
     # # #  DPC objectives and constraints
     """
-    y_c = Variable(f"X_pred_{dynamics_model.name}")[:,:,3:5]       # controller system outputs (positions)
-    y_s = Variable(f"X_pred_{dynamics_model.name}")[:,:,[0,1,2,5]]       # stabilized system outputs (velocities, angles)
-    x = Variable(f"X_pred_{dynamics_model.name}")       # system states
-    r = Variable("Rf")                                  # references
+    u_ref = Variable("U")                                  # references
     u = Variable(f"U_pred_{policy.name}")
-    # constraints bounds variables
-    umin = Variable("U_minf")
-    umax = Variable("U_maxf")
-    xmin = Variable("X_minf")
-    xmax = Variable("X_maxf")
+
     # weight factors of loss function terms and constraints
-    Q_r = 1.0
-    Q_s = 100.0
-    Q_u = 0.0
-    Q_dx = 0.0
-    Q_du = 0.0
-    Q_con_u = 0.0
-    Q_con_x = 0.0
+    Q = 1.0
+    Q_con_u = 1.0
     # define loss function terms and constraints via neuromancer constraints syntax
-    reference_loss = Q_r*((r == y_c)^2)                       # track reference
-    stabilize_loss = Q_s*((0 == y_s)^2)                       # stabilize system
-    action_loss = Q_u*((u==0)^2)                       # control penalty
-
-    control_smoothing = Q_du*((u[1:] == u[:-1])^2)          # delta u penalty
-    state_smoothing = Q_dx*((x[1:] == x[:-1])^2)           # delta x penalty
-
-    state_lower_bound_penalty = Q_con_x*(x > xmin)
-    state_upper_bound_penalty = Q_con_x*(x < xmax)
+    imitation_loss = Q*((u == u_ref)^2)                       # imitate MPC
+    # constraints on u
     input_lower_bound_penalty = Q_con_u*(u > umin)
     input_upper_bound_penalty = Q_con_u*(u < umax)
 
-    objectives = [reference_loss, stabilize_loss, action_loss]
-    constraints = [
-        # state_lower_bound_penalty,
-        # state_upper_bound_penalty,
-        # input_lower_bound_penalty,
-        # input_upper_bound_penalty,
-    ]
+    objectives = [imitation_loss]
+    constraints = []
 
     """
     # # #  DPC problem = objectives + constraints + trainable components 
     """
-    # data (y_k) -> estimator (x_k) -> policy (u_k) -> dynamics (x_k+1, y_k+1)
-    components = [estimator, policy, dynamics_model]
+    # data (x_k) -> policy (u_k) -> loss (u_k - u*_k)
+    components = [policy]
     model = Problem(
         objectives,
         constraints,
@@ -421,9 +391,9 @@ if __name__ == "__main__":
     # logger and metrics
     args.savedir = 'test_control'
     args.verbosity = 1
-    metrics = ["nstep_dev_loss"]
+    metrics = ["train_loss", "dev_loss"]
     logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'dpc_ref'
+    logger.args.system = 'ampc_ref'
     # device and optimizer
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
     model = model.to(device)
@@ -439,7 +409,10 @@ if __name__ == "__main__":
         logger=logger,
         epochs=args.epochs,
         patience=args.patience,
-        eval_metric='nstep_dev_loss',
+        train_metric="train_loss",
+        dev_metric="dev_loss",
+        test_metric="test_loss",
+        eval_metric="dev_loss",
         warmup=args.warmup,
     )
     # Train control policy
@@ -449,9 +422,14 @@ if __name__ == "__main__":
     """
     # # #  Plots and Analysis
     """
+    nstep = 60
+    ref = np.ones([nstep, 1]) * x_ref.T
     # plot closed loop trajectories from different initial conditions
-    # TODO: initialize states in their correct distributions
-    cl_simulate(A, B, C, policy, nstep=200,
-                x0=2*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
-    cl_simulate(A, B, C, policy, nstep=200,
-                x0=1.0*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
+    cl_simulate(A, B, C, policy, nstep=nstep, umin=-5, umax=5, xmin=-5, xmax=5,
+                x0=0.5*np.ones([nx, 1]), ref=ref, save_path='test_control')
+    cl_simulate(A, B, C, policy, nstep=nstep, umin=-5, umax=5, xmin=-5, xmax=5,
+                x0=-0.5*np.ones([nx, 1]), ref=ref, save_path='test_control')
+    cl_simulate(A, B, C, policy, nstep=nstep, umin=-5, umax=5, xmin=-5, xmax=5,
+                x0=0.7*np.ones([nx, 1]), ref=ref, save_path='test_control')
+    cl_simulate(A, B, C, policy, nstep=nstep, umin=-5, umax=5, xmin=-5, xmax=5,
+                x0=-0.7*np.ones([nx, 1]), ref=ref, save_path='test_control')

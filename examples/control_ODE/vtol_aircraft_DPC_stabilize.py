@@ -4,7 +4,9 @@ Differentiable predictive control (DPC)
 Learning to stabilize VTOL aircraft model
 
 aircraft model from the text Feedback Systems by Astrom and Murray
+Example 3.12 Vectored thrust aircraft
 http://www.cds.caltech.edu/~murray/books/AM08/pdf/fbs-statefbk_24Jul2020.pdf
+
 LQR code example at
 https://python-control.readthedocs.io/en/0.8.3/pvtol-lqr.html
 """
@@ -192,6 +194,72 @@ def cl_simulate(A, B, C, policy, nstep=50,
     plt.tight_layout()
     if save_path is not None:
         plt.savefig(save_path+'/closed_loop_dpc.pdf')
+
+
+def cl_validate(A, B, C, policy, nstep=50,
+                umin=-5, umax=5, xmin=-5, xmax=5, xmin_f=-0.5, xmax_f=0.5,
+                X0=np.ones([6, 100]), alpha=0.5, beta=0.5, delta=0.9, epsilon=0.1):
+    """
+
+    :param A:
+    :param B:
+    :param net:
+    :param nstep:
+    :param x0:
+    :return:
+    """
+    samples = X0.shape[1]
+    I_s = []        # stability indicator
+    I_c = []        # constraints indicator
+    X_c_mean = []
+    U_c_mean = []
+
+    for sample in range(samples):
+        x = X0[:,[sample]]
+        X = []
+        U = []
+        for k in range(nstep):
+            x_torch = torch.tensor(x).float().transpose(0, 1)
+            # taking a first control action based on RHC principle
+            uout = policy({'x0_estimator': x_torch})
+            u = uout['U_pred_policy'][0,:,:].detach().numpy().transpose()
+            # closed loop dynamics
+            x = np.matmul(A, x) + np.matmul(B, u)
+            X.append(x)
+            U.append(u)
+        Xnp = np.asarray(X)[:, :, 0]
+        Unp = np.asarray(U)[:, :, 0]
+
+        # ||x||_2 + ||u||_2
+        X_norm = np.linalg.norm(Xnp, 2)
+        U_norm = np.linalg.norm(Unp, 2)
+
+        # terminal constraint satisfaction for stability
+        stability_flag = int((x > xmin_f).all() and (x < xmax_f).all())
+        I_s.append(stability_flag)
+
+        # state and input constraints mean violations
+        x_violations = np.mean(np.maximum(Xnp - xmax, 0) + np.maximum(-Xnp + xmin, 0))
+        u_violations = np.mean(np.maximum(Unp - umax, 0) + np.maximum(-Unp + umin, 0))
+        X_c_mean.append(x_violations)
+        U_c_mean.append(u_violations)
+
+        # state and input constraints satisfaction
+        x_con_flag = int((Xnp > xmin).all() and (Xnp < xmax).all())
+        u_con_flag = int((Unp > umin).all() and (Unp < umax).all())
+        constraints_flag = x_con_flag and u_con_flag
+        I_c.append(constraints_flag)
+
+    # evaluate empirical risk
+    mu_tilde = np.mean(alpha*np.asarray(I_s) + beta*np.asarray(I_c))
+    # evaluate conficence level given risk tolerance epsilon
+    confidence = 1-2*np.exp(-2*samples*epsilon**2)
+    mu = mu_tilde-epsilon
+    # evaluate risk lower bound given number of samples, and desired confidence
+    mu_lbound = mu_tilde - np.sqrt(-np.log(delta/2)/(2*samples))
+
+    return mu, mu_tilde, confidence, mu_lbound, \
+           I_s, I_c, X_c_mean, U_c_mean, X_norm, U_norm
 
 
 if __name__ == "__main__":
@@ -414,3 +482,18 @@ if __name__ == "__main__":
                 x0=0.7*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
     cl_simulate(A, B, C, policy, nstep=60, umin=-5, umax=5, xmin=-5, xmax=5,
                 x0=-0.7*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
+
+    # validate empirical risk of the trained policy
+    m = 6000         # number of randomly sampled initial conditions
+    delta = 0.1     # confidence level: 1-delta
+    epsilon = 0.02   # risk tolerance
+    # X0 = np.random.uniform(-1.0, 1.0, [nx, m])
+    X0 = 0.25*np.random.randn(nx, m)
+    mu, mu_tilde, confidence, mu_lbound, \
+    I_s, I_c, X_c_mean, U_c_mean, X_norm, U_norm = \
+        cl_validate(A, B, C, policy, nstep=50,
+                umin=-5, umax=5, xmin=-5, xmax=5, xmin_f=-0.5, xmax_f=0.5,
+                X0=X0, alpha=0.5, beta=0.5,
+                delta=delta, epsilon=epsilon)
+    print(f'empirical risk mu = {mu}')
+    print(f'confidence level  = {confidence}')

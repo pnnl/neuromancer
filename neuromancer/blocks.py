@@ -11,14 +11,6 @@ import neuromancer.rnn as rnn
 from neuromancer.activations import SoftExponential, SmoothedReLU
 
 
-def get_modules(model):
-    return {
-        name: module
-        for name, module in model.named_modules()
-        if len(list(module.named_children())) == 0
-    }
-
-
 class Linear(nn.Module):
     """
     Linear map consistent with block interface

@@ -1,6 +1,7 @@
 from typing import List
 
 from torch import nn
+import torch
 
 
 def _validate_key_params(keys):
@@ -71,6 +72,7 @@ class Component(nn.Module):
             "Length of given input keys must equal the length of default input keys"
 
     def _check_inputs(self, module, input_data):
+
         input_data = input_data[0]
         set_diff = set(self.input_keys) - set(input_data)
         assert len(set_diff) == 0, \
@@ -85,6 +87,7 @@ class Component(nn.Module):
             output_data = {
                 f"{k}_{self.name}": output_data[k] for k in self.DEFAULT_OUTPUT_KEYS
             }
+
         return output_data
 
     def __repr__(self):

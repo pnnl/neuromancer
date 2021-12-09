@@ -621,7 +621,7 @@ def test_nge_mse_number(shape):
 def test_variable_slicing(shape):
     x = cn.Variable('x')
     data = {'x': torch.rand(shape)}
-    assert torch.equal(x[0:](data), data['x'][0:])
+    assert torch.equal(x[1:](data), data['x'][1:])
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -629,7 +629,7 @@ def test_variable_slicing(shape):
 def test_variable_expression_slicing(shape):
     x = cn.Variable('x')
     data = {'x': torch.rand(shape)}
-    assert torch.equal((x+x)[0:](data), data['x'][0:] + data['x'][0:])
+    assert torch.equal((x+x)[1:](data), data['x'][1:] + data['x'][1:])
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -637,4 +637,13 @@ def test_variable_expression_slicing(shape):
 def test_variable_expression_slicing2(shape):
     x = cn.Variable('x')
     data = {'x': torch.rand(shape)}
-    assert torch.equal((x[0:] + x[0:])(data), data['x'][0:] + data['x'][0:])
+    assert torch.equal((x[1:] + x[1:])(data), data['x'][1:] + data['x'][1:])
+
+
+@given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
+@settings(max_examples=10, deadline=None)
+def test_variable_expression_slicing_shape(shape):
+    x = cn.Variable('x')
+    data = {'x': torch.rand(shape)}
+    assert (x+x)[1:](data).shape[0] == (x + x)(data).shape[0] - 1
+

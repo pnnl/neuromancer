@@ -47,15 +47,15 @@ def arg_dpc_problem(prefix=''):
     """
     parser = arg.ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("DPC")
-    gp.add("-nsteps", type=int, default=10,
-           help="prediction horizon.")          # tuned values: 1, 2
-    gp.add("-nx_hidden", type=int, default=20,
+    gp.add("-nsteps", type=int, default=4,
+           help="prediction horizon.")
+    gp.add("-nx_hidden", type=int, default=100,
            help="Number of hidden states")
-    gp.add("-n_layers", type=int, default=4,
+    gp.add("-n_layers", type=int, default=10,
            help="Number of hidden layers")
     gp.add("-bias", action="store_true",
            help="Whether to use bias in the neural network block component models.")
-    gp.add("-epochs", type=int, default=2000,
+    gp.add("-epochs", type=int, default=1000,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
@@ -135,7 +135,8 @@ def get_sequence_dataloaders(
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
-def cl_simulate(A, B, C, policy, nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
+def cl_simulate(A, B, C, policy, nstep=50, x0=None,
+                ref=None, umin=None, umax=None, save_path=None):
     """
 
     :param A:
@@ -145,6 +146,8 @@ def cl_simulate(A, B, C, policy, nstep=50, x0=np.ones([2, 1]), ref=None, save_pa
     :param x0:
     :return:
     """
+    if x0 is None:
+        x0 = np.zeros(A.shape[0])
     x = x0
     X = [x]
     U = []
@@ -178,50 +181,18 @@ def cl_simulate(A, B, C, policy, nstep=50, x0=np.ones([2, 1]), ref=None, save_pa
     ax[0].set_xlim(0, nstep)
     ax[1].plot(Unp, label='u', drawstyle='steps',  linewidth=2)
     ax[1].set(ylabel='$u$')
+    if umin is not None:
+        u_min = umin * np.ones([nstep + 1, umin.shape[0]])
+        ax[1].plot(u_min, 'k--', linewidth=2)
+    if umax is not None:
+        u_max = umax * np.ones([nstep + 1, umax.shape[0]])
+        ax[1].plot(u_max, 'k--', linewidth=2)
     ax[1].set(xlabel='time')
     ax[1].grid()
     ax[1].set_xlim(0, nstep)
     plt.tight_layout()
     if save_path is not None:
         plt.savefig(save_path+'/closed_loop_dpc.pdf')
-
-
-    # Nonlinear Dynamics Equations of Motion of a 2D quadcopter
-    def f(x, u):
-        # idx  0,1,2,3,4,5
-        # states = [u,v,q,x,y,theta]
-        # u = longitudal velocity
-        # v = lateral velocity
-        # q = pitch rate
-        # x = longitudal position
-        # y = lateral position
-        # theta = pitch attitude
-
-        # Constants
-        m = 2
-        I = 1
-        d = 0.2
-        g = 9.8  # m/s/s
-        DTR = 1 / 57.3
-        RTD = 57.3
-
-        xnew = zeros(6)
-        xnew[0] = -1 * x[2] * x[1] + 1 / m * (u[0] + u[1]) * math.sin(x[5])
-        xnew[1] = x[2] * x[0] + 1 / m * (u[0] + u[1]) * math.cos(x[5]) - g
-        xnew[2] = 1 / I * (u[0] - u[1]) * d
-        xnew[3] = x[0]
-        xnew[4] = x[1]
-        xnew[5] = x[2]
-        return xnew
-
-    # 4th Order Runge Kutta integrator
-    def RK4(f, x, u, dt):
-        K1 = f(x, u)
-        K2 = f(x + K1 * dt / 2, u)
-        K3 = f(x + K2 * dt / 2, u)
-        K4 = f(x + K3 * dt, u)
-        xest = x + 1 / 6 * (K1 + 2 * K2 + 2 * K3 + K4) * dt
-        return xest
 
 
 if __name__ == "__main__":
@@ -235,91 +206,77 @@ if __name__ == "__main__":
     args.bias = True
 
     """
-    # # # 2D quadcopter model 
+    # # # 3D quadcopter model 
     """
-    # Constants
-    m = 2
-    I = 1
-    d = 0.2
-    g = 9.8  # m/s/s
-    DTR = 1 / 57.3
-    RTD = 57.3
 
-    # Initial Conditions
-    x_4 = 20  # y 20m
-    x_5 = 20 * DTR  # theta 20deg
-    # Calculate equilibrium values
-    ue = 0
-    ve = 0
-    qe = 0
-    theta_e = 0
-    T1e = g * m / 2 / math.cos(theta_e)
-    T2e = g * m / 2 / math.cos(theta_e)
-    # Initial inputs
-    u_0 = T1e
-    u_1 = T2e
+    # Discrete time model of a quadcopter
+    A = np.array([
+        [1., 0., 0., 0., 0., 0., 0.1, 0., 0., 0., 0., 0.],
+        [0., 1., 0., 0., 0., 0., 0., 0.1, 0., 0., 0., 0.],
+        [0., 0., 1., 0., 0., 0., 0., 0., 0.1, 0., 0., 0.],
+        [0.0488, 0., 0., 1., 0., 0., 0.0016, 0., 0., 0.0992, 0., 0.],
+        [0., -0.0488, 0., 0., 1., 0., 0., -0.0016, 0., 0., 0.0992, 0.],
+        [0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0.0992],
+        [0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0.],
+        [0.9734, 0., 0., 0., 0., 0., 0.0488, 0., 0., 0.9846, 0., 0.],
+        [0., -0.9734, 0., 0., 0., 0., 0., -0.0488, 0., 0., 0.9846, 0.],
+        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.9846]
+    ])
+    B = np.array([
+        [0., -0.0726, 0., 0.0726],
+        [-0.0726, 0., 0.0726, 0.],
+        [-0.0152, 0.0152, -0.0152, 0.0152],
+        [-0., -0.0006, -0., 0.0006],
+        [0.0006, 0., -0.0006, 0.0000],
+        [0.0106, 0.0106, 0.0106, 0.0106],
+        [0, -1.4512, 0., 1.4512],
+        [-1.4512, 0., 1.4512, 0.],
+        [-0.3049, 0.3049, -0.3049, 0.3049],
+        [-0., -0.0236, 0., 0.0236],
+        [0.0236, 0., -0.0236, 0.],
+        [0.2107, 0.2107, 0.2107, 0.2107]])
+    [nx, nu] = B.shape
+    C = np.eye(nx,nx)
 
-    # Create Jacobian matrix
-    A = np.array([[0, -qe, -ve, 0, 0, g],
-                  [qe, 0, ue, 0, 0, 0],
-                  [0, 0, 0, 0, 0, 0],
-                  [1, 0, 0, 0, 0, 0],
-                  [0, 1, 0, 0, 0, 0],
-                  [0, 0, 1, 0, 0, 0]])
-    # Create linear Input matrix
-    B = np.array([[0, 0],
-                  [1 / m, 1 / m],
-                  [d / I, -d / I],
-                  [0, 0],
-                  [0, 0],
-                  [0, 0]])
-    # output matrix
-    C = np.eye(A.shape[0])
-    # problem dimensions
-    nx = A.shape[0]
-    ny = C.shape[0]
-    nu = B.shape[1]
-    # D matrix
-    D = np.zeros([ny, nu])
+    # Constraints
+    u0 = 10.5916
+    umin_b = np.array([9.6, 9.6, 9.6, 9.6]) - u0
+    umax_b = np.array([13., 13., 13., 13.]) - u0
+    xmin_b = np.array([-np.pi / 6, -np.pi / 6, -10., -10., -10., -1.,
+                     -10., -10., -10., -10., -10., -10.])
+    xmax_b = np.array([np.pi / 6, np.pi / 6, 10., 10., 10., 10.,
+                     10., 10., 10., 10., 10., 10.])
+    # xmin_b = np.array([-np.pi / 6, -np.pi / 6, -np.inf, -np.inf, -np.inf, -1.,
+    #                  -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf])
+    # xmax_b = np.array([np.pi / 6, np.pi / 6, np.inf, np.inf, np.inf, np.inf,
+    #                  np.inf, np.inf, np.inf, np.inf, np.inf, np.inf])
 
-    # discretize model with sampling time dt
-    l_system = lti(A, B, C, D)
-    tstep = .01  # sec
-    d_system = cont2discrete((A, B, C, D), dt=tstep, method='euler')
-    A, B, C, D, dt = d_system
+    # Initial and reference states
+    x0 = np.zeros(12)
+    xr = np.array([0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
 
     # number of datapoints
-    nsim = 15000
-    # constraints bounds - TODO: apply indivodual constraints on states
-    umin = -50
-    umax = 50
-    xmin = -10
-    xmax = 30
+    nsim = 10000
 
     """
     # # #  Dataset 
     """
 
-    # state distributions:
-    X_1 = np.random.uniform(low=-6, high=6, size=(1, nsim))
-    X_2 = np.random.uniform(low=-6, high=6, size=(1, nsim))
-    X_3 = np.random.uniform(low=-1, high=1, size=(1, nsim))
-    X_4 = np.random.uniform(low=-5, high=20, size=(1, nsim))
-    X_5 = np.random.uniform(low=10, high=25, size=(1, nsim))
-    X_6 = np.random.uniform(low=-1, high=1, size=(1, nsim))
-    X = np.concatenate([X_1, X_2, X_3, X_4, X_5, X_6])
-
-    #  randomly sampled input output trajectories for training
+    #  randomly sampled input trajectories for training
     #  we treat states as observables, i.e. Y = X
+    X_dist_bound = 2.0
+    X = np.random.uniform(low=-X_dist_bound, high=X_dist_bound, size=(nsim,nx))
     sequences = {
-        "X_max": xmax*np.ones([nsim, nx]),
-        "X_min": xmin*np.ones([nsim, nx]),
-        "U_max": umax*np.ones([nsim, nu]),
-        "U_min": umin*np.ones([nsim, nu]),
-        # "X": np.random.uniform(low=-10, high=30, size=(nsim,nx)),
-        "X": X.T,
-        "Y": np.random.uniform(low=-10, high=30, size=(nsim,ny)),
-        "R": 10*np.ones([nsim, 2]),
+        "X_max": xmax_b*np.ones([nsim, nx]),
+        "X_min": xmin_b*np.ones([nsim, nx]),
+        "U_max": umax_b*np.ones([nsim, nu]),
+        "U_min": umin_b*np.ones([nsim, nu]),
+        "X": X,
+        "Y": X,
+        # "R": xr*np.ones([nsim, nx]),
+        "R": np.ones([nsim, 1]),
         "U": np.random.randn(nsim, nu),
     }
     nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps)
@@ -354,11 +311,10 @@ if __name__ == "__main__":
         name='policy',
     )
 
-    # TODO: apply steady state forces into the model
     # A, B, C linear maps
     fu = slim.maps['linear'](nu, nx)
     fx = slim.maps['linear'](nx, nx)
-    fy = slim.maps['linear'](nx, ny)
+    fy = slim.maps['linear'](nx, nx)
     # LTI SSM
     # x_k+1 = Ax_k + Bu_k
     # y_k+1 = Cx_k+1
@@ -375,8 +331,7 @@ if __name__ == "__main__":
     """
     # # #  DPC objectives and constraints
     """
-    y_c = Variable(f"X_pred_{dynamics_model.name}")[:,:,3:5]       # controller system outputs (positions)
-    y_s = Variable(f"X_pred_{dynamics_model.name}")[:,:,[0,1,2,5]]       # stabilized system outputs (velocities, angles)
+    y = Variable(f"X_pred_{dynamics_model.name}")     # system outputs
     x = Variable(f"X_pred_{dynamics_model.name}")       # system states
     r = Variable("Rf")                                  # references
     u = Variable(f"U_pred_{policy.name}")
@@ -386,17 +341,21 @@ if __name__ == "__main__":
     xmin = Variable("X_minf")
     xmax = Variable("X_maxf")
     # weight factors of loss function terms and constraints
-    Q_r = 1.0
-    Q_s = 100.0
+    Q_r = 30.0
+    Q_s = 60.0
     Q_u = 0.0
     Q_dx = 0.0
     Q_du = 0.0
-    Q_con_u = 0.0
-    Q_con_x = 0.0
+    Q_con_u = 1.0
+    Q_con_x = 1.0
     # define loss function terms and constraints via neuromancer constraints syntax
-    reference_loss = Q_r*((r == y_c)^2)                       # track reference
-    stabilize_loss = Q_s*((0 == y_s)^2)                       # stabilize system
+    # reference_loss = Q_r*((r == y)^2)                   # track reference and stabilize
     action_loss = Q_u*((u==0)^2)                       # control penalty
+
+    reference_loss = Q_r*((r == y[:,:,[2]])^2)                   # track reference and stabilize
+    # stab_idx = [3,4,5,9,10,11]
+    stab_idx = [0,1,3,4,5,6,7,8,9,10,11]
+    stabilize_loss = Q_s*((0 == y[:,:,stab_idx])^2)                   # track reference and stabilize
 
     control_smoothing = Q_du*((u[1:] == u[:-1])^2)          # delta u penalty
     state_smoothing = Q_dx*((x[1:] == x[:-1])^2)           # delta x penalty
@@ -406,12 +365,13 @@ if __name__ == "__main__":
     input_lower_bound_penalty = Q_con_u*(u > umin)
     input_upper_bound_penalty = Q_con_u*(u < umax)
 
-    objectives = [reference_loss, stabilize_loss, action_loss]
+    objectives = [reference_loss, stabilize_loss,
+                  action_loss, control_smoothing, state_smoothing]
     constraints = [
-        # state_lower_bound_penalty,
-        # state_upper_bound_penalty,
-        # input_lower_bound_penalty,
-        # input_upper_bound_penalty,
+        state_lower_bound_penalty,
+        state_upper_bound_penalty,
+        input_lower_bound_penalty,
+        input_upper_bound_penalty,
     ]
 
     """
@@ -460,8 +420,22 @@ if __name__ == "__main__":
     # # #  Plots and Analysis
     """
     # plot closed loop trajectories from different initial conditions
-    # TODO: initialize states in their correct distributions
-    cl_simulate(A, B, C, policy, nstep=200,
-                x0=2*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
-    cl_simulate(A, B, C, policy, nstep=200,
-                x0=1.0*np.ones([nx, 1]), ref=sequences['R'], save_path='test_control')
+    cl_simulate(A, B, C, policy, nstep=50,
+                x0=0*np.ones([nx, 1]), ref=sequences['R'],
+                umin=umin_b, umax=umax_b, save_path='test_control')
+    cl_simulate(A, B, C, policy, nstep=50,
+                x0=0.2*np.ones([nx, 1]), ref=sequences['R'],
+                umin=umin_b, umax=umax_b, save_path='test_control')
+
+    print(f'Q_r {Q_r}')
+    print(f'Q_u {Q_u}')
+    print(f'Q_s {Q_s}')
+    print(f'Q_du {Q_du}')
+    print(f'Q_dx {Q_dx}')
+    print(f'Q_con_u {Q_con_u}')
+    print(f'Q_con_x {Q_con_x}')
+    print(f'N {args.nsteps}')
+    print(f'nx_hidden {args.nx_hidden}')
+    print(f'X_dist_bound {X_dist_bound}')
+    print(f'lr {args.lr}')
+

@@ -1,10 +1,10 @@
 """
 Differentiable predictive control (DPC)
 
-Learning to control 2D quadcopter model
+Learning to control 3D linear quadcopter model
 
-based on 2D quadcopter LQR example with LTI model from:
-https://github.com/charlestytler/QuadcopterSim/blob/master/quad2D_lqr.py
+based on MPC example from:
+https://osqp.org/docs/examples/mpc.html
 """
 
 import torch
@@ -47,21 +47,21 @@ def arg_dpc_problem(prefix=''):
     """
     parser = arg.ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("DPC")
-    gp.add("-nsteps", type=int, default=4,
+    gp.add("-nsteps", type=int, default=10,
            help="prediction horizon.")
     gp.add("-nx_hidden", type=int, default=100,
            help="Number of hidden states")
-    gp.add("-n_layers", type=int, default=10,
+    gp.add("-n_layers", type=int, default=2,
            help="Number of hidden layers")
     gp.add("-bias", action="store_true",
            help="Whether to use bias in the neural network block component models.")
-    gp.add("-epochs", type=int, default=1000,
+    gp.add("-epochs", type=int, default=2000,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
     gp.add("-patience", type=int, default=100,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
-    gp.add("-warmup", type=int, default=10,
+    gp.add("-warmup", type=int, default=100,
            help="Number of epochs to wait before enacting early stopping policy.")
     return parser
 
@@ -341,8 +341,8 @@ if __name__ == "__main__":
     xmin = Variable("X_minf")
     xmax = Variable("X_maxf")
     # weight factors of loss function terms and constraints
-    Q_r = 30.0
-    Q_s = 60.0
+    Q_r = 20.0
+    Q_s = 5.0
     Q_u = 0.0
     Q_dx = 0.0
     Q_du = 0.0
@@ -436,6 +436,7 @@ if __name__ == "__main__":
     print(f'Q_con_x {Q_con_x}')
     print(f'N {args.nsteps}')
     print(f'nx_hidden {args.nx_hidden}')
+    print(f'n_layers {args.n_layers}')
     print(f'X_dist_bound {X_dist_bound}')
     print(f'lr {args.lr}')
 

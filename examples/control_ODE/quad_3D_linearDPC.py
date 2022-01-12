@@ -23,6 +23,7 @@ from scipy.signal import cont2discrete, lti, dlti, dstep
 from pylab import *
 import numpy as np
 import scipy.linalg as splin
+import matplotlib.pyplot as plt
 
 from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
@@ -55,7 +56,7 @@ def arg_dpc_problem(prefix=''):
            help="Number of hidden layers")
     gp.add("-bias", action="store_true",
            help="Whether to use bias in the neural network block component models.")
-    gp.add("-epochs", type=int, default=2000,
+    gp.add("-epochs", type=int, default=1000,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
@@ -157,6 +158,7 @@ def cl_simulate(A, B, C, policy, nstep=50, x0=None,
         # taking a first control action based on RHC principle
         uout = policy({'x0_estimator': x_torch})
         u = uout['U_pred_policy'][0,:,:].detach().numpy().transpose()
+        u = np.clip(u, umin.reshape(u.shape[0],1), umax.reshape(u.shape[0],1))
         # closed loop dynamics
         x = np.matmul(A, x) + np.matmul(B, u)
         y = np.matmul(C, x)
@@ -192,7 +194,7 @@ def cl_simulate(A, B, C, policy, nstep=50, x0=None,
     ax[1].set_xlim(0, nstep)
     plt.tight_layout()
     if save_path is not None:
-        plt.savefig(save_path+'/closed_loop_dpc.pdf')
+        plt.savefig(save_path+'/closed_loop_quadcopter_dpc.pdf')
 
 
 if __name__ == "__main__":
@@ -258,7 +260,7 @@ if __name__ == "__main__":
     xr = np.array([0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
 
     # number of datapoints
-    nsim = 10000
+    nsim = 30000
 
     """
     # # #  Dataset 
@@ -346,19 +348,31 @@ if __name__ == "__main__":
     Q_u = 0.0
     Q_dx = 0.0
     Q_du = 0.0
-    Q_con_u = 1.0
+    Q_contract = 1.0
+
+    Q_con_u = 2.0
     Q_con_x = 1.0
     # define loss function terms and constraints via neuromancer constraints syntax
     # reference_loss = Q_r*((r == y)^2)                   # track reference and stabilize
     action_loss = Q_u*((u==0)^2)                       # control penalty
 
-    reference_loss = Q_r*((r == y[:,:,[2]])^2)                   # track reference and stabilize
-    # stab_idx = [3,4,5,9,10,11]
-    stab_idx = [0,1,3,4,5,6,7,8,9,10,11]
+    ctrl_idx = [2]
+    reference_loss = Q_r*((r == y[:,:,ctrl_idx])^2)                   # track reference and stabilize
+    stab_idx = [3,4,5,9,10,11]
+    # stab_idx = [0,1,3,4,5,6,7,8,9,10,11]
     stabilize_loss = Q_s*((0 == y[:,:,stab_idx])^2)                   # track reference and stabilize
 
     control_smoothing = Q_du*((u[1:] == u[:-1])^2)          # delta u penalty
     state_smoothing = Q_dx*((x[1:] == x[:-1])^2)           # delta x penalty
+
+    alpha = 0.8
+    contraction = Loss(
+        [f'X_pred_{dynamics_model.name}'],
+        lambda x:
+        torch.norm(F.relu(torch.norm(x[:,:,stab_idx], 2)
+                          -alpha*torch.norm(x[:,:,stab_idx], 2)), 1),
+        weight=Q_contract,
+        name="contraction_loss")
 
     state_lower_bound_penalty = Q_con_x*(x > xmin)
     state_upper_bound_penalty = Q_con_x*(x < xmax)
@@ -372,6 +386,7 @@ if __name__ == "__main__":
         state_upper_bound_penalty,
         input_lower_bound_penalty,
         input_upper_bound_penalty,
+        contraction,
     ]
 
     """
@@ -434,9 +449,21 @@ if __name__ == "__main__":
     print(f'Q_dx {Q_dx}')
     print(f'Q_con_u {Q_con_u}')
     print(f'Q_con_x {Q_con_x}')
+    print(f'Q_contract {Q_contract}')
+    print(f'alpha {alpha}')
     print(f'N {args.nsteps}')
     print(f'nx_hidden {args.nx_hidden}')
     print(f'n_layers {args.n_layers}')
     print(f'X_dist_bound {X_dist_bound}')
     print(f'lr {args.lr}')
 
+
+    # figure()
+    # plt.imshow(B, cmap='viridis', interpolation='nearest')
+    # plt.show()
+    # plt.colorbar()
+    #
+    # figure()
+    # plt.imshow(A, cmap='viridis', interpolation='nearest')
+    # plt.show()
+    # plt.colorbar()

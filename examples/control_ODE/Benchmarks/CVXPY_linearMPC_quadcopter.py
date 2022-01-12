@@ -76,7 +76,7 @@ objective += quad_form(x[:, N] - xr, QN)
 prob = Problem(Minimize(objective), constraints)
 
 # Simulate in closed loop
-nsim = 15
+nsim = 50
 X = [x0]
 U = []
 for i in range(nsim):

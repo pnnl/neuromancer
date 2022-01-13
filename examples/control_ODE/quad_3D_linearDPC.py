@@ -153,10 +153,14 @@ def cl_simulate(A, B, C, policy, nstep=50, x0=None,
     X = [x]
     U = []
     Y = []
+    times = []
     for k in range(nstep+1):
         x_torch = torch.tensor(x).float().transpose(0, 1)
         # taking a first control action based on RHC principle
+        start_time = time.time()
         uout = policy({'x0_estimator': x_torch})
+        sol_time = time.time() - start_time
+        times.append(sol_time)
         u = uout['U_pred_policy'][0,:,:].detach().numpy().transpose()
         u = np.clip(u, umin.reshape(u.shape[0],1), umax.reshape(u.shape[0],1))
         # closed loop dynamics
@@ -168,6 +172,11 @@ def cl_simulate(A, B, C, policy, nstep=50, x0=None,
     Xnp = np.asarray(X)[:, :, 0]
     Unp = np.asarray(U)[:, :, 0]
     Ynp = np.asarray(Y)[:, :, 0]
+
+    mean_sol_time = np.mean(times)
+    max_sol_time = np.max(times)
+    print(f'mean sol time {mean_sol_time}')
+    print(f'max sol time {max_sol_time}')
 
     if ref is None:
         ref = np.zeros(Ynp.shape)

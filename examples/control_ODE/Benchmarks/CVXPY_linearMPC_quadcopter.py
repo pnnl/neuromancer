@@ -8,6 +8,7 @@ import numpy as np
 import scipy as sp
 from scipy import sparse
 from pylab import *
+import time
 
 # Discrete time model of a quadcopter
 Ad = sparse.csc_matrix([
@@ -79,14 +80,23 @@ prob = Problem(Minimize(objective), constraints)
 nsim = 50
 X = [x0]
 U = []
+times = []
 for i in range(nsim):
     x_init.value = x0
+    start_time = time.time()
     prob.solve(solver=OSQP, warm_start=True)
+    sol_time = time.time() - start_time
+    times.append(sol_time)
     x0 = Ad.dot(x0) + Bd.dot(u[:,0].value)
     X.append(x0)
     U.append(u[:,0].value)
 Xnp = np.asarray(X)
 Unp = np.asarray(U)
+
+mean_sol_time = np.mean(times)
+max_sol_time = np.max(times)
+print(f'mean sol time {mean_sol_time}')
+print(f'max sol time {max_sol_time}')
 
 ref = np.ones([nsim+1, 1])
 u_min = umin*np.ones([nsim+1, umin.shape[0]])

@@ -28,7 +28,7 @@ import matplotlib.path as mpath
 # instantiate casadi optimizaiton problem class
 opti = casadi.Opti()
 
-N = 40
+N = 20
 
 X = opti.variable(2, N+1)  # state trajectory
 x1 = X[0,:]
@@ -91,3 +91,6 @@ ax.plot(x_init[0], x_init[1], 'g*', markersize=10)
 # plot trajectory
 ax.plot(sol.value(X[0,:]), sol.value(X[1,:]), '*--')
 
+fig, ax = plt.subplots(2, 1)
+ax[0].plot(sol.value(X).transpose())
+ax[1].plot(sol.value(U).transpose())

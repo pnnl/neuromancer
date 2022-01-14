@@ -74,7 +74,7 @@ def arg_dpc_problem(prefix=''):
                help="List of sequences to max-min normalize")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
-    gp.add("-epochs", type=int, default=400,
+    gp.add("-epochs", type=int, default=1000,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
@@ -270,10 +270,12 @@ if __name__ == "__main__":
         "U_min": umin*np.ones([nsim, nu]),
         "Y": np.random.uniform(low=-0.1, high=0.1, size=(nsim, nx)),
         # "x_init": np.random.uniform(low=-0.1, high=0.1, size=(nsim,nx)),
-        "x_final": 1+np.random.uniform(low=-0.1, high=0.1, size=(nsim,nx)),
-        "b": np.random.uniform(low=1.0, high=3.0) * np.ones([nsim, 1]),
-        "c": np.random.uniform(low=0.3, high=0.7) * np.ones([nsim, 1]),
-        "d": np.random.uniform(low=0.0, high=0.4) * np.ones([nsim, 1]),
+        # "x_final": 1+np.random.uniform(low=-0.1, high=0.1, size=(nsim,nx)),
+        "x_final": np.random.uniform(low=[0.8, -0.2], high=[1.2, 0.2], size=(nsim, nx)),
+        'params': np.random.uniform(low=[1.0, 0.3, 0.0], high=[3.0, 0.7, 0.4], size=(nsim,3)),
+        # "b": np.random.uniform(low=1.0, high=3.0) * np.ones([nsim, 1]),
+        # "c": np.random.uniform(low=0.3, high=0.7) * np.ones([nsim, 1]),
+        # "d": np.random.uniform(low=0.0, high=0.4) * np.ones([nsim, 1]),
         "U": np.random.randn(nsim, nu),
     }
     nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps)
@@ -291,13 +293,18 @@ if __name__ == "__main__":
                                            window_size=1,  # past window Np <= Nf
                                            input_keys=["Yp"],
                                            name='estimator')
-    # # mapping reading parameters from the dataset
-    # reader_parameters = estimators.FullyObservable({**dims, "x0": (nx+3,)},
-    #                                        nsteps=args.nsteps,  # future window Nf
-    #                                        window_size=1,  # past window Np <= Nf
-    #                                        input_keys=["x_finalp", 'bp', 'cp', 'dp'],
-    #                                        name='parameters')
-
+    # mapping reading parameters from the dataset
+    parameters = estimators.FullyObservable({**dims, "x0": (nx+3,)},
+                                           nsteps=args.nsteps,  # future window Nf
+                                           window_size=1,  # past window Np <= Nf
+                                           input_keys=["paramsp"],
+                                           name='parameters')
+    # mapping reading references from the dataset
+    refs = estimators.FullyObservable({**dims, "x0": (nx+3,)},
+                                           nsteps=args.nsteps,  # future window Nf
+                                           window_size=1,  # past window Np <= Nf
+                                           input_keys=["x_finalp"],
+                                           name='refs')
 
     # A, B, C linear maps
     fu = slim.maps['linear'](nu, nx)
@@ -322,17 +329,6 @@ if __name__ == "__main__":
     # fix model parameters
     dynamics_model.requires_grad_(False)
 
-    r = Variable('x_finalp')[[-1], :, :]
-    # r.name = 'ref'
-    # sampled parameters
-    p = 0.5
-    b = Variable('bp')[[-1], :, :]
-    # b.name = 'b_param'
-    c = Variable('cp')[[-1], :, :]
-    # c.name = 'c_param'
-    d = Variable('dp')[[-1], :, :]
-    # d.name = 'd_param'
-
     # full state feedback control policy with reference preview Rf
     # U_policy = p(x_0, Rf)
     # U_policy = [u_0, ..., u_N]
@@ -341,13 +337,15 @@ if __name__ == "__main__":
     linmap = slim.maps['linear']
     block = blocks.MLP
     policy = policies.MLPPolicy(
-        {f'x0_{estimator.name}': (nx,), **dims},
+        {f'x0_{estimator.name}': (nx,),
+         f'x0_{refs.name}': (nx,),
+         f'x0_{parameters.name}': (3,), **dims},
         nsteps=args.nsteps,
         bias=args.bias,
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=[f'x0_{estimator.name}'],
+        input_keys=[f'x0_{estimator.name}', f'x0_{parameters.name}', f'x0_{refs.name}'],
         name='policy',
     )
 
@@ -360,35 +358,42 @@ if __name__ == "__main__":
     x2 = Variable(f"X_pred_{dynamics_model.name}")[:, :, [1]]
     u = Variable(f"U_pred_{policy.name}")
     r = Variable('x_finalp')[[-1], :, :]
-    r.name = 'ref'
+    # sampled parameters
+    p = 0.5
+    b = Variable('paramsp')[[-1], :, [0]]
+    c = Variable('paramsp')[[-1], :, [1]]
+    d = Variable('paramsp')[[-1], :, [2]]
 
     Q_con = 1.0
-    # eliptic obstacke
-    obstacle = Q_con * ((p / 2) ** 2 <= b * (x1 - c) ** 2 + (x2 - d) ** 2)
-
-    # obstacles = []
-    # for k in range(args.nstep):
-    #     con = Q_con * ((p / 2) ** 2 <= b * (x[[k], :, [0]] - c) ** 2 + (x[[k], :, [1]] - d) ** 2)
-    #     obstacles.append(con)
-
+    obstacle = Q_con * ((p / 2) ** 2 <= b * (x1 - c) ** 2 + (x2 - d) ** 2)      # eliptic obstacle
     Q_u = 1.0
     action_loss = Q_u*((u==0)^2)                       # control penalty
     Q_r = 1.0
     reference_loss = Q_r*((r==x[[-1], :, :])^2)         # target posistion
+    Q_r_mean = 1.0
+    # reference_loss_mean = Q_r_mean*(r==x)         # target
+    reference_loss_mean = Q_r_mean*((r==x)^2)         # target
+    Q_dx = 1.0
+    state_smoothing = Q_dx*((x[1:] == x[:-1])^2)           # delta x penalty
+    Q_du = 1.0
+    control_smoothing = Q_du*((u[1:] == u[:-1])^2)          # delta u penalty
+
+    # dx bounded with some constant
 
     # constraints bounds variables
     umin = Variable("U_minf")
     umax = Variable("U_maxf")
     xmin = Variable("X_minf")
     xmax = Variable("X_maxf")
-    Q_con_u = 2.0
+    Q_con_u = 1.0
     Q_con_x = 1.0
     state_lower_bound_penalty = Q_con_x*(x > xmin)
     state_upper_bound_penalty = Q_con_x*(x < xmax)
     input_lower_bound_penalty = Q_con_u*(u > umin)
     input_upper_bound_penalty = Q_con_u*(u < umax)
 
-    objectives = [reference_loss, action_loss]
+    objectives = [reference_loss, action_loss, reference_loss_mean,
+                  state_smoothing, control_smoothing]
     constraints = [
         obstacle,
         state_lower_bound_penalty,
@@ -401,7 +406,7 @@ if __name__ == "__main__":
     # # #  DPC problem = objectives + constraints + trainable components 
     """
     # data (y_k) -> estimator (x_k) -> policy (u_k) -> dynamics (x_k+1, y_k+1)
-    components = [estimator, policy, dynamics_model]
+    components = [estimator, refs, parameters, policy, dynamics_model]
     # components = [estimator, b, c, d, policy, dynamics_model]
 
     model = Problem(
@@ -451,3 +456,44 @@ if __name__ == "__main__":
     #                     1*np.ones([ref_step, 1]), 0*np.ones([ref_step, 1])])
     # cl_simulate(A, B, policy, args=args, nstep=R.shape[0],
     #             x0=1.5*np.ones([2, 1]), ref=R, save_path='test_control')
+
+    b = 3.0
+    c = 0.3
+    d = 0.2
+    # 0.3 <= c < 0.7
+    # 0.0 <= d <= 0.4
+    # 1.0 <= b <= 3.0
+    x_init = np.asarray([[0.0], [0.0]])
+    x_final = np.asarray([[1.0], [0.2]])
+    params = np.asarray([[b], [c], [d]])
+
+    x1 = np.arange(-0.5, 1.5, 0.02)
+    x2 = np.arange(-0.5, 1.5, 0.02)
+    xx, yy = np.meshgrid(x1, x2)
+    # eval objective and constraints
+    c2 = b*(xx -c)**2+(yy-d)**2 - (p/2)**2
+
+    # Plot
+    fig, ax = plt.subplots(1,1)
+    cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.5)
+    plt.setp(cg2.collections, facecolor='mediumblue')
+    ax.plot(x_final[0], x_final[1], 'r*', markersize=10)
+    ax.plot(x_init[0], x_init[1], 'g*', markersize=10)
+
+    x_torch = torch.tensor(x_init).float().transpose(0, 1)
+    r_torch = torch.tensor(x_final).float().transpose(0, 1)
+    params_torch = torch.tensor(params).float().transpose(0, 1)
+    Yf = torch.ones([args.nsteps, 1])
+
+    uout = policy({'x0_estimator': x_torch, f'x0_{parameters.name}': params_torch,
+                   f'x0_{refs.name}': r_torch})
+    xout = dynamics_model({**uout, f'x0_{estimator.name}':x_torch, 'Yf': Yf})
+    X = xout['X_pred_dynamics'][:, 0, :].detach().numpy()
+    U = uout['U_pred_policy'][:, 0, :].detach().numpy()
+
+    # plot trajectory
+    ax.plot(X[:,0], X[:,1], '*--')
+
+    fig, ax = plt.subplots(2,1)
+    ax[0].plot(X)
+    ax[1].plot(U)

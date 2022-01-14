@@ -18,11 +18,7 @@ Reference material:
 from casadi import *
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from matplotlib.path import Path
-import matplotlib.patheffects as patheffects
-import matplotlib.patches as mpatches
-import matplotlib.path as mpath
+import time
 
 
 # instantiate casadi optimizaiton problem class
@@ -69,11 +65,15 @@ opti.subject_to(opti.bounded(-1.0, U, 1.0))
 opti.minimize(sumsqr(U))
 
 # select IPOPT solver and solve the NLP
+
+start_time = time.time()
 opti.solver('ipopt')
 sol = opti.solve()
+sol_time = time.time() - start_time
+print(f'solution time: {sol_time}')
 
-print(sol.value(x1))
-print(sol.value(x2))
+# print(sol.value(x1))
+# print(sol.value(x2))
 
 x1 = np.arange(-0.5, 1.5, 0.02)
 x2 = np.arange(-0.5, 1.5, 0.02)
@@ -94,4 +94,4 @@ ax.plot(sol.value(X[0,:]), sol.value(X[1,:]), '*--')
 fig, ax = plt.subplots(2, 1)
 ax[0].plot(sol.value(X).transpose())
 ax[1].plot(sol.value(U).transpose())
-print(np.mean(sol.value(U)**2))
+print(f'energy use: {np.mean(sol.value(U)**2)}')

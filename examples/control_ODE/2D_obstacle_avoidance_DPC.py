@@ -23,6 +23,7 @@ DENSITY_PALETTE = sns.color_palette("crest_r", as_cmap=True)
 DENSITY_FACECLR = DENSITY_PALETTE(0.01)
 sns.set_theme(style="white")
 import copy
+import time
 
 from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
@@ -181,9 +182,13 @@ def plot_obstacle(policy, dynamics_model, b, c, d):
     params_torch = torch.tensor(params).float().transpose(0, 1)
     Yf = torch.ones([args.nsteps, 1])
 
+    start_time = time.time()
     uout = policy({'x0_estimator': x_torch, 'x0_parameters': params_torch,
                    'x0_refs': r_torch})
     xout = dynamics_model({**uout, 'x0_estimator': x_torch, 'Yf': Yf})
+    sol_time = time.time() - start_time
+    print(f'solution time: {sol_time}')
+
     X = xout['X_pred_dynamics'][:, 0, :].detach().numpy()
     U = uout['U_pred_policy'][:, 0, :].detach().numpy()
     # overall state trajectory
@@ -196,7 +201,7 @@ def plot_obstacle(policy, dynamics_model, b, c, d):
     fig, ax = plt.subplots(2,1)
     ax[0].plot(X_traj)
     ax[1].plot(U)
-    print(np.mean(U**2))
+    print(f'energy use: {np.mean(U**2)}')
 
 
 if __name__ == "__main__":

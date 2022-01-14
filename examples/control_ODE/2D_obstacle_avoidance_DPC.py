@@ -48,7 +48,7 @@ def arg_dpc_problem(prefix=''):
     gp = parser.group("DPC")
     gp.add("-controlled_outputs", type=int, default=[0],
            help="Index of the controlled state.")
-    gp.add("-nsteps", type=int, default=10,
+    gp.add("-nsteps", type=int, default=20,
            help="prediction horizon.")          # tuned values: 1, 2
     gp.add("-Qr", type=float, default=5.0,
            help="reference tracking weight.")   # tuned value: 5.0
@@ -64,7 +64,7 @@ def arg_dpc_problem(prefix=''):
            help="state constraints penalty weight.")  # tuned value: 10.0
     gp.add("-Q_con_u", type=float, default=50.0,
            help="Input constraints penalty weight.")  # tuned value: 50.0
-    gp.add("-nx_hidden", type=int, default=20,
+    gp.add("-nx_hidden", type=int, default=100,
            help="Number of hidden states")
     gp.add("-n_layers", type=int, default=4,
            help="Number of hidden layers")
@@ -78,15 +78,15 @@ def arg_dpc_problem(prefix=''):
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
-    gp.add("-patience", type=int, default=100,
+    gp.add("-patience", type=int, default=200,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
-    gp.add("-warmup", type=int, default=10,
+    gp.add("-warmup", type=int, default=100,
            help="Number of epochs to wait before enacting early stopping policy.")
     return parser
 
 
 def get_sequence_dataloaders(
-    data, nsteps, moving_horizon=False, norm_type=None, split_ratio=None, num_workers=0,
+    data, nsteps, moving_horizon=False, norm_type=None, split_ratio=None, num_workers=0, batch_size=None,
 ):
     """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
     data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
@@ -129,23 +129,26 @@ def get_sequence_dataloaders(
     dev_loop = dev_data.get_full_sequence()
     test_loop = test_data.get_full_sequence()
 
+    if batch_size is None:
+        batch_size = len(train_data)
+
     train_data = DataLoader(
         train_data,
-        batch_size=len(train_data),
+        batch_size=batch_size,
         shuffle=False,
         collate_fn=train_data.collate_fn,
         num_workers=num_workers,
     )
     dev_data = DataLoader(
         dev_data,
-        batch_size=len(dev_data),
+        batch_size=batch_size,
         shuffle=False,
         collate_fn=dev_data.collate_fn,
         num_workers=num_workers,
     )
     test_data = DataLoader(
         test_data,
-        batch_size=len(test_data),
+        batch_size=batch_size,
         shuffle=False,
         collate_fn=test_data.collate_fn,
         num_workers=num_workers,
@@ -154,85 +157,46 @@ def get_sequence_dataloaders(
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
-def cl_simulate(A, B, policy, args, nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
-    """
+def plot_obstacle(policy, dynamics_model, b, c, d):
 
-    :param A:
-    :param B:
-    :param net:
-    :param nstep:
-    :param x0:
-    :return:
-    """
-    Anp = A.detach().numpy()
-    Bnp = B.detach().numpy()
-    x = x0
-    X = [x]
-    U = []
-    N = args.nsteps
-    if ref is None:
-        ref = np.zeros([nstep, 1])
+    x_init = np.asarray([[0.0], [0.0]])
+    x_final = np.asarray([[1.0], [0.2]])
+    params = np.asarray([[b], [c], [d]])
 
-    for k in range(nstep+1-N):
-        x_torch = torch.tensor(x).float().transpose(0, 1)
-        # taking a first control action based on RHC principle
-        r_k = torch.tensor([ref[k:k+N, :]]).float().transpose(0, 1)
-        uout = policy({'x0_estimator': x_torch, 'Rf': r_k})
-        u = uout['U_pred_policy'][0,:,:].detach().numpy().transpose()
-        # closed loop dynamics
-        x = np.matmul(Anp, x) + np.matmul(Bnp, u)
-        X.append(x)
-        U.append(u)
-    Xnp = np.asarray(X)[:, :, 0]
-    Unp = np.asarray(U)[:, :, 0]
+    x1 = np.arange(-0.5, 1.5, 0.02)
+    x2 = np.arange(-0.5, 1.5, 0.02)
+    xx, yy = np.meshgrid(x1, x2)
+    # eval objective and constraints
+    c2 = b*(xx -c)**2+(yy-d)**2 - (p/2)**2
 
-    fig, ax = plt.subplots(2, 1)
-    ax[0].plot(ref, 'k--', label='r', linewidth=2)
-    ax[0].plot(Xnp, label='x', linewidth=2)
-    ax[0].set(ylabel='$x$')
-    ax[0].set(xlabel='time')
-    ax[0].grid()
-    ax[0].set_xlim(0, nstep)
-    ax[1].plot(Unp, label='u', drawstyle='steps',  linewidth=2)
-    ax[1].set(ylabel='$u$')
-    ax[1].set(xlabel='time')
-    ax[1].grid()
-    ax[1].set_xlim(0, nstep)
-    plt.tight_layout()
-    if save_path is not None:
-        plt.savefig(save_path+'/closed_loop_dpc.pdf')
+    # Plot
+    fig, ax = plt.subplots(1,1)
+    cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.5)
+    plt.setp(cg2.collections, facecolor='mediumblue')
+    ax.plot(x_final[0], x_final[1], 'r*', markersize=10)
+    ax.plot(x_init[0], x_init[1], 'g*', markersize=10)
 
+    x_torch = torch.tensor(x_init).float().transpose(0, 1)
+    r_torch = torch.tensor(x_final).float().transpose(0, 1)
+    params_torch = torch.tensor(params).float().transpose(0, 1)
+    Yf = torch.ones([args.nsteps, 1])
 
-def lpv_batched(fx, x):
-    x_layer = x
-    Aprime_mats = []
-    activation_mats = []
-    bprimes = []
+    uout = policy({'x0_estimator': x_torch, 'x0_parameters': params_torch,
+                   'x0_refs': r_torch})
+    xout = dynamics_model({**uout, 'x0_estimator': x_torch, 'Yf': Yf})
+    X = xout['X_pred_dynamics'][:, 0, :].detach().numpy()
+    U = uout['U_pred_policy'][:, 0, :].detach().numpy()
+    # overall state trajectory
+    X_traj = np.concatenate((x_init.transpose(), X), axis=0)
 
-    for nlin, lin in zip(fx.nonlin, fx.linear):
-        A = lin.effective_W()  # layer weight
-        b = lin.bias if lin.bias is not None else torch.zeros(A.shape[-1])
-        Ax = torch.matmul(x_layer, A) + b  # affine transform
-        zeros = Ax == 0
-        lambda_h = nlin(Ax) / Ax  # activation scaling
-        lambda_h[zeros] = 0.
-        lambda_h_mats = [torch.diag(v) for v in lambda_h]
-        activation_mats += lambda_h_mats
-        lambda_h_mats = torch.stack(lambda_h_mats)
-        x_layer = Ax * lambda_h
-        Aprime = torch.matmul(A, lambda_h_mats)
-        Aprime_mats += [Aprime]
-        bprime = lambda_h * b
-        bprimes += [bprime]
+    # plot statetrajectory
+    ax.plot(X_traj[:,0], X_traj[:,1], '*--')
 
-    # network-wise parameter varying linear map:  A* = A'_L ... A'_1
-    Astar = Aprime_mats[0]
-    bstar = bprimes[0] # b x nx
-    for Aprime, bprime in zip(Aprime_mats[1:], bprimes[1:]):
-        Astar = torch.bmm(Astar, Aprime)
-        bstar = torch.bmm(bstar.unsqueeze(-2), Aprime).squeeze(-2) + bprime
-
-    return Astar, bstar, Aprime_mats, bprimes, activation_mats
+    # plot states and control actions
+    fig, ax = plt.subplots(2,1)
+    ax[0].plot(X_traj)
+    ax[1].plot(U)
+    print(np.mean(U**2))
 
 
 if __name__ == "__main__":
@@ -278,7 +242,7 @@ if __name__ == "__main__":
         # "d": np.random.uniform(low=0.0, high=0.4) * np.ones([nsim, 1]),
         "U": np.random.randn(nsim, nu),
     }
-    nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps)
+    nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps, batch_size=1)
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data
 
@@ -345,7 +309,8 @@ if __name__ == "__main__":
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=[f'x0_{estimator.name}', f'x0_{parameters.name}', f'x0_{refs.name}'],
+        input_keys=[f'x0_{estimator.name}', f'x0_{parameters.name}',
+                    f'x0_{refs.name}'],
         name='policy',
     )
 
@@ -357,20 +322,25 @@ if __name__ == "__main__":
     x1 = Variable(f"X_pred_{dynamics_model.name}")[:, :, [0]]
     x2 = Variable(f"X_pred_{dynamics_model.name}")[:, :, [1]]
     u = Variable(f"U_pred_{policy.name}")
-    r = Variable('x_finalp')[[-1], :, :]
+    # r = Variable('x_finalp')[[-1], :, :]
+    r = Variable(f'x0_{refs.name}')
     # sampled parameters
     p = 0.5
-    b = Variable('paramsp')[[-1], :, [0]]
-    c = Variable('paramsp')[[-1], :, [1]]
-    d = Variable('paramsp')[[-1], :, [2]]
+    # b = Variable('paramsp')[[-1], :, [0]]
+    # c = Variable('paramsp')[[-1], :, [1]]
+    # d = Variable('paramsp')[[-1], :, [2]]
 
-    Q_con = 1.0
-    obstacle = Q_con * ((p / 2) ** 2 <= b * (x1 - c) ** 2 + (x2 - d) ** 2)      # eliptic obstacle
+    b = Variable(f'x0_{parameters.name}')[:, [0]]
+    c = Variable(f'x0_{parameters.name}')[:, [1]]
+    d = Variable(f'x0_{parameters.name}')[:, [2]]
+
+    Q_con = 100.0
+    obstacle = Q_con * (((p / 2) ** 2 <= b * (x1 - c) ** 2 + (x2 - d) ** 2)^2)      # eliptic obstacle
     Q_u = 1.0
     action_loss = Q_u*((u==0)^2)                       # control penalty
     Q_r = 1.0
     reference_loss = Q_r*((r==x[[-1], :, :])^2)         # target posistion
-    Q_r_mean = 1.0
+    Q_r_mean = 0.0
     # reference_loss_mean = Q_r_mean*(r==x)         # target
     reference_loss_mean = Q_r_mean*((r==x)^2)         # target
     Q_dx = 1.0
@@ -450,12 +420,6 @@ if __name__ == "__main__":
     """
     # # #  Plots and Analysis
     """
-    # # plot closed loop trajectories with time varying reference
-    # ref_step = 40
-    # R = np.concatenate([0.5*np.ones([ref_step, 1]),
-    #                     1*np.ones([ref_step, 1]), 0*np.ones([ref_step, 1])])
-    # cl_simulate(A, B, policy, args=args, nstep=R.shape[0],
-    #             x0=1.5*np.ones([2, 1]), ref=R, save_path='test_control')
 
     b = 3.0
     c = 0.3
@@ -463,37 +427,13 @@ if __name__ == "__main__":
     # 0.3 <= c < 0.7
     # 0.0 <= d <= 0.4
     # 1.0 <= b <= 3.0
-    x_init = np.asarray([[0.0], [0.0]])
-    x_final = np.asarray([[1.0], [0.2]])
-    params = np.asarray([[b], [c], [d]])
 
-    x1 = np.arange(-0.5, 1.5, 0.02)
-    x2 = np.arange(-0.5, 1.5, 0.02)
-    xx, yy = np.meshgrid(x1, x2)
-    # eval objective and constraints
-    c2 = b*(xx -c)**2+(yy-d)**2 - (p/2)**2
+    plot_obstacle(policy, dynamics_model, b, c, d)
 
-    # Plot
-    fig, ax = plt.subplots(1,1)
-    cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.5)
-    plt.setp(cg2.collections, facecolor='mediumblue')
-    ax.plot(x_final[0], x_final[1], 'r*', markersize=10)
-    ax.plot(x_init[0], x_init[1], 'g*', markersize=10)
+    print(f'Q_r {Q_r}')
+    print(f'Q_u {Q_u}')
+    print(f'Q_du {Q_du}')
+    print(f'Q_dx {Q_dx}')
+    print(f'Q_con {Q_con}')
+    print(f'Q_r_mean {Q_r_mean}')
 
-    x_torch = torch.tensor(x_init).float().transpose(0, 1)
-    r_torch = torch.tensor(x_final).float().transpose(0, 1)
-    params_torch = torch.tensor(params).float().transpose(0, 1)
-    Yf = torch.ones([args.nsteps, 1])
-
-    uout = policy({'x0_estimator': x_torch, f'x0_{parameters.name}': params_torch,
-                   f'x0_{refs.name}': r_torch})
-    xout = dynamics_model({**uout, f'x0_{estimator.name}':x_torch, 'Yf': Yf})
-    X = xout['X_pred_dynamics'][:, 0, :].detach().numpy()
-    U = uout['U_pred_policy'][:, 0, :].detach().numpy()
-
-    # plot trajectory
-    ax.plot(X[:,0], X[:,1], '*--')
-
-    fig, ax = plt.subplots(2,1)
-    ax[0].plot(X)
-    ax[1].plot(U)

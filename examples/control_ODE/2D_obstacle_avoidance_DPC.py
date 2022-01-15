@@ -1,12 +1,11 @@
 """
-Differentiable predictive control (DPC)
+Solve obstacle avoidance control problem in Neuromancer
+minimize     u_k^2
+subject to   (p/2)^2 <= b(x[0]-c)^2 + (x[1]-d)^2
+             x_k+1 = Ax_k + Bu_k
 
-DPC double integrator example with given system dynamics model
-time varying reference tracking problem
-
-observation: with increasing predicion horizon we need to retune the relative weights,
-            otherwise the performance deteriorates
-open problem: automatic retuning based on prediction horizon length
+problem parameters:             p, b, c, d
+problem decition variables:     x, u
 
 """
 
@@ -24,6 +23,8 @@ DENSITY_FACECLR = DENSITY_PALETTE(0.01)
 sns.set_theme(style="white")
 import copy
 import time
+from casadi import *
+import numpy as np
 
 from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
@@ -158,7 +159,7 @@ def get_sequence_dataloaders(
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
-def plot_obstacle(policy, dynamics_model, b, c, d):
+def plot_obstacle(policy, dynamics_model, opti, b, c, d, show_plot=True):
 
     x_init = np.asarray([[0.0], [0.0]])
     x_final = np.asarray([[1.0], [0.2]])
@@ -170,38 +171,63 @@ def plot_obstacle(policy, dynamics_model, b, c, d):
     # eval objective and constraints
     c2 = b*(xx -c)**2+(yy-d)**2 - (p/2)**2
 
-    # Plot
-    fig, ax = plt.subplots(1,1)
-    cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.5)
-    plt.setp(cg2.collections, facecolor='mediumblue')
-    ax.plot(x_final[0], x_final[1], 'r*', markersize=10)
-    ax.plot(x_init[0], x_init[1], 'g*', markersize=10)
+    if show_plot:
+        # Plot
+        fig, ax = plt.subplots(1,1)
+        cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.6)
+        plt.setp(cg2.collections, facecolor='mediumblue')
+        ax.plot(x_final[0], x_final[1], 'r*', markersize=10)
+        ax.plot(x_init[0], x_init[1], 'g*', markersize=10)
+        plt.xlim(-0.25, 1.25)
+        plt.ylim(-0.5, 1.0)
+        plt.grid()
 
     x_torch = torch.tensor(x_init).float().transpose(0, 1)
     r_torch = torch.tensor(x_final).float().transpose(0, 1)
     params_torch = torch.tensor(params).float().transpose(0, 1)
     Yf = torch.ones([args.nsteps, 1])
 
+    # DPC policy
     start_time = time.time()
     uout = policy({'x0_estimator': x_torch, 'x0_parameters': params_torch,
                    'x0_refs': r_torch})
     xout = dynamics_model({**uout, 'x0_estimator': x_torch, 'Yf': Yf})
     sol_time = time.time() - start_time
-    print(f'solution time: {sol_time}')
+    print(f'DPC solution time: {sol_time}')
 
-    X = xout['X_pred_dynamics'][:, 0, :].detach().numpy()
-    U = uout['U_pred_policy'][:, 0, :].detach().numpy()
+    # IPOPT
+    start_time = time.time()
+    sol = opti.solve()
+    sol_time_casadi = time.time() - start_time
+    print(f'IPOPT solution time: {sol_time_casadi}')
+
+    X_model = xout['X_pred_dynamics'][:, 0, :].detach().numpy()
+    U_dpc = uout['U_pred_policy'][:, 0, :].detach().numpy()
     # overall state trajectory
-    X_traj = np.concatenate((x_init.transpose(), X), axis=0)
+    X_traj = np.concatenate((x_init.transpose(), X_model), axis=0)
+    X_ipopt = sol.value(X).transpose()
+    U_ipopt = sol.value(U).transpose()
 
-    # plot statetrajectory
-    ax.plot(X_traj[:,0], X_traj[:,1], '*--')
+    if show_plot:
+        # plot IPOPT trajectory
+        ax.plot(X_ipopt[:, 0], X_ipopt[:, 1], '-', color='orange', label='IPOPT', linewidth=2)
+        # plot DPC state trajectory
+        ax.plot(X_traj[:, 0], X_traj[:, 1], '--', color='purple', label='DPC', linewidth=2)
+        plt.legend(fontsize=18)
+        ax.set_xlabel('$x_2$', fontsize=18)
+        ax.set_ylabel('$x_1$', fontsize=18)
 
-    # plot states and control actions
-    fig, ax = plt.subplots(2,1)
-    ax[0].plot(X_traj)
-    ax[1].plot(U)
-    print(f'energy use: {np.mean(U**2)}')
+        # plot DPC states and control actions
+        fig, ax = plt.subplots(2,1)
+        ax[0].plot(X_traj)
+        ax[1].plot(U_dpc)
+        # IPOPT trajectories
+        ax[0].plot(X_ipopt)
+        ax[1].plot(U_ipopt)
+    print(f'DPC energy use: {np.mean(U_dpc**2)}')
+    print(f'IPOPT energy use: {np.mean(sol.value(U) ** 2)}')
+
+    return sol_time, sol_time_casadi
 
 
 if __name__ == "__main__":
@@ -219,7 +245,7 @@ if __name__ == "__main__":
     ny = 2
     nu = 2
     # number of datapoints
-    nsim = 10000        # rule of thumb: more data samples -> improved control performance
+    nsim = 30000        # rule of thumb: more data samples -> improved control performance
     # constraints bounds
     umin = -1
     umax = 1
@@ -238,8 +264,6 @@ if __name__ == "__main__":
         "U_max": umax*np.ones([nsim, nu]),
         "U_min": umin*np.ones([nsim, nu]),
         "Y": np.random.uniform(low=-0.1, high=0.1, size=(nsim, nx)),
-        # "x_init": np.random.uniform(low=-0.1, high=0.1, size=(nsim,nx)),
-        # "x_final": 1+np.random.uniform(low=-0.1, high=0.1, size=(nsim,nx)),
         "x_final": np.random.uniform(low=[0.8, -0.2], high=[1.2, 0.2], size=(nsim, nx)),
         'params': np.random.uniform(low=[1.0, 0.3, 0.0], high=[3.0, 0.7, 0.4], size=(nsim,3)),
         # "b": np.random.uniform(low=1.0, high=3.0) * np.ones([nsim, 1]),
@@ -247,7 +271,7 @@ if __name__ == "__main__":
         # "d": np.random.uniform(low=0.0, high=0.4) * np.ones([nsim, 1]),
         "U": np.random.randn(nsim, nu),
     }
-    nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps, batch_size=1)
+    nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps, batch_size=None)
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data
 
@@ -339,9 +363,9 @@ if __name__ == "__main__":
     c = Variable(f'x0_{parameters.name}')[:, [1]]
     d = Variable(f'x0_{parameters.name}')[:, [2]]
 
-    Q_con = 100.0
+    Q_con = 200.0
     obstacle = Q_con * (((p / 2) ** 2 <= b * (x1 - c) ** 2 + (x2 - d) ** 2)^2)      # eliptic obstacle
-    Q_u = 1.0
+    Q_u = 10.0
     action_loss = Q_u*((u==0)^2)                       # control penalty
     Q_r = 1.0
     reference_loss = Q_r*((r==x[[-1], :, :])^2)         # target posistion
@@ -350,7 +374,7 @@ if __name__ == "__main__":
     reference_loss_mean = Q_r_mean*((r==x)^2)         # target
     Q_dx = 1.0
     state_smoothing = Q_dx*((x[1:] == x[:-1])^2)           # delta x penalty
-    Q_du = 1.0
+    Q_du = 10.0
     control_smoothing = Q_du*((u[1:] == u[:-1])^2)          # delta u penalty
 
     # dx bounded with some constant
@@ -422,18 +446,67 @@ if __name__ == "__main__":
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
 
+
+
+    """
+    # # #  Parameters for Benchmark solution and plots
+    """
+    p = 0.5
+    b = 3.0
+    c = 0.3
+    d = 0.4
+    # 1.0 <= b <= 3.0
+    # 0.3 <= c < 0.7
+    # 0.0 <= d <= 0.4
+
+    """
+    # # #  Benchmark solution in CasADi using IPOPT
+    """
+    # instantiate casadi optimizaiton problem class
+    opti = casadi.Opti()
+    N = args.nsteps
+    X = opti.variable(2, N + 1)  # state trajectory
+    x1 = X[0, :]
+    x2 = X[1, :]
+    U = opti.variable(2, N)  # control trajectory
+    # system dynamics
+    A = MX(np.array([[1.0, 0.1],
+                     [0.0, 1.0]]))
+    B = MX(np.array([[1.0, 0.0],
+                     [0.0, 1.0]]))
+    x_init = [0.0, 0.0]
+    x_final = [1.0, 0.2]
+    # initial conditions
+    opti.subject_to(x1[:, 0] == x_init[0])
+    opti.subject_to(x2[:, 0] == x_init[1])
+    # terminal condition
+    opti.subject_to(x1[:, N] == x_final[0])
+    opti.subject_to(x2[:, N] == x_final[1])
+    for k in range(N):
+        opti.subject_to((p / 2) ** 2 <= b * (x1[:, k] - c) ** 2 + (x2[:, k] - d) ** 2)
+        opti.subject_to(X[:, k + 1] == A @ X[:, k] + B @ U[:, k])
+    opti.subject_to(opti.bounded(-1.0, U, 1.0))
+    # define objective
+    opti.minimize(sumsqr(U))
+    opti.solver('ipopt')
+
     """
     # # #  Plots and Analysis
     """
 
-    b = 3.0
-    c = 0.3
-    d = 0.2
-    # 0.3 <= c < 0.7
-    # 0.0 <= d <= 0.4
-    # 1.0 <= b <= 3.0
+    sol_time = plot_obstacle(policy, dynamics_model, opti, b, c, d)
 
-    plot_obstacle(policy, dynamics_model, b, c, d)
+    times = []
+    times_ipopt = []
+    for k in range(50):
+        sol_time, sol_time_casadi = plot_obstacle(policy, dynamics_model,
+                                                  opti, b, c, d, show_plot=False)
+        times.append(sol_time)
+        times_ipopt.append(sol_time_casadi)
+    print(f'DPC mean solution time: {np.mean(times)}')
+    print(f'DPC max solution time: {np.max(times)}')
+    print(f'IPOPT mean solution time: {np.mean(sol_time_casadi)}')
+    print(f'IPOPT max solution time: {np.max(sol_time_casadi)}')
 
     print(f'Q_r {Q_r}')
     print(f'Q_u {Q_u}')
@@ -441,4 +514,3 @@ if __name__ == "__main__":
     print(f'Q_dx {Q_dx}')
     print(f'Q_con {Q_con}')
     print(f'Q_r_mean {Q_r_mean}')
-

@@ -1,17 +1,11 @@
 """
-Solve the Rosenbrock problem, formulated as the NLP using CasADi toolbox:
-minimize     (1-x)^2 + a*(y-x^2)^2
-subject to   (p/2)^2 <= x^2 + y^2 <= p^2
-             x>=y
+Solve obstacle avoidance control problem in Casadi
+minimize     u_k^2
+subject to   (p/2)^2 <= b(x[0]-c)^2 + (x[1]-d)^2
+             x_k+1 = Ax_k + Bu_k
 
-problem parameters:             a, p
-problem decition variables:     x, y
-
-Reference material:
-    https://en.wikipedia.org/wiki/Rosenbrock_function
-    https://web.casadi.org/blog/opti/
-    https://web.casadi.org/blog/nlp_sens/
-    https://github.com/casadi/casadi/blob/master/docs/examples/python/rosenbrock.py
+problem parameters:             p, b, c, d
+problem decition variables:     x, u
 
 """
 
@@ -66,11 +60,17 @@ opti.minimize(sumsqr(U))
 
 # select IPOPT solver and solve the NLP
 
-start_time = time.time()
-opti.solver('ipopt')
-sol = opti.solve()
-sol_time = time.time() - start_time
-print(f'solution time: {sol_time}')
+times = []
+for k in range(50):
+    start_time = time.time()
+    opti.solver('ipopt')
+    sol = opti.solve()
+    sol_time = time.time() - start_time
+    times.append(sol_time)
+print(f'mean solution time: {np.mean(times)}')
+print(f'max solution time: {np.max(times)}')
+
+
 
 # print(sol.value(x1))
 # print(sol.value(x2))

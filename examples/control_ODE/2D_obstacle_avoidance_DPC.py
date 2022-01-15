@@ -159,8 +159,41 @@ def get_sequence_dataloaders(
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
-def plot_obstacle(policy, dynamics_model, opti, b, c, d, show_plot=True):
+def plot_obstacle(policy, dynamics_model, b, c, d, show_plot=True):
+    """
+       # # #  Benchmark solution in CasADi using IPOPT
+    """
+    # instantiate casadi optimizaiton problem class
+    opti = casadi.Opti()
+    N = args.nsteps
+    X = opti.variable(2, N + 1)  # state trajectory
+    x1 = X[0, :]
+    x2 = X[1, :]
+    U = opti.variable(2, N)  # control trajectory
+    # system dynamics
+    A = MX(np.array([[1.0, 0.1],
+                     [0.0, 1.0]]))
+    B = MX(np.array([[1.0, 0.0],
+                     [0.0, 1.0]]))
+    x_init = [0.0, 0.0]
+    x_final = [1.0, 0.2]
+    # initial conditions
+    opti.subject_to(x1[:, 0] == x_init[0])
+    opti.subject_to(x2[:, 0] == x_init[1])
+    # terminal condition
+    opti.subject_to(x1[:, N] == x_final[0])
+    opti.subject_to(x2[:, N] == x_final[1])
+    for k in range(N):
+        opti.subject_to((p / 2) ** 2 <= b * (x1[:, k] - c) ** 2 + (x2[:, k] - d) ** 2)
+        opti.subject_to(X[:, k + 1] == A @ X[:, k] + B @ U[:, k])
+    opti.subject_to(opti.bounded(-1.0, U, 1.0))
+    # define objective
+    opti.minimize(sumsqr(U))
+    opti.solver('ipopt')
 
+    """
+        Plots
+    """
     x_init = np.asarray([[0.0], [0.0]])
     x_final = np.asarray([[1.0], [0.2]])
     params = np.asarray([[b], [c], [d]])
@@ -363,9 +396,9 @@ if __name__ == "__main__":
     c = Variable(f'x0_{parameters.name}')[:, [1]]
     d = Variable(f'x0_{parameters.name}')[:, [2]]
 
-    Q_con = 200.0
+    Q_con = 100.0
     obstacle = Q_con * (((p / 2) ** 2 <= b * (x1 - c) ** 2 + (x2 - d) ** 2)^2)      # eliptic obstacle
-    Q_u = 10.0
+    Q_u = 1.0
     action_loss = Q_u*((u==0)^2)                       # control penalty
     Q_r = 1.0
     reference_loss = Q_r*((r==x[[-1], :, :])^2)         # target posistion
@@ -374,7 +407,7 @@ if __name__ == "__main__":
     reference_loss_mean = Q_r_mean*((r==x)^2)         # target
     Q_dx = 1.0
     state_smoothing = Q_dx*((x[1:] == x[:-1])^2)           # delta x penalty
-    Q_du = 10.0
+    Q_du = 1.0
     control_smoothing = Q_du*((u[1:] == u[:-1])^2)          # delta u penalty
 
     # dx bounded with some constant
@@ -447,60 +480,24 @@ if __name__ == "__main__":
     best_outputs = trainer.test(best_model)
 
 
-
     """
-    # # #  Parameters for Benchmark solution and plots
+    # # #  Plots and Analysis
     """
     p = 0.5
-    b = 3.0
-    c = 0.3
+    b = 2.0
+    c = 0.7
     d = 0.4
     # 1.0 <= b <= 3.0
     # 0.3 <= c < 0.7
     # 0.0 <= d <= 0.4
 
-    """
-    # # #  Benchmark solution in CasADi using IPOPT
-    """
-    # instantiate casadi optimizaiton problem class
-    opti = casadi.Opti()
-    N = args.nsteps
-    X = opti.variable(2, N + 1)  # state trajectory
-    x1 = X[0, :]
-    x2 = X[1, :]
-    U = opti.variable(2, N)  # control trajectory
-    # system dynamics
-    A = MX(np.array([[1.0, 0.1],
-                     [0.0, 1.0]]))
-    B = MX(np.array([[1.0, 0.0],
-                     [0.0, 1.0]]))
-    x_init = [0.0, 0.0]
-    x_final = [1.0, 0.2]
-    # initial conditions
-    opti.subject_to(x1[:, 0] == x_init[0])
-    opti.subject_to(x2[:, 0] == x_init[1])
-    # terminal condition
-    opti.subject_to(x1[:, N] == x_final[0])
-    opti.subject_to(x2[:, N] == x_final[1])
-    for k in range(N):
-        opti.subject_to((p / 2) ** 2 <= b * (x1[:, k] - c) ** 2 + (x2[:, k] - d) ** 2)
-        opti.subject_to(X[:, k + 1] == A @ X[:, k] + B @ U[:, k])
-    opti.subject_to(opti.bounded(-1.0, U, 1.0))
-    # define objective
-    opti.minimize(sumsqr(U))
-    opti.solver('ipopt')
-
-    """
-    # # #  Plots and Analysis
-    """
-
-    sol_time = plot_obstacle(policy, dynamics_model, opti, b, c, d)
+    sol_time = plot_obstacle(policy, dynamics_model, b, c, d)
 
     times = []
     times_ipopt = []
     for k in range(50):
         sol_time, sol_time_casadi = plot_obstacle(policy, dynamics_model,
-                                                  opti, b, c, d, show_plot=False)
+                                                  b, c, d, show_plot=False)
         times.append(sol_time)
         times_ipopt.append(sol_time_casadi)
     print(f'DPC mean solution time: {np.mean(times)}')

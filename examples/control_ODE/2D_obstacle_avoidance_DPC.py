@@ -159,7 +159,7 @@ def get_sequence_dataloaders(
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
-def plot_obstacle(policy, dynamics_model, b, c, d, show_plot=True):
+def plot_obstacle(model, args, b, c, d, show_plot=True):
     """
        # # #  Benchmark solution in CasADi using IPOPT
     """
@@ -192,7 +192,7 @@ def plot_obstacle(policy, dynamics_model, b, c, d, show_plot=True):
     opti.solver('ipopt')
 
     """
-        Plots
+    Plot trajectories
     """
     x_init = np.asarray([[0.0], [0.0]])
     x_final = np.asarray([[1.0], [0.2]])
@@ -204,23 +204,16 @@ def plot_obstacle(policy, dynamics_model, b, c, d, show_plot=True):
     # eval objective and constraints
     c2 = b*(xx -c)**2+(yy-d)**2 - (p/2)**2
 
-    if show_plot:
-        # Plot
-        fig, ax = plt.subplots(1,1)
-        cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.6)
-        plt.setp(cg2.collections, facecolor='mediumblue')
-        ax.plot(x_final[0], x_final[1], 'r*', markersize=10)
-        ax.plot(x_init[0], x_init[1], 'g*', markersize=10)
-        plt.xlim(-0.25, 1.25)
-        plt.ylim(-0.5, 1.0)
-        plt.grid()
-
+    # define problem parameters
     x_torch = torch.tensor(x_init).float().transpose(0, 1)
     r_torch = torch.tensor(x_final).float().transpose(0, 1)
     params_torch = torch.tensor(params).float().transpose(0, 1)
     Yf = torch.ones([args.nsteps, 1])
 
     # DPC policy
+    policy = model.components[3]
+    dynamics_model = model.components[4]
+
     start_time = time.time()
     uout = policy({'x0_estimator': x_torch, 'x0_parameters': params_torch,
                    'x0_refs': r_torch})
@@ -242,6 +235,14 @@ def plot_obstacle(policy, dynamics_model, b, c, d, show_plot=True):
     U_ipopt = sol.value(U).transpose()
 
     if show_plot:
+        # Plot
+        fig, ax = plt.subplots(1,1)
+        # plot obstacle
+        cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.6)
+        plt.setp(cg2.collections, facecolor='mediumblue')
+        # plot initial and target state
+        ax.plot(x_final[0], x_final[1], 'r*', markersize=10)
+        ax.plot(x_init[0], x_init[1], 'g*', markersize=10)
         # plot IPOPT trajectory
         ax.plot(X_ipopt[:, 0], X_ipopt[:, 1], '-', color='orange', label='IPOPT', linewidth=2)
         # plot DPC state trajectory
@@ -249,7 +250,9 @@ def plot_obstacle(policy, dynamics_model, b, c, d, show_plot=True):
         plt.legend(fontsize=18)
         ax.set_xlabel('$x_2$', fontsize=18)
         ax.set_ylabel('$x_1$', fontsize=18)
-
+        plt.xlim(-0.25, 1.25)
+        plt.ylim(-0.5, 1.0)
+        plt.grid()
         # plot DPC states and control actions
         fig, ax = plt.subplots(2,1)
         ax[0].plot(X_traj)
@@ -259,6 +262,36 @@ def plot_obstacle(policy, dynamics_model, b, c, d, show_plot=True):
         ax[1].plot(U_ipopt)
     print(f'DPC energy use: {np.mean(U_dpc**2)}')
     print(f'IPOPT energy use: {np.mean(sol.value(U) ** 2)}')
+
+    """
+    Plot loss function
+    """
+    if show_plot:
+        Loss = np.ones([x1.shape[0], x2.shape[0]])*np.nan
+        for i in range(x1.shape[0]):
+            for j in range(x2.shape[0]):
+                ref_penalty = torch.mean((torch.tensor([x1[i], x2[j]])-r_torch)**2).detach().numpy()
+                con = b * (x1[i] - c) ** 2 + (x2[j] - d) ** 2 - (p / 2) ** 2
+                con_penalty = np.maximum(-con, 0)
+                Loss[i, j] = ref_penalty+100*con_penalty
+
+        fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+        surf = ax.plot_surface(xx, yy, Loss.transpose(),
+                               cmap=cm.viridis,
+                               linewidth=0, antialiased=False)
+        ax.set(ylabel='$x_1$')
+        ax.set(xlabel='$x_2$')
+        ax.set(zlabel='$L$')
+        # ax.set(title='Loss landscape')
+        fig, ax = plt.subplots()
+        cp = ax.contourf(xx, yy, Loss.transpose(), cmap=cm.viridis, alpha=0.7,
+                         levels=[0, 0.001, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5,
+                                 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
+        ax.set_xlabel('$x_2$', fontsize=18)
+        ax.set_ylabel('$x_1$', fontsize=18)
+        plt.xlim(-0.25, 1.25)
+        plt.ylim(-0.5, 1.0)
+        ax.set(title='State loss contours')
 
     return sol_time, sol_time_casadi
 
@@ -398,7 +431,7 @@ if __name__ == "__main__":
 
     Q_con = 100.0
     obstacle = Q_con * (((p / 2) ** 2 <= b * (x1 - c) ** 2 + (x2 - d) ** 2)^2)      # eliptic obstacle
-    Q_u = 1.0
+    Q_u = 10.0
     action_loss = Q_u*((u==0)^2)                       # control penalty
     Q_r = 1.0
     reference_loss = Q_r*((r==x[[-1], :, :])^2)         # target posistion
@@ -407,7 +440,7 @@ if __name__ == "__main__":
     reference_loss_mean = Q_r_mean*((r==x)^2)         # target
     Q_dx = 1.0
     state_smoothing = Q_dx*((x[1:] == x[:-1])^2)           # delta x penalty
-    Q_du = 1.0
+    Q_du = 10.0
     control_smoothing = Q_du*((u[1:] == u[:-1])^2)          # delta u penalty
 
     # dx bounded with some constant
@@ -483,20 +516,25 @@ if __name__ == "__main__":
     """
     # # #  Plots and Analysis
     """
-    p = 0.5
-    b = 2.0
-    c = 0.7
-    d = 0.4
+    # plotting a range of obstacles
     # 1.0 <= b <= 3.0
     # 0.3 <= c < 0.7
     # 0.0 <= d <= 0.4
-
-    sol_time = plot_obstacle(policy, dynamics_model, b, c, d)
+    p, b, c, d = 0.5, 2.0, 0.7, 0.4
+    sol_time, _ = plot_obstacle(model, args, b, c, d)
+    p, b, c, d = 0.5, 2.0, 0.3, 0.4
+    sol_time, _ = plot_obstacle(model, args, b, c, d)
+    p, b, c, d = 0.5, 2.0, 0.3, 0.0
+    sol_time, _ = plot_obstacle(model, args, b, c, d)
+    p, b, c, d = 0.5, 2.0, 0.7, 0.0
+    sol_time, _ = plot_obstacle(model, args, b, c, d)
+    p, b, c, d = 0.5, 2.0, 0.7, 0.2
+    sol_time, _ = plot_obstacle(model, args, b, c, d)
 
     times = []
     times_ipopt = []
     for k in range(50):
-        sol_time, sol_time_casadi = plot_obstacle(policy, dynamics_model,
+        sol_time, sol_time_casadi = plot_obstacle(model, args,
                                                   b, c, d, show_plot=False)
         times.append(sol_time)
         times_ipopt.append(sol_time_casadi)

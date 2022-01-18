@@ -322,7 +322,7 @@ if __name__ == "__main__":
     nu = 2
     nw = 2
     # number of datapoints
-    n_sim_p = 1000  # number of parametric samples
+    n_sim_p = 3000  # number of parametric samples
     n_sim_w = 100    # number of disturbance samples per parameter
     nsim = n_sim_p*n_sim_w        # rule of thumb: more data samples -> improved control performance
     # constraints bounds
@@ -544,7 +544,7 @@ if __name__ == "__main__":
     sol_time, _ = plot_obstacle(model, args, b, c, d, w_sigma=0.5*w_sigma)
     p, b, c, d = 0.5, 2.0, 0.3, 0.0
     sol_time, _ = plot_obstacle(model, args, b, c, d, w_sigma=0.5*w_sigma)
-    p, b, c, d = 0.5, 1.0, 0.6, 0.1
+    p, b, c, d = 0.5, 1.0, 0.6, 0.2
     sol_time, _ = plot_obstacle(model, args, b, c, d, w_sigma=0.5*w_sigma)
 
 

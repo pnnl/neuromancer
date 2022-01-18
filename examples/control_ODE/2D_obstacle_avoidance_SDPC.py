@@ -322,7 +322,7 @@ if __name__ == "__main__":
     nu = 2
     nw = 2
     # number of datapoints
-    n_sim_p = 3000  # number of parametric samples
+    n_sim_p = 1000  # number of parametric samples
     n_sim_w = 100    # number of disturbance samples per parameter
     nsim = n_sim_p*n_sim_w        # rule of thumb: more data samples -> improved control performance
     # constraints bounds

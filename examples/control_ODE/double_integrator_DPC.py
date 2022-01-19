@@ -18,7 +18,7 @@ from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
-from neuromancer.constraint import Loss
+from neuromancer.constraint import Variable, Objective, Loss
 from neuromancer import policies
 import neuromancer.arg as arg
 from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
@@ -43,16 +43,16 @@ def arg_dpc_problem(prefix=''):
            help="prediction horizon.")          # tuned values: 1, 2
     gp.add("-Qx", type=float, default=5.0,
            help="state weight.")                # tuned value: 5.0
-    gp.add("-Qu", type=float, default=1.0,
-           help="control action weight.")       # tuned value: 1.0
+    gp.add("-Qu", type=float, default=0.2,
+           help="control action weight.")       # tuned value: 0.2
     gp.add("-Qn", type=float, default=1.0,
            help="terminal penalty weight.")     # tuned value: 1.0
     gp.add("-Q_sub", type=float, default=0.0,
            help="regularization weight.")
     gp.add("-Q_con_x", type=float, default=10.0,
            help="state constraints penalty weight.")  # tuned value: 10.0
-    gp.add("-Q_con_u", type=float, default=50.0,
-           help="Input constraints penalty weight.")  # tuned value: 50.0
+    gp.add("-Q_con_u", type=float, default=100.0,
+           help="Input constraints penalty weight.")  # tuned value: 100.0
     gp.add("-nx_hidden", type=int, default=20,
            help="Number of hidden states")
     gp.add("-n_layers", type=int, default=4,
@@ -240,67 +240,28 @@ if __name__ == "__main__":
     """
     # # #  DPC objectives and constraints
     """
-    # objectives
-    regulation_loss = Loss(
-        [f'Y_pred_{dynamics_model.name}'],
-        lambda x: torch.norm(x, 2),
-        weight=args.Qx,
-        name="x^T*Qx*x",
-    )
-    action_loss = Loss(
-        [f"U_pred_{policy.name}"],
-        lambda x:  torch.norm(x, 2),
-        weight=args.Qu,
-        name="u^T*Qu*u",
-    )
+    u = Variable(f"U_pred_{policy.name}")
+    y = Variable(f"Y_pred_{dynamics_model.name}")
+    # constraints bounds variables
+    umin = Variable("U_minf")
+    umax = Variable("U_maxf")
+    ymin = Variable("Y_minf")
+    ymax = Variable("Y_maxf")
+
+    action_loss = args.Qu * ((u == 0) ^ 2)  # control penalty
+    regulation_loss = args.Qx * ((y == 0) ^ 2)  # target posistion
+    # constraints
+    state_lower_bound_penalty = args.Q_con_x*(y > ymin)
+    state_upper_bound_penalty = args.Q_con_x*(y < ymax)
+    inputs_lower_bound_penalty = args.Q_con_u*(u > umin)
+    inputs_upper_bound_penalty = args.Q_con_u*(u < umax)
+    terminal_lower_bound_penalty = args.Qn*(y[[-1], :, :] > xN_min)
+    terminal_upper_bound_penalty = args.Qn*(y[[-1], :, :] < xN_max)
     # regularization
     regularization = Loss(
         [f"reg_error_{policy.name}"], lambda reg: reg,
         weight=args.Q_sub, name="reg_loss",
     )
-    # constraints
-    state_lower_bound_penalty = Loss(
-        [f'Y_pred_{dynamics_model.name}', "Y_minf"],
-        lambda x, xmin: torch.norm(F.relu(-x + xmin), 1),
-        weight=args.Q_con_x,
-        name="state_lower_bound",
-    )
-    state_upper_bound_penalty = Loss(
-        [f'Y_pred_{dynamics_model.name}', "Y_maxf"],
-        lambda x, xmax: torch.norm(F.relu(x - xmax), 1),
-        weight=args.Q_con_x,
-        name="state_upper_bound",
-    )
-    terminal_lower_bound_penalty = Loss(
-        [f'Y_pred_{dynamics_model.name}', "Y_minf"],
-        lambda x, xmin: torch.norm(F.relu(-x + xN_min), 1),
-        weight=args.Qn,
-        name="terminl_lower_bound",
-    )
-    terminal_upper_bound_penalty = Loss(
-        [f'Y_pred_{dynamics_model.name}', "Y_maxf"],
-        lambda x, xmax: torch.norm(F.relu(x - xN_max), 1),
-        weight=args.Qn,
-        name="terminl_upper_bound",
-    )
-    # alternative definition: args.nsteps*torch.mean(F.relu(-u + umin))
-    inputs_lower_bound_penalty = Loss(
-        [f"U_pred_{policy.name}", "U_minf"],
-        lambda u, umin: torch.norm(F.relu(-u + umin), 1),
-        weight=args.Q_con_u,
-        name="input_lower_bound",
-    )
-    # alternative definition: args.nsteps*torch.mean(F.relu(u - umax))
-    inputs_upper_bound_penalty = Loss(
-        [f"U_pred_{policy.name}", "U_maxf"],
-        lambda u, umax: torch.norm(F.relu(u - umax), 1),
-        weight=args.Q_con_u,
-        name="input_upper_bound",
-    )
-    # comment: the choice of the penalties shapes loss landscapes differently
-    # nicer landscapes are obtained with: torch.mean(F.relu(-u + umin)) for all constraints
-    # and affects weight tuning, with torch.mean(F.relu(-u + umin)) we need higher constraints weights
-    # the choice of the penalties does not affect the closed-loop control profiles though
 
     objectives = [regularization, regulation_loss, action_loss]
     constraints = [

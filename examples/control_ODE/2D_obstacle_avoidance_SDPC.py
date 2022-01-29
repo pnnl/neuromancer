@@ -212,10 +212,15 @@ def plot_obstacle(model, args, b, c, d, w_sigma=0.005, show_plot=True, show_plot
     Yf = torch.ones([args.nsteps, 1])
 
     # IPOPT
-    start_time = time.time()
-    sol = opti.solve()
-    sol_time_casadi = time.time() - start_time
-    print(f'IPOPT solution time: {sol_time_casadi}')
+    w_runs = 20
+    ipopt_times = []
+    for j in range(w_runs):
+        start_time = time.time()
+        sol = opti.solve()
+        sol_time_casadi = time.time() - start_time
+        ipopt_times.append(sol_time_casadi)
+    print(f'mean IPOPT solution time: {np.mean(ipopt_times)}')
+    print(f'max IPOPT solution time: {np.max(ipopt_times)}')
     X_ipopt = sol.value(X).transpose()
     U_ipopt = sol.value(U).transpose()
 
@@ -227,7 +232,6 @@ def plot_obstacle(model, args, b, c, d, w_sigma=0.005, show_plot=True, show_plot
     # samples of stochastic trajectories affected by uncertainty
     times = []
     X_trajs = []
-    w_runs = 20
     for j in range(w_runs):
         wf = w_sigma*torch.randn(args.nsteps, 2)  # additive uncertainty
         start_time = time.time()
@@ -238,7 +242,8 @@ def plot_obstacle(model, args, b, c, d, w_sigma=0.005, show_plot=True, show_plot
         U_dpc = uout['U_pred_policy'][:, 0, :].detach().numpy()
         X_traj = np.concatenate((x_init.transpose(), X_model), axis=0)
         X_trajs.append(X_traj)
-    print(f'mean DPC solution time: {np.mean(sol_time)}')
+    print(f'mean DPC solution time: {np.mean(times)}')
+    print(f'max DPC solution time: {np.max(times)}')
 
     if show_plot:
         # Plot
@@ -263,13 +268,13 @@ def plot_obstacle(model, args, b, c, d, w_sigma=0.005, show_plot=True, show_plot
         plt.xlim(-0.25, 1.25)
         plt.ylim(-0.5, 1.0)
         plt.grid()
-        # plot DPC states and control actions
-        fig, ax = plt.subplots(2,1)
-        ax[0].plot(X_traj)
-        ax[1].plot(U_dpc)
-        # IPOPT trajectories
-        ax[0].plot(X_ipopt)
-        ax[1].plot(U_ipopt)
+        # # plot DPC states and control actions
+        # fig, ax = plt.subplots(2,1)
+        # ax[0].plot(X_traj)
+        # ax[1].plot(U_dpc)
+        # # IPOPT trajectories
+        # ax[0].plot(X_ipopt)
+        # ax[1].plot(U_ipopt)
     print(f'DPC energy use: {np.mean(U_dpc**2)}')
     print(f'IPOPT energy use: {np.mean(sol.value(U) ** 2)}')
 
@@ -331,7 +336,7 @@ if __name__ == "__main__":
     xmin = -10
     xmax = 10
     # uncertainties
-    w_sigma = 0.01
+    w_sigma = 0.1
 
     """
     # # #  Dataset 
@@ -538,14 +543,15 @@ if __name__ == "__main__":
     # 1.0 <= b <= 3.0
     # 0.3 <= c < 0.7
     # 0.0 <= d <= 0.4
+    w_scale = 0.5
     p, b, c, d = 0.5, 2.0, 0.7, 0.4
-    sol_time, _ = plot_obstacle(model, args, b, c, d, w_sigma=0.5*w_sigma)
+    sol_time, _ = plot_obstacle(model, args, b, c, d, w_sigma=w_scale*w_sigma)
     p, b, c, d = 0.5, 3.0, 0.3, 0.3
-    sol_time, _ = plot_obstacle(model, args, b, c, d, w_sigma=0.5*w_sigma)
+    sol_time, _ = plot_obstacle(model, args, b, c, d, w_sigma=w_scale*w_sigma)
     p, b, c, d = 0.5, 2.0, 0.3, 0.0
-    sol_time, _ = plot_obstacle(model, args, b, c, d, w_sigma=0.5*w_sigma)
+    sol_time, _ = plot_obstacle(model, args, b, c, d, w_sigma=w_scale*w_sigma)
     p, b, c, d = 0.5, 1.0, 0.6, 0.2
-    sol_time, _ = plot_obstacle(model, args, b, c, d, w_sigma=0.5*w_sigma)
+    sol_time, _ = plot_obstacle(model, args, b, c, d, w_sigma=w_scale*w_sigma)
 
 
     times = []

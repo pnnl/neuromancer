@@ -131,7 +131,8 @@ def get_sequence_dataloaders(
 
 
 def cl_simulate(A, B, C, policy, nstep=50, x0=None, w_sigma=0.1,
-                ref=None, umin=None, umax=None, save_path=None):
+                xmin=-10, xmax=1, umin=None, umax=None, xmin_f=-1, xmax_f=1,
+                ref=None, save_path=None):
     """
 
     :param A:
@@ -142,10 +143,15 @@ def cl_simulate(A, B, C, policy, nstep=50, x0=None, w_sigma=0.1,
     :return:
     """
     if x0 is None:
-        x0 = np.zeros(A.shape[0])
+        x0 = np.zeros([A.shape[0],1])
     X_trajs = []
     U_trajs = []
     times = []
+    I_s = []        # stability indicator
+    I_c = []        # constraints indicator
+    X_c_mean = []
+    U_c_mean = []
+
     w_runs = 20
     for j in range(w_runs):
         x = x0
@@ -209,6 +215,95 @@ def cl_simulate(A, B, C, policy, nstep=50, x0=None, w_sigma=0.1,
     plt.tight_layout()
     if save_path is not None:
         plt.savefig(save_path+'/closed_loop_quadcopter_dpc.pdf')
+
+
+def cl_validate(A, B, C, policy, nstep=50, x0=None, w_sigma=0.1,
+                xmin=-10, xmax=10,  umin=-1, umax=2.5, xmin_f=-1, xmax_f=1,
+                n_sim_p=100, n_sim_w=10, epsilon=0.1, delta=0.99):
+    """
+
+    :param A:
+    :param B:
+    :param net:
+    :param nstep:
+    :param x0:
+    :return:
+    """
+
+
+    X_trajs = []
+    U_trajs = []
+    times = []
+    I_s = []        # stability indicator
+    I_c = []        # constraints indicator
+    X_c_mean = []
+    U_c_mean = []
+
+    umin = umin.reshape(B.shape[1],1)
+    umax = umax.reshape(B.shape[1],1)
+
+    samples = n_sim_w*n_sim_p
+    for j in range(samples):
+        if x0 is None:
+            # x0 = np.zeros([A.shape[0],1])
+            X_dist_bound=0.1
+            x0 = np.random.uniform(low=-X_dist_bound, high=X_dist_bound, size=(A.shape[0],1))
+        x = x0
+        X = [x]
+        U = []
+        Y = []
+        for k in range(nstep+1):
+            wf = w_sigma * np.random.randn(A.shape[0], 1)  # additive uncertainty
+            x_torch = torch.tensor(x).float().transpose(0, 1)
+            # taking a first control action based on RHC principle
+            start_time = time.time()
+            uout = policy({'x0_estimator': x_torch})
+            sol_time = time.time() - start_time
+            times.append(sol_time)
+            u = uout['U_pred_policy'][0,:,:].detach().numpy().transpose()
+            u = np.clip(u, umin, umax)
+            # closed loop dynamics
+            x = np.matmul(A, x) + np.matmul(B, u) + wf
+            y = np.matmul(C, x)
+            X.append(x)
+            U.append(u)
+            Y.append(y)
+        Xnp = np.asarray(X)[:, :, 0]
+        Unp = np.asarray(U)[:, :, 0]
+        X_trajs.append(Xnp)
+        U_trajs.append(Unp)
+
+        # terminal constraint satisfaction for stability
+        stab_idx = [3,4,5,9,10,11]
+        stability_flag = int((x[stab_idx] > xmin_f).all() and (x[stab_idx] < xmax_f).all())
+        I_s.append(stability_flag)
+
+        # state and input constraints mean violations
+        x_violations = np.mean(np.maximum(Xnp - xmax, 0) + np.maximum(-Xnp + xmin, 0))
+        u_violations = np.mean(np.maximum(Unp - 2.5, 0) + np.maximum(-Unp -1, 0))
+        X_c_mean.append(x_violations)
+        U_c_mean.append(u_violations)
+
+        # state and input constraints satisfaction
+        x_con_flag = int((Xnp > xmin).all() and (Xnp < xmax).all())
+        u_con_flag = int((Unp > -1).all() and (Unp < 2.5).all())
+        constraints_flag = x_con_flag and u_con_flag
+        I_c.append(constraints_flag)
+
+    # evaluate empirical risk
+    mu_tilde = np.mean(0.5*np.asarray(I_s) + 0.5*np.asarray(I_c))
+    # evaluate conficence level given risk tolerance epsilon
+    confidence = 1 - 2 * np.exp(-2 * samples * epsilon ** 2)
+    mu = mu_tilde - epsilon
+    # evaluate risk lower bound given number of samples, and desired confidence
+    mu_lbound = mu_tilde - np.sqrt(-np.log(delta / 2) / (2 * samples))
+
+    print(f'empirical risk {mu_tilde}')
+    print(f'risk lower bound beta {mu_lbound}')
+    print(f'choosen condifence delta {delta}')
+
+    return mu, mu_tilde, confidence, mu_lbound, \
+               I_s, I_c, X_c_mean, U_c_mean
 
 
 if __name__ == "__main__":
@@ -482,13 +577,5 @@ if __name__ == "__main__":
     print(f'X_dist_bound {X_dist_bound}')
     print(f'lr {args.lr}')
 
-
-    # figure()
-    # plt.imshow(B, cmap='viridis', interpolation='nearest')
-    # plt.show()
-    # plt.colorbar()
-    #
-    # figure()
-    # plt.imshow(A, cmap='viridis', interpolation='nearest')
-    # plt.show()
-    # plt.colorbar()
+    mu, mu_tilde, confidence, mu_lbound, I_s, I_c, X_c_mean, U_c_mean \
+        = cl_validate(A, B, C, policy, n_sim_p=3333, n_sim_w=10, umin=umin_b, umax=umax_b)

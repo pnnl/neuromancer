@@ -11,21 +11,25 @@ problem decition variables:    x, y
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import slim
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
+import cvxpy as cp
+import numpy as np
+import random
 
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
 import neuromancer.arg as arg
-from neuromancer.constraint import Variable, Objective, Loss
+from neuromancer.constraint import Variable, Objective
 from neuromancer.activations import activations
-from neuromancer import policies
-from neuromancer.loggers import BasicLogger
+from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.dataset import normalize_data, split_static_data, StaticDataset
-from neuromancer.plot import plot_loss_mpp, plot_solution_mpp
+from neuromancer.loss import PenaltyLoss, BarrierLoss, AugmentedLagrangeLoss
+from neuromancer.solvers import GradientProjection
+from neuromancer.maps import ManyToMany
+from neuromancer import blocks
 
 
 def arg_mpLP_problem(prefix=''):
@@ -42,24 +46,42 @@ def arg_mpLP_problem(prefix=''):
            help="loss function weight.")  # tuned value: 1.0
     gp.add("-Q_sub", type=float, default=0.0,
            help="regularization weight.")
-    gp.add("-Q_con", type=float, default=2.0,
-           help="constraints penalty weight.")  # tuned value: 50.0
-    gp.add("-nx_hidden", type=int, default=40,
+    gp.add("-Q_con", type=float, default=100.0,
+           help="constraints penalty weight.")  # tuned value: 1.0
+    gp.add("-nx_hidden", type=int, default=80,
            help="Number of hidden states of the solution map")
-    gp.add("-n_layers", type=int, default=2,
+    gp.add("-n_layers", type=int, default=4,
            help="Number of hidden layers of the solution map")
     gp.add("-bias", action="store_true",
            help="Whether to use bias in the neural network block component models.")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
-    gp.add("-epochs", type=int, default=800,
+    gp.add("-epochs", type=int, default=1000,
            help='Number of training epochs')
-    gp.add("-lr", type=float, default=0.0001,
+    gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
-    gp.add("-patience", type=int, default=200,
+    gp.add("-patience", type=int, default=100,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
-    gp.add("-warmup", type=int, default=200,
+    gp.add("-warmup", type=int, default=100,
            help="Number of epochs to wait before enacting early stopping policy.")
+    gp.add("-loss", type=str, default='penalty',
+           choices=['penalty', 'augmented_lagrange', 'barrier'],
+           help="type of the loss function.")
+    gp.add("-barrier_type", type=str, default='log10',
+           choices=['log', 'log10', 'inverse'],
+           help="type of the barrier function in the barrier loss.")
+    gp.add("-eta", type=float, default=0.99,
+           help="eta in augmented lagrangian.")
+    gp.add("-sigma", type=float, default=2.0,
+           help="sigma in augmented lagrangian.")
+    gp.add("-mu_init", type=float, default=1.,
+           help="mu_init in augmented lagrangian.")
+    gp.add("-mu_max", type=float, default=1000.,
+           help="mu_max in augmented lagrangian.")
+    gp.add("-inner_loop", type=int, default=1,
+           help="inner loop in augmented lagrangian")
+    gp.add("-proj_grad", default=False, choices=[True, False],
+           help="Whether to use projected gradient update or not.")
     return parser
 
 
@@ -117,6 +139,18 @@ def get_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
     return (train_data, dev_data, test_data), train_data.dataset.dims
 
 
+def get_loss(objectives, constraints, train_data, args):
+    if args.loss == 'penalty':
+        loss = PenaltyLoss(objectives, constraints)
+    elif args.loss == 'barrier':
+        loss = BarrierLoss(objectives, constraints, barrier=args.barrier_type)
+    elif args.loss == 'augmented_lagrange':
+        optimizer_args = {'inner_loop': args.inner_loop, "eta": args.eta, 'sigma': args.sigma,
+                          'mu_init': args.mu_init, "mu_max": args.mu_max}
+        loss = AugmentedLagrangeLoss(objectives, constraints, train_data, **optimizer_args)
+    return loss
+
+
 if __name__ == "__main__":
     """
     # # #  optimization problem hyperparameters
@@ -143,26 +177,30 @@ if __name__ == "__main__":
     train_data, dev_data, test_data = nstep_data
 
     """
-    # # #  mpLP problem formulation in Neuromancer
+    # # #  mpLP primal solution map architecture
     """
-    n_var = 2           # number of decision variables
-    # define solution map as MLP policy
-    dims['U'] = (nsim, n_var)  # defining expected dimensions of the solution variable: internal policy key 'U'
-    activation = activations['relu']
-    linmap = slim.maps['linear']
-    sol_map = policies.MLPPolicy(
-        {**dims},
-        bias=args.bias,
-        linear_map=linmap,
-        nonlin=activation,
-        hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=["a1", "a2", "p1", "p2", "p3"],
-        name='sol_map',
-    )
+    f1 = blocks.MLP(insize=5, outsize=1,
+                bias=True,
+                linear_map=slim.maps['linear'],
+                nonlin=activations['relu'],
+                hsizes=[args.nx_hidden] * args.n_layers)
+    f2 = blocks.MLP(insize=5, outsize=1,
+                bias=True,
+                linear_map=slim.maps['linear'],
+                nonlin=activations['relu'],
+                hsizes=[args.nx_hidden] * args.n_layers)
+    sol_map = ManyToMany([f1, f2],
+            input_keys=["a1", "a2", "p1", "p2", "p3"],
+            output_keys=["x", "y"],
+            name='primal_map')
+
+    """
+    # # #  mpLP objective and constraints formulation in Neuromancer
+    """
 
     # variables
-    x = Variable(f"U_pred_{sol_map.name}")[:, :, 0]
-    y = Variable(f"U_pred_{sol_map.name}")[:, :, 1]
+    x = Variable("x")
+    y = Variable("y")
     # sampled parameters
     a1 = Variable('a1')
     a2 = Variable('a2')
@@ -171,36 +209,59 @@ if __name__ == "__main__":
     p3 = Variable('p3')
 
     # objective function
-    loss = Objective(a1*x+a2*y, weight=args.Q, name='loss')
+    obj = Objective(a1*x+a2*y, weight=args.Q, name='obj')
     # constraints
-    con_1 = args.Q_con*(x+y-p1 >= 0)
-    con_2 = args.Q_con*(-2*x+y+p2 >= 0)
-    con_3 = args.Q_con*(x-2*y+p3 >= 0)
+    con_1 = (x+y-p1 >= 0)
+    con_2 = (-2*x+y+p2 >= 0)
+    con_3 = (x-2*y+p3 >= 0)
+    con_1.name = 'c1'
+    con_2.name = 'c2'
+    con_3.name = 'c3'
 
+    """
+    # # #  mpQP problem formulation in Neuromancer
+    """
     # constrained optimization problem construction
-    objectives = [loss]
-    constraints = [con_1, con_2, con_3]
+    objectives = [obj]
+    constraints = [args.Q_con*con_1, args.Q_con*con_2, args.Q_con*con_3]
     components = [sol_map]
-    model = Problem(objectives, constraints, components)
-    model = model.to(device)
+
+    if args.proj_grad:  # use projected gradient update
+        project_keys = ["x", "y"]
+        projection = GradientProjection(constraints, input_keys=project_keys,
+                                        num_steps=5, name='proj')
+        components.append(projection)
+
+    # create constrained optimization loss
+    loss = get_loss(objectives, constraints, train_data, args)
+    # construct constrained optimization problem
+    problem = Problem(components, loss, grad_inference=args.proj_grad)
+    # plot computational graph
+    problem.plot_graph()
 
     """
     # # # Metrics and Logger
     """
     args.savedir = 'test_mpLP_1'
     args.verbosity = 1
-    metrics = ["dev_loss"]
-    logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
+    metrics = ["train_loss", "train_obj", "train_mu_scaled_penalty_loss", "train_con_lagrangian",
+               "train_mu", "train_c1", "train_c2", "train_c3"]
+    if args.logger == 'stdout':
+        Logger = BasicLogger
+    elif args.logger == 'mlflow':
+        Logger = MLFlowLogger
+    logger = Logger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
     logger.args.system = 'mpLP_1'
 
+
     """
-    # # #  mpLP problem solution in Neuromancer
+    # # #  mpQP problem solution in Neuromancer
     """
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(problem.parameters(), lr=args.lr)
 
     # define trainer
     trainer = Trainer(
-        model,
+        problem,
         train_data,
         dev_data,
         test_data,
@@ -220,47 +281,84 @@ if __name__ == "__main__":
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
 
-    # # # plots
-    # plot_loss_mpp(model, train_data, xmin=-2, xmax=2, save_path=None)
-    # plot_solution_mpp(sol_map, xmin=-2, xmax=2, save_path=None)
 
-    # # # Plot the solution # # #
+    """
+    CVXPY benchmark
+    """
+    # Define and solve the CVXPY problem.
+    x = cp.Variable(1)
+    y = cp.Variable(1)
+    p1 = 10.0  # problem parameter
+    p2 = 10.0  # problem parameter
+    def LP_param(a1, a2, p1, p2, p3):
+        prob = cp.Problem(cp.Minimize(a1*x+a2*y),
+                          [x+y-p1 >= 0,
+                           -2*x+y+p2 >= 0,
+                           x-2*y+p3 >= 0])
+        return prob
 
+    """
+    Plots
+    """
     # test problem parameters
-    a1 = 0.5
-    a2 = 1.0
-    p1 = 6.0
-    p2 = 8.0
-    p3 = 9.0
-
     x1 = np.arange(-1.0, 10.0, 0.05)
     y1 = np.arange(-1.0, 10.0, 0.05)
     xx, yy = np.meshgrid(x1, y1)
+    fig, ax = plt.subplots(3, 3)
+    row_id = 0
+    column_id = 0
+    for i in range(9):
+        if i % 3 == 0 and i != 0:
+            row_id += 1
+            column_id = 0
 
-    # eval objective and constraints
-    J = a1 * xx + a2 * yy
-    c1 = xx + yy - p1
-    c2 = -2 * xx + yy + p2
-    c3 = xx - 2 * yy + p3
+        rand_sample = random.randint(0, nsim - 1)
+        a1 = samples['a1'][rand_sample][0]
+        a2 = samples['a2'][rand_sample][0]
+        p1 = samples['p1'][rand_sample][0]
+        p2 = samples['p2'][rand_sample][0]
+        p3 = samples['p3'][rand_sample][0]
 
-    # Plot
-    fig, ax = plt.subplots(1, 1)
-    cp = ax.contourf(xx, yy, J,
-                     alpha=0.6)
-    fig.colorbar(cp)
-    ax.set_title('Linear problem')
-    cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg1.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-    cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg2.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-    cg3 = ax.contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg3.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        # eval objective and constraints
+        J = a1 * xx + a2 * yy
+        c1 = xx + yy - p1
+        c2 = -2 * xx + yy + p2
+        c3 = xx - 2 * yy + p3
 
-    params = torch.tensor([a1, a2, p1, p2, p3])
-    xy_optim = model.components[0].net(params).detach().numpy()
-    print(xy_optim[0])
-    print(xy_optim[1])
-    ax.plot(xy_optim[0], xy_optim[1], 'r*', markersize=10)
+        # Plot constraints and loss contours
+        cp_plot = ax[row_id, column_id].contourf(xx, yy, J, 50, alpha=0.4)
+        ax[row_id, column_id].set_title(f'LP {i}')
+        cg1 = ax[row_id, column_id].contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
+        cg2 = ax[row_id, column_id].contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
+        cg3 = ax[row_id, column_id].contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
+        plt.setp(cg1.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        plt.setp(cg2.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        plt.setp(cg3.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+
+        # Solve QP
+        prob = LP_param(a1, a2, p1, p2, p3)
+        prob.solve()
+
+        # Solve via neuromancer
+        datapoint = {}
+        datapoint['a1'] = torch.tensor([[a1]]).float()
+        datapoint['a2'] = torch.tensor([[a2]]).float()
+        datapoint['p1'] = torch.tensor([[p1]]).float()
+        datapoint['p2'] = torch.tensor([[p2]]).float()
+        datapoint['p3'] = torch.tensor([[p3]]).float()
+        datapoint['name'] = "test"
+        model_out = problem(datapoint)
+        x_nm = model_out['test_' + "x"][0, :].detach().numpy()
+        y_nm = model_out['test_' + "y"][0, :].detach().numpy()
+
+        print(f'primal solution QP x={x.value}, y={y.value}')
+        print(f'primal solution DPP x1={x_nm}, x2={y_nm}')
+
+        # Plot optimal solutions
+        ax[row_id, column_id].plot(x.value, y.value, 'g*', markersize=10)
+        ax[row_id, column_id].plot(x_nm, y_nm, 'r*', markersize=10)
+        column_id += 1
+    plt.show()

@@ -36,10 +36,10 @@ class Trainer:
         epochs=1000,
         patience=5,
         warmup=0,
-        train_metric="nstep_train_loss",
-        dev_metric="nstep_dev_loss",
-        test_metric="nstep_test_loss",
-        eval_metric="loop_dev_loss",
+        train_metric="train_loss",
+        dev_metric="dev_loss",
+        test_metric="test_loss",
+        eval_metric="dev_loss",
         eval_mode="min",
         clip=100.0,
         device="cpu"
@@ -95,6 +95,7 @@ class Trainer:
             self.model.train()
             losses = []
             for t_batch in self.train_data:
+                t_batch['epoch'] = i
                 t_batch = move_batch_to_device(t_batch, self.device)
                 output = self.model(t_batch)
                 self.optimizer.zero_grad()

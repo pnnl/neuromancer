@@ -1,11 +1,16 @@
 """
-Multi-parametric Quadratic Programming (mpQP) problem using Neuromancer:
-minimize     x^2+y^2
-subject to   x+y-p1 >= 0
+Multi-parametric quadratically constrained quadratic program (mpQCQP) problem using Neuromancer:
+minimize     x^2 + y^2
+subject to
+           -x - y + p1 <= 0,
+           x^2 + y^2 <= p2^2
 
-problem parameters:            p1
+problem parameters:            p1, p2
 problem decition variables:    x, y
+
+Primal-dual solution with KKT conditions
 """
+
 
 import numpy as np
 import torch
@@ -165,25 +170,26 @@ if __name__ == "__main__":
     #  theta_samples.min() <= theta <= theta_samples.max()
     np.random.seed(args.data_seed)
     nsim = 9000  # number of datapoints: increase sample density for more robust results
-    samples = {"p1": np.random.uniform(low=1.0, high=11.0, size=(nsim, 1))}
+    samples = {"p1": np.random.uniform(low=1.0, high=11.0, size=(nsim, 1)),
+               "p2": np.random.uniform(low=1.0, high=11.0, size=(nsim, 1))}
     data, dims = get_dataloaders(samples)
     train_data, dev_data, test_data = data
 
     """
-    # # #  mpQP primal solution map architecture
+    # # #  mpQCQP primal solution map architecture
     """
-    f1 = blocks.MLP(insize=1, outsize=1,
+    f1 = blocks.MLP(insize=2, outsize=1,
                 bias=True,
                 linear_map=slim.maps['linear'],
                 nonlin=activations['relu'],
                 hsizes=[args.nx_hidden] * args.n_layers)
-    f2 = blocks.MLP(insize=1, outsize=1,
+    f2 = blocks.MLP(insize=2, outsize=1,
                 bias=True,
                 linear_map=slim.maps['linear'],
                 nonlin=activations['relu'],
                 hsizes=[args.nx_hidden] * args.n_layers)
     sol_map = ManyToMany([f1, f2],
-            input_keys=["p1"],
+            input_keys=["p1", "p2"],
             output_keys=["x", "y"],
             name='primal_map')
 
@@ -195,21 +201,25 @@ if __name__ == "__main__":
     y = Variable("y")
     # sampled parameters
     p1 = Variable('p1')
+    p2 = Variable('p2')
 
     # objective function
     f = x ** 2 + y ** 2
     obj = f.minimize(weight=args.Q, name='obj')
     # constraints
-    g1 = - x - y + p1
+    g1 = -x - y + p1
     con_1 = (g1 <= 0)
-    con_1.name = 'c2'
+    g2 = x**2+y**2 - p2**2
+    con_2 = (g2 <= 0)
+    con_1.name = 'c1'
+    con_2.name = 'c2'
 
     """
-    # # #  mpQP problem formulation in Neuromancer
+    # # #  mpQCQP problem formulation in Neuromancer
     """
     # list of objectives, constraints, and components (solution maps)
     objectives = [obj]
-    constraints = [args.Q_con*con_1]
+    constraints = [args.Q_con*con_1, args.Q_con*con_2]
     components = [sol_map]
 
     if args.proj_grad:  # use projected gradient update
@@ -228,16 +238,16 @@ if __name__ == "__main__":
     """
     # # # Metrics and Logger
     """
-    args.savedir = 'test_mpQP_1'
+    args.savedir = 'test_mpQCQP_2'
     args.verbosity = 1
     metrics = ["train_loss", "train_obj", "train_mu_scaled_penalty_loss", "train_con_lagrangian",
-               "train_mu", "train_c1"]
+               "train_mu", "train_c1", "train_c2"]
     if args.logger == 'stdout':
         Logger = BasicLogger
     elif args.logger == 'mlflow':
         Logger = MLFlowLogger
     logger = Logger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'mpQP_1'
+    logger.args.system = 'mpQCQP_2'
 
 
     """
@@ -274,10 +284,12 @@ if __name__ == "__main__":
     # Define and solve the CVXPY problem.
     x = cp.Variable(1)
     y = cp.Variable(1)
-    p1 = 10.0  # problem parameter
-    def QP_param(p1):
+    p1 = 2.0  # problem parameter
+    p2 = 2.0  # problem parameter
+    def QCQP_param(p1, p2):
         prob = cp.Problem(cp.Minimize(x ** 2 + y ** 2),
-                          [-x - y + p1 <= 0])
+                      [-x - y + p1 <= 0,
+                       x ** 2 + y ** 2 - p2 ** 2 <= 0])
         return prob
 
     """
@@ -285,7 +297,6 @@ if __name__ == "__main__":
     """
     # test problem parameters
     params = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-    p = 10.0
     x1 = np.arange(-1.0, 10.0, 0.05)
     y1 = np.arange(-1.0, 10.0, 0.05)
     xx, yy = np.meshgrid(x1, y1)
@@ -297,34 +308,40 @@ if __name__ == "__main__":
             row_id += 1
             column_id = 0
         # eval objective and constraints
-        J = xx ** 2 + yy ** 2
+        J = xx**2 + yy**2
         c1 = xx + yy - p
+        c2 = - xx**2 - yy**2 + p**2
 
         # Plot
         cp_plot = ax[row_id, column_id].contourf(xx, yy, J, 50, alpha=0.4)
-        ax[row_id, column_id].set_title(f'QP p={p}')
+        ax[row_id, column_id].set_title(f'QCQP p={p, p}')
         cg1 = ax[row_id, column_id].contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
+        cg2 = ax[row_id, column_id].contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
         plt.setp(cg1.collections,
                  path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-        fig.colorbar(cp_plot, ax=ax[row_id, column_id])
+        plt.setp(cg2.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        fig.colorbar(cp_plot, ax=ax[row_id,column_id])
 
-        # Solve QP
-        prob = QP_param(p)
+        # Solve QCQP
+        prob = QCQP_param(p, p)
         prob.solve()
 
         # Solve DPP
         datapoint = {}
         datapoint['p1'] = torch.tensor([[p]])
+        datapoint['p2'] = torch.tensor([[p]])
         datapoint['name'] = "test"
         model_out = problem(datapoint)
         x_nm = model_out['test_' + "x"][0, :].detach().numpy()
         y_nm = model_out['test_' + "y"][0, :].detach().numpy()
 
         print(f'primal solution QP x={x.value}, y={y.value}')
-        print(f'parameter p={p}')
+        print(f'parameter p={p, p}')
         print(f'primal solution DPP x1={x_nm}, x2={y_nm}')
         print(f' f: {model_out["test_" + f.key]}')
         print(f' g1: {model_out["test_" + g1.key]}')
+        print(f' g2: {model_out["test_" + g2.key]}')
 
         # Plot optimal solutions
         ax[row_id, column_id].plot(x.value, y.value, 'g*', markersize=10)

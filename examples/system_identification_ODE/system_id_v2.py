@@ -39,7 +39,8 @@ from neuromancer.callbacks import SysIDCallback
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.dataset import read_file, normalize_data, split_sequence_data, SequenceDataset
 from torch.utils.data import DataLoader
-
+from neuromancer.loss import PenaltyLoss, BarrierLoss
+from neuromancer.constraint import Variable
 
 
 def arg_sys_id_problem(prefix='', system='CSTR'):
@@ -131,6 +132,14 @@ def arg_sys_id_problem(prefix='', system='CSTR'):
            help="Whether to run simulator during evaluation phase of training.")
     gp.add("-seed", type=int, default=408, help="Random seed used for weight initialization.")
     parser.add("-gpu", type=int, help="GPU to use")
+    gp.add("-loss", type=str, default='penalty',
+           choices=['penalty', 'barrier'],
+           help="type of the loss function.")
+    gp.add("-barrier_type", type=str, default='log10',
+           choices=['log', 'log10', 'inverse'],
+           help="type of the barrier function in the barrier loss.")
+    gp.add("-batch_second", default=True, choices=[True, False],
+           help="whether the batch is a second dimension in the dataset.")
     return parser
 
 
@@ -272,8 +281,7 @@ def get_model_components(args, dims, estim_name="estim", dynamics_name="dynamics
 def get_objective_terms(args, dims, estimator, dynamics_model):
     xmin = -0.2
     xmax = 1.2
-    dxudmin = -0.05
-    dxudmax = 0.05
+
     estimator_loss = Loss(
         [f"X_pred_{dynamics_model.name}", f"x0_{estimator.name}"],
         lambda X_pred, x0: F.mse_loss(X_pred[-1, :-1, :], x0[1:]),
@@ -290,66 +298,64 @@ def get_objective_terms(args, dims, estimator, dynamics_model):
         [f"Y_pred_{dynamics_model.name}", "Yf"], F.mse_loss, weight=args.Q_y,
         name="ref_loss"
     )
-    state_smoothing = Loss(
-        [f"X_pred_{dynamics_model.name}"],
-        lambda x: F.mse_loss(x[1:], x[:-1]),
-        weight=args.Q_dx,
-        name="state_smoothing",
-    )
-    observation_lower_bound_penalty = Loss(
-        [f"Y_pred_{dynamics_model.name}"],
-        lambda x: torch.mean(F.relu(-x + xmin)),
-        weight=args.Q_con_x,
-        name="y_low_bound_error",
-    )
-    observation_upper_bound_penalty = Loss(
-        [f"Y_pred_{dynamics_model.name}"],
-        lambda x: torch.mean(F.relu(x - xmax)),
-        weight=args.Q_con_x,
-        name="y_up_bound_error",
-    )
-
     objectives = [regularization, reference_loss, estimator_loss]
+
+    yhat = Variable(f"Y_pred_{dynamics_model.name}")
+    xhat = Variable(f"Y_pred_{dynamics_model.name}")
+    state_smoothing = args.Q_dx*((xhat[1:] == xhat[:-1])^2)
+    observation_lower_bound_penalty = args.Q_con_x*(yhat > xmin)
+    observation_upper_bound_penalty = args.Q_con_x*(yhat < xmax)
     constraints = [
         state_smoothing,
         observation_lower_bound_penalty,
         observation_upper_bound_penalty,
     ]
 
-    if args.ssm_type != "blackbox":
-        if "U" in dims:
-            inputs_max_influence_lb = Loss(
-                [f"fU_{dynamics_model.name}"],
-                lambda x: torch.mean(F.relu(-x + dxudmin)),
-                weight=args.Q_con_fdu,
-                name="input_influence_lb",
-            )
-            inputs_max_influence_ub = Loss(
-                [f"fU_{dynamics_model.name}"],
-                lambda x: torch.mean(F.relu(x - dxudmax)),
-                weight=args.Q_con_fdu,
-                name="input_influence_ub",
-            )
-            constraints += [inputs_max_influence_lb, inputs_max_influence_ub]
-        if "D" in dims:
-            disturbances_max_influence_lb = Loss(
-                [f"fD_{dynamics_model.name}"],
-                lambda x: torch.mean(F.relu(-x + dxudmin)),
-                weight=args.Q_con_fdu,
-                name="dist_influence_lb",
-            )
-            disturbances_max_influence_ub = Loss(
-                [f"fD_{dynamics_model.name}"],
-                lambda x: torch.mean(F.relu(x - dxudmax)),
-                weight=args.Q_con_fdu,
-                name="dist_influence_ub",
-            )
-            constraints += [
-                disturbances_max_influence_lb,
-                disturbances_max_influence_ub,
-            ]
+    # dxudmin = -0.05
+    # dxudmax = 0.05
+    # if args.ssm_type != "blackbox":
+    #     if "U" in dims:
+    #         inputs_max_influence_lb = Loss(
+    #             [f"fU_{dynamics_model.name}"],
+    #             lambda x: torch.mean(F.relu(-x + dxudmin)),
+    #             weight=args.Q_con_fdu,
+    #             name="input_influence_lb",
+    #         )
+    #         inputs_max_influence_ub = Loss(
+    #             [f"fU_{dynamics_model.name}"],
+    #             lambda x: torch.mean(F.relu(x - dxudmax)),
+    #             weight=args.Q_con_fdu,
+    #             name="input_influence_ub",
+    #         )
+    #         constraints += [inputs_max_influence_lb, inputs_max_influence_ub]
+    #     if "D" in dims:
+    #         disturbances_max_influence_lb = Loss(
+    #             [f"fD_{dynamics_model.name}"],
+    #             lambda x: torch.mean(F.relu(-x + dxudmin)),
+    #             weight=args.Q_con_fdu,
+    #             name="dist_influence_lb",
+    #         )
+    #         disturbances_max_influence_ub = Loss(
+    #             [f"fD_{dynamics_model.name}"],
+    #             lambda x: torch.mean(F.relu(x - dxudmax)),
+    #             weight=args.Q_con_fdu,
+    #             name="dist_influence_ub",
+    #         )
+    #         constraints += [
+    #             disturbances_max_influence_lb,
+    #             disturbances_max_influence_ub,
+    #         ]
 
     return objectives, constraints
+
+
+def get_loss(objectives, constraints, args):
+    if args.loss == 'penalty':
+        loss = PenaltyLoss(objectives, constraints, batch_second=args.batch_second)
+    elif args.loss == 'barrier':
+        loss = BarrierLoss(objectives, constraints, barrier=args.barrier_type,
+                           batch_second=args.batch_second)
+    return loss
 
 
 if __name__ == "__main__":
@@ -378,18 +384,20 @@ if __name__ == "__main__":
 
     # create component models, objectives, and constraints
     estimator, dynamics_model = get_model_components(args, dims)
+    components = [estimator, dynamics_model]
     objectives, constraints = get_objective_terms(args, dims, estimator, dynamics_model)
-
-    # create problem
-    model = Problem(objectives, constraints, [estimator, dynamics_model])
-    model = model.to(device)
-    print(model)
+    # create constrained optimization loss
+    loss = get_loss(objectives, constraints, args)
+    # construct constrained optimization problem
+    problem = Problem(components, loss)
+    # plot computational graph
+    problem.plot_graph()
 
     # create callback
     simulator = OpenLoopSimulator(
-        model, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=device,
+        problem, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=device,
     ) if isinstance(train_loop, dict) else MultiSequenceOpenLoopSimulator(
-        model, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=device,
+        problem, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=device,
     )
     visualizer = VisualizerOpen(
         dynamics_model,
@@ -400,10 +408,10 @@ if __name__ == "__main__":
     )
     callback = SysIDCallback(simulator, visualizer)
     # select optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(problem.parameters(), lr=args.lr)
     # create trainer
     trainer = Trainer(
-        model,
+        problem,
         train_data,
         dev_data,
         test_data,
@@ -411,7 +419,10 @@ if __name__ == "__main__":
         logger=logger,
         callback=callback,
         epochs=args.epochs,
-        eval_metric=args.eval_metric,
+        eval_metric=f"{dev_loop['name']}_{objectives[0].name}",
+        train_metric="nstep_train_loss",
+        dev_metric="nstep_dev_loss",
+        test_metric="nstep_test_loss",
         patience=args.patience,
         warmup=args.warmup,
         device=device,

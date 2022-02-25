@@ -18,8 +18,7 @@ from neuromancer.activations import activations
 from neuromancer import policies
 from neuromancer.loggers import BasicLogger
 from neuromancer.dataset import read_file, normalize_data, split_static_data, StaticDataset
-from neuromancer.component import Function
-import neuromancer.blocks as blocks
+from neuromancer.loss import PenaltyLoss, BarrierLoss
 
 
 def arg_reg_problem(prefix=''):
@@ -55,6 +54,14 @@ def arg_reg_problem(prefix=''):
     gp.add("-norm_type", type=str, default="zero-one", choices=
            ["zero-one", "one-one", "zscore", None],
            help="Normalization of the dataset.")
+    gp.add("-loss", type=str, default='penalty',
+           choices=['penalty', 'barrier'],
+           help="type of the loss function.")
+    gp.add("-barrier_type", type=str, default='log10',
+           choices=['log', 'log10', 'inverse'],
+           help="type of the barrier function in the barrier loss.")
+    gp.add("-batch_second", default=True, choices=[True, False],
+           help="whether the batch is a second dimension in the dataset.")
     return parser
 
 
@@ -110,6 +117,15 @@ def get_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
     )
 
     return (train_data, dev_data, test_data), train_data.dataset.dims
+
+
+def get_loss(objectives, constraints, args):
+    if args.loss == 'penalty':
+        loss = PenaltyLoss(objectives, constraints, batch_second=args.batch_second)
+    elif args.loss == 'barrier':
+        loss = BarrierLoss(objectives, constraints, barrier=args.barrier_type,
+                           batch_second=args.batch_second)
+    return loss
 
 
 if __name__ == "__main__":
@@ -176,8 +192,13 @@ if __name__ == "__main__":
     components = [sol_map]
     constraints = []
     # constraints = [con_1, con_2]
-    model = Problem(objectives, constraints, components)
-    model = model.to(device)
+
+    # create constrained optimization loss
+    loss = get_loss(objectives, constraints, args)
+    # construct constrained optimization problem
+    problem = Problem(components, loss)
+    # plot computational graph
+    problem.plot_graph()
 
     """
     # # # Metrics and Logger
@@ -191,11 +212,11 @@ if __name__ == "__main__":
     """
     # # #  Constrained least squares problem solution in Neuromancer
     """
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(problem.parameters(), lr=args.lr)
 
     # define trainer
     trainer = Trainer(
-        model,
+        problem,
         train_data,
         dev_data,
         test_data,
@@ -205,7 +226,6 @@ if __name__ == "__main__":
         train_metric="train_loss",
         dev_metric="dev_loss",
         test_metric="test_loss",
-        # eval_metric="dev_loss",
         eval_metric="train_loss",
         patience=args.patience,
         warmup=args.warmup,

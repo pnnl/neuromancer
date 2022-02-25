@@ -1,11 +1,15 @@
 """
-Multi-parametric Quadratic Programming (mpQP) problem using Neuromancer:
-minimize     x^2+y^2
-subject to   x+y-p1 >= 0
+Solve the Rosenbrock problem, formulated as the NLP using Neuromancer toolbox:
+minimize     (1-x)^2 + a*(y-x^2)^2
+subject to   (p/2)^2 <= x^2 + y^2 <= p^2
+             x>=y
 
-problem parameters:            p1
-problem decition variables:    x, y
+problem parameters:             a, p
+problem decition variables:     x, y
+
+https://en.wikipedia.org/wiki/Rosenbrock_function
 """
+
 
 import numpy as np
 import torch
@@ -27,6 +31,7 @@ from neuromancer.loss import PenaltyLoss, BarrierLoss, AugmentedLagrangeLoss
 from neuromancer.solvers import GradientProjection
 from neuromancer.maps import ManyToMany
 from neuromancer import blocks
+from neuromancer.integers import IntegerCorrector
 
 
 def arg_mpLP_problem(prefix=''):
@@ -79,6 +84,10 @@ def arg_mpLP_problem(prefix=''):
            help="inner loop in augmented lagrangian")
     gp.add("-proj_grad", default=False, choices=[True, False],
            help="Whether to use projected gradient update or not.")
+    gp.add("-train_integer", default=False, choices=[True, False],
+           help="Whether to use integer update during training or not.")
+    gp.add("-inference_integer", default=True, choices=[True, False],
+           help="Whether to use integer update during inference or not.")
     return parser
 
 
@@ -158,59 +167,77 @@ if __name__ == "__main__":
     args.bias = True
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
 
+
     """
     # # #  Dataset 
     """
     #  randomly sampled parameters theta generating superset of:
     #  theta_samples.min() <= theta <= theta_samples.max()
     np.random.seed(args.data_seed)
-    nsim = 9000  # number of datapoints: increase sample density for more robust results
-    samples = {"p1": np.random.uniform(low=1.0, high=11.0, size=(nsim, 1))}
+    nsim = 20000  # number of datapoints: increase sample density for more robust results
+    samples = {"a": np.random.uniform(low=0.2, high=2.2, size=(nsim, 1)),
+               "p": np.random.uniform(low=2.0, high=6.0, size=(nsim, 1))}
     data, dims = get_dataloaders(samples)
     train_data, dev_data, test_data = data
 
     """
-    # # #  mpQP primal solution map architecture
+    # # #  mpNLP primal solution map architecture
     """
-    f1 = blocks.MLP(insize=1, outsize=1,
+    f1 = blocks.MLP(insize=2, outsize=1,
                 bias=True,
                 linear_map=slim.maps['linear'],
                 nonlin=activations['relu'],
                 hsizes=[args.nx_hidden] * args.n_layers)
-    f2 = blocks.MLP(insize=1, outsize=1,
+    f2 = blocks.MLP(insize=2, outsize=1,
                 bias=True,
                 linear_map=slim.maps['linear'],
                 nonlin=activations['relu'],
                 hsizes=[args.nx_hidden] * args.n_layers)
     sol_map = ManyToMany([f1, f2],
-            input_keys=["p1"],
+            input_keys=["a", "p"],
             output_keys=["x", "y"],
             name='primal_map')
 
+    integer_map = IntegerCorrector(input_keys=['x', 'y'],
+                                   method='sawtooth',
+                                   nsteps=1, stepsize=0.2,
+                                   name='int_map')
+
     """
-    # # #  mpQP objective and constraints formulation in Neuromancer
+    # # #  mpMINLP objective and constraints formulation in Neuromancer
     """
     # variables
     x = Variable("x")
     y = Variable("y")
     # sampled parameters
-    p1 = Variable('p1')
+    p = Variable('p')
+    a = Variable('a')
 
     # objective function
-    f = x ** 2 + y ** 2
+    f = (1-0.5*x)**2 + a*(0.5*y-0.5*x**2)**2
     obj = f.minimize(weight=args.Q, name='obj')
-    # constraints
-    g1 = - x - y + p1
-    con_1 = (g1 <= 0)
-    con_1.name = 'c2'
 
-    """
-    # # #  mpQP problem formulation in Neuromancer
-    """
-    # list of objectives, constraints, and components (solution maps)
+    # constraints
+    con_1 = (x >= y)
+    con_2 = ((p/2)**2 <= x**2+y**2)
+    con_3 = (x**2+y**2 <= p**2)
+    # g1 = y - x
+    # con_1 = (g1 <= 0)
+    # g2 = -x**2-y**2 - (p/2)**2
+    # con_2 = (g2 <= 0)
+    # g3 = x**2+y**2 - p**2
+    # con_3 = (g3 <= 0)
+    con_1.name = 'c1'
+    con_2.name = 'c2'
+    con_3.name = 'c3'
+
+    # constrained optimization problem construction
     objectives = [obj]
-    constraints = [args.Q_con*con_1]
+    constraints = [args.Q_con*con_1, args.Q_con*con_2, args.Q_con*con_3]
     components = [sol_map]
+
+    if args.train_integer:  # MINLP = use integer correction update during training
+        components.append(integer_map)
 
     if args.proj_grad:  # use projected gradient update
         project_keys = ["x", "y"]
@@ -228,17 +255,16 @@ if __name__ == "__main__":
     """
     # # # Metrics and Logger
     """
-    args.savedir = 'test_mpQP_1'
+    args.savedir = 'test_mpMINLP_Rosebnrock'
     args.verbosity = 1
     metrics = ["train_loss", "train_obj", "train_mu_scaled_penalty_loss", "train_con_lagrangian",
-               "train_mu", "train_c1"]
+               "train_mu", "train_c1", "train_c2", "train_c3"]
     if args.logger == 'stdout':
         Logger = BasicLogger
     elif args.logger == 'mlflow':
         Logger = MLFlowLogger
     logger = Logger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'mpQP_1'
-
+    logger.args.system = 'mpmpMINLP_Rosebnrock'
 
     """
     # # #  mpQP problem solution in Neuromancer
@@ -269,66 +295,64 @@ if __name__ == "__main__":
 
 
     """
-    CVXPY benchmark
+    MIQP Integer correction at inference
     """
-    # Define and solve the CVXPY problem.
-    x = cp.Variable(1)
-    y = cp.Variable(1)
-    p1 = 10.0  # problem parameter
-    def QP_param(p1):
-        prob = cp.Problem(cp.Minimize(x ** 2 + y ** 2),
-                          [-x - y + p1 <= 0])
-        return prob
+    int_map = IntegerCorrector(input_keys=['x', 'y'],
+                                   method='sawtooth',
+                                   nsteps=1, stepsize=1.0,
+                                   name='int_map')
+    if args.inference_integer:
+        if args.train_integer:
+            problem.components[1] = int_map
+        else:
+            problem.components.append(int_map)
 
     """
     Plots
     """
-    # test problem parameters
-    params = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-    p = 10.0
-    x1 = np.arange(-1.0, 10.0, 0.05)
-    y1 = np.arange(-1.0, 10.0, 0.05)
+    a = 0.8
+    p = 4.0
+    x1 = np.arange(-5., 6., 0.02)
+    y1 = np.arange(-5., 6., 0.02)
     xx, yy = np.meshgrid(x1, y1)
-    fig, ax = plt.subplots(3,3)
-    row_id = 0
-    column_id = 0
-    for i, p in enumerate(params):
-        if i % 3 == 0 and i != 0:
-            row_id += 1
-            column_id = 0
-        # eval objective and constraints
-        J = xx ** 2 + yy ** 2
-        c1 = xx + yy - p
 
-        # Plot
-        cp_plot = ax[row_id, column_id].contourf(xx, yy, J, 50, alpha=0.4)
-        ax[row_id, column_id].set_title(f'QP p={p}')
-        cg1 = ax[row_id, column_id].contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
-        plt.setp(cg1.collections,
-                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-        fig.colorbar(cp_plot, ax=ax[row_id, column_id])
+    # eval objective and constraints
+    J = (1 - 0.5*xx) ** 2 + a * (0.5*yy - 0.5*xx ** 2) ** 2
+    c1 = xx - yy
+    c2 = xx ** 2 + yy ** 2 - (p / 2) ** 2
+    c3 = -(xx ** 2 + yy ** 2) + p ** 2
 
-        # Solve QP
-        prob = QP_param(p)
-        prob.solve()
+    fig, ax = plt.subplots(1, 1)
+    cp = ax.contourf(xx, yy, J,
+                     levels=[0, 0.05, 0.2, 0.5, 1.0, 2.0, 4.0, 7.0,
+                             10., 20., 30., 50., 70., 100., 150., 200.],
+                     alpha=0.6)
+    fig.colorbar(cp)
+    ax.set_title('mpMINLP Rosenbrock problem')
+    cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
+    plt.setp(cg1.collections,
+             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+    cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
+    plt.setp(cg2.collections,
+             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+    cg3 = ax.contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
+    plt.setp(cg3.collections,
+             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
 
-        # Solve DPP
-        datapoint = {}
-        datapoint['p1'] = torch.tensor([[p]])
-        datapoint['name'] = "test"
-        model_out = problem(datapoint)
-        x_nm = model_out['test_' + "x"][0, :].detach().numpy()
-        y_nm = model_out['test_' + "y"][0, :].detach().numpy()
+    # Solution to mpMINLP via trained map
+    datapoint = {}
+    datapoint['a'] = torch.tensor([[a]])
+    datapoint['p'] = torch.tensor([[p]])
+    datapoint['name'] = "test"
+    model_out = problem(datapoint)
+    x_nm = model_out['test_' + "x"][0, :].detach().numpy()
+    y_nm = model_out['test_' + "y"][0, :].detach().numpy()
+    print(x_nm)
+    print(y_nm)
+    ax.plot(x_nm, y_nm, 'r*', markersize=10)
 
-        print(f'primal solution QP x={x.value}, y={y.value}')
-        print(f'parameter p={p}')
-        print(f'primal solution DPP x1={x_nm}, x2={y_nm}')
-        print(f' f: {model_out["test_" + f.key]}')
-        print(f' g1: {model_out["test_" + g1.key]}')
-
-        # Plot optimal solutions
-        ax[row_id, column_id].plot(x.value, y.value, 'g*', markersize=10)
-        ax[row_id, column_id].plot(x_nm, y_nm, 'r*', markersize=10)
-        column_id += 1
-    plt.show()
-
+    # Plot admissible integer solutions
+    x_int = np.arange(-5., 6., 1.0)
+    y_int = np.arange(-5., 6., 1.0)
+    xx, yy = np.meshgrid(x_int, y_int)
+    ax.plot(xx, yy, 'bo', markersize=2)

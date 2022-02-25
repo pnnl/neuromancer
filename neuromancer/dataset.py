@@ -1,5 +1,7 @@
+from glob import glob
 import math
 import os
+from typing import Union
 import warnings
 
 import numpy as np
@@ -196,7 +198,7 @@ class SequenceDataset(Dataset):
 
     def __getitem__(self, i):
         """Fetch a single N-step sequence from the dataset."""
-        return {
+        datapoint = {
             **{
                 k + "p": self.batched_data[i, :, self._vslices[k]]
                 for k in self.variables
@@ -206,6 +208,8 @@ class SequenceDataset(Dataset):
                 for k in self.variables
             },
         }
+        datapoint['index'] = i
+        return datapoint
 
     def _get_full_sequence_impl(self, start=0, end=None):
         """Returns the full sequence of data as a dictionary. Useful for open-loop evaluation.
@@ -256,7 +260,7 @@ class SequenceDataset(Dataset):
         """
         batch = default_collate(batch)
         return {
-            **{k: v.transpose(0, 1) for k, v in batch.items()},
+            **{k: v.transpose(0, 1) if k != 'index' else v for k, v in batch.items()},
             "name": "nstep_" + self.name,
         }
 
@@ -271,7 +275,7 @@ class SequenceDataset(Dataset):
             f"    {varinfo}\n"
             f"  nsim: {self.nsim}\n"
             f"  nsteps: {self.nsteps}\n"
-            f"  batches: {len(self)}\n"
+            f"  nsamples: {len(self)}\n"
         )
 
 
@@ -324,10 +328,12 @@ class StaticDataset(Dataset):
 
     def __getitem__(self, i):
         """Fetch a single sample from the dataset."""
-        return {
+        datapoint = {
             k: self.full_data[i, self._vslices[k]]
             for k in self.variables
         }
+        datapoint['index'] = i
+        return datapoint
 
     def get_full_batch(self):
         batch = {
@@ -404,9 +410,13 @@ def split_sequence_data(data, nsteps, moving_horizon=False, split_ratio=None):
     :param data: (dict str: np.array or list[str: np.array]) data dictionary.
     :param nsteps: (int) N-step prediction horizon for batching data; used here to ensure split
         lengths are evenly divisible by N.
-    :param moving_horizon: Does nothing.
+    :param moving_horizon: (bool) whether batches use a sliding window with stride 1; else stride of
+        N is assumed.
     :param split_ratio: (list float) Two numbers indicating percentage of data included in train and
         development sets (out of 100.0). Default is None, which splits data into thirds.
+
+    .. todo:: polymorphic split arg for supporting split percentages or indices for multiseq case
+        and determine best way to split given a dict of file names
     """
     multisequence = _is_multisequence_data(data)
     assert _is_sequence_data(data) or multisequence, \

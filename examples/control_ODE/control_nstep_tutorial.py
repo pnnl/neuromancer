@@ -25,6 +25,7 @@ from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.callbacks import ControlCallback
 from neuromancer.constraint import Variable
 from neuromancer.plot import pltCL
+from neuromancer.loss import PenaltyLoss, BarrierLoss
 
 
 def arg_control_problem(prefix='', system='TwoTank'):
@@ -67,6 +68,14 @@ def arg_control_problem(prefix='', system='TwoTank'):
            help="Whether to run simulator during evaluation phase of training.")
     gp.add("-seed", type=int, default=408, help="Random seed used for weight initialization.")
     gp.add("-gpu", type=int, help="GPU to use")
+    gp.add("-loss", type=str, default='penalty',
+           choices=['penalty', 'barrier'],
+           help="type of the loss function.")
+    gp.add("-barrier_type", type=str, default='log10',
+           choices=['log', 'log10', 'inverse'],
+           help="type of the barrier function in the barrier loss.")
+    gp.add("-batch_second", default=True, choices=[True, False],
+           help="whether the batch is a second dimension in the dataset.")
     return parser
 
 
@@ -137,6 +146,15 @@ def get_sequence_dataloaders(
     )
 
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
+
+
+def get_loss(objectives, constraints, args):
+    if args.loss == 'penalty':
+        loss = PenaltyLoss(objectives, constraints, batch_second=args.batch_second)
+    elif args.loss == 'barrier':
+        loss = BarrierLoss(objectives, constraints, barrier=args.barrier_type,
+                           batch_second=args.batch_second)
+    return loss
 
 
 if __name__ == "__main__":
@@ -264,23 +282,20 @@ if __name__ == "__main__":
     ]
     # define component models
     components = [estimator, policy, dynamics_model]
-
-    # define constrained optimal control problem
-    model = Problem(
-        objectives,
-        constraints,
-        components,
-    )
-    model = model.to(device)
+    # create constrained optimization loss
+    loss = get_loss(objectives, constraints, args)
+    # construct constrained optimization problem
+    problem = Problem(components, loss)
+    # plot computational graph
+    problem.plot_graph()
 
     """
     # # # Training
     """
     # train only policy component
-    freeze_weight(model, module_names=[""])                  # freeze all components
-    unfreeze_weight(model, module_names=["components.1"])    # unfreeze policy component
-
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    freeze_weight(problem, module_names=[""])                  # freeze all components
+    unfreeze_weight(problem, module_names=["components.1"])    # unfreeze policy component
+    optimizer = torch.optim.AdamW(problem.parameters(), lr=args.lr)
 
     visualizer = VisualizerClosedLoop(
         u_key=u.name,
@@ -289,6 +304,7 @@ if __name__ == "__main__":
         policy=policy,
         savedir=args.savedir,
     )
+    # TODO: simulators break
     simulator = ClosedLoopSimulator(
         sim_data=train_loop, policy=policy,
         system_model=dynamics_model, estimator=estimator,
@@ -298,14 +314,17 @@ if __name__ == "__main__":
         nsim=200)
 
     trainer = Trainer(
-        model,
+        problem,
         train_data,
         dev_data,
         test_data,
         optimizer,
         logger=logger,
         callback=ControlCallback(simulator, visualizer),
-        eval_metric="nstep_dev_loss",
+        train_metric="nstep_train_loss",
+        dev_metric="nstep_dev_loss",
+        test_metric="nstep_test_loss",
+        eval_metric='nstep_dev_loss',
         epochs=args.epochs,
         patience=args.patience,
         warmup=args.warmup,

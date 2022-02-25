@@ -28,12 +28,13 @@ from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
-from neuromancer.constraint import Loss
+from neuromancer.constraint import Variable, Loss
 from neuromancer import policies
 import neuromancer.arg as arg
 from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
 from torch.utils.data import DataLoader
 from neuromancer.loggers import BasicLogger
+from neuromancer.loss import PenaltyLoss, BarrierLoss
 
 
 def arg_dpc_problem(prefix=''):
@@ -82,6 +83,14 @@ def arg_dpc_problem(prefix=''):
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
     gp.add("-warmup", type=int, default=10,
            help="Number of epochs to wait before enacting early stopping policy.")
+    gp.add("-loss", type=str, default='penalty',
+           choices=['penalty', 'barrier'],
+           help="type of the loss function.")
+    gp.add("-barrier_type", type=str, default='log10',
+           choices=['log', 'log10', 'inverse'],
+           help="type of the barrier function in the barrier loss.")
+    gp.add("-batch_second", default=True, choices=[True, False],
+           help="whether the batch is a second dimension in the dataset.")
     return parser
 
 
@@ -152,6 +161,15 @@ def get_sequence_dataloaders(
     )
 
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
+
+
+def get_loss(objectives, constraints, args):
+    if args.loss == 'penalty':
+        loss = PenaltyLoss(objectives, constraints, batch_second=args.batch_second)
+    elif args.loss == 'barrier':
+        loss = BarrierLoss(objectives, constraints, barrier=args.barrier_type,
+                           batch_second=args.batch_second)
+    return loss
 
 
 def cl_simulate(A, B, policy, args, nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
@@ -334,74 +352,47 @@ if __name__ == "__main__":
     # fix model parameters
     dynamics_model.requires_grad_(False)
 
+
     """
     # # #  DPC objectives and constraints
     """
+    u = Variable(f"U_pred_{policy.name}", name='u')
+    y = Variable(f"Y_pred_{dynamics_model.name}", name='y')
+    r = Variable("Rf", name='r')
+    # constraints bounds variables
+    umin = Variable("U_minf")
+    umax = Variable("U_maxf")
+    ymin = Variable("Y_minf")
+    ymax = Variable("Y_maxf")
+
     # objectives
-    reference_loss = Loss(
-        [f'Y_pred_{dynamics_model.name}', "Rf"],
-        lambda pred, ref: F.mse_loss(pred[:, :, args.controlled_outputs], ref),
-        weight=args.Qr,
-        name="ref_loss",
-    )
-    action_loss = Loss(
-        [f"U_pred_{policy.name}"],
-        lambda x:  torch.norm(x, 2),
-        weight=args.Qu,
-        name="u^T*Qu*u",
-    )
-    du_loss = Loss(
-        [f"U_pred_{policy.name}"],
-        lambda x:  F.mse_loss(x[1:], x[:-1]),
-        weight=args.Qdu,
-        name="control_smoothing",
-    )
+    action_loss = args.Qu * ((u == 0) ^ 2)  # control penalty
+    reference_loss = args.Qr * ((y[:, :, args.controlled_outputs] == r) ^ 2)  # target posistion
+    du_loss = args.Qdu*((u[1:] == u[:-1])^2)
+    # constraints
+    state_lower_bound_penalty = args.Q_con_x*(y > ymin)
+    state_upper_bound_penalty = args.Q_con_x*(y < ymax)
+    inputs_lower_bound_penalty = args.Q_con_u*(u > umin)
+    inputs_upper_bound_penalty = args.Q_con_u*(u < umax)
+    terminal_lower_bound_penalty = args.Qn*(y[[-1], :, :] > xN_min)
+    terminal_upper_bound_penalty = args.Qn*(y[[-1], :, :] < xN_max)
+    # objectives and constraints names for nicer plot
+    action_loss.name = "action_loss"
+    reference_loss.name = 'control_loss'
+    du_loss.name = "control_smoothing"
+    state_lower_bound_penalty.name = 'x_min'
+    state_upper_bound_penalty.name = 'x_max'
+    inputs_lower_bound_penalty.name = 'u_min'
+    inputs_upper_bound_penalty.name = 'u_max'
+    terminal_lower_bound_penalty.name = 'y_N_min'
+    terminal_upper_bound_penalty.name = 'y_N_max'
     # regularization
     regularization = Loss(
         [f"reg_error_{policy.name}"], lambda reg: reg,
         weight=args.Q_sub, name="reg_loss",
     )
-    # constraints
-    state_lower_bound_penalty = Loss(
-        [f'Y_pred_{dynamics_model.name}', "Y_minf"],
-        lambda x, xmin: torch.norm(F.relu(-x + xmin), 1),
-        weight=args.Q_con_x,
-        name="state_lower_bound",
-    )
-    state_upper_bound_penalty = Loss(
-        [f'Y_pred_{dynamics_model.name}', "Y_maxf"],
-        lambda x, xmax: torch.norm(F.relu(x - xmax), 1),
-        weight=args.Q_con_x,
-        name="state_upper_bound",
-    )
-    terminal_lower_bound_penalty = Loss(
-        [f'Y_pred_{dynamics_model.name}', "Rf"],
-        lambda x, ref: torch.norm(F.relu(-x[:, :, args.controlled_outputs] + ref + xN_min), 1),
-        weight=args.Qn,
-        name="terminl_lower_bound",
-    )
-    terminal_upper_bound_penalty = Loss(
-        [f'Y_pred_{dynamics_model.name}', "Rf"],
-        lambda x, ref: torch.norm(F.relu(x[:, :, args.controlled_outputs] - ref - xN_max), 1),
-        weight=args.Qn,
-        name="terminl_upper_bound",
-    )
-    # alternative definition: args.nsteps*torch.mean(F.relu(-u + umin))
-    inputs_lower_bound_penalty = Loss(
-        [f"U_pred_{policy.name}", "U_minf"],
-        lambda u, umin: torch.norm(F.relu(-u + umin), 1),
-        weight=args.Q_con_u,
-        name="input_lower_bound",
-    )
-    # alternative definition: args.nsteps*torch.mean(F.relu(u - umax))
-    inputs_upper_bound_penalty = Loss(
-        [f"U_pred_{policy.name}", "U_maxf"],
-        lambda u, umax: torch.norm(F.relu(u - umax), 1),
-        weight=args.Q_con_u,
-        name="input_upper_bound",
-    )
 
-    objectives = [regularization, reference_loss, du_loss]
+    objectives = [regularization, reference_loss, action_loss]
     constraints = [
         state_lower_bound_penalty,
         state_upper_bound_penalty,
@@ -416,11 +407,12 @@ if __name__ == "__main__":
     """
     # data (y_k) -> estimator (x_k) -> policy (u_k) -> dynamics (x_k+1, y_k+1)
     components = [estimator, policy, dynamics_model]
-    model = Problem(
-        objectives,
-        constraints,
-        components,
-    )
+    # create constrained optimization loss
+    loss = get_loss(objectives, constraints, args)
+    # construct constrained optimization problem
+    problem = Problem(components, loss)
+    # plot computational graph
+    problem.plot_graph()
 
     """
     # # #  DPC trainer 
@@ -434,12 +426,12 @@ if __name__ == "__main__":
     logger.args.system = 'dpc_var_ref'
     # device and optimizer
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
-    model = model.to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    problem = problem.to(device)
+    optimizer = torch.optim.AdamW(problem.parameters(), lr=args.lr)
 
     # trainer
     trainer = Trainer(
-        model,
+        problem,
         train_data,
         dev_data,
         test_data,
@@ -447,6 +439,9 @@ if __name__ == "__main__":
         logger=logger,
         epochs=args.epochs,
         patience=args.patience,
+        train_metric="nstep_train_loss",
+        dev_metric="nstep_dev_loss",
+        test_metric="nstep_test_loss",
         eval_metric='nstep_dev_loss',
         warmup=args.warmup,
     )

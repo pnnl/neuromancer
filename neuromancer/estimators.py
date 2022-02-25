@@ -22,8 +22,6 @@ from neuromancer.component import Component, check_key_subset
 
 
 class TimeDelayEstimator(Component):
-    DEFAULT_INPUT_KEYS = ["Yp"]
-    DEFAULT_OUTPUT_KEYS = ["x0", "reg_error"]
 
     def __init__(self, data_dims, nsteps=1, window_size=1, input_keys=[], name='estimator'):
         """
@@ -34,8 +32,8 @@ class TimeDelayEstimator(Component):
         :param input_keys: (List of str) List of input variable names
         :param name: (str) Name for tracking output of module.
         """
-        self.DEFAULT_INPUT_KEYS = input_keys or self.DEFAULT_INPUT_KEYS
-        super().__init__(name=name)
+        output_keys = [f"{k}_{name}" if name is not None else k for k in ["x0", "reg_error"]]
+        super().__init__(input_keys=input_keys, output_keys=output_keys, name=name)
 
         assert window_size <= nsteps, f'Window size {window_size} longer than sequence length {nsteps}.'
         check_key_subset(set(input_keys), set(data_dims.keys()))
@@ -88,10 +86,9 @@ class TimeDelayEstimator(Component):
         :return: (dict {str: torch.tensor)}
         """
         features = self.features(data)
-        return {
-            'x0': self.net(features),
-            'reg_error': self.reg_error()
-        }
+        output = {name: tensor for tensor, name
+                  in zip([self.net(features),  self.reg_error()], self.output_keys)}
+        return output
 
 
 class seq2seqTimeDelayEstimator(TimeDelayEstimator):
@@ -120,7 +117,9 @@ class seq2seqTimeDelayEstimator(TimeDelayEstimator):
         """
         features = self.features(data)
         Xtd = self.net(features).reshape(self.timedelay+1, -1, self.nx)
-        return {'Xtd': Xtd, 'reg_error': self.reg_error()}
+        output = {name: tensor for tensor, name
+                  in zip([Xtd,  self.reg_error()], self.output_keys)}
+        return output
 
 
 class FullyObservable(TimeDelayEstimator):
@@ -258,7 +257,9 @@ class RNNEstimator(TimeDelayEstimator):
 
     def forward(self, data):
         features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
-        return {'x0': self.net(features), 'reg_error': self.net.reg_error()}
+        output = {name: tensor for tensor, name
+                  in zip([self.net(features),  self.reg_error()], self.output_keys)}
+        return output
 
 
 class seq2seqRNNEstimator(seq2seqTimeDelayEstimator):
@@ -277,12 +278,15 @@ class seq2seqRNNEstimator(seq2seqTimeDelayEstimator):
     def forward(self, data):
         features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
         Xtd = self.net(features).reshape(self.timedelay+1, -1, self.nx)
-        return {'Xtd': Xtd, 'reg_error': self.net.reg_error()}
+        output = {name: tensor for tensor, name
+                  in zip([Xtd, self.net.reg_error()], self.output_keys)}
+        return output
 
 
 class LinearKalmanFilter(Component):
     DEFAULT_INPUT_KEYS = ["Yp", "Up", "Dp"]
     DEFAULT_OUTPUT_KEYS = ["x0", "reg_error"]
+    # TODO: this model is broken
     """
     Time-Varying Linear Kalman Filter
     """

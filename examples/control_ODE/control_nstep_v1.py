@@ -19,7 +19,7 @@ from neuromancer.activations import BLU, SoftExponential
 from neuromancer import policies, arg
 from neuromancer.activations import activations
 from neuromancer.problem import Problem
-from neuromancer.constraint import Loss
+from neuromancer.constraint import Loss, Variable
 from torch.utils.data import DataLoader
 from neuromancer.simulators import ClosedLoopSimulator
 from neuromancer.trainer import Trainer, freeze_weight, unfreeze_weight
@@ -27,6 +27,7 @@ from neuromancer.visuals import VisualizerClosedLoop
 from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.callbacks import ControlCallback
+from neuromancer.loss import PenaltyLoss, BarrierLoss
 
 
 def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth'):
@@ -57,6 +58,8 @@ def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
     #  SYSTEM MODEL
+    gp.add("-controlled_outputs", type=int, default=[1],
+           help="Index of the controlled state.")
     gp.add("-ssm_type", type=str, choices=["blackbox", "hw", "hammerstein", "blocknlin", "linear"],
            default="hammerstein",
            help='Choice of block structure for system identification model')
@@ -99,6 +102,8 @@ def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth
            help="Linear maps regularization weight.")
     gp.add("-Q_r", type=float, default=10.0,
            help="Reference tracking penalty weight")
+    gp.add("-Q_u", type=float, default=0.0,
+           help="control action weight.")       # tuned value: 0.0
     gp.add("-Q_du", type=float, default=0.1,
            help="control action difference penalty weight")
     gp.add("-Q_con_u", type=float, default=1.0,
@@ -139,6 +144,14 @@ def arg_control_problem(prefix='', system='TwoTank', path='./test/best_model.pth
            help="Whether to run simulator during evaluation phase of training.")
     gp.add("-seed", type=int, default=408, help="Random seed used for weight initialization.")
     gp.add("-gpu", type=int, help="GPU to use")
+    gp.add("-loss", type=str, default='penalty',
+           choices=['penalty', 'barrier'],
+           help="type of the loss function.")
+    gp.add("-barrier_type", type=str, default='log10',
+           choices=['log', 'log10', 'inverse'],
+           help="type of the barrier function in the barrier loss.")
+    gp.add("-batch_second", default=True, choices=[True, False],
+           help="whether the batch is a second dimension in the dataset.")
     return parser
 
 
@@ -211,6 +224,15 @@ def get_sequence_dataloaders(
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
+def get_loss(objectives, constraints, args):
+    if args.loss == 'penalty':
+        loss = PenaltyLoss(objectives, constraints, batch_second=args.batch_second)
+    elif args.loss == 'barrier':
+        loss = BarrierLoss(objectives, constraints, barrier=args.barrier_type,
+                           batch_second=args.batch_second)
+    return loss
+
+
 def get_policy_components(args, dims, dynamics_model, policy_name="policy"):
     torch.manual_seed(args.seed)
 
@@ -243,91 +265,81 @@ def get_policy_components(args, dims, dynamics_model, policy_name="policy"):
     return policy
 
 
-def get_objective_terms(args, policy):
+def get_objective_terms(args, dynamics_model, policy):
     if args.noise:
         output_key = "Y_pred_dynamics_noise"
     else:
         output_key = "Y_pred_dynamics"
 
-    # control second state towards reference
-    reference_loss = Loss(
-        [output_key, "Rf"],
-        lambda pred, ref: F.mse_loss(pred[:,:,1], ref[:,:,1]),
-        weight=args.Q_r,
-        name="ref_loss",
-    )
+    u = Variable(f"U_pred_{policy.name}", name='u')
+    y = Variable(f"Y_pred_{dynamics_model.name}", name='y')
+    x = Variable(f"X_pred_{dynamics_model.name}", name='x')
+    r = Variable("Rf", name='r')
+    # constraints bounds variables
+    umin = Variable("U_minf")
+    umax = Variable("U_maxf")
+    ymin = Variable("Y_minf")
+    ymax = Variable("Y_maxf")
+
+    # objectives
+    action_loss = args.Q_u * ((u == 0) ^ 2)  # control penalty
+    reference_loss = args.Q_r * ((y[:, :, args.controlled_outputs] == r[:, :, args.controlled_outputs] ) ^ 2)  # target posistion
+    control_smoothing = args.Q_du*((u[1:] == u[:-1]) ^ 2)
+    # constraints
+    observation_lower_bound_penalty = args.Q_con_y*(y > ymin)
+    observation_upper_bound_penalty = args.Q_con_y*(y < ymax)
+    inputs_lower_bound_penalty = args.Q_con_u*(u > umin)
+    inputs_upper_bound_penalty = args.Q_con_u*(u < umax)
+    # objectives and constraints names for nicer plot
+    action_loss.name = "action_loss"
+    reference_loss.name = 'control_loss'
+    control_smoothing.name = "control_smoothing"
+    observation_lower_bound_penalty.name = 'x_min'
+    observation_upper_bound_penalty.name = 'x_max'
+    inputs_lower_bound_penalty.name = 'u_min'
+    inputs_upper_bound_penalty.name = 'u_max'
     regularization = Loss(
         [f"reg_error_{policy.name}"], lambda reg: reg, weight=args.Q_sub, name="reg_loss",
     )
-    control_smoothing = Loss(
-        [f"U_pred_{policy.name}"],
-        lambda x: F.mse_loss(x[1:], x[:-1]),
-        weight=args.Q_du,
-        name="control_smoothing",
-    )
-    observation_lower_bound_penalty = Loss(
-        [output_key, "Y_minf"],
-        lambda x, xmin: torch.mean(F.relu(-x + xmin)),
-        weight=args.Q_con_y,
-        name="observation_lower_bound",
-    )
-    observation_upper_bound_penalty = Loss(
-        [output_key, "Y_maxf"],
-        lambda x, xmax: torch.mean(F.relu(x - xmax)),
-        weight=args.Q_con_y,
-        name="observation_upper_bound",
-    )
-    inputs_lower_bound_penalty = Loss(
-        [f"U_pred_{policy.name}", "U_minf"],
-        lambda x, xmin: torch.mean(F.relu(-x + xmin)),
-        weight=args.Q_con_u,
-        name="input_lower_bound",
-    )
-    inputs_upper_bound_penalty = Loss(
-        [f"U_pred_{policy.name}", "U_maxf"],
-        lambda x, xmax: torch.mean(F.relu(x - xmax)),
-        weight=args.Q_con_u,
-        name="input_upper_bound",
-    )
 
-    # Constraints tightening
-    if args.con_tighten:
-        observation_lower_bound_penalty = Loss(
-            [output_key, "Y_minf"],
-            lambda x, xmin: torch.mean(F.relu(-x + xmin + args.tighten)),
-            weight=args.Q_con_y,
-            name="observation_lower_bound",
-        )
-        observation_upper_bound_penalty = Loss(
-            [output_key, "Y_maxf"],
-            lambda x, xmax: torch.mean(F.relu(x - xmax + args.tighten)),
-            weight=args.Q_con_y,
-            name="observation_upper_bound",
-        )
-        inputs_lower_bound_penalty = Loss(
-            [f"U_pred_{policy.name}", "U_minf"],
-            lambda x, xmin: torch.mean(F.relu(-x + xmin + args.tighten)),
-            weight=args.Q_con_u,
-            name="input_lower_bound",
-        )
-        inputs_upper_bound_penalty = Loss(
-            [f"U_pred_{policy.name}", "U_maxf"],
-            lambda x, xmax: torch.mean(F.relu(x - xmax + args.tighten)),
-            weight=args.Q_con_u,
-            name="input_upper_bound",
-        )
+    # # Constraints tightening
+    # if args.con_tighten:
+    #     observation_lower_bound_penalty = Loss(
+    #         [output_key, "Y_minf"],
+    #         lambda x, xmin: torch.mean(F.relu(-x + xmin + args.tighten)),
+    #         weight=args.Q_con_y,
+    #         name="observation_lower_bound",
+    #     )
+    #     observation_upper_bound_penalty = Loss(
+    #         [output_key, "Y_maxf"],
+    #         lambda x, xmax: torch.mean(F.relu(x - xmax + args.tighten)),
+    #         weight=args.Q_con_y,
+    #         name="observation_upper_bound",
+    #     )
+    #     inputs_lower_bound_penalty = Loss(
+    #         [f"U_pred_{policy.name}", "U_minf"],
+    #         lambda x, xmin: torch.mean(F.relu(-x + xmin + args.tighten)),
+    #         weight=args.Q_con_u,
+    #         name="input_lower_bound",
+    #     )
+    #     inputs_upper_bound_penalty = Loss(
+    #         [f"U_pred_{policy.name}", "U_maxf"],
+    #         lambda x, xmax: torch.mean(F.relu(x - xmax + args.tighten)),
+    #         weight=args.Q_con_u,
+    #         name="input_upper_bound",
+    #     )
 
-    # Loss clipping
-    if args.loss_clip:
-        reference_loss = Loss(
-            [output_key, "Rf", "Y_minf", "Y_maxf"],
-            lambda pred, ref, xmin, xmax: F.mse_loss(
-                pred * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),
-                ref * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),
-            ),
-            weight=args.Q_r,
-            name="ref_loss",
-        )
+    # # Loss clipping
+    # if args.loss_clip:
+    #     reference_loss = Loss(
+    #         [output_key, "Rf", "Y_minf", "Y_maxf"],
+    #         lambda pred, ref, xmin, xmax: F.mse_loss(
+    #             pred * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),
+    #             ref * torch.gt(ref, xmin).int() * torch.lt(ref, xmax).int(),
+    #         ),
+    #         weight=args.Q_r,
+    #         name="ref_loss",
+    #     )
 
     objectives = [regularization, reference_loss, control_smoothing]
     constraints = [
@@ -415,26 +427,24 @@ if __name__ == "__main__":
     # # #  Differentiable Predictive Control Problem Definition
     """
     # get objectives and constraints
-    objectives, constraints = get_objective_terms(args, policy)
+    objectives, constraints = get_objective_terms(args, dynamics_model, policy)
     # define component models
     components = [estimator, policy, dynamics_model]
-
-    # define constrained optimal control problem
-    model = Problem(
-        objectives,
-        constraints,
-        components,
-    )
-    model = model.to(device)
+    # create constrained optimization loss
+    loss = get_loss(objectives, constraints, args)
+    # construct constrained optimization problem
+    problem = Problem(components, loss)
+    # plot computational graph
+    problem.plot_graph()
 
     """
     # # # Training
     """
     # train only policy component
-    freeze_weight(model, module_names=args.freeze)
-    unfreeze_weight(model, module_names=args.unfreeze)
+    freeze_weight(problem, module_names=args.freeze)
+    unfreeze_weight(problem, module_names=args.unfreeze)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(problem.parameters(), lr=args.lr)
 
     visualizer = VisualizerClosedLoop(
         u_key='U_pred_policy',
@@ -443,6 +453,7 @@ if __name__ == "__main__":
         policy=policy,
         savedir=args.savedir,
     )
+    # TODO: simulators break
     simulator = ClosedLoopSimulator(
         sim_data=train_loop, policy=policy,
         system_model=dynamics_model, estimator=estimator,
@@ -452,14 +463,17 @@ if __name__ == "__main__":
         nsim=200)
 
     trainer = Trainer(
-        model,
+        problem,
         train_data,
         dev_data,
         test_data,
         optimizer,
         logger=logger,
         callback=ControlCallback(simulator, visualizer),
-        eval_metric="nstep_dev_loss",
+        train_metric="nstep_train_loss",
+        dev_metric="nstep_dev_loss",
+        test_metric="nstep_test_loss",
+        eval_metric='nstep_dev_loss',
         epochs=args.epochs,
         patience=args.patience,
         warmup=args.warmup,

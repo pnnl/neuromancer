@@ -3,19 +3,21 @@ Definition of neuromancer.Constraint class used in conjunction with neuromancer.
 same behavior as a Loss but with intuitive syntax for defining via Variable objects.
 """
 from typing import Dict, List, Callable
+from abc import ABC, abstractmethod
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from neuromancer.gradients import gradient
+from neuromancer.component import Component
 
 
-class Loss(nn.Module):
+class Loss(Component):
     """
     Drop in replacement for a Constraint object but relies on a list of dictionary keys and a callable function
     to instantiate.
     """
-    def __init__(self, variable_names: List[str], loss: Callable[..., torch.Tensor], weight=1.0, name='loss'):
+    def __init__(self, input_keys: List[str], loss: Callable[..., torch.Tensor], weight=1.0, name='loss'):
         """
 
         :param variable_names: List of str
@@ -24,11 +26,9 @@ class Loss(nn.Module):
         :param weight: (float) Weight of loss for calculating multi-term loss function
         :param name: (str) Name for tracking output
         """
-        super().__init__()
-        self.variable_names = variable_names
+        super().__init__(input_keys=input_keys, output_keys=[name], name=name)
         self.weight = weight
         self.loss = loss
-        self.name = name
 
     def grad(self, variables, input_key=None):
         """
@@ -46,10 +46,10 @@ class Loss(nn.Module):
         :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
         :return: 0-dimensional torch.Tensor that can be cast as a floating point number
         """
-        return {self.name: self.weight*self.loss(*[variables[k] for k in self.variable_names])}
+        return {self.output_keys[0]: self.weight*self.loss(*[variables[k] for k in self.input_keys])}
 
     def __repr__(self):
-        return f"Loss: {self.name}({', '.join(self.variable_names)}) -> {self.loss} * {self.weight}"
+        return f"Loss: {self.name}({', '.join(self.input_keys)}) -> {self.loss} * {self.weight}"
 
 
 class LT(nn.Module):
@@ -72,10 +72,12 @@ class LT(nn.Module):
         :param right: torch.Tensor
         :return: zero dimensional torch.Tensor
         """
-        if self.norm == 1:
-            return torch.mean(F.relu(left - right))
-        elif self.norm == 2:
-            return torch.mean((F.relu(left - right))**2)
+        value = left - right
+        penalty = F.relu(value)
+        if self.norm == 2:
+            penalty = penalty ** 2
+        loss = torch.mean(penalty)
+        return loss, value, penalty
 
 
 class GT(nn.Module):
@@ -99,10 +101,12 @@ class GT(nn.Module):
         :param right: torch.Tensor
         :return: zero dimensional torch.Tensor
         """
-        if self.norm == 1:
-            return torch.mean(F.relu(right - left))
-        elif self.norm == 2:
-            return torch.mean((F.relu(right - left)) ** 2)
+        value = right - left
+        penalty = F.relu(value)
+        if self.norm == 2:
+            penalty = penalty ** 2
+        loss = torch.mean(penalty)
+        return loss, value, penalty
 
 
 class Eq(nn.Module):
@@ -125,13 +129,17 @@ class Eq(nn.Module):
         :param right: torch.Tensor
         :return: zero dimensional torch.Tensor
         """
+        value = left - right
         if self.norm == 1:
-            return F.l1_loss(left, right)
+            penalty = torch.abs(value)
+            loss = F.l1_loss(left, right)
         elif self.norm == 2:
-            return F.mse_loss(left, right)
+            penalty = value**2
+            loss = F.mse_loss(left, right)
+        return loss, value, penalty
 
 
-class Objective(nn.Module):
+class Objective(Component):
     """
     Drop in replacement for a Loss object constructed via neuromancer Variable object
     in the forward pass evaluates metric as torch function on Variable values
@@ -144,16 +152,14 @@ class Objective(nn.Module):
         :param weight: (float, int, or zero-D torch.Tensor) For scaling calculated Constraint violation loss
         :param name: (str) Optional intuitive name for storing in Problem's output dictionary.
         """
-        super().__init__()
         if not type(var) is Variable:
             var = Variable(str(var), value=var)
+        if name is None:
+            name = f'{self.var.name}_{self.metric}'
+        super().__init__(input_keys=var.input_keys, output_keys=[name], name=name)
         self.var = var
         self.metric = metric
         self.weight = weight
-        if name is None:
-            self.name = f'{self.var.name}_{self.metric}'
-        else:
-            self.name = name
 
     @property
     def variable_names(self):
@@ -175,13 +181,13 @@ class Objective(nn.Module):
         :param input_dict: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
         :return:  (dict, {str: 0-dimensional torch.Tensor}) tensor value can be cast as a floating point number
         """
-        return {self.name: self.weight*self.metric(self.var(input_dict))}
+        return {self.output_keys[0]: self.weight*self.metric(self.var(input_dict))}
 
     def __repr__(self):
-        return f"Objective: {self.name}({', '.join(self.variable_names)}) = {self.weight} * {self.metric}({', '.join(self.variable_names)})"
+        return f"Objective: {self.name}({', '.join(self.input_keys)}) = {self.weight} * {self.metric}({', '.join(self.input_keys)})"
 
 
-class Constraint(nn.Module):
+class Constraint(Component):
     """
     Drop in replacement for a Loss object but constructed by a composition of Variable objects
     using comparative infix operators, '<', '>', '==', '<=', '>=' and '*' to weight loss component and '^' to
@@ -198,19 +204,19 @@ class Constraint(nn.Module):
         :param weight: (float, int, or zero-D torch.Tensor) For scaling calculated Constraint violation loss
         :param name: (str) Optional intuitive name for storing in Problem's output dictionary.
         """
-        super().__init__()
         if not type(left) is Variable:
             left = Variable(str(left), value=left)
         if not type(right) is Variable:
             right = Variable(str(right), value=right)
+        if name is None:
+            name = f'{left}_{comparator}_{right}'
+        input_keys = left.get_data_keys() + right.get_data_keys()
+        output_keys = [name, f'{name}_value', f'{name}_violation']
+        super().__init__(input_keys=input_keys, output_keys=output_keys, name=name)
         self.left = left
         self.right = right
         self.comparator = comparator
         self.weight = weight
-        if name is None:
-            self.name = f'{self.left}_{self.comparator}_{self.right}'
-        else:
-            self.name = name
 
     @property
     def variable_names(self):
@@ -242,7 +248,10 @@ class Constraint(nn.Module):
         :param input_dict: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names
         :return: 0-dimensional torch.Tensor that can be cast as a floating point number
         """
-        return {self.name: self.weight*self.comparator(self.left(input_dict), self.right(input_dict))}
+        loss, value, violation = self.comparator(self.left(input_dict), self.right(input_dict))
+        output = {name: tensor for tensor, name
+                  in zip([self.weight*loss, value, violation], self.output_keys)}
+        return output
 
 
 class Variable(nn.Module):
@@ -269,7 +278,6 @@ class Variable(nn.Module):
         :param name: (str) Optional intuitive name for Variable for storage in a Problem's output dictionary.
         """
         super().__init__()
-
         self.key = key
         self.left = left
         self.right = right
@@ -286,6 +294,10 @@ class Variable(nn.Module):
                 self.name = f'{self.key}_{str(slice)}'
         else:
             self.name = name
+        self.input_keys = self.get_data_keys()
+        self.output_keys = [self.key]
+        if slice is not None:
+            self.output_keys += [f'{self.key}_{str(self.slice)}']
 
     def _check_(self):
         """
@@ -298,6 +310,18 @@ class Variable(nn.Module):
         if self.left is not None or self.right is not None:
             assert self.op is not None
 
+    def get_data_keys(self):
+        if self.left is None:
+            if self.value is not None:
+                return []
+            else:
+                return [self.key]
+        else:
+            if self.right is None:
+                return self.left.get_data_keys()
+            else:
+                return self.left.get_data_keys() + self.right.get_data_keys()
+
     def forward(self, data):
         """
         The call function is going to hand back a pytorch tensor. In the base case the call function will simply look
@@ -307,6 +331,8 @@ class Variable(nn.Module):
         :param data: (dict: {str: torch.Tensor})
         :return: torch.Tensor
         """
+        # if self.key in data:
+        #     return data[self.key]
         data_tensors = [v for v in data.values() if isinstance(v, torch.Tensor)]
         if self.value is not None:
             if data_tensors:
@@ -329,23 +355,16 @@ class Variable(nn.Module):
         elif self.op == 'grad':
             value = gradient(self.left(data), self.right(data))
         else:
-            if self.slice is not None:
-                key = self.key[:-len(str(self.slice))-1]
-                value = data[key]
-            else:
-                key = self.key
-                return data[key]
+            value = data[self.key]
 
-        if self.slice is None:
-            data[self.key] = value
-            return data[self.key]
-        else:
-            data[self.key] = value[self.slice]
-            return data[self.key]
+        data[self.key] = value
+        if self.slice is not None:
+            value = value[self.slice]
+            data[f'{self.key}_{str(self.slice)}'] = value
+        return value
 
     def __getitem__(self, slice):
-
-        return Variable(f'{self.key}_{str(slice)}', value=self.value, left=self.left,
+        return Variable(f'{self.key}', value=self.value, left=self.left,
                         right=self.right, operator=self.op, slice=slice)
 
     def __str__(self):
@@ -433,8 +452,7 @@ class Variable(nn.Module):
     defined and a Constraint object is returned. For now <, >, <=, and >= will create an inequality Constraint with 
     an L1 norm penalty on constraint violations. A Constraint object can be made to use an L2 norm penalty with the ^ operator, 
     e.g. (x < 1)^2. x == y will return an equality Constraint equivalent to the two inequality constraints x - y <=0, y-x <=0. 
-
-
+    
     != is not a defined comparison for variables  
     """
 

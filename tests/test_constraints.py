@@ -59,7 +59,8 @@ def test_subtract_variable_tensor(shape):
     z1 = x - tensor
     z2 = tensor - x
     data = {'x': torch.randn(shape)}
-    assert torch.equal(z1(data), -z2(data))
+    assert torch.equal(z1(data), -z2(data)), \
+        f'z1(data) = {z1(data)}, z2(data) = {z2(data)}'
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4),
@@ -70,8 +71,8 @@ def test_subtract_variable_float(shape, flt):
     z1 = x - flt
     z2 = flt - x
     data = {'x': torch.randn(shape)}
-    assert torch.equal(z1(data), -z2(data))
-
+    assert torch.equal(z1(data), -z2(data)), \
+        f'z1(data) = {z1(data)}, z2(data) = {z2(data)}'
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))

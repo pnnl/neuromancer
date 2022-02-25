@@ -16,6 +16,7 @@ from neuromancer.callbacks import SysIDCallback
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.dataset import read_file, normalize_data, split_sequence_data, SequenceDataset
 from neuromancer.constraint import Variable
+from neuromancer.loss import PenaltyLoss, BarrierLoss
 
 
 def arg_sys_id_problem(prefix='', system='CSTR'):
@@ -78,6 +79,14 @@ def arg_sys_id_problem(prefix='', system='CSTR'):
     gp.add("-seed", type=int, default=408, help="Random seed used for weight initialization.")
     gp.add("-device", type=str, default="cpu", choices=["cpu", "gpu"],
            help="select device")
+    gp.add("-loss", type=str, default='penalty',
+           choices=['penalty', 'barrier'],
+           help="type of the loss function.")
+    gp.add("-barrier_type", type=str, default='log10',
+           choices=['log', 'log10', 'inverse'],
+           help="type of the barrier function in the barrier loss.")
+    gp.add("-batch_second", default=True, choices=[True, False],
+           help="whether the batch is a second dimension in the dataset.")
     return parser
 
 
@@ -147,6 +156,15 @@ def get_sequence_dataloaders(
     )
 
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
+
+
+def get_loss(objectives, constraints, args):
+    if args.loss == 'penalty':
+        loss = PenaltyLoss(objectives, constraints, batch_second=args.batch_second)
+    elif args.loss == 'barrier':
+        loss = BarrierLoss(objectives, constraints, barrier=args.barrier_type,
+                           batch_second=args.batch_second)
+    return loss
 
 
 if __name__ == "__main__":
@@ -268,7 +286,6 @@ if __name__ == "__main__":
 
     # define loss function terms and constraints via operator overload
     reference_loss = args.Q_y*((yhat == y)^2)
-    estimator_loss = args.Q_e*((x0[1:] == xhat[-1, :-1, :])^2)
     state_smoothing = args.Q_dx*((xhat[1:] == xhat[:-1])^2)
     regularization = args.Q_sub*((est_reg + dyn_reg == 0)^2)
     observation_lower_bound_penalty = args.Q_con_x*(yhat > xmin)
@@ -276,13 +293,12 @@ if __name__ == "__main__":
 
     # custom loss and constraints names
     reference_loss.name = "ref_loss"
-    estimator_loss.name = "arrival_cost"
     regularization.name = "reg_error"
     observation_lower_bound_penalty.name = "y_low_bound_error"
     observation_upper_bound_penalty.name = "y_up_bound_error"
 
     # list of objectives and constraints
-    objectives = [regularization, reference_loss, estimator_loss]
+    objectives = [regularization, reference_loss]
     constraints = [
         state_smoothing,
         observation_lower_bound_penalty,
@@ -298,9 +314,12 @@ if __name__ == "__main__":
     """
     # estimator -> dynamics_model
     components = [estimator, dynamics_model]
-    model = Problem(objectives, constraints, components)
-    model = model.to(args.device)
-
+    # create constrained optimization loss
+    loss = get_loss(objectives, constraints, args)
+    # construct constrained optimization problem
+    problem = Problem(components, loss)
+    # plot computational graph
+    problem.plot_graph()
 
     """    
     # # # # # # # # # # # # # # # # # # #
@@ -311,9 +330,9 @@ if __name__ == "__main__":
     """
     # define callback
     simulator = OpenLoopSimulator(
-        model, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=args.device,
+        problem, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=args.device,
     ) if isinstance(train_loop, dict) else MultiSequenceOpenLoopSimulator(
-        model, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=args.device,
+        problem, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=args.device,
     )
     visualizer = VisualizerOpen(
         dynamics_model,
@@ -324,10 +343,10 @@ if __name__ == "__main__":
     )
     callback = SysIDCallback(simulator, visualizer)
     # select optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(problem.parameters(), lr=args.lr)
     # define trainer
     trainer = Trainer(
-        model,
+        problem,
         train_data,
         dev_data,
         test_data,
@@ -335,10 +354,13 @@ if __name__ == "__main__":
         logger=logger,
         callback=callback,
         epochs=args.epochs,
-        eval_metric=args.eval_metric,
         patience=args.patience,
         warmup=args.warmup,
         device=args.device,
+        train_metric="nstep_train_loss",
+        dev_metric="nstep_dev_loss",
+        test_metric="nstep_test_loss",
+        eval_metric="loop_dev_loss",
     )
     # train the model
     best_model = trainer.train()

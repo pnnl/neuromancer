@@ -1,10 +1,13 @@
 """
-Multi-parametric Quadratic Programming (mpQP) problem using Neuromancer:
-minimize     x^2+y^2
-subject to   x+y-p1 >= 0
+Multi-parametric Mixed-integer Quadratic Programming (mpMIQP) problem using Neuromancer:
+minimize     f(x, p)
+subject to   g(x, p) <= 0
 
-problem parameters:            p1
-problem decition variables:    x, y
+problem parameters:            p
+problem decition variables:    x in N
+
+CVXPY benchmark
+https://www.cvxpy.org/examples/basic/mixed_integer_quadratic_program.html
 """
 
 import numpy as np
@@ -27,6 +30,7 @@ from neuromancer.loss import PenaltyLoss, BarrierLoss, AugmentedLagrangeLoss
 from neuromancer.solvers import GradientProjection
 from neuromancer.maps import ManyToMany
 from neuromancer import blocks
+from neuromancer.integers import IntegerCorrector
 
 
 def arg_mpLP_problem(prefix=''):
@@ -79,6 +83,10 @@ def arg_mpLP_problem(prefix=''):
            help="inner loop in augmented lagrangian")
     gp.add("-proj_grad", default=False, choices=[True, False],
            help="Whether to use projected gradient update or not.")
+    gp.add("-train_integer", default=True, choices=[True, False],
+           help="Whether to use integer update during training or not.")
+    gp.add("-inference_integer", default=True, choices=[True, False],
+           help="Whether to use integer update during inference or not.")
     return parser
 
 
@@ -187,6 +195,11 @@ if __name__ == "__main__":
             output_keys=["x", "y"],
             name='primal_map')
 
+    integer_map = IntegerCorrector(input_keys=['x', 'y'],
+                                   method='sawtooth',
+                                   nsteps=1, stepsize=0.2,
+                                   name='int_map')
+
     """
     # # #  mpQP objective and constraints formulation in Neuromancer
     """
@@ -205,17 +218,19 @@ if __name__ == "__main__":
     con_1.name = 'c2'
 
     """
-    # # #  mpQP problem formulation in Neuromancer
+    # # #  mpMIQP problem formulation in Neuromancer
     """
     # list of objectives, constraints, and components (solution maps)
     objectives = [obj]
     constraints = [args.Q_con*con_1]
     components = [sol_map]
 
+    if args.train_integer:  # MIQP = use integer correction update during training
+        components.append(integer_map)
+
     if args.proj_grad:  # use projected gradient update
         project_keys = ["x", "y"]
-        projection = GradientProjection(constraints, input_keys=project_keys,
-                                        num_steps=5, name='proj')
+        projection = GradientProjection(constraints, project_keys)
         components.append(projection)
 
     # create constrained optimization loss
@@ -228,7 +243,7 @@ if __name__ == "__main__":
     """
     # # # Metrics and Logger
     """
-    args.savedir = 'test_mpQP_1'
+    args.savedir = 'test_mpMIQP_1'
     args.verbosity = 1
     metrics = ["train_loss", "train_obj", "train_mu_scaled_penalty_loss", "train_con_lagrangian",
                "train_mu", "train_c1"]
@@ -237,11 +252,11 @@ if __name__ == "__main__":
     elif args.logger == 'mlflow':
         Logger = MLFlowLogger
     logger = Logger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'mpQP_1'
+    logger.args.system = 'mpMIQP_1'
 
 
     """
-    # # #  mpQP problem solution in Neuromancer
+    # # #  mpMIQP problem solution in Neuromancer
     """
     optimizer = torch.optim.AdamW(problem.parameters(), lr=args.lr)
 
@@ -280,6 +295,20 @@ if __name__ == "__main__":
                           [-x - y + p1 <= 0])
         return prob
 
+
+    """
+    MIQP Integer correction at inference
+    """
+    int_map = IntegerCorrector(input_keys=['x', 'y'],
+                                   method='sawtooth',
+                                   nsteps=1, stepsize=1.0,
+                                   name='int_map')
+    if args.inference_integer:
+        if args.train_integer:
+            problem.components[1] = int_map
+        else:
+            problem.components.append(int_map)
+
     """
     Plots
     """
@@ -302,7 +331,7 @@ if __name__ == "__main__":
 
         # Plot
         cp_plot = ax[row_id, column_id].contourf(xx, yy, J, 50, alpha=0.4)
-        ax[row_id, column_id].set_title(f'QP p={p}')
+        ax[row_id, column_id].set_title(f'MIQP p={p}')
         cg1 = ax[row_id, column_id].contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
         plt.setp(cg1.collections,
                  path_effects=[patheffects.withTickedStroke()], alpha=0.7)
@@ -312,7 +341,7 @@ if __name__ == "__main__":
         prob = QP_param(p)
         prob.solve()
 
-        # Solve DPP
+        # Solve MIQP via neuromancer
         datapoint = {}
         datapoint['p1'] = torch.tensor([[p]])
         datapoint['name'] = "test"
@@ -320,7 +349,7 @@ if __name__ == "__main__":
         x_nm = model_out['test_' + "x"][0, :].detach().numpy()
         y_nm = model_out['test_' + "y"][0, :].detach().numpy()
 
-        print(f'primal solution QP x={x.value}, y={y.value}')
+        print(f'primal solution MIQP x={x.value}, y={y.value}')
         print(f'parameter p={p}')
         print(f'primal solution DPP x1={x_nm}, x2={y_nm}')
         print(f' f: {model_out["test_" + f.key]}')
@@ -329,6 +358,12 @@ if __name__ == "__main__":
         # Plot optimal solutions
         ax[row_id, column_id].plot(x.value, y.value, 'g*', markersize=10)
         ax[row_id, column_id].plot(x_nm, y_nm, 'r*', markersize=10)
+        # Plot admissible integer solutions
+        x_int = np.arange(-1.0, 10.0, 1.0)
+        y_int = np.arange(-1.0, 10.0, 1.0)
+        xx, yy = np.meshgrid(x_int, y_int)
+        ax[row_id, column_id].plot(xx, yy, 'bo', markersize=2)
+
         column_id += 1
     plt.show()
 

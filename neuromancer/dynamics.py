@@ -29,14 +29,60 @@ Block components:
 
 import torch
 import torch.nn as nn
+from typing import List
 
 from neuromancer.component import Component
 
 
-class BlockSSM(Component):
+class SSM(Component):
+    DEFAULT_INPUT_KEYS: List[str]
+    DEFAULT_OUTPUT_KEYS: List[str]
+
+    def __init__(self, input_key_map={}, name=None):
+        """
+        Base State Space Model (SSM) class
+
+        This class is used to manage naming of component input and output variables as they flow
+        through the computational graph, as well as handle potential remapping of input and output keys
+        to different names. It additionally provides a useful reference for users to see how components
+        can be connected together in the overall computational graph.
+
+        Components that inherit from this class should specify the class attributes DEFAULT_INPUT_KEYS
+        and DEFAULT_OUTPUT_KEYS; these are used as the "canonical" names for input and output variables,
+        respectively. These can be used to compare different components' output and input keys to see
+        whether one component can accept another's output by default.
+
+        By default, components have a `name` argument which is used to tag the output variables they
+        generate; for instance, for a component called "estim", the canonical output "x0" is renamed to
+        "x0_estim".
+
+        >>> estim = LinearEstimator(..., name="estim")  # output "x0" remapped to "x0_estim"
+        >>> ssm = BlockSSM(..., input_key_map={f"x0_{estim.name}": "x0"})  # input_keys used to remap to canonical name
+
+        :param input_key_map:
+        :param remap_output:
+        :param name:
+        """
+        self.update_input_keys(input_key_map=input_key_map)
+        output_keys = [f"{k}_{name}" if name is not None else k for k in self.DEFAULT_OUTPUT_KEYS]
+        super().__init__(input_keys=self.input_keys, output_keys=output_keys, name=name)
+
+    def update_input_keys(self, input_key_map={}):
+        assert isinstance(input_key_map, dict), \
+            f"{type(self).__name__} input_key_map must be dict for remapping input variable names; "
+        self.input_key_map = {
+            **{k: k for k in self.DEFAULT_INPUT_KEYS if k not in input_key_map.keys()},
+            **input_key_map
+        }
+        self.input_keys = list(self.input_key_map.values())
+        assert len(self.input_keys) == len(self.DEFAULT_INPUT_KEYS), \
+            "Length of given input keys must equal the length of default input keys"
+
+
+class BlockSSM(SSM):
 
     DEFAULT_INPUT_KEYS = ["x0", "Yf"]
-    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "reg_error"]
+    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
 
     def __init__(self, fx, fy, fu=None, fd=None, fe=None, fyu=None,
                  xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, residual=False, name='block_ssm',
@@ -59,13 +105,13 @@ class BlockSSM(Component):
         :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
         """
         if fu is not None:
-            self.DEFAULT_INPUT_KEYS = ['Uf'] + self.DEFAULT_INPUT_KEYS
-            self.DEFAULT_OUTPUT_KEYS = ['fU'] + self.DEFAULT_OUTPUT_KEYS
+            self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + ['Uf']
+            self.DEFAULT_OUTPUT_KEYS = self.DEFAULT_OUTPUT_KEYS + ['fU']
         if fd is not None:
-            self.DEFAULT_INPUT_KEYS = ['Df'] + self.DEFAULT_INPUT_KEYS
-            self.DEFAULT_OUTPUT_KEYS = ['fD'] + self.DEFAULT_OUTPUT_KEYS
+            self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + ['Df']
+            self.DEFAULT_OUTPUT_KEYS = self.DEFAULT_OUTPUT_KEYS + ['fD']
         if fe is not None:
-            self.DEFAULT_OUTPUT_KEYS = ['fE'] + self.DEFAULT_OUTPUT_KEYS
+            self.DEFAULT_OUTPUT_KEYS = self.DEFAULT_OUTPUT_KEYS + ['fE']
 
         super().__init__(input_key_map, name)
 
@@ -129,19 +175,21 @@ class BlockSSM(Component):
             X.append(x)
             Y.append(y)
 
+        tensor_lists = [X, Y, FU, FD, FE]
+        tensor_lists = [t for t in tensor_lists if t]
         output = {name: torch.stack(tensor_list) for tensor_list, name
-                  in zip([X, Y, FU, FD, FE], ['X_pred', 'Y_pred', 'fU', 'fD', 'fE'])
+                  in zip(tensor_lists, self.output_keys[1:])
                   if tensor_list}
-        output['reg_error'] = self.reg_error()
+        output[self.output_keys[0]] = self.reg_error()
         return output
 
     def reg_error(self):
         return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
 
 
-class BlackSSM(Component):
+class BlackSSM(SSM):
     DEFAULT_INPUT_KEYS = ["x0", "Yf"]
-    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "reg_error"]
+    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
 
     def __init__(self, fx, fy, fe=None, fyu=None, xoe=torch.add, xoyu=torch.add, name='black_ssm',
                  input_key_map={}, extra_inputs=[]):
@@ -162,7 +210,7 @@ class BlackSSM(Component):
         self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + extra_inputs
         self.extra_inputs = extra_inputs
         if fe is not None:
-            self.DEFAULT_OUTPUT_KEYS = ['fE'] + self.DEFAULT_OUTPUT_KEYS
+            self.DEFAULT_OUTPUT_KEYS = self.DEFAULT_OUTPUT_KEYS + ['fE']
 
         super().__init__(input_key_map, name)
 
@@ -193,10 +241,12 @@ class BlackSSM(Component):
             X.append(x)
             Y.append(y)
 
+        tensor_lists = [X, Y, FE]
+        tensor_lists = [t for t in tensor_lists if t]
         output = {name: torch.stack(tensor_list) for tensor_list, name
-                  in zip([X, Y, FE], ['X_pred', 'Y_pred', 'fE'])
+                  in zip(tensor_lists, self.output_keys[1:])
                   if tensor_list}
-        output['reg_error'] = self.reg_error()
+        output[self.output_keys[0]] = self.reg_error()
         return output
 
     def reg_error(self):
@@ -213,7 +263,6 @@ class BlackSSM(Component):
 
 class TimeDelayBlockSSM(BlockSSM):
     DEFAULT_INPUT_KEYS = ["Xtd", "Yf"]
-    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "reg_error"]
 
     def __init__(self, fx, fy, fu=None, fd=None, fe=None,
                  xou=torch.add, xod=torch.add, xoe=torch.add, residual=False, name='block_ssm',
@@ -244,15 +293,13 @@ class TimeDelayBlockSSM(BlockSSM):
         :param timedelay: (int) Number of time delays
         """
         if fu is not None:
-            self.DEFAULT_INPUT_KEYS = ['Up'] + self.DEFAULT_INPUT_KEYS
+            self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + ['Up']
         if fd is not None:
-            self.DEFAULT_INPUT_KEYS = ['Dp'] + self.DEFAULT_INPUT_KEYS
+            self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + ['Dp']
         super().__init__(fx, fy, fu=fu, fd=fd, fe=fe, xou=xou, xod=xod, xoe=xoe, residual=residual,
                          input_key_map=input_key_map, name=name)
 
-
         self.nx, self.nx_td, self.ny = (self.fx.out_features, self.fx.in_features, self.fy.out_features)
-
         self.check_features()
         self.timedelay = timedelay
 
@@ -297,10 +344,12 @@ class TimeDelayBlockSSM(BlockSSM):
             X.append(x)
             Y.append(y)
 
+        tensor_lists = [X, Y, FU, FD, FE]
+        tensor_lists = [t for t in tensor_lists if t]
         output = {name: torch.stack(tensor_list) for tensor_list, name
-                  in zip([X, Y, FU, FD, FE], ['X_pred', 'Y_pred', 'fU', 'fD', 'fE'])
+                  in zip(tensor_lists, self.output_keys[1:])
                   if tensor_list}
-        output['reg_error'] = self.reg_error()
+        output[self.output_keys[0]] = self.reg_error()
         return output
 
     def check_features(self):
@@ -315,9 +364,9 @@ class TimeDelayBlockSSM(BlockSSM):
 
 class TimeDelayBlackSSM(BlackSSM):
     DEFAULT_INPUT_KEYS = ["Xtd", "Yf"]
-    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "reg_error"]
 
-    def __init__(self, fx, fy, fe=None, xoe=torch.add, name='black_ssm', input_key_map={}, timedelay=0, extra_inputs=[]):
+    def __init__(self, fx, fy, fe=None, xoe=torch.add, name='black_ssm', input_key_map={},
+                 timedelay=0, extra_inputs=[]):
         """
         black box state space with generic unstructured time delayed system dynamics:
         x_k+1 = fx(x_k, ..., x_k-T, u_k, ..., u_k-T, d_k, ..., d_k-T) o fe(x_k, ..., x_k-T)
@@ -368,10 +417,12 @@ class TimeDelayBlackSSM(BlackSSM):
             X.append(x)
             Y.append(y)
 
+        tensor_lists = [X, Y, FE]
+        tensor_lists = [t for t in tensor_lists if t]
         output = {name: torch.stack(tensor_list) for tensor_list, name
-                  in zip([X, Y, FE], ['X_pred', 'Y_pred', 'fE'])
+                  in zip(tensor_lists, self.output_keys[1:])
                   if tensor_list}
-        output['reg_error'] = self.reg_error()
+        output[self.output_keys[0]] = self.reg_error()
         return output
 
 
@@ -447,9 +498,11 @@ def block_model(kind, datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fy
     ) if fyu is not None else None
 
     model = (
-        BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, fyu=fyu, xoyu=xoyu, xou=xou, xod=xod, xoe=xoe, name=name, input_key_map=input_key_map, residual=residual)
+        BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, fyu=fyu, xoyu=xoyu, xou=xou, xod=xod, xoe=xoe, name=name,
+                 input_key_map=input_key_map, residual=residual)
         if timedelay == 0
-        else TimeDelayBlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, xou=xou, xod=xod, xoe=xoe, name=name, timedelay=timedelay, input_key_map=input_key_map, residual=residual)
+        else TimeDelayBlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, xou=xou, xod=xod, xoe=xoe, name=name, timedelay=timedelay,
+                               input_key_map=input_key_map, residual=residual)
     )
 
     return model

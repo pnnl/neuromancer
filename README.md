@@ -50,10 +50,7 @@ user@machine:~$ source activate neuromancer
 
 ### IFAC NMPC 2021 Branch 
 Building modeling and control experiments using differentiable predictive control (DPC).
-
-
-TODO: add arxiv link
-
+Experiments for the paper [Deep Learning Explicit Differentiable Predictive Control Laws for Buildings](https://www.sciencedirect.com/science/article/pii/S2405896321012933)
 
 ![methodology.](figs/methodology.png)
 *Conceptual methodology.*

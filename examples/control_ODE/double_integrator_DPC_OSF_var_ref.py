@@ -58,15 +58,15 @@ def arg_dpc_problem(prefix=''):
     gp = parser.group("DPC")
     gp.add("-controlled_outputs", type=int, default=[0],
            help="Index of the controlled state.")
-    gp.add("-nsteps", type=int, default=1,
-           help="prediction horizon.")          # tuned values: 1, 2
+    gp.add("-nsteps", type=int, default=2,
+           help="prediction horizon.")          # tuned values: 2
     gp.add("-Qr", type=float, default=5.0,
            help="reference tracking weight.")   # tuned value: 5.0
-    gp.add("-Q_osf", type=float, default=5.0,
+    gp.add("-Q_osf", type=float, default=1.0,
            help="offset-free disturbance rejection weight.")   # tuned value: 5.0
     gp.add("-Qu", type=float, default=0.0,
            help="control action weight.")       # tuned value: 0.0
-    gp.add("-Qdu", type=float, default=0.1,
+    gp.add("-Qdu", type=float, default=0.0,
            help="control action difference weight.")       # tuned value: 0.0
     gp.add("-Qn", type=float, default=1.0,
            help="terminal penalty weight.")     # tuned value: 1.0
@@ -74,8 +74,8 @@ def arg_dpc_problem(prefix=''):
            help="regularization weight.")
     gp.add("-Q_con_x", type=float, default=10.0,
            help="state constraints penalty weight.")  # tuned value: 10.0
-    gp.add("-Q_con_u", type=float, default=50.0,
-           help="Input constraints penalty weight.")  # tuned value: 50.0
+    gp.add("-Q_con_u", type=float, default=100.0,
+           help="Input constraints penalty weight.")  # tuned value: 100.0
     gp.add("-Q_Ki", type=float, default=1000.0,
            help="Integrator form penalty.")            # tuned value: 1000.0
     gp.add("-nx_hidden", type=int, default=20,
@@ -88,7 +88,7 @@ def arg_dpc_problem(prefix=''):
                help="List of sequences to max-min normalize")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
-    gp.add("-epochs", type=int, default=400,
+    gp.add("-epochs", type=int, default=800,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
@@ -295,7 +295,7 @@ if __name__ == "__main__":
     nd = 1
     nr = 1
     # number of datapoints
-    nsim = 10000    # increase sample density for more robust results
+    nsim = 12000    # increase sample density for more robust results
     # constraints bounds
     umin = -1
     umax = 1
@@ -409,7 +409,7 @@ if __name__ == "__main__":
     # freeze model parameters
     dynamics_model.requires_grad_(False)
     # unfreeze model compensator - the desired zeros would need to be penalized as constraints
-    dynamics_model.fe.linear.weight.requires_grad_(True)
+    dynamics_model.fe.linear.weight.requires_grad_(False)
 
     """
     # # #  DPC objectives and constraints

@@ -1,39 +1,37 @@
 """
-Differentiable predictive control (DPC)
-
-DPC double integrator example with given system dynamics model
-time varying reference tracking problem
-
-observation: with increasing predicion horizon we need to retune the relative weights,
-            otherwise the performance deteriorates
-open problem: automatic retuning based on prediction horizon length
+Stochastic Differentiable predictive control (S-DPC)
+Learning to stabilize unstable linear double integrator
+system with given system dynamics model subject to additive uncertainties
+using scenario stochastic MPC approach
 
 """
 
 import torch
 import torch.nn.functional as F
 import slim
-import psl
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib import cm
 import seaborn as sns
+
 DENSITY_PALETTE = sns.color_palette("crest_r", as_cmap=True)
 DENSITY_FACECLR = DENSITY_PALETTE(0.01)
 sns.set_theme(style="white")
-import copy
+import time
 
 from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
-from neuromancer.constraint import Variable, Loss
+from neuromancer.constraint import Variable, Objective, Loss
 from neuromancer import policies
 import neuromancer.arg as arg
 from neuromancer.dataset import normalize_data, split_sequence_data, SequenceDataset
 from torch.utils.data import DataLoader
 from neuromancer.loggers import BasicLogger
+from neuromancer.visuals import VisualizerDobleIntegrator
+from neuromancer.callbacks import DoubleIntegratorCallback
 from neuromancer.loss import PenaltyLoss, BarrierLoss
 
 
@@ -47,16 +45,12 @@ def arg_dpc_problem(prefix=''):
     """
     parser = arg.ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("DPC")
-    gp.add("-controlled_outputs", type=int, default=[0],
-           help="Index of the controlled state.")
     gp.add("-nsteps", type=int, default=1,
            help="prediction horizon.")          # tuned values: 1, 2
-    gp.add("-Qr", type=float, default=5.0,
-           help="reference tracking weight.")   # tuned value: 1.0
-    gp.add("-Qu", type=float, default=0.0,
-           help="control action weight.")       # tuned value: 0.0
-    gp.add("-Qdu", type=float, default=0.1,
-           help="control action difference weight.")       # tuned value: 0.0
+    gp.add("-Qx", type=float, default=5.0,
+           help="state weight.")                # tuned value: 5.0
+    gp.add("-Qu", type=float, default=0.2,
+           help="control action weight.")       # tuned value: 0.2
     gp.add("-Qn", type=float, default=1.0,
            help="terminal penalty weight.")     # tuned value: 1.0
     gp.add("-Q_sub", type=float, default=0.0,
@@ -83,6 +77,8 @@ def arg_dpc_problem(prefix=''):
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
     gp.add("-warmup", type=int, default=10,
            help="Number of epochs to wait before enacting early stopping policy.")
+    gp.add("-validate", default=False, choices=[True, False],
+           help="whether to validate stochastic guarantees or not.")
     gp.add("-loss", type=str, default='penalty',
            choices=['penalty', 'barrier'],
            help="type of the loss function.")
@@ -172,7 +168,8 @@ def get_loss(objectives, constraints, args):
     return loss
 
 
-def cl_simulate(A, B, policy, args, nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
+def cl_simulate_stoch(A, B, policy, args, umin, umax, w_sigma=0.1,
+                      nstep=50, x0=np.ones([2, 1]), ref=None, save_path=None):
     """
 
     :param A:
@@ -184,73 +181,140 @@ def cl_simulate(A, B, policy, args, nstep=50, x0=np.ones([2, 1]), ref=None, save
     """
     Anp = A.detach().numpy()
     Bnp = B.detach().numpy()
-    x = x0
-    X = [x]
-    U = []
+    Umin = umin*np.ones(nstep+1)
+    Umax = umax*np.ones(nstep+1)
     N = args.nsteps
     if ref is None:
         ref = np.zeros([nstep, 1])
 
-    for k in range(nstep+1-N):
-        x_torch = torch.tensor(x).float().transpose(0, 1)
-        # taking a first control action based on RHC principle
-        r_k = torch.tensor([ref[k:k+N, :]]).float().transpose(0, 1)
-        uout = policy({'x0_estimator': x_torch, 'Rf': r_k})
-        u = uout['U_pred_policy'][0,:,:].detach().numpy().transpose()
-        # closed loop dynamics
-        x = np.matmul(Anp, x) + np.matmul(Bnp, u)
-        X.append(x)
-        U.append(u)
-    Xnp = np.asarray(X)[:, :, 0]
-    Unp = np.asarray(U)[:, :, 0]
+    X_trajs = []
+    U_trajs = []
+    w_runs = 20
+    for j in range(w_runs):
+        x = x0
+        X = [x]
+        U = []
+        for k in range(nstep+1-N):
+            wf = w_sigma * np.random.randn(2, 1)  # additive uncertainty
+            x_torch = torch.tensor(x).float().transpose(0, 1)
+            # taking a first control action based on RHC principle
+            r_k = torch.tensor([ref[k:k+N, :]]).float().transpose(0, 1)
+            uout = policy({'x0_estimator': x_torch, 'Rf': r_k})
+            u = uout['U_pred_policy'][0,:,:].detach().numpy().transpose()
+            # closed loop dynamics
+            x = np.matmul(Anp, x) + np.matmul(Bnp, u) + wf
+            X.append(x)
+            U.append(u)
+        Xnp = np.asarray(X)[:, :, 0]
+        Unp = np.asarray(U)[:, :, 0]
+        X_trajs.append(Xnp)
+        U_trajs.append(Unp)
 
     fig, ax = plt.subplots(2, 1)
+    for j in range(w_runs):
+        ax[0].plot(X_trajs[j], linewidth=1.0)
     ax[0].plot(ref, 'k--', label='r', linewidth=2)
-    ax[0].plot(Xnp, label='x', linewidth=2)
     ax[0].set(ylabel='$x$')
     ax[0].set(xlabel='time')
     ax[0].grid()
     ax[0].set_xlim(0, nstep)
-    ax[1].plot(Unp, label='u', drawstyle='steps',  linewidth=2)
+    for j in range(w_runs):
+        ax[1].plot(U_trajs[j], drawstyle='steps',  linewidth=1.0)
+    ax[1].plot(Umin, linestyle='--', color='k', linewidth=2)
+    ax[1].plot(Umax,  linestyle='--', color='k', linewidth=2)
     ax[1].set(ylabel='$u$')
     ax[1].set(xlabel='time')
     ax[1].grid()
     ax[1].set_xlim(0, nstep)
     plt.tight_layout()
     if save_path is not None:
-        plt.savefig(save_path+'/closed_loop_dpc.pdf')
+        plt.savefig(save_path+'/closed_loop_sdpc.pdf')
 
 
-def lpv_batched(fx, x):
-    x_layer = x
-    Aprime_mats = []
-    activation_mats = []
-    bprimes = []
+def cl_validate(A, B, C, policy, nstep=50, x0=None, w_sigma=0.1,
+                xmin=-10, xmax=10,  umin=-1, umax=1, xmin_f=-0.4, xmax_f=0.4,
+                n_sim_p=100, n_sim_w=10, epsilon=0.1, delta=0.99):
+    """
 
-    for nlin, lin in zip(fx.nonlin, fx.linear):
-        A = lin.effective_W()  # layer weight
-        b = lin.bias if lin.bias is not None else torch.zeros(A.shape[-1])
-        Ax = torch.matmul(x_layer, A) + b  # affine transform
-        zeros = Ax == 0
-        lambda_h = nlin(Ax) / Ax  # activation scaling
-        lambda_h[zeros] = 0.
-        lambda_h_mats = [torch.diag(v) for v in lambda_h]
-        activation_mats += lambda_h_mats
-        lambda_h_mats = torch.stack(lambda_h_mats)
-        x_layer = Ax * lambda_h
-        Aprime = torch.matmul(A, lambda_h_mats)
-        Aprime_mats += [Aprime]
-        bprime = lambda_h * b
-        bprimes += [bprime]
+    :param A:
+    :param B:
+    :param net:
+    :param nstep:
+    :param x0:
+    :return:
+    """
+    A = A.detach().numpy()
+    B = B.detach().numpy()
 
-    # network-wise parameter varying linear map:  A* = A'_L ... A'_1
-    Astar = Aprime_mats[0]
-    bstar = bprimes[0] # b x nx
-    for Aprime, bprime in zip(Aprime_mats[1:], bprimes[1:]):
-        Astar = torch.bmm(Astar, Aprime)
-        bstar = torch.bmm(bstar.unsqueeze(-2), Aprime).squeeze(-2) + bprime
+    X_trajs = []
+    U_trajs = []
+    times = []
+    I_s = []        # stability indicator
+    I_c = []        # constraints indicator
+    X_c_mean = []
+    U_c_mean = []
 
-    return Astar, bstar, Aprime_mats, bprimes, activation_mats
+    samples = n_sim_w*n_sim_p
+    for j in range(samples):
+        if x0 is None:
+            # x0 = np.zeros([A.shape[0],1])
+            X_dist_bound=0.2
+            x0 = np.random.uniform(low=-X_dist_bound, high=X_dist_bound, size=(A.shape[0],1))
+        x = x0
+        X = [x]
+        U = []
+        Y = []
+        for k in range(nstep+1):
+            wf = w_sigma * np.random.randn(A.shape[0], 1)  # additive uncertainty
+            x_torch = torch.tensor(x).float().transpose(0, 1)
+            # taking a first control action based on RHC principle
+            start_time = time.time()
+            uout = policy({'x0_estimator': x_torch})
+            sol_time = time.time() - start_time
+            times.append(sol_time)
+            u = uout['U_pred_policy'][0,:,:].detach().numpy().transpose()
+            u = np.clip(u, umin, umax)
+            # closed loop dynamics
+            x = np.matmul(A, x) + np.matmul(B, u) + wf
+            y = np.matmul(C, x)
+            X.append(x)
+            U.append(u)
+            Y.append(y)
+        Xnp = np.asarray(X)[:, :, 0]
+        Unp = np.asarray(U)[:, :, 0]
+        X_trajs.append(Xnp)
+        U_trajs.append(Unp)
+
+        # terminal constraint satisfaction for stability
+        stability_flag = int((x > xmin_f).all() and (x < xmax_f).all())
+        I_s.append(stability_flag)
+
+        # state and input constraints mean violations
+        x_violations = np.mean(np.maximum(Xnp - xmax, 0) + np.maximum(-Xnp + xmin, 0))
+        u_violations = np.mean(np.maximum(Unp - umax, 0) + np.maximum(-Unp + umin, 0))
+        X_c_mean.append(x_violations)
+        U_c_mean.append(u_violations)
+
+        # state and input constraints satisfaction
+        x_con_flag = int((Xnp > xmin).all() and (Xnp < xmax).all())
+        u_con_flag = int((Unp > umin).all() and (Unp < umax).all())
+        constraints_flag = x_con_flag and u_con_flag
+        I_c.append(constraints_flag)
+
+    # evaluate empirical risk
+    mu_tilde = np.mean(0.5*np.asarray(I_s) + 0.5*np.asarray(I_c))
+    # evaluate conficence level given risk tolerance epsilon
+    confidence = 1 - 2 * np.exp(-2 * samples * epsilon ** 2)
+    mu = mu_tilde - epsilon
+    # evaluate risk lower bound given number of samples, and desired confidence
+    mu_lbound = mu_tilde - np.sqrt(-np.log(delta / 2) / (2 * samples))
+
+    print(f'empirical risk {mu_tilde}')
+    print(f'risk lower bound beta {mu_lbound}')
+    print(f'choosen condifence delta {delta}')
+
+    return mu, mu_tilde, confidence, mu_lbound, \
+               I_s, I_c, X_c_mean, U_c_mean
 
 
 if __name__ == "__main__":
@@ -268,18 +332,18 @@ if __name__ == "__main__":
     ny = 2
     nu = 1
     # number of datapoints
-    nsim = 12000        # rule of thumb: more data samples -> improved control performance
+    n_sim_p = 10000  # number of parametric samples
+    n_sim_w = 10  # number of disturbance samples per parameter
+    nsim = n_sim_p * n_sim_w  # rule of thumb: more data samples -> improved control performance
     # constraints bounds
     umin = -1
     umax = 1
     xmin = -10
     xmax = 10
-    # terminal constraints as deviations from desired reference
     xN_min = -0.1
     xN_max = 0.1
-    # reference bounds for the controlled state
-    ref_min = 0.0
-    ref_max = 2.0
+    # uncertainties
+    w_sigma = 0.1
 
     """
     # # #  Dataset 
@@ -291,10 +355,11 @@ if __name__ == "__main__":
         "Y_min": xmin*np.ones([nsim, nx]),
         "U_max": umax*np.ones([nsim, nu]),
         "U_min": umin*np.ones([nsim, nu]),
-        "Y": 3*np.random.randn(nsim, nx),
+        # "Y": 3*np.random.randn(nsim, nx),
         "U": np.random.randn(nsim, nu),
-        "R": np.concatenate([np.random.uniform(low=ref_min, high=ref_max)*np.ones([args.nsteps, 1])
-                             for i in range(int(np.ceil(nsim/args.nsteps)))])[:nsim, :],
+        "Y": np.repeat(np.random.uniform(low=-10., high=10., size=(n_sim_p, nx)),
+                       n_sim_w, axis=0),
+        "w": w_sigma * np.random.randn(nsim, nx),  # additive uncertainties
     }
     nstep_data, loop_data, dims = get_sequence_dataloaders(sequences, args.nsteps)
     train_data, dev_data, test_data = nstep_data
@@ -311,10 +376,9 @@ if __name__ == "__main__":
                                            window_size=1,  # past window Np <= Nf
                                            input_keys=["Yp"],
                                            name='estimator')
-    # full state feedback control policy with reference preview Rf
-    # U_policy = p(x_0, Rf)
-    # U_policy = [u_0, ..., u_N]
-    # Rf = [r_0, ..., r_N]
+    # full state feedback control policy
+    # Uf = p(x_0)
+    # Uf = [u_0, ..., u_N]
     activation = activations['relu']
     linmap = slim.maps['linear']
     block = blocks.MLP
@@ -325,7 +389,7 @@ if __name__ == "__main__":
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=[f'x0_{estimator.name}', 'Rf'],
+        input_keys=[f'x0_{estimator.name}'],
         name='policy',
     )
 
@@ -333,12 +397,15 @@ if __name__ == "__main__":
     fu = slim.maps['linear'](nu, nx)
     fx = slim.maps['linear'](nx, nx)
     fy = slim.maps['linear'](nx, ny)
+    fd = slim.maps['linear'](nx, nx)
+
     # LTI SSM
     # x_k+1 = Ax_k + Bu_k
     # y_k+1 = Cx_k+1
-    dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics',
+    dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, fd=fd, name='dynamics',
                                        input_key_map={'x0': f'x0_{estimator.name}',
-                                                   'Uf': 'U_pred_policy'})
+                                                      'Uf': 'U_pred_policy', 'Df': 'wf'})
+
     # model matrices values
     A = torch.tensor([[1.2, 1.0],
                       [0.0, 1.0]])
@@ -349,6 +416,7 @@ if __name__ == "__main__":
     dynamics_model.fx.linear.weight = torch.nn.Parameter(A)
     dynamics_model.fu.linear.weight = torch.nn.Parameter(B)
     dynamics_model.fy.linear.weight = torch.nn.Parameter(C)
+    dynamics_model.fd.linear.weight = torch.nn.Parameter(torch.eye(nx, nx))
     # fix model parameters
     dynamics_model.requires_grad_(False)
 
@@ -356,43 +424,30 @@ if __name__ == "__main__":
     """
     # # #  DPC objectives and constraints
     """
-    u = Variable(f"U_pred_{policy.name}", name='u')
-    y = Variable(f"Y_pred_{dynamics_model.name}", name='y')
-    r = Variable("Rf", name='r')
+    u = Variable(f"U_pred_{policy.name}")
+    y = Variable(f"Y_pred_{dynamics_model.name}")
     # constraints bounds variables
-    umin = Variable("U_minf")
-    umax = Variable("U_maxf")
-    ymin = Variable("Y_minf")
-    ymax = Variable("Y_maxf")
+    uminb = Variable("U_minf")
+    umaxb = Variable("U_maxf")
+    yminb = Variable("Y_minf")
+    ymaxb = Variable("Y_maxf")
 
-    # objectives
     action_loss = args.Qu * ((u == 0) ^ 2)  # control penalty
-    reference_loss = args.Qr * ((y[:, :, args.controlled_outputs] == r) ^ 2)  # target posistion
-    du_loss = args.Qdu*((u[1:] == u[:-1])^2)
+    regulation_loss = args.Qx * ((y == 0) ^ 2)  # target posistion
     # constraints
-    state_lower_bound_penalty = args.Q_con_x*(y > ymin)
-    state_upper_bound_penalty = args.Q_con_x*(y < ymax)
-    inputs_lower_bound_penalty = args.Q_con_u*(u > umin)
-    inputs_upper_bound_penalty = args.Q_con_u*(u < umax)
+    state_lower_bound_penalty = args.Q_con_x*(y > yminb)
+    state_upper_bound_penalty = args.Q_con_x*(y < ymaxb)
+    inputs_lower_bound_penalty = args.Q_con_u*(u > uminb)
+    inputs_upper_bound_penalty = args.Q_con_u*(u < umaxb)
     terminal_lower_bound_penalty = args.Qn*(y[[-1], :, :] > xN_min)
     terminal_upper_bound_penalty = args.Qn*(y[[-1], :, :] < xN_max)
-    # objectives and constraints names for nicer plot
-    action_loss.name = "action_loss"
-    reference_loss.name = 'control_loss'
-    du_loss.name = "control_smoothing"
-    state_lower_bound_penalty.name = 'x_min'
-    state_upper_bound_penalty.name = 'x_max'
-    inputs_lower_bound_penalty.name = 'u_min'
-    inputs_upper_bound_penalty.name = 'u_max'
-    terminal_lower_bound_penalty.name = 'y_N_min'
-    terminal_upper_bound_penalty.name = 'y_N_max'
     # regularization
     regularization = Loss(
         [f"reg_error_{policy.name}"], lambda reg: reg,
         weight=args.Q_sub, name="reg_loss",
     )
 
-    objectives = [regularization, reference_loss, action_loss]
+    objectives = [regularization, regulation_loss, action_loss]
     constraints = [
         state_lower_bound_penalty,
         state_upper_bound_penalty,
@@ -421,15 +476,20 @@ if __name__ == "__main__":
     args.savedir = 'test_control'
     args.verbosity = 1
     metrics = ["nstep_dev_loss"]
-
-    logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'dpc_var_ref'
+    logger = BasicLogger(args=args, savedir=args.savedir, verbosity=args.verbosity,
+                         stdout=metrics)
+    logger.args.system = 'dpc_stabilize'
     # device and optimizer
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
     problem = problem.to(device)
     optimizer = torch.optim.AdamW(problem.parameters(), lr=args.lr)
 
-    # trainer
+    # visualizer object to be called in callback for plotting
+    visualizer = VisualizerDobleIntegrator(train_data, problem,
+                     args.verbosity, savedir=args.savedir,
+                     nstep=40, x0=1.5 * np.ones([2, 1]),
+                     training_visuals=False, trace_movie=False)
+
     trainer = Trainer(
         problem,
         train_data,
@@ -443,18 +503,20 @@ if __name__ == "__main__":
         dev_metric="nstep_dev_loss",
         test_metric="nstep_test_loss",
         eval_metric='nstep_dev_loss',
+        callback=DoubleIntegratorCallback(visualizer),
         warmup=args.warmup,
     )
     # Train control policy
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
 
+
     """
     # # #  Plots and Analysis
     """
-    # plot closed loop trajectories with time varying reference
-    ref_step = 40
-    R = np.concatenate([0.5*np.ones([ref_step, 1]),
-                        1*np.ones([ref_step, 1]), 0*np.ones([ref_step, 1])])
-    cl_simulate(A, B, policy, args=args, nstep=R.shape[0],
-                x0=1.5*np.ones([2, 1]), ref=R, save_path='test_control')
+    cl_simulate_stoch(A, B, policy, umin=umin, umax=umax, args=args, nstep=50,
+                x0=1.5*np.ones([2, 1]), w_sigma=w_sigma, save_path='test_control')
+
+    if args.validate:
+        mu, mu_tilde, confidence, mu_lbound, I_s, I_c, X_c_mean, U_c_mean \
+            = cl_validate(A, B, C, policy, n_sim_p=3333, n_sim_w=10, w_sigma=w_sigma)

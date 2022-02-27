@@ -133,7 +133,7 @@ class FullyObservable(TimeDelayEstimator):
         self.net = nn.Identity()
 
     def features(self, data):
-        return data['Yp'][self.nsteps-1]
+        return data[self.input_keys[0]][self.nsteps-1]
 
     def reg_error(self):
         return torch.tensor(0.0)

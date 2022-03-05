@@ -35,8 +35,8 @@ y = sdpvar(ny, N, 'full');          % internal variable
 
 %% Optimization problem
 
-% explicit MPC policy
-run_eMPC = 1;
+% compute explicit MPC policy
+run_eMPC = 0;
 
 con = [];
 obj = 0;
@@ -91,8 +91,14 @@ Ysim = [];
 for k = 1:Nsim
     
     x_k = Xsim(:, end);
-%     uopt = eMPC_policy(x_k);
-    uopt = solution.xopt.feval(x_k, 'primal');
+%     uopt = eMPC_policy(x_k);    
+    if run_eMPC
+        uopt = solution.xopt.feval(x_k, 'primal');
+    else
+        [u, problem, info] = opt{x_k};  
+        uopt = value(u(:, 1));                      
+    end
+    
     xn = A*x_k + B*uopt;
     yn = C*x_k;
     Usim = [Usim, uopt];
@@ -130,10 +136,19 @@ Alpha = zeros(length(X1),length(X1));
 X1_feasible = [];
 X2_feasible = [];
 for i=1:length(X1)
-    for j=1:length(X1)
+    for j=1:length(X2)
         x_k = [X1(i,j); X2(i,j)];
-        U(i,j) = solution.xopt.feval(x_k, 'primal'); 
-        xn = A*x_k + B*uopt;
+%         U(i,j) = solution.xopt.feval(x_k, 'primal'); 
+        
+        if run_eMPC
+            U(i,j) = solution.xopt.feval(x_k, 'primal'); 
+        else
+            [u, problem, info] = opt{x_k};  
+            U(i,j) = value(u(:, 1));                      
+        end
+        
+        xn = A*x_k + B*U(i,j);
+%         xn = A*x_k + B*uopt;
         if ~norm(x_k)==0
             Alpha(i,j) = norm(xn)/norm(x_k);
         else

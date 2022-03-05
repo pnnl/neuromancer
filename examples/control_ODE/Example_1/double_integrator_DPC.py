@@ -1,12 +1,9 @@
 """
-DPC Double integrator example with given system dynamics model
-loss function with contraction penalty for clsoed loop stability
+DPC Double integrator example
+plots work with N = 1
 
-TODO: 1-step ahead CL object for more straightforward implementation
-CL object as subclass of SSM object with policy as input argument
-CL takes two input keys: model and policy
-in the forward pass before fu we evaluate policy on policy input keys
-
+    # TODO: generalize terminal penalty for N step ahead policy
+    # TODO: generalize to plot N-step ahead policy
 """
 
 import torch
@@ -32,8 +29,6 @@ from neuromancer import policies
 import neuromancer.arg as arg
 from neuromancer.datasets import Dataset
 from neuromancer.loggers import BasicLogger
-from neuromancer.visuals import VisualizerClosedLoop
-from neuromancer.callbacks import SysIDCallback
 
 
 def arg_dpc_problem(prefix=''):
@@ -47,21 +42,19 @@ def arg_dpc_problem(prefix=''):
     parser = arg.ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("DPC")
     gp.add("-nsteps", type=int, default=1,
-           help="prediction horizon.")          # tuned values: 1, 2
-    gp.add("-Qx", type=float, default=5.0,
-           help="state weight.")                # tuned value: 5.0
+           help="prediction horizon.")
+    gp.add("-Qx", type=float, default=1.0,
+           help="state weight.")                # tuned value: 1.0
     gp.add("-Qu", type=float, default=1.0,
-           help="control action weight.")       # tuned value: 1.0
+           help="control action weight.")       # tuned value: 1.0,  unstable for paper: 0.5
     gp.add("-Qn", type=float, default=1.0,
-           help="terminal penalty weight.")     # tuned value: 1.0
+           help="terminal penalty weight.")     # tuned value: 1.0,  unstable for paper: 0.0
     gp.add("-Q_sub", type=float, default=0.0,
            help="regularization weight.")
     gp.add("-Q_con_x", type=float, default=10.0,
            help="state constraints penalty weight.")  # tuned value: 10.0
-    gp.add("-Q_con_u", type=float, default=50.0,
-           help="Input constraints penalty weight.")  # tuned value: 50.0
-    gp.add("-Q_stable", type=float, default=1000.0,
-           help="closed loop stability penalty.")            # tuned value: 10.0
+    gp.add("-Q_con_u", type=float, default=20.0,
+           help="Input constraints penalty weight.")  # tuned value: 20.0
     gp.add("-nx_hidden", type=int, default=20,
            help="Number of hidden states")
     gp.add("-n_layers", type=int, default=4,
@@ -72,7 +65,7 @@ def arg_dpc_problem(prefix=''):
                help="List of sequences to max-min normalize")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
-    gp.add("-epochs", type=int, default=400,
+    gp.add("-epochs", type=int, default=1000,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
@@ -103,10 +96,9 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
         for j in range(y.shape[0]):
             # check loss
             X = torch.stack([x[[i]], y[[j]]]).reshape(1,1,-1)
-            if dataset.nsteps == 1:
-                dataset_plt.train_data['Yp'] = X
-                step = model(dataset_plt.train_data)
-                Loss[i,j] = step['nstep_train_loss'].detach().numpy()
+            dataset_plt.train_data['Yp'] = X
+            step = model(dataset_plt.train_data)
+            Loss[i,j] = step['nstep_train_loss'].detach().numpy()
             # check contraction
             x0 = X.view(1, X.shape[-1])
             Astar, bstar, _, _, _ = lpv_batched(policy, x0)
@@ -122,18 +114,16 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
             else:
                 Alpha[i, j] = 0
 
-    if dataset.nsteps == 1:
-        fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-        surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Loss,
-                               cmap=cm.viridis,
-                               linewidth=0, antialiased=False)
-        ax.set(ylabel='$x_1$')
-        ax.set(xlabel='$x_2$')
-        ax.set(zlabel='$L$')
-        ax.set(title='Loss landscape')
-        # plt.colorbar(surf)
-        if save_path is not None:
-            plt.savefig(save_path+'/loss.pdf')
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Loss,
+                           cmap=cm.viridis,
+                           linewidth=0, antialiased=False)
+    ax.set(ylabel='$x_1$')
+    ax.set(xlabel='$x_2$')
+    ax.set(zlabel='$L$')
+    # plt.colorbar(surf)
+    if save_path is not None:
+        plt.savefig(save_path+'/loss.pdf')
 
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
     surf = ax.plot_surface(xx.detach().numpy(), yy.detach().numpy(), Phi_norm,
@@ -142,7 +132,6 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
     ax.set(ylabel='$x_1$')
     ax.set(xlabel='$x_2$')
     ax.set(zlabel='$Phi$')
-    ax.set(title='CLS 2-norm')
     if save_path is not None:
         plt.savefig(save_path+'/phi_norm.pdf')
 
@@ -153,7 +142,6 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
     ax.set(ylabel='$x_1$')
     ax.set(xlabel='$x_2$')
     ax.set(zlabel='$alpha$')
-    ax.set(title='CLS contraction')
     if save_path is not None:
         plt.savefig(save_path+'/contraction.pdf')
 
@@ -167,7 +155,6 @@ def plot_loss(model, dataset, xmin=-5, xmax=5, save_path=None):
     fig1.colorbar(im1, ax=ax1)
     ax1.set(ylabel='$x_1$')
     ax1.set(xlabel='$x_2$')
-    ax1.set(title='CLS contraction regions')
     im1.set_clim(0., 2.)  #  color limit
     if save_path is not None:
         plt.savefig(save_path+'/contraction_regions.pdf')
@@ -188,7 +175,6 @@ def plot_policy(net, xmin=-5, xmax=5, save_path=None):
     ax.set(ylabel='$x_1$')
     ax.set(xlabel='$x_2$')
     ax.set(zlabel='$u$')
-    ax.set(title='Policy landscape')
     if save_path is not None:
         plt.savefig(save_path+'/policy.pdf')
 
@@ -210,8 +196,7 @@ def cl_simulate(A, B, net, nstep=50, x0=np.ones([2, 1]), save_path=None):
     U = []
     for k in range(nstep+1):
         x_torch = torch.tensor(x).float().transpose(0, 1)
-        # taking a first control action based on RHC principle
-        u = net(x_torch).detach().numpy()[:, [0]]
+        u = net(x_torch).detach().numpy()
         # compute feedback gain
         Astar, bstar, _, _, _ = lpv_batched(net, x_torch)
         Kx = torch.mm(B, Astar[:, :, 0])
@@ -236,78 +221,6 @@ def cl_simulate(A, B, net, nstep=50, x0=np.ones([2, 1]), save_path=None):
     plt.tight_layout()
     if save_path is not None:
         plt.savefig(save_path+'/closed_loop_dpc.pdf')
-
-
-def cl_lin_dyn(A, B, net, x):
-    """
-    local linear dynamics of the closed loop system
-    A + B*K_x + B*b_x
-    :param A:
-    :param B:
-    :param net:
-    :param x:
-    :return:
-    """
-    # x_torch = torch.tensor(x).float().transpose(0, 1)
-    # local affine dynamics of the control policyL p(x) = K_x*x + b_x
-    K_x, b_x, _, _, _ = lpv_batched(net, x)
-    K_x = K_x.view(K_x.shape[1], K_x.shape[2], -1)
-    b_x = b_x.transpose(0, 1)
-    # K_x = K_x[-1].transpose(0, 1)
-    # K_x = K_x[:, :, 0]
-    # TODO: move stacked As outside of this eval
-    Astack = [A for k in range(K_x.shape[-1])]
-    Astack = torch.stack(Astack).view(A.shape[0], A.shape[1], -1)
-    Astar = Astack + torch.matmul(B, K_x)
-    bstar = torch.matmul(B, b_x)
-    return Astar, bstar
-
-
-def cl_lin_dyn_stack(Astack, B, net, x):
-    """
-    local linear dynamics of the closed loop system
-    A + B*K_x + B*b_x
-    :param A:
-    :param B:
-    :param net:
-    :param x:
-    :return:
-    """
-    # x_torch = torch.tensor(x).float().transpose(0, 1)
-    # local affine dynamics of the control policyL p(x) = K_x*x + b_x
-    K_x, b_x, _, _, _ = lpv_batched(net, x)
-    K_x = K_x.view(K_x.shape[1], K_x.shape[2], -1)
-    b_x = b_x.transpose(0, 1)
-    Astar = Astack + torch.matmul(B, K_x)
-    bstar = torch.matmul(B, b_x)
-    return Astar, bstar
-
-
-def cl_norm(A, B, net, x):
-    """
-
-    :param A:
-    :param B:
-    :param net:
-    :param x:
-    :return:
-    """
-    Astar, bstar = cl_lin_dyn(A, B, net, x)
-    return torch.max(torch.norm(Astar, 2, dim=(0, 1)))
-
-
-def cl_norm_stack(A, B, net, x):
-    """
-
-    :param A:
-    :param B:
-    :param net:
-    :param x:
-    :return:
-    """
-    Astar, bstar = cl_lin_dyn_stack(A, B, net, x)
-    return torch.max(torch.norm(Astar, 2, dim=(0, 1)))
-
 
 
 def lpv_batched(fx, x):
@@ -386,11 +299,9 @@ if __name__ == "__main__":
     """
     # # #  System model
     """
-    # Fully observable estimator as identity map: x0 = Yp[-1]
-    # x_0 = Yp
-    # Yp = [y_-N, ..., y_0]
+    # Fully observable estimator as identity map: x0 = Yp
     estimator = estimators.FullyObservable({**dataset.dims, "x0": (nx,)},
-                                           nsteps=args.nsteps,  # future window Nf
+                                           nsteps=1,  # future window Nf
                                            window_size=1,  # past window Np <= Nf
                                            input_keys=["Yp"],
                                            name='estimator')
@@ -399,11 +310,10 @@ if __name__ == "__main__":
     fx = slim.maps['linear'](nx, nx)
     fy = slim.maps['linear'](nx, ny)
     # LTI SSM
-    # x_k+1 = Ax_k + Bu_k
-    # y_k+1 = Cx_k+1
     dynamics_model = dynamics.BlockSSM(fx, fy, fu=fu, name='dynamics',
                                        input_keys={'x0': f'x0_{estimator.name}'})
-    # model matrices values
+    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_policy'
+    # model matrices vlues
     A = torch.tensor([[1.2, 1.0],
                       [0.0, 1.0]])
     B = torch.tensor([[1.0],
@@ -419,24 +329,19 @@ if __name__ == "__main__":
     """
     # # #  Control policy
     """
-    # full state feedback control policy
-    # Uf = p(x_0)
-    # Uf = [u_0, ..., u_N]
     activation = activations['relu']
     linmap = slim.maps['linear']
     block = blocks.MLP
     policy = policies.MLPPolicy(
-        {f'x0_{estimator.name}': (dynamics_model.nx,), **dataset.dims},
+        {"x0_estim": (dynamics_model.nx,), **dataset.dims},
         nsteps=args.nsteps,
         bias=args.bias,
         linear_map=linmap,
         nonlin=activation,
         hsizes=[args.nx_hidden] * args.n_layers,
-        input_keys=[f'x0_{estimator.name}'],
+        input_keys=['Yp'],
         name='policy',
     )
-    # link policy with the model through the input keys
-    dynamics_model.input_keys[dynamics_model.input_keys.index('Uf')] = 'U_pred_policy'
 
     """
     # # #  DPC objectives and constraints
@@ -444,15 +349,15 @@ if __name__ == "__main__":
     # objectives
     regulation_loss = Objective(
         [f'Y_pred_{dynamics_model.name}'],
-        lambda x: torch.norm(x, 2),
+        lambda x: F.mse_loss(x, x),
         weight=args.Qx,
-        name="x^T*Qx*x",
+        name="x^T*Qx*x loss",
     )
     action_loss = Objective(
         [f"U_pred_{policy.name}"],
-        lambda x:  torch.norm(x, 2),
+        lambda x: F.mse_loss(x, x),
         weight=args.Qu,
-        name="u^T*Qu*u",
+        name="u^T*Qu*u loss",
     )
     # regularization
     regularization = Objective(
@@ -462,56 +367,39 @@ if __name__ == "__main__":
     # constraints
     state_lower_bound_penalty = Objective(
         [f'Y_pred_{dynamics_model.name}', "Y_minf"],
-        lambda x, xmin: torch.norm(F.relu(-x + xmin), 1),
+        lambda x, xmin: torch.mean(F.relu(-x + xmin)),
         weight=args.Q_con_x,
         name="state_lower_bound",
     )
     state_upper_bound_penalty = Objective(
         [f'Y_pred_{dynamics_model.name}', "Y_maxf"],
-        lambda x, xmax: torch.norm(F.relu(x - xmax), 1),
+        lambda x, xmax: torch.mean(F.relu(x - xmax)),
         weight=args.Q_con_x,
         name="state_upper_bound",
     )
     terminal_lower_bound_penalty = Objective(
         [f'Y_pred_{dynamics_model.name}', "Y_minf"],
-        lambda x, xmin: torch.norm(F.relu(-x + xN_min), 1),
+        lambda x, xmin: torch.mean(F.relu(-x + xN_min)),
         weight=args.Qn,
         name="terminl_lower_bound",
     )
     terminal_upper_bound_penalty = Objective(
         [f'Y_pred_{dynamics_model.name}', "Y_maxf"],
-        lambda x, xmax: torch.norm(F.relu(x - xN_max), 1),
+        lambda x, xmax: torch.mean(F.relu(x - xN_max)),
         weight=args.Qn,
         name="terminl_upper_bound",
     )
-    # alternative definition: args.nsteps*torch.mean(F.relu(-u + umin))
     inputs_lower_bound_penalty = Objective(
         [f"U_pred_{policy.name}", "U_minf"],
-        lambda u, umin: torch.norm(F.relu(-u + umin), 1),
+        lambda u, umin: torch.mean(F.relu(-u + umin)),
         weight=args.Q_con_u,
         name="input_lower_bound",
     )
-    # alternative definition: args.nsteps*torch.mean(F.relu(u - umax))
     inputs_upper_bound_penalty = Objective(
         [f"U_pred_{policy.name}", "U_maxf"],
-        lambda u, umax: torch.norm(F.relu(u - umax), 1),
+        lambda u, umax: torch.mean(F.relu(u - umax)),
         weight=args.Q_con_u,
         name="input_upper_bound",
-    )
-    # Closed-loop stability regularization ||A + B*K_x|| < 1
-    # here K_x is a local linear dynamics of the neural network policy
-    cl_norm_max = 1
-    # Astack = [A for k in range(dataset.train_data['Yp'].shape[1])]
-    # Astack = torch.stack(Astack).view(A.shape[0], A.shape[1], -1)
-    # cl_stability = Objective([f'x0_{estimator.name}'],
-    #     lambda x: torch.norm(F.relu(cl_norm_stack(Astack, B, policy.net, x) - cl_norm_max), 1),
-    #     weight=args.Q_stable*nsim,
-    #     name="cl_stability_penalty",
-    # )
-    cl_stability = Objective([f'x0_{estimator.name}'],
-        lambda x: torch.norm(F.relu(cl_norm(A, B, policy.net, x) - cl_norm_max), 1),
-        weight=args.Q_stable,
-        name="cl_stability_penalty",
     )
 
     objectives = [regularization, regulation_loss, action_loss]
@@ -522,7 +410,6 @@ if __name__ == "__main__":
         inputs_upper_bound_penalty,
         terminal_lower_bound_penalty,
         terminal_upper_bound_penalty,
-        cl_stability,
     ]
 
     """
@@ -554,18 +441,13 @@ if __name__ == "__main__":
     simulator = ClosedLoopSimulator(
         model=model, dataset=dataset, emulator=dynamics_model, policy=policy
     )
-    # visualizer
-    plot_keys = ["Y_pred", "U_pred"]  # variables to be plotted
-    visualizer = VisualizerClosedLoop(
-        dataset, policy, plot_keys, args.verbosity, savedir=args.savedir
-    )
     # trainer
     trainer = Trainer(
         model,
         dataset,
         optimizer,
         logger=logger,
-        callback=SysIDCallback(simulator, visualizer),
+        simulator=simulator,
         epochs=args.epochs,
         patience=args.patience,
         warmup=args.warmup,
@@ -583,8 +465,4 @@ if __name__ == "__main__":
     plot_policy(policy.net, save_path='test_control')
     # loss landscape and contraction regions
     plot_loss(model, dataset, xmin=-5, xmax=5, save_path='test_control')
-
-    # check closed loop system stability norm at given state x
-    if args.nsteps == 1:
-        cl_dynamics_norm = cl_norm(A, B, policy.net, x=1.5*torch.ones([1, nx]))
 

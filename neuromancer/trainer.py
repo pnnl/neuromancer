@@ -103,6 +103,7 @@ class Trainer:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
                 self.optimizer.step()
                 losses.append(output[self.train_metric])
+                self.callback.end_batch(self, output)
 
             output[f'mean_{self.train_metric}'] = torch.mean(torch.stack(losses))
             self.callback.begin_epoch(self, output)

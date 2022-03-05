@@ -9,7 +9,7 @@ import neuromancer.estimators as estim
 
 rect_maps = [v for k, v in maps.items() if v not in square_maps and v is not TrivialNullSpaceLinear]
 activations = [v for k, v in activations.items()]
-estimators = [v for k, v in estimators.items() if k != 'fullobservable']
+estimators = [v for k, v in estimators.items() if k != 'fullobservable' and k != 'fullobservable_multistep']
 seq2seq_estimators = [v for k, v in seq2seq_estimators.items()]
 
 
@@ -57,9 +57,16 @@ def test_fully_observable_shape(samples, nsteps, nx):
 
     model = estim.FullyObservable(data_dims)
     output = model(data)
-    x0 = [v for k, v in output.items() if len(v.shape) == 2][0]
+    x0 = output[model.output_keys[0]]
     assert x0.shape[0] == samples
     assert x0.shape[1] == nx
+
+    model = estim.FullyObservable_MultiStep(data_dims)
+    output = model(data)
+    x0 = output[model.output_keys[0]]
+    assert x0.shape[0] == model.window_size
+    assert x0.shape[1] == samples
+    assert x0.shape[2] == nx
 
 
 @given(st.integers(1, 10),

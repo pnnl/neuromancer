@@ -9,12 +9,12 @@ Nomenclature:
     + d: uncontrolled inputs (measured disturbances)
 
 Unstructured (blackbox) dynamical models:
-    + :math:`x_{t+1} = f(x_t,u_t,d_t) \odot f_e(x_t)`
+    + :math:`x_{t+1} = f(x_t,u_t,d_t) odot f_e(x_t)`
     + :math:`y_{t} =  f_y(x_t)`
     + :math:`odot` is some operator acting on elements, e.g. + or *
 
 Block-structured dynamical models:
-    + :math:`x_{t+1} = f_x(x_t) \\odot f_u(u_t) \\odot f_d(d_t) \\odot f_e(x_t)`
+    + :math:`x_{t+1} = f_x(x_t) odot f_u(u_t) odot f_d(d_t) odot f_e(x_t)`
     + :math:`y_t =  f_y(x_t)`
 
 Block components:
@@ -259,6 +259,111 @@ class BlackSSM(SSM):
     def check_features(self):
         self.nx, self.ny = self.fx.out_features, self.fy.out_features
         assert self.fx.out_features == self.fy.in_features, 'Output map must have same input size as output size of state transition'
+
+
+class ODENonAuto(SSM):
+    DEFAULT_INPUT_KEYS = ["x0", "Yf", "Time"]
+    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
+
+    def __init__(self, fx, fy, name='dynamics', input_key_map={}, extra_inputs=[], online_flag=False):
+        """
+        State space model for autonomous/non-autonomous ODE:
+
+        :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
+        :param fy: (nn.Module) Observation function
+        :param name: (str) Name for tracking output
+        :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
+        :param extra_inputs: (list of str) Input keys to be added to canonical input.
+        """
+        self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + extra_inputs
+        self.extra_inputs = extra_inputs
+
+        super().__init__(input_key_map, name)
+
+        self.fx, self.fy = fx, fy
+        self.nx, self.ny = self.fx.out_features, self.fy.out_features
+        self.online_flag = online_flag
+
+    def forward(self, data):
+        """
+        """
+        nsteps = data[self.input_key_map['Yf']].shape[0]
+        x = data[self.input_key_map['x0']]
+        Time = data[self.input_key_map['Time']]  # (nsteps, # of batches, 1)
+        inputs = torch.cat([data[k] for k in self.extra_inputs], dim=-1) \
+            if len(self.extra_inputs) is not 0 else Time
+        X, Y = [], []
+        for i in range(nsteps):
+            if self.online_flag:
+                if i == nsteps-1:
+                    pass  # what to do when i = nsteps - 1 in training and evaluation mode?
+                else:
+                    x = self.fx(x, inputs[i:i+2], Time[i:i+2]) 
+            else:
+                x = self.fx(x, inputs[i], Time[i])
+            y = self.fy(x)
+            X.append(x)
+            Y.append(y)
+        tensor_lists = [X, Y]
+        tensor_lists = [t for t in tensor_lists if t]
+        output = {name: torch.stack(tensor_list) for tensor_list, name
+                  in zip(tensor_lists, self.output_keys[1:])
+                  if tensor_list}
+        output[self.output_keys[0]] = self.reg_error()
+        return output
+
+    def reg_error(self):
+        """
+
+        :return: 0-dimensional torch.Tensor
+        """
+        return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
+
+
+class ODEAuto(SSM):
+    DEFAULT_INPUT_KEYS = ["x0", "Yf"]
+    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
+
+    def __init__(self, fx, fy, name='dynamics', input_key_map={}):
+        """
+        State space model for autonomous/non-autonomous ODE:
+
+        :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
+        :param fy: (nn.Module) Observation function
+        :param name: (str) Name for tracking output
+        :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
+        :param extra_inputs: (list of str) Input keys to be added to canonical input.
+        """
+        self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS
+
+        super().__init__(input_key_map, name)
+
+        self.fx, self.fy = fx, fy
+        self.nx, self.ny = self.fx.out_features, self.fy.out_features
+
+    def forward(self, data):
+        nsteps = data[self.input_key_map['Yf']].shape[0]
+        x = data[self.input_key_map['x0']]
+        X, Y = [], []
+        for i in range(nsteps):
+            x = self.fx(x)
+            y = self.fy(x)
+            X.append(x)
+            Y.append(y)
+        tensor_lists = [X, Y]
+        tensor_lists = [t for t in tensor_lists if t]
+        output = {name: torch.stack(tensor_list) for tensor_list, name
+                  in zip(tensor_lists, self.output_keys[1:])
+                  if tensor_list}
+        output[self.output_keys[0]] = self.reg_error()
+        return output
+
+    def reg_error(self):
+        """
+
+        :return: 0-dimensional torch.Tensor
+        """
+        return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
 
 
 class TimeDelayBlockSSM(BlockSSM):

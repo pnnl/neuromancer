@@ -111,7 +111,7 @@ class MLP(nn.Module):
         self.in_features, self.out_features = insize, outsize
         self.nhidden = len(hsizes)
         sizes = [insize] + hsizes + [outsize]
-        self.nonlin = [nonlin() for k in range(self.nhidden)] + [nn.Identity()]
+        self.nonlin = nn.ModuleList([nonlin() for k in range(self.nhidden)] + [nn.Identity()])
         self.linear = nn.ModuleList(
             [
                 linear_map(sizes[k], sizes[k + 1], bias=bias, **linargs)
@@ -169,7 +169,7 @@ class InteractionEmbeddingMLP(nn.Module):
         sizes = [insize] + hsizes
         sizes = [size + em_size for size, em_size in zip(sizes, em_sizes)]
         sizes += [outsize]
-        self.nonlin = [nonlin() for k in range(self.nhidden)] + [nn.Identity()]
+        self.nonlin = nn.ModuleList([nonlin() for k in range(self.nhidden)] + [nn.Identity()])
         self.embeddings = [nn.Embedding(int(n_interactors**2), n_embed) for n_embed in em_sizes]
         self.linear = nn.ModuleList(
             [
@@ -223,7 +223,7 @@ class MLPDropout(nn.Module):
         self.in_features, self.out_features = insize, outsize
         self.nhidden = len(hsizes)
         sizes = [insize] + hsizes + [outsize]
-        self.nonlin = [nonlin() for k in range(self.nhidden)] + [nn.Identity()]
+        self.nonlin = nn.ModuleList([nonlin() for k in range(self.nhidden)] + [nn.Identity()])
         self.linear = nn.ModuleList(
             [
                 linear_map(sizes[k], sizes[k + 1], bias=bias, **linargs)
@@ -353,7 +353,7 @@ class InputConvexNN(MLP):
                 for k in range(self.nhidden)
             ]
         )
-        self.nonlin = [nonlin() for k in range(self.nhidden + 1)]
+        self.nonlin = nn.ModuleList([nonlin() for k in range(self.nhidden + 1)])
 
         self.inmap = linear_map(insize, hsizes[0], bias=bias, **linargs)
         self.in_features, self.out_features = insize, outsize

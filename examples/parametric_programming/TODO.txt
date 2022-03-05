@@ -1,2 +1,0 @@
-fix random seed to be shared between matlab and python scripts
-create tutorials for multiparametric programming

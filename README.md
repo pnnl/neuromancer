@@ -1,144 +1,109 @@
-# NeuroMANCER
-## Neural Modules with Adaptive Nonlinear Constraints and 	Efficient Regularizations
+# Differentiable Predictive Control 
+Examples of the differentiable predictive control (DPC) policy optimization algorithm presented in the paper "Learning Constrained Adaptive Differentiable Predictive Control Policies With Guarantees"
+https://arxiv.org/abs/2004.11184
 
-## [Complete Documentation](https://pnnl.github.io/neuromancer/)
-![UML diagram](figs/class_diagram.png)
+DPC combines the principles of model predictive control, reinforcement learning, and differentiable programming to offer a systematic way for offline unsupervised model-based policy optimization with goal-parametrized domain-aware intrinsic rewards.
 
-## Setup
 
-##### Clone and install neuromancer, linear maps, and emulator submodules 
-```console
-# Clone submodules recursively:
-user@machine:~$ git clone --recurse-submodules https://gitlab.pnnl.gov/dadaist/neuromancer.git
+## Method and Examples
 
-# Clone submodules manually:
-user@machine:~$ git clone https://gitlab.pnnl.gov/dadaist/neuromancer.git
-user@machine:~$ git submodule init
-user@machine:~$ git submodule update
+![methodology.](examples/control_ODE/Example_1/test_control/DPC_abstract.png)  
+*Conceptual methodology. Simulation of the differentiable closed-loop system dynamics in the forward pass is followed by backward pass computing direct policy gradients for policy optimization *
 
-# Resulting file structure:
-    neuromancer/
-        psl/
-        slim/
+
+![methodology_2.](examples/control_ODE/Example_1/test_control/deep_MPC_var2.png)  
+*Structural equivalence of DPC architecture with MPC constraints.*
+
+
+![cl_trajectories.](examples/control_ODE/Example_1/test_control/cl_animation.gif)  
+*Example 1: Closed-loop trajectories of learned stabilizing neural control policy using DPC policy optimization.*
+
+![cl_trajectories_2.](examples/control_ODE/Example_1/test_control/closed%20loop%20policy%20training.gif)  
+*Example 1: Evolution of the closed-loop trajectories and DPC neural policy during training.*
+
+![dpc_policy.](examples/control_ODE/Example_1/test_control/policies_surfaces.png)  
+*Example 1: Landscapes of the learned neural policy via DPC policy optimization algorithm (right) and explicit MPC policy computed using parametric programming solver (left).*
+
+![example_2_dpc.](examples/control_ODE/Example_2/figs/pvtol_dpc_cl1.png)  
+*Example 2: Closed-loop control trajectories for the PVTOL aircraft model controlled by DPC neural policy.*
+
+![example_2_ampc.](examples/control_ODE/Example_2/figs/ampc_1.png)  
+*Example 2: Closed-loop control trajectories for the PVTOL aircraft model controlled by approximate MPC neural policy.*
+
+![example_3.](examples/control_ODE/Example_3/figs/quadcopter_dpc_1.png)  
+*Example 3: Closed-loop reference tracking control trajectories for the quadcopter model controlled by DPC neural policy.*
+
+![example_4.](examples/control_ODE/Example_4/figs/obstacle_avoidance.PNG)  
+*Example 4: Obstacle avoidance with nonlinear constraints via learned DPC neural policy compared to online IPOPT solution.*
+
+![example_5.](examples/control_ODE/Example_5/figs/DeepMPC_simSysID_on_paper.png)  
+*Example 5: Closed-loop trajectories of learned stabilizing neural control policy for a stochastic system using SP-DPC policy optimization.*
+
+# Stochastic Differentiable Predictive Control 
+Examples of the stochastic parametric differentiable predictive control (SP-DPC) policy optimization 
+algorithm presented in the paper "Learning Stochastic Parametric Differentiable Predictive Control Policies"
+https://arxiv.org/abs/2203.01447
+
+![example_6.](examples/control_ODE/SDPC_Examples/figs/closed_loop_sdpc.png)  
+*Example 6: Adaptive DPC of unknown linear system subject to disturbances.*
+
+![example_7.](examples/control_ODE/SDPC_Examples/figs/quadcopter_sdpc_psim30k_wsim3_sigma002.png)  
+*Example 7: Closed-loop reference tracking control trajectories for the stochastic quadcopter model controlled by SP-DPC neural policy.*
+
+![example_8.](examples/control_ODE/SDPC_Examples/figs/SDPC_avoidance.png)  
+*Example 8: Stochastic obstacle avoidance with parametric nonlinear constraints via learned SP-DPC neural policy compared to online IPOPT solution.*
+
+
+## Files for Running the DPC and SDPC Examples
+
+### Differentiable Predictive Control Example 1 
+- double_integrator_DPC.py - DPC stabilization double integrator example 
+- double_integrator_eMPC.m - explicit MPC benchmark using MPT3 toolbox
+
+### Differentiable Predictive Control Example 2
+- vtol_aircraft_DPC_stabilize.py - Unsupervised DPC policy optimization for VTOL aircraft model 
+- vtol_aircraft_aMPC.py - Approximate MPC supervised by online MPC solver
+- pvtol_aircraft_iMPC.m - Online MPC solved in Matlab using Yalmip toolbox and quadprog solver
+
+### Differentiable Predictive Control Example 3
+- quad_3D_linearDPC.py - Reference tracking for a quadcopter model via DPC 
+- CVXPY_linearMPC_quadcopter.py - Reference tracking for a quadcopter model online MPC using CVXPY and OSQP solver
+
+### Differentiable Predictive Control Example 4
+- 2D_obstacle_avoidance_DPC.py - Parametric obstacle avoidance with nonlinear constraints via DPC 
+- 2D_obstacle_avoidance_csadi.py - Online obstacle avoidance using CasADi and IPOPT solver
+
+### Differentiable Predictive Control Example 5
+- DeepMPC_sysID_ctrl_sec_2_4.py - policy optimization with ground truth model 
+- DeepMPC_sysID_ctrl_sec_2_5.py - adaptive policy optimization via online simultaneous system ID and policy updates 
+- DeepMPC_sysID_ctrl_sec_3_7 	- computational aspects and scalability analysis
+
+### Stohastic Differentiable Predictive Control Examples 6, 7, 8
+- double_integrator_SDPC.py - stochastic DPC stabilization double integrator
+- quad_3D_linearSDPC 	- Reference tracking for a quadcopter model via stochastic DPC 
+- 2D_obstacle_avoidance_SDPC.py - stochastic parametric obstacle avoidance with nonlinear constraints via DPC 
+
+
+## Cite as
+
+```yaml
+@misc{drgona2022_DPC,
+      title={Learning Constrained Adaptive Differentiable Predictive Control Policies With Guarantees}, 
+      author={Jan Drgona and Aaron Tuor and Draguna Vrabie},
+      year={2022},
+      eprint={2004.11184},
+      archivePrefix={arXiv},
+      primaryClass={eess.SY}
+}
 ```
 
-##### Create the environment via .yml (Linux)
-
-```console
-user@machine:~$ conda env create -f env.yml
-(neuromancer) user@machine:~$ source activate neuromancer
+```yaml
+@misc{drgona2022_SDPC,
+      title={Learning Stochastic Parametric Differentiable Predictive Control Policies}, 
+      author={Jan Drgona and Sayak Mukherjee and Aaron Tuor and Mahantesh Halappanavar and Draguna Vrabie},
+      year={2022},
+      eprint={2203.01447},
+      archivePrefix={arXiv},
+      primaryClass={eess.SY}
+}
 ```
-
-##### If .yml env creation fails create the environment manually
-
-```console
-user@machine:~$ conda config --add channels conda-forge pytorch
-user@machine:~$ conda create -n neuromancer python=3.7
-user@machine:~$ source activate neuromancer
-(neuromancer) user@machine:~$ conda install pytorch torchvision -c pytorch
-(neuromancer) user@machine:~$ conda install scipy pandas matplotlib control pyts numba scikit-learn dill
-(neuromancer) user@machine:~$ conda install mlflow boto3
-(neuromancer) user@machine:~$ conda install -c powerai gym
-```
-
-##### Install neuromancer ecosystem 
-
-Feel free to use `pip install -e .` or `python setup.py develop` to configure the neuromancer, psl and slim python modules.
-
-You may have to install using the `--user` option when sharing base conda environments accross users.
-
-```console
-(neuromancer) user@machine:~$ cd psl
-(neuromancer) user@machine:~$ python setup.py develop
-(neuromancer) user@machine:~$ cd ../slim
-(neuromancer) user@machine:~$ python setup.py develop
-(neuromancer) user@machine:~$ cd .. # into neuromancer
-(neuromancer) user@machine:~$ pip install -e . 
-```
-
-### Current TODOS
-
-    [ ] (Jan & Shri) Confirm environment set up works on Mac and Linux
-    [ ] (Next coding session) Put generic control script with tutorial system as default (use common.py style refactor)
-    [ ] (Jan) EED building sys id papers code release: port to neuromancer to recreate experiments
-    [ ] (Elliott) prepare constrained_block_ssm_acc for release 
-    [ ] (Jan) prepare flexy for release
-    [ ] (Elliott & Soumya) prepare lpv_14dc for release
-
-    [ ] (Aaron) break off neural koopman branch since this code won't be released in the initial release
-    [ ] (Aaron) Create docs
-
-### TODO
-    [1] User experience updates
-        new attributes for our component models: 
-            out_keys - to have a full info about the connectivity
-        new attributes for models and objectives:
-            form or equation - a string representing the underlying mathematical expression e.g. "y = x + f(x)"
-        pre-defined constraints in a separate file with brief documentation
-        
-    
-    [2] datasets
-        refactor datasets.py - get rid of unnecessary dependencies
-        custom normalizations: [-6, 6] etc...
-    
-    [3] create new analysis file
-        post hoc analysis of neural nets
-        decouple eigenvalue analysis from visuals in trainer
-        add eigenvalue analysis for all weights, neural blocks, and all activation types     
-
-    [4] trainer
-        keep current trainer
-        set random seeds for reproducibility
-        add profiling
-        
-    [5] logger 
-        add save weights option during training for running offline visuals and analysis
-        
-    [6] dynamics, estimator, policies
-        no immediate actions
-        reduce code by generalizing model classes and helper functions
-    
-    [7] documentation
-        autogenerate docs via doc strings
-        python package style format with latex syntax
-    
-
-
-### Older TODOs
-
-datasets category
-    [ ] In datasets add data_transforms method to act on dataset.data to generate: finite difference sequences via np.diff, nonlinear expansions, spectral decompositions
-    [ ] unify batching/unbatching via single function in datasets.py?
-    [ ] finish batch_data_exp_id for datasets generated via multiple experiment runs: batch based on exp_idx and nsteps
-    [ ] Mini-batching
-
-visuals category
-    [ ] update plot_matrix method in VisualizerOpen(Visualizer) - currently supports only linear maps with effective_W
-    [ ] Visualizer for Multi-parametric programs
-    [ ] Visualize learnable loss function evolution
-    [ ] stream plots for phase spaces of ODEs
-
-problem modeling and training script functions category
-    [ ] move freeze_weight, unfreeze_weight, and share_weights into problem.py?
-    [ ] add output_keys attribute to components 
-    [ ] add input_keys and output_keys attributes to overall model generated by Problem()
-    [ ] Generalize sliding window between 1 and nsteps
-
-trainer category
-    [ ] Learn-rate scheduling
-    [ ] WandB logger
-
-blocks, dynamics, policies, estimators category    
-    [ ] Re-implement RNN state preservation for open loop simulation
-    [ ] full trajectory estimators: This will entail only taking the first N-steps for all the non-static inputs
-    [ ] Pytorch Extended Kalman Filter: 
-            https://filterpy.readthedocs.io/en/latest/_modules/filterpy/kalman/EKF.html
-    [ ] Implement LQR policy, similar structure to Linear Kalman Filter: 
-            Scipy reference https://nbviewer.jupyter.org/url/argmin.net/code/little_LQR_demo.ipynb
-            
-dissemination and documentation category
-    [ ] Doc strings
-    [ ] Sphinx docs
-    [ ] Package distribution via conda or pypi
-    [ ] Look at this testing software to for automatic wider test coverage: 
-            https://hypothesis.readthedocs.io/en/latest/

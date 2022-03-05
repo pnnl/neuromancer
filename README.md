@@ -10,10 +10,8 @@ DPC combines the principles of model predictive control, reinforcement learning,
 ![methodology.](examples/control_ODE/Example_1/test_control/DPC_abstract.png)  
 *Conceptual methodology. Simulation of the differentiable closed-loop system dynamics in the forward pass is followed by backward pass computing direct policy gradients for policy optimization *
 
-
 ![methodology_2.](examples/control_ODE/Example_1/test_control/deep_MPC_var2.png)  
 *Structural equivalence of DPC architecture with MPC constraints.*
-
 
 ![cl_trajectories.](examples/control_ODE/Example_1/test_control/cl_animation.gif)  
 *Example 1: Closed-loop trajectories of learned stabilizing neural control policy using DPC policy optimization.*
@@ -39,6 +37,20 @@ DPC combines the principles of model predictive control, reinforcement learning,
 ![example_5.](examples/control_ODE/Example_5/figs/DeepMPC_simSysID_on_paper.png)  
 *Example 5: Closed-loop trajectories of learned stabilizing neural control policy for a stochastic system using SP-DPC policy optimization.*
 
+## Cite as
+
+```yaml
+@misc{drgona2022_DPC,
+      title={Learning Constrained Adaptive Differentiable Predictive Control Policies With Guarantees}, 
+      author={Jan Drgona and Aaron Tuor and Draguna Vrabie},
+      year={2022},
+      eprint={2004.11184},
+      archivePrefix={arXiv},
+      primaryClass={eess.SY}
+}
+```
+
+
 # Stochastic Differentiable Predictive Control 
 Examples of the stochastic parametric differentiable predictive control (SP-DPC) policy optimization 
 algorithm presented in the paper "Learning Stochastic Parametric Differentiable Predictive Control Policies"
@@ -53,6 +65,19 @@ https://arxiv.org/abs/2203.01447
 ![example_8.](examples/control_ODE/SDPC_Examples/figs/SDPC_avoidance.PNG)  
 *Example 8: Stochastic obstacle avoidance with parametric nonlinear constraints via learned SP-DPC neural policy compared to online IPOPT solution.*
 
+
+## Cite as
+
+```yaml
+@misc{drgona2022_SDPC,
+      title={Learning Stochastic Parametric Differentiable Predictive Control Policies}, 
+      author={Jan Drgona and Sayak Mukherjee and Aaron Tuor and Mahantesh Halappanavar and Draguna Vrabie},
+      year={2022},
+      eprint={2203.01447},
+      archivePrefix={arXiv},
+      primaryClass={eess.SY}
+}
+```
 
 ## Files for Running the DPC and SDPC Examples
 
@@ -84,26 +109,3 @@ https://arxiv.org/abs/2203.01447
 - 2D_obstacle_avoidance_SDPC.py - stochastic parametric obstacle avoidance with nonlinear constraints via DPC 
 
 
-## Cite as
-
-```yaml
-@misc{drgona2022_DPC,
-      title={Learning Constrained Adaptive Differentiable Predictive Control Policies With Guarantees}, 
-      author={Jan Drgona and Aaron Tuor and Draguna Vrabie},
-      year={2022},
-      eprint={2004.11184},
-      archivePrefix={arXiv},
-      primaryClass={eess.SY}
-}
-```
-
-```yaml
-@misc{drgona2022_SDPC,
-      title={Learning Stochastic Parametric Differentiable Predictive Control Policies}, 
-      author={Jan Drgona and Sayak Mukherjee and Aaron Tuor and Mahantesh Halappanavar and Draguna Vrabie},
-      year={2022},
-      eprint={2203.01447},
-      archivePrefix={arXiv},
-      primaryClass={eess.SY}
-}
-```

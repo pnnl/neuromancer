@@ -4,8 +4,6 @@
 *psl.egg-info
 *neuromancer.egg-info
 *.circleci
-*test_control
-*test
 tests/test
 *mlruns
 *.idea

@@ -50,7 +50,7 @@ https://arxiv.org/abs/2203.01447
 ![example_7.](examples/control_ODE/SDPC_Examples/figs/quadcopter_sdpc_psim30k_wsim3_sigma002.png)  
 *Example 7: Closed-loop reference tracking control trajectories for the stochastic quadcopter model controlled by SP-DPC neural policy.*
 
-![example_8.](examples/control_ODE/SDPC_Examples/figs/SDPC_avoidance.png)  
+![example_8.](examples/control_ODE/SDPC_Examples/figs/SDPC_avoidance.PNG)  
 *Example 8: Stochastic obstacle avoidance with parametric nonlinear constraints via learned SP-DPC neural policy compared to online IPOPT solution.*
 
 

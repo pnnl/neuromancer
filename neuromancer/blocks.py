@@ -382,9 +382,9 @@ class PosDef(nn.Module):
         :param d: (float)
         """
         super().__init__()
+        self.g = g
         self.in_features = self.g.in_features
         self.out_features = self.g.out_features
-        self.g = g
         self.zero = torch.nn.Parameter(torch.zeros(1, self.g.in_features), requires_grad=False)
         self.eps = eps
         self.d = d

@@ -197,7 +197,7 @@ class MultiSequenceOpenLoopSimulator(Simulator):
 
     def dev_eval(self):
         if self.eval_sim:
-            dev_loop_output = self.simulate(move_batch_to_device(self.dev_data, self.device))
+            dev_loop_output = self.simulate(self.dev_data)
         else:
             dev_loop_output = dict()
         return dev_loop_output

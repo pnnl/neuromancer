@@ -293,12 +293,12 @@ if __name__ == "__main__":
 
     objectives = [regularization, regulation_loss, action_loss]
     constraints = [
-        args.Q_con_x*state_lower_bound_penalty,
-        args.Q_con_x*state_upper_bound_penalty,
-        args.Q_con_u*inputs_lower_bound_penalty,
-        args.Q_con_u*inputs_upper_bound_penalty,
-        args.Qn*terminal_lower_bound_penalty,
-        args.Qn*terminal_upper_bound_penalty,
+        state_lower_bound_penalty,
+        state_upper_bound_penalty,
+        inputs_lower_bound_penalty,
+        inputs_upper_bound_penalty,
+        terminal_lower_bound_penalty,
+        terminal_upper_bound_penalty,
     ]
 
     """

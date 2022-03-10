@@ -591,7 +591,8 @@ def plot_loss_DPC(model, dataset, xmin=-5, xmax=5, save_path=None):
             xnp = x0.transpose(0, 1).detach().numpy()
             xnp_n = np.matmul(Anp, xnp) + np.matmul(Bnp, u)
             if not np.linalg.norm(xnp) == 0:
-                Alpha[i,j] = np.linalg.norm(xnp_n)/np.linalg.norm(xnp)
+                # Alpha[i,j] = np.linalg.norm(xnp_n)/np.linalg.norm(xnp)
+                Alpha[i,j] = np.linalg.norm(xnp_n) - np.linalg.norm(xnp)
             else:
                 Alpha[i, j] = 0
 

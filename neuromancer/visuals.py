@@ -370,7 +370,7 @@ class VisualizerDobleIntegrator(Visualizer):
     """
     custom visualizer for double integrator example
     """
-    def __init__(self, dataset, model, verbosity, savedir,
+    def __init__(self, dataset, model, policy, dynamics, verbosity, savedir,
                  nstep=40, x0=1.5 * np.ones([2, 1]),
                  training_visuals=False, trace_movie=False):
         """
@@ -383,6 +383,8 @@ class VisualizerDobleIntegrator(Visualizer):
         :param trace_movie:
         """
         self.model = model
+        self.policy = policy
+        self.dynamics = dynamics
         self.dataset = dataset
         self.verbosity = verbosity
         self.savedir = savedir
@@ -396,15 +398,15 @@ class VisualizerDobleIntegrator(Visualizer):
         visualize evolution of closed-loop contro and policy landscape during training
         :return:
         """
-        A = self.model.components[2].fx.linear.weight
-        B = self.model.components[2].fu.linear.weight
+        A = self.dynamics.fx.linear.weight
+        B = self.dynamics.fu.linear.weight
         if self.training_visuals:
             X_list, U_list = [], []
             policy_list = []
             for i in range(trainer.epochs):
                 best_policy = epoch_policy[i]
                 trainer.model.eval()
-                policy = trainer.model.components[1]
+                policy = self.policy
                 policy.load_state_dict(best_policy)
                 X, U = cl_simulate(A, B, policy.net, nstep=self.nstep, x0=self.x0)
                 X_list.append(X)
@@ -416,15 +418,15 @@ class VisualizerDobleIntegrator(Visualizer):
 
     def eval(self, trainer):
 
-        A = self.model.components[2].fx.linear.weight
-        B = self.model.components[2].fu.linear.weight
-        policy = trainer.model.components[1]
+        A = self.dynamics.fx.linear.weight
+        B = self.dynamics.fu.linear.weight
+        policy = self.policy
         # plot closed loop trajectories
         X, U = cl_simulate(A, B, policy.net, nstep=self.nstep, x0=self.x0)
         plot_cl(X, U, nstep=self.nstep, save_path=self.savedir, trace_movie=self.trace_movie)
         # plot policy surface
         plot_policy(policy.net, save_path=self.savedir)
         # loss landscape and contraction regions
-        plot_loss_DPC(trainer.model, trainer.train_data, xmin=-2, xmax=2,
+        plot_loss_DPC(trainer.model, policy, A, B, trainer.train_data, xmin=-2, xmax=2,
                   save_path=self.savedir)
         return dict()

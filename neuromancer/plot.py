@@ -544,7 +544,7 @@ def plot_loss_mpp(model, dataset, xmin=-2, xmax=2, save_path=None):
     Double Integrator DPC example plots
 """
 
-def plot_loss_DPC(model, dataset, xmin=-5, xmax=5, save_path=None):
+def plot_loss_DPC(model, policy, A, B, dataset, xmin=-5, xmax=5, save_path=None):
     """
     plot loss function for trained DPC model
     :param model:
@@ -565,9 +565,7 @@ def plot_loss_DPC(model, dataset, xmin=-5, xmax=5, save_path=None):
     Alpha = np.ones([x.shape[0], y.shape[0]])*np.nan
     # ||A+B*Kx||
     Phi_norm = np.ones([x.shape[0], y.shape[0]])*np.nan
-    policy = model.components[1].net
-    A = model.components[2].fx.linear.weight
-    B = model.components[2].fu.linear.weight
+    policy = policy.net
     Anp = A.detach().numpy()
     Bnp = B.detach().numpy()
     for i in range(x.shape[0]):

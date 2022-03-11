@@ -486,9 +486,10 @@ if __name__ == "__main__":
 
     # visualizer object to be called in callback for plotting
     visualizer = VisualizerDobleIntegrator(train_data, problem,
-                     args.verbosity, savedir=args.savedir,
-                     nstep=40, x0=1.5 * np.ones([2, 1]),
-                     training_visuals=False, trace_movie=False)
+                                           policy, dynamics_model,
+                                           args.verbosity, savedir=args.savedir,
+                                           nstep=40, x0=1.5 * np.ones([2, 1]),
+                                           training_visuals=False, trace_movie=False)
 
     trainer = Trainer(
         problem,

@@ -25,6 +25,8 @@ from neuromancer.component import Component
 
 
 class Policy(Component):
+    DEFAULT_INPUT_KEYS = ["x0"]
+    DEFAULT_OUTPUT_KEYS = ["U_pred", "reg_error"]
 
     def __init__(self, data_dims, nsteps=1, input_keys=["x0"], name="policy"):
         """
@@ -34,9 +36,11 @@ class Policy(Component):
         :param input_keys: (List of str) List of input variable names
         :param name: (str) Name for tracking output of module.
         """
-        output_keys = [f"{k}_{name}" if name is not None else k for k in ["U_pred", "reg_error"]]
-        super().__init__(input_keys=input_keys, output_keys=output_keys, name=name)
-
+        super().__init__(
+            input_keys,
+            Policy.DEFAULT_OUTPUT_KEYS,
+            name,
+        )
         self.name, self.data_dims = name, data_dims
         self.nsteps = nsteps
         self.data_dims = data_dims
@@ -88,9 +92,7 @@ class Policy(Component):
         features = self.features(data)
         Uf = self.net(features)
         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
-        output = {name: tensor for tensor, name
-                  in zip([Uf, self.reg_error()], self.output_keys)}
-        return output
+        return {"U_pred": Uf, "reg_error": self.reg_error()}
 
 
 class Compensator(Policy):
@@ -105,6 +107,7 @@ class Compensator(Policy):
         """
         super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
         self.policy_output_keys = policy_output_keys
+        self.input_keys = input_keys
         assert len(input_keys) == 1, \
             f'One input key expected but got {len(input_keys)}. ' \
             f'Required format input_keys=[\'error signal\'].'
@@ -121,9 +124,7 @@ class Compensator(Policy):
         U_compensator = torch.cat([u.reshape(self.nsteps, 1, -1) for u in U_compensator], dim=1)
         # additive compensator for the nominal policy: e.g. for online updates
         Uf = U_nominal + U_compensator
-        output = {name: tensor for tensor, name
-                  in zip([Uf, self.reg_error()], self.output_keys)}
-        return output
+        return {f'U_pred_{self.name}': Uf, f'reg_error_{self.name}': self.reg_error()}
 
 
 class LinearCompensator(Compensator):
@@ -204,9 +205,7 @@ class RNNPolicy(Policy):
 
         Uf = self.net(features)
         Uf = torch.cat([u.reshape(self.nsteps, 1, -1) for u in Uf], dim=1)
-        output = {name: tensor for tensor, name
-                  in zip([Uf, self.net.reg_error()], self.output_keys)}
-        return output
+        return {"U_pred": Uf, "reg_error": self.net.reg_error()}
 
 
 policies = [LinearPolicy, MLPPolicy, RNNPolicy]

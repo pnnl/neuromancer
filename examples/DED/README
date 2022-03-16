@@ -1,0 +1,48 @@
+
+Dynamics Aware Economic Dispatch README
+=======================================
+
+This document describes how to replicate the results in [link]
+
+
+All relevant files are located in the directory
+neuromancer/examples/DED
+
+
+
+Files
+--------------
+
+1. Data
+   - Example_Data
+      * a small sample dataset that can be used for testing code  
+   - Generated_Data
+      * Where output of of the data generation script will be stored, generated data will share the same file structure as Example_Data
+   - KO_model_parameters
+      * contains an npz file with stored weights and biases for instatiating the Koopman model of the swing dynamics  
+   
+2. Data_generation
+   - Contains scripts for generating dynamic economic dispatch solution using ipopt
+ 
+3. Koopman_system_ID
+   - Contains scripts for simulating and training the Koopman model of the swing dynamics
+
+4. DED_DPC
+   - Contains scripts for training and evaluating the DED-DPC approach
+ 
+ 
+
+Implementing the DED-DPC 
+-------------------------
+
+1. The Koopman model of the dynamics must first be instantiated by running the script KO_train.py in the Koopman_system_ID folder.  
+   - This will run one training epoch that loads in saved model weights and constructs a neuromancer model that is then saved and will be sourced for all other scripts.
+   - Additional training can be performed by generating more trajectory data with the Data_generation scripts.
+
+2. A comparison between the Koopman dynamics and swing dynamics can plotted by running the script KO_simulation.py
+
+3. Once a Koopman model is instantiated the DED-DPC can be trained by running the script DED_DPC_train.py in the DED_DPC folder.
+   - Note that the DED_DPC model initialization is random and will not have trained performance, initial training will also be poor unless a larger dataset is generated first using the Data_generation scripts   - Further note that the Data_generation scripts solve the DED problem with ipopt such that comparisons can be made between the dynamics and the solutions, however these solutions are not required for training the DED_DPC model 
+
+4. Output of the DED-DPC model can be evaluated by running the script DED_DPC_sim.py 
+   

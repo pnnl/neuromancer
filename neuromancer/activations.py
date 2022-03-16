@@ -249,3 +249,10 @@ activations = {
     "tanhshrink": nn.Tanhshrink,
     "smoothedrelu": SmoothedReLU
 }
+
+if __name__ == "__main__":
+    x = torch.zeros(5, 10)
+    for name, act in activations.items():
+        print(name)
+        f = act()
+        assert x.shape == f(x).shape

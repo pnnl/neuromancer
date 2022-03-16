@@ -17,8 +17,6 @@ from neuromancer.plot import plot_policy, plot_policy_train, \
     cl_simulate, plot_cl, plot_cl_train, plot_loss_DPC
 
 
-import neuromancer.blocks as blocks
-
 
 class Visualizer:
 
@@ -66,9 +64,6 @@ class VisualizerOpen(Visualizer):
             if hasattr(self.model.fx, 'effective_W'):
                 rows = 1
                 mat = self.model.fx.effective_W().detach().cpu().numpy()
-            elif isinstance(self.model.fx, blocks.Linear):
-                rows = 1
-                mat = self.model.fx.linear.effective_W().detach().cpu().numpy()
             elif hasattr(self.model.fx, 'linear'):
                 rows = len(self.model.fx.linear)
                 Mat = []
@@ -93,6 +88,8 @@ class VisualizerOpen(Visualizer):
         plt.style.use('dark_background')
         if rows == 1:
             fig, (eigax, matax) = plt.subplots(rows, 2)
+            # eigax.set_ylim(-1.1, 1.1)
+            # eigax.set_xlim(-1.1, 1.1)
             eigax.set_aspect(1)
             matax.axis('off')
             matax.set_title('State Transition Weights')
@@ -192,57 +189,6 @@ class VisualizerOpen(Visualizer):
                                   np.concatenate(Ypred).transpose(1, 0),
                                   figname=os.path.join(self.savedir, f'open_movie.mp4'),
                                   freq=self.verbosity)
-        return dict()
-
-
-class VisualizerUncertaintyOpen(Visualizer):
-    def __init__(self, dataset, savedir, dynamics_name='dynamics'):
-        self.dataset = dataset
-        self.savedir = savedir
-        self.dynamics_name = dynamics_name
-
-    def plot_traj(self, true_traj, pred_traj, pred_mean, pred_std, figname='open_loop.png'):
-        try:
-            plt.style.use('dark_background')
-            fig, ax = plt.subplots(len(true_traj), 1)
-            labels = [f'$y_{k}$' for k in range(len(true_traj))]
-            for row, (t1, t2, mean, std, label) in enumerate(zip(true_traj, pred_traj, pred_mean, pred_std, labels)):
-                axe = ax if len(true_traj) == 1 else ax[row]
-                x = np.array(range(len(mean)))
-                axe.set_ylabel(label, rotation=0, labelpad=20)
-                axe.plot(t1, label='True', c='c')
-                axe.fill_between(x, mean - std, mean + std, color='C3', alpha=0.2, linewidth=0)
-                axe.fill_between(x, mean - std * 2, mean + std * 2, color='C3', alpha=0.2, linewidth=0)
-                axe.plot(mean, label='Mean', c='C3')
-                axe.tick_params(labelbottom=False)
-            axe.tick_params(labelbottom=True)
-            axe.set_xlabel('Time')
-            axe.legend()
-        except Exception as e:
-            print(e)
-
-        plt.savefig(figname)
-
-    def eval(self, outputs):
-        """
-        :param outputs:
-        :return:
-        """
-        dsets = ['train', 'dev', 'test']
-        ny = self.dataset.dims['Yf'][-1]
-
-        Ypred = [outputs[f'loop_{dset}_Y_pred_{self.dynamics_name}'].reshape(-1, ny).detach().cpu().numpy() for dset in
-                 dsets]
-        Ymean = [outputs[f'loop_{dset}_Y_pred_{self.dynamics_name}_mean'].reshape(-1, ny).detach().cpu().numpy() for
-                 dset in dsets]
-        Ystd = [outputs[f'loop_{dset}_Y_pred_{self.dynamics_name}_std'].reshape(-1, ny).detach().cpu().numpy() for dset
-                in dsets]
-        Ytrue = [outputs[f'loop_{dset}_Yf'].reshape(-1, ny).detach().cpu().numpy() for dset in dsets]
-        self.plot_traj(np.concatenate(Ytrue).transpose(1, 0),
-                       np.concatenate(Ypred).transpose(1, 0),
-                       np.concatenate(Ymean).transpose(1, 0),
-                       np.concatenate(Ystd).transpose(1, 0),
-                       figname=os.path.join(self.savedir, 'open_loop.png'))
         return dict()
 
 
@@ -370,7 +316,7 @@ class VisualizerDobleIntegrator(Visualizer):
     """
     custom visualizer for double integrator example
     """
-    def __init__(self, dataset, model, policy, dynamics, verbosity, savedir,
+    def __init__(self, dataset, model, verbosity, savedir,
                  nstep=40, x0=1.5 * np.ones([2, 1]),
                  training_visuals=False, trace_movie=False):
         """
@@ -383,8 +329,6 @@ class VisualizerDobleIntegrator(Visualizer):
         :param trace_movie:
         """
         self.model = model
-        self.policy = policy
-        self.dynamics = dynamics
         self.dataset = dataset
         self.verbosity = verbosity
         self.savedir = savedir
@@ -398,15 +342,15 @@ class VisualizerDobleIntegrator(Visualizer):
         visualize evolution of closed-loop contro and policy landscape during training
         :return:
         """
-        A = self.dynamics.fx.linear.weight
-        B = self.dynamics.fu.linear.weight
+        A = self.model.components[2].fx.linear.weight
+        B = self.model.components[2].fu.linear.weight
         if self.training_visuals:
             X_list, U_list = [], []
             policy_list = []
             for i in range(trainer.epochs):
                 best_policy = epoch_policy[i]
                 trainer.model.eval()
-                policy = self.policy
+                policy = trainer.model.components[1]
                 policy.load_state_dict(best_policy)
                 X, U = cl_simulate(A, B, policy.net, nstep=self.nstep, x0=self.x0)
                 X_list.append(X)
@@ -418,15 +362,15 @@ class VisualizerDobleIntegrator(Visualizer):
 
     def eval(self, trainer):
 
-        A = self.dynamics.fx.linear.weight
-        B = self.dynamics.fu.linear.weight
-        policy = self.policy
+        A = self.model.components[2].fx.linear.weight
+        B = self.model.components[2].fu.linear.weight
+        policy = trainer.model.components[1]
         # plot closed loop trajectories
         X, U = cl_simulate(A, B, policy.net, nstep=self.nstep, x0=self.x0)
         plot_cl(X, U, nstep=self.nstep, save_path=self.savedir, trace_movie=self.trace_movie)
         # plot policy surface
         plot_policy(policy.net, save_path=self.savedir)
         # loss landscape and contraction regions
-        plot_loss_DPC(trainer.model, policy, A, B, trainer.train_data, xmin=-2, xmax=2,
+        plot_loss_DPC(trainer.model, trainer.train_data, xmin=-2, xmax=2,
                   save_path=self.savedir)
         return dict()

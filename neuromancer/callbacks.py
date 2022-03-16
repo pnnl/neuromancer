@@ -21,9 +21,6 @@ class Callback:
     def begin_eval(self, trainer, output):
         pass
 
-    def end_batch(self, trainer, output):
-        pass
-
     def end_eval(self, trainer, output):
         pass
 

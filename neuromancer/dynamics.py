@@ -1,4 +1,4 @@
-"""
+r"""
 State space models (SSMs) for dynamical modeling.
 
 Nomenclature:
@@ -9,12 +9,12 @@ Nomenclature:
     + d: uncontrolled inputs (measured disturbances)
 
 Unstructured (blackbox) dynamical models:
-    + :math:`x_{t+1} = f(x_t,u_t,d_t) odot f_e(x_t)`
+    + :math:`x_{t+1} = f(x_t,u_t,d_t) \odot f_e(x_t)`
     + :math:`y_{t} =  f_y(x_t)`
     + :math:`odot` is some operator acting on elements, e.g. + or *
 
 Block-structured dynamical models:
-    + :math:`x_{t+1} = f_x(x_t) odot f_u(u_t) odot f_d(d_t) odot f_e(x_t)`
+    + :math:`x_{t+1} = f_x(x_t) \\odot f_u(u_t) \\odot f_d(d_t) \\odot f_e(x_t)`
     + :math:`y_t =  f_y(x_t)`
 
 Block components:
@@ -29,64 +29,28 @@ Block components:
 
 import torch
 import torch.nn as nn
-from typing import List
 
+import slim
+
+import neuromancer.blocks as blocks
 from neuromancer.component import Component
 
 
-class SSM(Component):
-    DEFAULT_INPUT_KEYS: List[str]
-    DEFAULT_OUTPUT_KEYS: List[str]
-
-    def __init__(self, input_key_map={}, name=None):
-        """
-        Base State Space Model (SSM) class
-
-        This class is used to manage naming of component input and output variables as they flow
-        through the computational graph, as well as handle potential remapping of input and output keys
-        to different names. It additionally provides a useful reference for users to see how components
-        can be connected together in the overall computational graph.
-
-        Components that inherit from this class should specify the class attributes DEFAULT_INPUT_KEYS
-        and DEFAULT_OUTPUT_KEYS; these are used as the "canonical" names for input and output variables,
-        respectively. These can be used to compare different components' output and input keys to see
-        whether one component can accept another's output by default.
-
-        By default, components have a `name` argument which is used to tag the output variables they
-        generate; for instance, for a component called "estim", the canonical output "x0" is renamed to
-        "x0_estim".
-
-        >>> estim = LinearEstimator(..., name="estim")  # output "x0" remapped to "x0_estim"
-        >>> ssm = BlockSSM(..., input_key_map={f"x0_{estim.name}": "x0"})  # input_keys used to remap to canonical name
-
-        :param input_key_map:
-        :param remap_output:
-        :param name:
-        """
-        self.update_input_keys(input_key_map=input_key_map)
-        output_keys = [f"{k}_{name}" if name is not None else k for k in self.DEFAULT_OUTPUT_KEYS]
-        super().__init__(input_keys=self.input_keys, output_keys=output_keys, name=name)
-
-    def update_input_keys(self, input_key_map={}):
-        assert isinstance(input_key_map, dict), \
-            f"{type(self).__name__} input_key_map must be dict for remapping input variable names; "
-        self.input_key_map = {
-            **{k: k for k in self.DEFAULT_INPUT_KEYS if k not in input_key_map.keys()},
-            **input_key_map
-        }
-        self.input_keys = list(self.input_key_map.values())
-        assert len(self.input_keys) == len(self.DEFAULT_INPUT_KEYS), \
-            "Length of given input keys must equal the length of default input keys"
-
-
-class BlockSSM(SSM):
-
+class BlockSSM(Component):
+    # TODO: make canonical inputs depend on which components are actually enabled for the SSM
+    # e.g. if fu is not None, add "Uf" as required input key and "fU" as output key.
     DEFAULT_INPUT_KEYS = ["x0", "Yf"]
-    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
+    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "reg_error"]
+
+    OPTIONAL_INPUT_KEYS = ["Uf", "Df"]
+    OPTIONAL_OUTPUT_KEYS = ["fU", "fD", "fE"]
+
+    _ALL_INPUTS = DEFAULT_INPUT_KEYS + OPTIONAL_INPUT_KEYS
+    _ALL_OUTPUTS = DEFAULT_OUTPUT_KEYS + OPTIONAL_OUTPUT_KEYS
 
     def __init__(self, fx, fy, fu=None, fd=None, fe=None, fyu=None,
                  xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, residual=False, name='block_ssm',
-                 input_key_map={}):
+                 input_keys=None):
         """
         Block structured system dynamics:
 
@@ -95,42 +59,55 @@ class BlockSSM(SSM):
         :param fu: (nn.Module) Input function
         :param fd: (nn.Module) Disturbance function
         :param fe: (nn.Module) Error term via state augmentation
-        :param fyu: (nn.Module) Input-Observation function
+        :param fyd: (nn.Module) Input-Observation function
         :param xou: (callable) Elementwise tensor op
         :param xod: (callable) Elementwise tensor op
         :param xoe: (callable) Elementwise tensor op
         :param xoyu: (callable) Elementwise tensor op
         :param residual: (bool) Whether to make recurrence in state space model residual
         :param name: (str) Name for tracking output
-        :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
+        :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
         """
-        if fu is not None:
-            self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + ['Uf']
-            self.DEFAULT_OUTPUT_KEYS = self.DEFAULT_OUTPUT_KEYS + ['fU']
-        if fd is not None:
-            self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + ['Df']
-            self.DEFAULT_OUTPUT_KEYS = self.DEFAULT_OUTPUT_KEYS + ['fD']
-        if fe is not None:
-            self.DEFAULT_OUTPUT_KEYS = self.DEFAULT_OUTPUT_KEYS + ['fE']
+        input_keys = BlockSSM.add_optional_inputs(
+            [x for x, c in zip(self.OPTIONAL_INPUT_KEYS, [fu, fd]) if c is not None],
+            remapping=input_keys,
+        )
+        output_keys = BlockSSM.add_optional_outputs(
+            [x for x, c in zip(self.OPTIONAL_OUTPUT_KEYS, [fu, fd, fe]) if c is not None]
+        )
 
-        super().__init__(input_key_map, name)
-
+        super().__init__(
+            input_keys,
+            output_keys,
+            name,
+        )
         self.fx, self.fy, self.fu, self.fd, self.fe, self.fyu = fx, fy, fu, fd, fe, fyu
         self.nx, self.ny, self.nu, self.nd = (
             self.fx.in_features,
             self.fy.out_features,
-            self.fu.in_features if fu is not None else 0,
-            self.fd.in_features if fd is not None else 0
+            self.fu.in_features if fu is not None else None,
+            self.fd.in_features if fd is not None else None
         )
+
+        in_features = self.nx
+        in_features = in_features + self.fu.in_features if fu is not None else in_features
+        in_features = in_features + self.fd.in_features if fd is not None else in_features
+        self.in_features = in_features
+        self.out_features = self.fy.out_features
 
         self.check_features()
         self.residual = residual
 
-        self.xou, self.xod, self.xoe, self.xoyu = xou, xod, xoe, xoyu
+        # block operators
+        self.xou = xou
+        self.xod = xod
+        self.xoe = xoe
+        self.xoyu = xoyu
 
     def check_features(self):
         self.nx, self.ny = self.fx.in_features, self.fy.out_features
-
+        self.nu = self.fu.in_features if self.fu is not None else 0
+        self.nd = self.fd.in_features if self.fd is not None else 0
         assert self.fx.in_features == self.fx.out_features, \
             'State transition must have same input and output dimensions'
         assert self.fy.in_features == self.fx.out_features, \
@@ -148,18 +125,22 @@ class BlockSSM(SSM):
         :param data: (dict: {str: Tensor})
         :return: output (dict: {str: Tensor})
         """
-        nsteps = data[self.input_key_map['Yf']].shape[0]
+        # TODO: in future version treat nsteps as item in the data dictionary
+        # x_in, u_in, d_in = self._ALL_INPUTS
+        # nsteps = data['nsteps']
+        x_in, y_out, u_in, d_in = self._ALL_INPUTS
+        nsteps = data[y_out].shape[0]
         X, Y, FD, FU, FE = [], [], [], [], []
-        x = data[self.input_key_map['x0']]
+        x = data[x_in]
         for i in range(nsteps):
             x_prev = x
             x = self.fx(x)
             if self.fu is not None:
-                fu = self.fu(data[self.input_key_map['Uf']][i])
+                fu = self.fu(data[u_in][i])
                 x = self.xou(x, fu)
                 FU.append(fu)
             if self.fd is not None:
-                fd = self.fd(data[self.input_key_map['Df']][i])
+                fd = self.fd(data[d_in][i])
                 x = self.xod(x, fd)
                 FD.append(fd)
             if self.fe is not None:
@@ -170,81 +151,104 @@ class BlockSSM(SSM):
                 x += x_prev
             y = self.fy(x)
             if self.fyu is not None:
-                fyu = self.fyu(data[self.input_key_map['Uf']][i])
+                fyu = self.fyu(data[u_in][i])
                 y = self.xoyu(y, fyu)
             X.append(x)
             Y.append(y)
-        tensor_lists = [X, Y, FU, FD, FE]
-        tensor_lists = [t for t in tensor_lists if t]
-        output = {name: torch.stack(tensor_list) for tensor_list, name
-                  in zip(tensor_lists, self.output_keys[1:])
-                  if tensor_list}
-        output[self.output_keys[0]] = self.reg_error()
+        output = dict()
+        for tensor_list, name in zip([X, Y, FU, FD, FE],
+                                     ['X_pred', 'Y_pred', 'fU', 'fD', 'fE']):
+            if tensor_list:
+                output[name] = torch.stack(tensor_list)
+        output['reg_error'] = self.reg_error()
         return output
 
     def reg_error(self):
         return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
 
 
-class BlackSSM(SSM):
-    DEFAULT_INPUT_KEYS = ["x0", "Yf"]
-    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
+class BlackSSM(Component):
+    DEFAULT_INPUT_KEYS = ["x0", "Yf"] 
+    DEFAULT_OUTPUT_KEYS = ["X_pred", "Y_pred", "reg_error"]
 
-    def __init__(self, fx, fy, fe=None, fyu=None, xoe=torch.add, xoyu=torch.add, name='black_ssm',
-                 input_key_map={}, extra_inputs=[]):
+    OPTIONAL_INPUT_KEYS = ["Uf", "Df"]
+    OPTIONAL_OUTPUT_KEYS = ["fE"]
+    
+    _ALL_INPUTS = DEFAULT_INPUT_KEYS + OPTIONAL_INPUT_KEYS
+    _ALL_OUTPUTS = DEFAULT_OUTPUT_KEYS + OPTIONAL_OUTPUT_KEYS
+
+    def __init__(self, fxud, fy, fe=None, fyu=None, xoe=torch.add, xoyu=torch.add, name='black_ssm', input_keys=None, residual=False):
         """
         Black box state space model with unstructured system dynamics:
 
-        :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
+        :param fxud: (nn.Module) State transition function depending on previous state, inputs and disturbances
         :param fy: (nn.Module) Observation function
-        :param fyu: (nn.Module) Input-Observation function
+        :param fyd: (nn.Module) Input-Observation function
         :param fe: (nn.Module) Error term via state augmentation
         :param xoe: (callable) Elementwise tensor op
         :param xoyu: (callable) Elementwise tensor op
         :param name: (str) Name for tracking output
-        :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
+        :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
         :param residual: (bool) Whether to make recurrence in state space model residual
-        :param extra_inputs: (list of str) Input keys to be added to canonical input.
+
         """
-        self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + extra_inputs
-        self.extra_inputs = extra_inputs
-        if fe is not None:
-            self.DEFAULT_OUTPUT_KEYS = self.DEFAULT_OUTPUT_KEYS + ['fE']
+        input_keys = input_keys or BlackSSM.DEFAULT_INPUT_KEYS
+        input_keys = BlackSSM.add_optional_inputs(
+            [
+                k for k in self.OPTIONAL_INPUT_KEYS
+                if k in input_keys or (isinstance(input_keys, dict) and k in input_keys.values())
+            ],
+            remapping=input_keys,
+        )
 
-        super().__init__(input_key_map, name)
+        output_keys = BlackSSM.add_optional_outputs(
+            [x for x, c in zip(self.OPTIONAL_OUTPUT_KEYS, [fe]) if c is not None]
+        )
 
-        self.fx, self.fy, self.fe, self.fyu = fx, fy, fe, fyu
-        self.nx, self.ny = self.fx.out_features, self.fy.out_features
+        super().__init__(
+            input_keys,
+            output_keys,
+            name,
+        )
+        self.fxud, self.fy, self.fe, self.fyu = fxud, fy, fe, fyu
+        self.nx, self.ny = self.fxud.out_features, self.fy.out_features
+        self.residual = residual
         self.xoe = xoe
         self.xoyu = xoyu
+        self.in_features = self.fxud.out_features
+        self.out_features = self.fy.out_features
 
     def forward(self, data):
         """
         """
-        nsteps = data[self.input_key_map['Yf']].shape[0]
+        x_in, y_out, u_in, d_in = self._ALL_INPUTS
+        nsteps = data[y_out].shape[0]
         X, Y, FE = [], [], []
 
-        x = data[self.input_key_map['x0']]
+        x = data[x_in]
         for i in range(nsteps):
             x_prev = x
-            xplus = torch.cat([x] + [data[k][i] for k in self.extra_inputs], dim=1)
-            x = self.fx(xplus)
+            # Concatenate x with u and d if they are available in the dataset.
+            x = torch.cat([x] + [data[k][i] for k in [u_in, d_in] if k in data], dim=1)
+            x = self.fxud(x)
             if self.fe is not None:
                 fe = self.fe(x_prev)
                 x = self.xoe(x, fe)
                 FE.append(fe)
+            if self.residual:
+                x += x_prev
             y = self.fy(x)
             if self.fyu is not None:
-                fyu = self.fyu(xplus)
+                fyu = self.fyu(data[u_in][i])
                 y = self.xoyu(y, fyu)
             X.append(x)
             Y.append(y)
-        tensor_lists = [X, Y, FE]
-        tensor_lists = [t for t in tensor_lists if t]
-        output = {name: torch.stack(tensor_list) for tensor_list, name
-                  in zip(tensor_lists, self.output_keys[1:])
-                  if tensor_list}
-        output[self.output_keys[0]] = self.reg_error()
+        output = dict()
+        for tensor_list, name in zip([X, Y, FE],
+                                     ['X_pred', 'Y_pred', 'fE']):
+            if tensor_list:
+                output[name] = torch.stack(tensor_list)
+        output['reg_error'] = self.reg_error()
         return output
 
     def reg_error(self):
@@ -255,204 +259,16 @@ class BlackSSM(SSM):
         return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
 
     def check_features(self):
-        self.nx, self.ny = self.fx.out_features, self.fy.out_features
-        assert self.fx.out_features == self.fy.in_features, 'Output map must have same input size as output size of state transition'
-
-
-class ODEAuto(SSM):
-    DEFAULT_INPUT_KEYS = ["x0", "Yf"]
-    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
-
-    def __init__(self, fx, fy, name='dynamics', input_key_map={}):
-        """
-        State space model for solving autonomous ODEs w/ single-step integrators:
-
-        :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
-        :param fy: (nn.Module) Observation function
-        :param name: (str) Name for tracking output
-        :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
-        :param extra_inputs: (list of str) Input keys to be added to canonical input.
-        """
-        self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS
-
-        super().__init__(input_key_map, name)
-
-        self.fx, self.fy = fx, fy
-        self.nx, self.ny = self.fx.out_features, self.fy.out_features
-
-    def forward(self, data):
-        nsteps = data[self.input_key_map['Yf']].shape[0]
-        x = data[self.input_key_map['x0']]
-        X, Y = [], []
-        for i in range(nsteps):
-            x = self.fx(x)
-            y = self.fy(x)
-            X.append(x)
-            Y.append(y)
-        tensor_lists = [X, Y]
-        tensor_lists = [t for t in tensor_lists if t]
-        output = {name: torch.stack(tensor_list) for tensor_list, name
-                  in zip(tensor_lists, self.output_keys[1:])
-                  if tensor_list}
-        output[self.output_keys[0]] = self.reg_error()
-        return output
-
-    def reg_error(self):
-        """
-        :return: 0-dimensional torch.Tensor
-        """
-        return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
-
-
-class ODENonAuto(SSM):
-    DEFAULT_INPUT_KEYS = ["x0", "Yf", "Time"]
-    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
-
-    def __init__(self, fx, fy, name='dynamics', input_key_map={}, extra_inputs=[], online_flag=False):
-        """
-        State space model for non-autonomous ODEs w/ single-step integrators:
-
-        :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
-        :param fy: (nn.Module) Observation function
-        :param name: (str) Name for tracking output
-        :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
-        :param extra_inputs: (list of str) Input keys to be added to canonical input.
-        """
-        self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + extra_inputs
-        self.extra_inputs = extra_inputs
-        super().__init__(input_key_map, name)
-        self.fx, self.fy = fx, fy
-        self.nx, self.ny = self.fx.out_features, self.fy.out_features
-        self.online_flag = online_flag
-
-    def forward(self, data):
-        """
-        """
-        nsteps = data[self.input_key_map['Yf']].shape[0]
-        x = data[self.input_key_map['x0']]
-        Time = data[self.input_key_map['Time']]  # (nsteps, # of batches, 1)
-        inputs = torch.cat([data[k] for k in self.extra_inputs], dim=-1) \
-            if len(self.extra_inputs) is not 0 else Time
-        X, Y = [], []
-        for i in range(nsteps):
-            if self.online_flag:
-                if i == nsteps-1:
-                    pass  # what to do when i = nsteps - 1 in training and evaluation mode?
-                else:
-                    x = self.fx(x, inputs[i:i+2], Time[i:i+2]) 
-            else:
-                x = self.fx(x, inputs[i], Time[i])
-            y = self.fy(x)
-            X.append(x)
-            Y.append(y)
-        tensor_lists = [X, Y]
-        tensor_lists = [t for t in tensor_lists if t]
-        output = {name: torch.stack(tensor_list) for tensor_list, name
-                  in zip(tensor_lists, self.output_keys[1:])
-                  if tensor_list}
-        output[self.output_keys[0]] = self.reg_error()
-        return output
-
-    def reg_error(self):
-        """
-
-        :return: 0-dimensional torch.Tensor
-        """
-        return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
-
-
-class ODEAuto_MultiStep(ODEAuto):
-    DEFAULT_INPUT_KEYS = ["x0", "Yf", "Yp"]
-    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
-
-    def __init__(self, fx, fy, name='dynamics', input_key_map={}):
-        """
-        State space model for solving autonomous ODE w/ multi-step integrators:
-
-        :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
-        :param fy: (nn.Module) Observation function
-        :param name: (str) Name for tracking output
-        :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
-        :param extra_inputs: (list of str) Input keys to be added to canonical input.
-        """
-        self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS
-        super().__init__(fx, fy, name, input_key_map)
-
-    def forward(self, data):
-        nsteps_p = data[self.input_key_map['Yp']].shape[0]
-        x_3D = data[self.input_key_map['x0']] 
-        X, Y = [], []
-        input_window_size = x_3D.shape[0]
-        for i in range(nsteps_p - input_window_size + 1):
-            x_2D = self.fx(x_3D) # Now x_2D is the latest state, i.e. the prediction
-            y = self.fy(x_2D)            
-            X.append(x_2D)
-            Y.append(y)
-            # circularly shift and overide the oldest state in the 3D input 
-            x_3D = torch.cat([x_3D[1:, :, :], torch.unsqueeze(x_2D, dim=0)], dim=0)
-        tensor_lists = [X, Y]
-        tensor_lists = [t for t in tensor_lists if t]
-        output = {name: torch.stack(tensor_list) for tensor_list, name
-                  in zip(tensor_lists, self.output_keys[1:])
-                  if tensor_list}
-        output[self.output_keys[0]] = self.reg_error()
-        return output
-
-
-class ODENonAuto_MultiStep(ODENonAuto):
-    DEFAULT_INPUT_KEYS = ["x0", "Yf", "Yp", "Time"]
-    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
-
-    def __init__(self, fx, fy, name='dynamics', input_key_map={}, extra_inputs=[]):
-        """
-        State space model for solving non-autonomous ODE w/ multi-step integrators:
-
-        :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
-        :param fy: (nn.Module) Observation function
-        :param name: (str) Name for tracking output
-        :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
-        :param extra_inputs: (list of str) Input keys to be added to canonical input.
-        """
-        super().__init__(fx, fy, name, input_key_map=input_key_map,
-         extra_inputs=extra_inputs, online_flag=False) 
-        # No need for online interpolation because flow map evaluation only at grid point.
-
-    def forward(self, data):
-        """
-
-        :param data:
-        :return:
-        """
-        nsteps_p = data[self.input_key_map['Yp']].shape[0]
-        x_3D = data[self.input_key_map['x0']] 
-        Time = data[self.input_key_map['Time']]  # (nsteps, # of batches, 1)
-        inputs = torch.cat([data[k] for k in self.extra_inputs], dim=-1) \
-            if len(self.extra_inputs) is not 0 else Time
-        X, Y = [], []
-        input_window_size = x_3D.shape[0]
-        for i in range(nsteps_p - input_window_size + 1): # nsteps: moving horizon
-            x_2D = self.fx(x_3D, inputs[i], Time[i]) # offline interpolation by default. No need for online interpolation because flow map evaluation only at grid point.
-            # Now x_2D is the latest state, i.e. the prediction
-            y = self.fy(x_2D)            
-            X.append(x_2D)
-            Y.append(y)
-            # circularly shift and overide the oldest state in the 3D input 
-            x_3D = torch.cat([x_3D[1:, :, :], torch.unsqueeze(x_2D, dim=0)], dim=0)
-        tensor_lists = [X, Y]
-        tensor_lists = [t for t in tensor_lists if t]
-        output = {name: torch.stack(tensor_list) for tensor_list, name
-                  in zip(tensor_lists, self.output_keys[1:])
-                  if tensor_list}
-        output[self.output_keys[0]] = self.reg_error()
-        return output
+        self.nx, self.ny = self.fxud.out_features, self.fy.out_features
+        assert self.fxud.out_features == self.fy.in_features, 'Output map must have same input size as output size of state transition'
 
 
 class TimeDelayBlockSSM(BlockSSM):
-    DEFAULT_INPUT_KEYS = ["Xtd", "Yf"]
+    DEFAULT_INPUT_KEYS = ["Xtd", "Yf", "Uf", "Up", "Df", "Dp"]
 
     def __init__(self, fx, fy, fu=None, fd=None, fe=None,
                  xou=torch.add, xod=torch.add, xoe=torch.add, residual=False, name='block_ssm',
-                 input_key_map={}, timedelay=0):
+                 input_keys=None, timedelay=0):
         """
         generic structured time delayed system dynamics:
         T < nsteps
@@ -475,17 +291,17 @@ class TimeDelayBlockSSM(BlockSSM):
         :param xod: (callable) Elementwise tensor op
         :param residual: (bool) Whether to make recurrence in state space model residual
         :param name: (str) Name for tracking output
-        :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
+        :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
         :param timedelay: (int) Number of time delays
         """
-        if fu is not None:
-            self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + ['Up']
-        if fd is not None:
-            self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + ['Dp']
-        super().__init__(fx, fy, fu=fu, fd=fd, fe=fe, xou=xou, xod=xod, xoe=xoe, residual=residual,
-                         input_key_map=input_key_map, name=name)
-
+        super().__init__(fx, fy, fu=fu, fd=fd, fe=fe, xou=xou, xod=xod, xoe=xoe, residual=residual, input_keys=input_keys, name=name)
         self.nx, self.nx_td, self.ny = (self.fx.out_features, self.fx.in_features, self.fy.out_features)
+
+        in_features = self.nx_td
+        in_features = in_features + self.fu.in_features if fu is not None else in_features
+        in_features = in_features + self.fd.in_features if fd is not None else in_features
+        self.in_features = in_features
+        self.out_features = self.fy.out_features
         self.check_features()
         self.timedelay = timedelay
 
@@ -495,14 +311,15 @@ class TimeDelayBlockSSM(BlockSSM):
         :param data: (dict: {str: Tensor})
         :return: output (dict: {str: Tensor})
         """
-        nsteps = data[self.input_key_map['Yf']].shape[0]
+        x_in, y_out, u_in_f, u_in_p, d_in_f, d_in_p = self.DEFAULT_INPUT_KEYS
+        nsteps = data[y_out].shape[0]
         X, Y, FD, FU, FE = [], [], [], [], []
 
-        if 'Uf' in self.input_key_map and 'Up' in self.input_key_map:
-            Utd = torch.cat([data[self.input_key_map['Up']][-self.timedelay:], data[self.input_key_map['Uf']]])  # shape=(T+nsteps, bs, nu)
-        if 'Df' in self.input_key_map and 'Dp' in self.input_key_map:
-            Dtd = torch.cat([data[self.input_key_map['Dp']][-self.timedelay:], data[self.input_key_map['Df']]])  # shape=(T+nsteps, bs, nd)
-        Xtd = data[self.input_key_map['Xtd']]                                                     # shape=(T+1, bs, nx)
+        if u_in_f in data and u_in_p in data:
+            Utd = torch.cat([data[u_in_p][-self.timedelay:], data[u_in_f]])  # shape=(T+nsteps, bs, nu)
+        if d_in_f in data and d_in_p in data:
+            Dtd = torch.cat([data[d_in_p][-self.timedelay:], data[d_in_f]])  # shape=(T+nsteps, bs, nd)
+        Xtd = data[x_in]                                                     # shape=(T+1, bs, nx)
         for i in range(nsteps):
             x_prev = Xtd[-1]
             x_delayed = torch.cat([Xtd[k, :, :] for k in range(Xtd.shape[0])], dim=-1)  # shape=(bs, T*nx)
@@ -529,12 +346,12 @@ class TimeDelayBlockSSM(BlockSSM):
             y = self.fy(x_delayed)
             X.append(x)
             Y.append(y)
-        tensor_lists = [X, Y, FU, FD, FE]
-        tensor_lists = [t for t in tensor_lists if t]
-        output = {name: torch.stack(tensor_list) for tensor_list, name
-                  in zip(tensor_lists, self.output_keys[1:])
-                  if tensor_list}
-        output[self.output_keys[0]] = self.reg_error()
+        output = dict()
+        for tensor_list, name in zip([X, Y, FU, FD, FE],
+                                     ['X_pred', 'Y_pred', 'fU', 'fD', 'fE']):
+            if tensor_list:
+                output[name] = torch.stack(tensor_list)
+        output['reg_error'] = self.reg_error()
         return output
 
     def check_features(self):
@@ -548,65 +365,68 @@ class TimeDelayBlockSSM(BlockSSM):
 
 
 class TimeDelayBlackSSM(BlackSSM):
-    DEFAULT_INPUT_KEYS = ["Xtd", "Yf"]
+    DEFAULT_INPUT_KEYS = ["Xtd", "Yf", "Uf", "Up", "Df", "Dp"]
 
-    def __init__(self, fx, fy, fe=None, xoe=torch.add, name='black_ssm', input_key_map={},
-                 timedelay=0, extra_inputs=[]):
+    def __init__(self, fxud, fy, fe=None, xoe=torch.add, name='black_ssm', input_keys=None, timedelay=0, residual=False):
         """
         black box state space with generic unstructured time delayed system dynamics:
-        x_k+1 = fx(x_k, ..., x_k-T, u_k, ..., u_k-T, d_k, ..., d_k-T) o fe(x_k, ..., x_k-T)
+        x_k+1 = fxud(x_k, ..., x_k-T, u_k, ..., u_k-T, d_k, ..., d_k-T) o fe(x_k, ..., x_k-T)
         y_k =  fy(x_k, ..., x_k-T)
 
-        :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
+        :param fxud: (nn.Module) State transition function depending on previous state, inputs and disturbances
         :param fy: (nn.Module) Observation function
         :param fe: (nn.Module) Error term via state augmentation
         :param name: (str) Name for tracking output
         :param input_keys: (dict {str: str}) Mapping canonical expected input keys to alternate names
+        :param residual: (bool) Whether to make recurrence in state space model residual
         :param timedelay: (int) Number of time delays
-        :param extra_inputs: (list of str) Input keys to be added to canonical input.
-
         """
-        super().__init__(fx, fy, fe=fe, xoe=xoe, name=name, input_key_map=input_key_map, extra_inputs=extra_inputs)
+        super().__init__(fxud, fy, fe=fe, xoe=xoe, name=name, input_keys=input_keys, residual=residual)
+        self.in_features = self.fxud.in_features
+        self.out_features = self.fy.out_features
         self.timedelay = timedelay
 
     def forward(self, data):
         """
         """
-        nsteps = data[self.input_key_map['Yf']].shape[0]
+        x_in, y_out, u_in_f, u_in_p, d_in_f, d_in_p = self.DEFAULT_INPUT_KEYS
+        nsteps = data[y_out].shape[0]
         X, Y, FE = [], [], []
 
-        if 'Uf' in self.input_key_map and 'Up' in self.input_key_map:
-            Utd = torch.cat([data[self.input_key_map['Up']][-self.timedelay:], data[self.input_key_map['Uf']]])  # shape=(T+nsteps, bs, nu)
-        if 'Df' in self.input_key_map and 'Dp' in self.input_key_map:
-            Dtd = torch.cat([data[self.input_key_map['Dp']][-self.timedelay:], data[self.input_key_map['Df']]])  # shape=(T+nsteps, bs, nd)
-        Xtd = data[self.input_key_map['Xtd']]                                                     # shape=(T+1, bs, nx)
+        if u_in_f in data and u_in_p in data:
+            Utd = torch.cat([data[u_in_p][-self.timedelay:], data[u_in_f]])  # shape=(T+nsteps, bs, nu)
+        if d_in_f in data and d_in_p in data:
+            Dtd = torch.cat([data[d_in_p][-self.timedelay:], data[d_in_f]])  # shape=(T+nsteps, bs, nd)
+        Xtd = data[x_in]                                                     # shape=(T+1, bs, nx)
         for i in range(nsteps):
             x_prev = Xtd[-1]
             x_delayed = torch.cat([Xtd[k, :, :] for k in range(Xtd.shape[0])], dim=-1)  # shape=(bs, T*nx)
             features_delayed = x_delayed
-            if 'Uf' in self.input_key_map and 'Up' in self.input_key_map:
+            if u_in_f in data and u_in_p in data:
                 Utd_i = Utd[i:i + self.timedelay + 1]
                 u_delayed = torch.cat([Utd_i[k, :, :] for k in range(Utd_i.shape[0])], dim=-1)  # shape=(bs, T*nu)
                 features_delayed = torch.cat([features_delayed, u_delayed], dim=-1)
-            if 'Df' in self.input_key_map and 'Dp' in self.input_key_map:
+            if d_in_f in data and d_in_p in data:
                 Dtd_i = Dtd[i:i + self.timedelay + 1]
                 d_delayed = torch.cat([Dtd_i[k, :, :] for k in range(Dtd_i.shape[0])], dim=-1)  # shape=(bs, T*nu)
                 features_delayed = torch.cat([features_delayed, d_delayed], dim=-1)
-            x = self.fx(features_delayed)
+            x = self.fxud(features_delayed)
             Xtd = torch.cat([Xtd, x.unsqueeze(0)])[1:]
             if self.fe is not None:
                 fe = self.fe(x_delayed)
                 x = self.xoe(x, fe)
                 FE.append(fe)
+            if self.residual:
+                x += x_prev
             y = self.fy(x_delayed)
             X.append(x)
             Y.append(y)
-        tensor_lists = [X, Y, FE]
-        tensor_lists = [t for t in tensor_lists if t]
-        output = {name: torch.stack(tensor_list) for tensor_list, name
-                  in zip(tensor_lists, self.output_keys[1:])
-                  if tensor_list}
-        output[self.output_keys[0]] = self.reg_error()
+        output = dict()
+        for tensor_list, name in zip([X, Y, FE],
+                                     ['X_pred', 'Y_pred', 'fE']):
+            if tensor_list:
+                output[name] = torch.stack(tensor_list)
+        output['reg_error'] = self.reg_error()
         return output
 
 
@@ -626,7 +446,7 @@ def _extract_dims(datadims, timedelay=0):
 
 def block_model(kind, datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fyu=None,
               activation=nn.GELU, residual=False, linargs=dict(), timedelay=0,
-              xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, name='blockmodel', input_key_map={}):
+              xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, name='blockmodel', input_keys=None):
     """
     Generate a block-structured SSM with the same structure used across fx, fy, fu, and fd.
     """
@@ -643,6 +463,7 @@ def block_model(kind, datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fy
         nonlinmap(ni, no, bias=bias, hsizes=hsizes, linear_map=linmap, nonlin=activation, linargs=linargs)
     )
 
+    # define (non)linearity of each component according to given model type
     if kind == "blocknlin":
         fx = nlin(nx_td, nx)
         fy = lin(nx_td, ny)
@@ -682,39 +503,35 @@ def block_model(kind, datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fy
     ) if fyu is not None else None
 
     model = (
-        BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, fyu=fyu, xoyu=xoyu, xou=xou, xod=xod, xoe=xoe, name=name,
-                 input_key_map=input_key_map, residual=residual)
+        BlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, fyu=fyu, xoyu=xoyu, xou=xou, xod=xod, xoe=xoe, name=name, input_keys=input_keys, residual=residual)
         if timedelay == 0
-        else TimeDelayBlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, xou=xou, xod=xod, xoe=xoe, name=name, timedelay=timedelay,
-                               input_key_map=input_key_map, residual=residual)
+        else TimeDelayBlockSSM(fx, fy, fu=fu, fd=fd, fe=fe, xou=xou, xod=xod, xoe=xoe, name=name, timedelay=timedelay, input_keys=input_keys, residual=residual)
     )
 
     return model
 
 
 def blackbox_model(datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fyu=None,
-             activation=nn.GELU, timedelay=0, linargs=dict(),
-             xoyu=torch.add, xoe=torch.add, input_key_map={}, name='blackbox_model', extra_inputs=[]):
+             activation=nn.GELU, residual=False, timedelay=0, linargs=dict(),
+             xoyu=torch.add, xoe=torch.add, input_keys=None, name='blackbox_model'):
     """
     Black box state space model.
     """
     nx, ny, _, _, nx_td, nu_td, nd_td = _extract_dims(datadims)
     hsizes = [nx] * n_layers
 
-    fx = nonlinmap(nx_td + nu_td + nd_td, nx, hsizes=hsizes,
+    fxud = nonlinmap(nx_td + nu_td + nd_td, nx, hsizes=hsizes,
                      bias=bias, linear_map=linmap, nonlin=activation, linargs=linargs)
     fe = nonlinmap(nx_td, nx, hsizes=hsizes,
-                   bias=bias, linear_map=linmap, nonlin=activation, linargs=linargs) if fe is not None else None
+                   bias=bias, linear_map=linmap, nonlin=activation, linargs=dict()) if fe is not None else None
     fyu = fyu(nu_td, ny, hsizes=hsizes,
-                   bias=bias, linear_map=linmap, nonlin=activation, linargs=linargs) if fyu is not None else None
+                   bias=bias, linear_map=linmap, nonlin=activation, linargs=dict()) if fyu is not None else None
     fy = linmap(nx_td, ny, bias=bias, linargs=linargs)
 
     model = (
-        BlackSSM(fx, fy, fe=fe, fyu=fyu, xoyu=xoyu, xoe=xoe, name=name,
-                 input_key_map=input_key_map, extra_inputs=extra_inputs)
+        BlackSSM(fxud, fy, fe=fe, fyu=fyu, xoyu=xoyu, xoe=xoe, name=name, input_keys=input_keys, residual=residual)
         if timedelay == 0
-        else TimeDelayBlackSSM(fx, fy, fe=fe, xoe=xoe, name=name, timedelay=timedelay,
-                               input_key_map=input_key_map, extra_inputs=extra_inputs)
+        else TimeDelayBlackSSM(fxud, fy, fe=fe, xoe=xoe, name=name, timedelay=timedelay, input_keys=input_keys, residual=residual)
     )
 
     return model

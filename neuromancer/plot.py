@@ -544,7 +544,7 @@ def plot_loss_mpp(model, dataset, xmin=-2, xmax=2, save_path=None):
     Double Integrator DPC example plots
 """
 
-def plot_loss_DPC(model, policy, A, B, dataset, xmin=-5, xmax=5, save_path=None):
+def plot_loss_DPC(model, dataset, xmin=-5, xmax=5, save_path=None):
     """
     plot loss function for trained DPC model
     :param model:
@@ -565,21 +565,22 @@ def plot_loss_DPC(model, policy, A, B, dataset, xmin=-5, xmax=5, save_path=None)
     Alpha = np.ones([x.shape[0], y.shape[0]])*np.nan
     # ||A+B*Kx||
     Phi_norm = np.ones([x.shape[0], y.shape[0]])*np.nan
-    policy = policy.net
+    policy = model.components[1].net
+    A = model.components[2].fx.linear.weight
+    B = model.components[2].fu.linear.weight
     Anp = A.detach().numpy()
     Bnp = B.detach().numpy()
     for i in range(x.shape[0]):
         for j in range(y.shape[0]):
             # check loss
-            x_batch = torch.stack([x[[i]], y[[j]]]).repeat(dataset_plt['Yf'].shape[1], 1)
-            X = x_batch.reshape(1, -1, A.shape[0])
+            X = torch.stack([x[[i]], y[[j]]]).reshape(1,1,-1)
             if nsteps == 1:
                 dataset_plt['Yp'] = X
                 dataset_plt['Yf'] = dataset_plt['Yf'][[0],:,:]
                 step = model(dataset_plt)
                 Loss[i,j] = step[name+'_loss'].detach().numpy()
             # check contraction
-            x0 = X[:,0,:].view(1, X.shape[-1])
+            x0 = X.view(1, X.shape[-1])
             Astar, bstar, _, _, _ = lpv_batched(policy, x0)
             BKx = torch.mm(B, Astar[:, :, 0])
             phi = A + BKx
@@ -589,8 +590,7 @@ def plot_loss_DPC(model, policy, A, B, dataset, xmin=-5, xmax=5, save_path=None)
             xnp = x0.transpose(0, 1).detach().numpy()
             xnp_n = np.matmul(Anp, xnp) + np.matmul(Bnp, u)
             if not np.linalg.norm(xnp) == 0:
-                # Alpha[i,j] = np.linalg.norm(xnp_n)/np.linalg.norm(xnp)
-                Alpha[i,j] = np.linalg.norm(xnp_n) - np.linalg.norm(xnp)
+                Alpha[i,j] = np.linalg.norm(xnp_n)/np.linalg.norm(xnp)
             else:
                 Alpha[i, j] = 0
 

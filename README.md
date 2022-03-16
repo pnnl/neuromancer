@@ -6,18 +6,16 @@
 
 ## Setup
 
-##### Clone and install neuromancer, linear maps, and emulator submodules 
+##### Clone and install neuromancer, linear maps, and emulator packages
 ```console
-# Clone submodules recursively:
-user@machine:~$ git clone --recurse-submodules https://gitlab.pnnl.gov/dadaist/neuromancer.git
-
-# Clone submodules manually:
-user@machine:~$ git clone https://gitlab.pnnl.gov/dadaist/neuromancer.git
-user@machine:~$ git submodule init
-user@machine:~$ git submodule update
+user@machine:~$ mkdir ecosystem; cd ecosystem
+user@machine:~$ git clone https://github.com/pnnl/neuromancer.git
+user@machine:~$ git clone https://github.com/pnnl/psl.git
+user@machine:~$ git clone https://github.com/pnnl/slim.git
 
 # Resulting file structure:
-    neuromancer/
+    ecosystem/
+        neuromancer/
         psl/
         slim/
 ```
@@ -36,109 +34,96 @@ user@machine:~$ conda config --add channels conda-forge pytorch
 user@machine:~$ conda create -n neuromancer python=3.7
 user@machine:~$ source activate neuromancer
 (neuromancer) user@machine:~$ conda install pytorch torchvision -c pytorch
-(neuromancer) user@machine:~$ conda install scipy pandas matplotlib control pyts numba scikit-learn dill
-(neuromancer) user@machine:~$ conda install mlflow boto3
-(neuromancer) user@machine:~$ conda install -c powerai gym
+(neuromancer) user@machine:~$ conda install scipy pandas matplotlib control pyts numba scikit-learn mlflow dill
+(neuromancer) user@machine:~$ conda install gym -c conda-forge
 ```
 
-##### Install neuromancer ecosystem 
-
-Feel free to use `pip install -e .` or `python setup.py develop` to configure the neuromancer, psl and slim python modules.
-
-You may have to install using the `--user` option when sharing base conda environments accross users.
+##### install neuromancer ecosystem 
 
 ```console
 (neuromancer) user@machine:~$ cd psl
 (neuromancer) user@machine:~$ python setup.py develop
 (neuromancer) user@machine:~$ cd ../slim
 (neuromancer) user@machine:~$ python setup.py develop
-(neuromancer) user@machine:~$ cd .. # into neuromancer
-(neuromancer) user@machine:~$ pip install -e . 
+(neuromancer) user@machine:~$ cd ../neuromancer
+(neuromancer) user@machine:~$ python setup.py develop
 ```
 
-### Current TODOS
+##### install packages necessary for DED-DPC example 
 
-    [ ] (Jan & Shri) Confirm environment set up works on Mac and Linux
-    [ ] (Next coding session) Put generic control script with tutorial system as default (use common.py style refactor)
-    [ ] (Jan) EED building sys id papers code release: port to neuromancer to recreate experiments
-    [ ] (Elliott) prepare constrained_block_ssm_acc for release 
-    [ ] (Jan) prepare flexy for release
-    [ ] (Elliott & Soumya) prepare lpv_14dc for release
-
-    [ ] (Aaron) break off neural koopman branch since this code won't be released in the initial release
-    [ ] (Aaron) Create docs
-
-### TODO
-    [1] User experience updates
-        new attributes for our component models: 
-            out_keys - to have a full info about the connectivity
-        new attributes for models and objectives:
-            form or equation - a string representing the underlying mathematical expression e.g. "y = x + f(x)"
-        pre-defined constraints in a separate file with brief documentation
-        
-    
-    [2] datasets
-        refactor datasets.py - get rid of unnecessary dependencies
-        custom normalizations: [-6, 6] etc...
-    
-    [3] create new analysis file
-        post hoc analysis of neural nets
-        decouple eigenvalue analysis from visuals in trainer
-        add eigenvalue analysis for all weights, neural blocks, and all activation types     
-
-    [4] trainer
-        keep current trainer
-        set random seeds for reproducibility
-        add profiling
-        
-    [5] logger 
-        add save weights option during training for running offline visuals and analysis
-        
-    [6] dynamics, estimator, policies
-        no immediate actions
-        reduce code by generalizing model classes and helper functions
-    
-    [7] documentation
-        autogenerate docs via doc strings
-        python package style format with latex syntax
-    
+```console
+(neuromancer) user@machine:~$ conda install pyomo pyutilib cyipopt -c conda-forge
+```
 
 
-### Older TODOs
+###  Solving Dynamics Aware Economic Dispatch 
+Constructing a surrogate model of generator swing dynamics with a Koopman operator (KO) approach and leveraging differentiable predictive control to learn a solution map from forecast system loads to a schedule of 
+generation inputs that meets the loads at least cost.
 
-datasets category
-    [ ] In datasets add data_transforms method to act on dataset.data to generate: finite difference sequences via np.diff, nonlinear expansions, spectral decompositions
-    [ ] unify batching/unbatching via single function in datasets.py?
-    [ ] finish batch_data_exp_id for datasets generated via multiple experiment runs: batch based on exp_idx and nsteps
-    [ ] Mini-batching
+Implementation of the methods and results presented in the American Control Conference proceeding (accepted): [Koopman-based Differentiable Predictive Control for the
+Dynamics-Aware Economic Dispatch Problem](link).
 
-visuals category
-    [ ] update plot_matrix method in VisualizerOpen(Visualizer) - currently supports only linear maps with effective_W
-    [ ] Visualizer for Multi-parametric programs
-    [ ] Visualize learnable loss function evolution
-    [ ] stream plots for phase spaces of ODEs
 
-problem modeling and training script functions category
-    [ ] move freeze_weight, unfreeze_weight, and share_weights into problem.py?
-    [ ] add output_keys attribute to components 
-    [ ] add input_keys and output_keys attributes to overall model generated by Problem()
-    [ ] Generalize sliding window between 1 and nsteps
 
-trainer category
-    [ ] Learn-rate scheduling
-    [ ] WandB logger
+![methodology.](figs/methodology_DED_DPC.png)
+*Conceptual methodology.*
 
-blocks, dynamics, policies, estimators category    
-    [ ] Re-implement RNN state preservation for open loop simulation
-    [ ] full trajectory estimators: This will entail only taking the first N-steps for all the non-static inputs
-    [ ] Pytorch Extended Kalman Filter: 
-            https://filterpy.readthedocs.io/en/latest/_modules/filterpy/kalman/EKF.html
-    [ ] Implement LQR policy, similar structure to Linear Kalman Filter: 
-            Scipy reference https://nbviewer.jupyter.org/url/argmin.net/code/little_LQR_demo.ipynb
-            
-dissemination and documentation category
-    [ ] Doc strings
-    [ ] Sphinx docs
-    [ ] Package distribution via conda or pypi
-    [ ] Look at this testing software to for automatic wider test coverage: 
-            https://hypothesis.readthedocs.io/en/latest/
+#### Paper results
+
+We use a KO surrogate model to reduce the computational cost of simulating the dynamics in the DPC solution approach
+
+![KO_model_cmp.](figs/KO_gen_freq_cmp.png)
+
+*Swing dynamics generator frequency trajectories from differential algebraic equation solver and KO surrogate model*
+
+
+Comparison of DED-DPC solutions to to a solution obtained using ipopt for the given system loads (top plot)
+
+![solution_comparison.](figs/cntrl_cmp.png)
+*Generator dispatch policies from both DED-DPC and solution with ipopt.*
+
+DED-DPC solutions produce comparable generator schedules orders of magnitude faster at inference time than online optimization.
+
+#### Run experiments
+
+All relevant files are located in the directory
+neuromancer/examples/DED
+
+
+
+#### Files
+
+1. Data
+   - Example_Data
+      * a small sample dataset that can be used for testing code  
+   - Generated_Data
+      * Where output of of the data generation script will be stored, generated data will share the same file structure as Example_Data
+   - KO_model_parameters
+      * contains an npz file with stored weights and biases for instatiating the Koopman model of the swing dynamics  
+   
+2. Data_generation
+   - Contains scripts for generating dynamic economic dispatch solution using ipopt
+ 
+3. Koopman_system_ID
+   - Contains scripts for simulating and training the Koopman model of the swing dynamics
+
+4. DED_DPC
+   - Contains scripts for training and evaluating the DED-DPC approach
+ 
+ 
+
+#### Implementing the DED-DPC 
+
+1. The Koopman model of the dynamics must first be instantiated by running the script KO_train.py in the Koopman_system_ID folder.  
+   - This will run one training epoch that loads in saved model weights and constructs a neuromancer model that is then saved and will be sourced for all other scripts.
+   - Additional training can be performed by generating more trajectory data with the Data_generation scripts.
+
+2. A comparison between the Koopman dynamics and swing dynamics can plotted by running the script KO_simulation.py
+
+3. Once a Koopman model is instantiated the DED-DPC can be trained by running the script DED_DPC_train.py in the DED_DPC folder.
+   - Note that the DED_DPC model initialization is random and will not have trained performance, initial training will also be poor unless a larger dataset is generated first using the Data_generation scripts   
+   - Further note that the Data_generation scripts solve the DED problem with ipopt such that comparisons can be made between the dynamics and the solutions, however these solutions are not required for training the DED_DPC model 
+
+4. Output of the DED-DPC model can be evaluated by running the script DED_DPC_sim.py 
+
+

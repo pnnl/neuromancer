@@ -89,27 +89,27 @@ class RNN(nn.Module):
         return sequence, torch.stack(final_hiddens)
 
 
-# if __name__ == '__main__':
-#     x = torch.rand(20, 5, 8)
-#     for bias in [True, False]:
-#         for name, linear_map in slim.maps.items():
-#             print(name)
-#             rnn = RNN(8, hsizes=[8, 8], bias=bias, linear_map=linear_map)
-#             out = rnn(x)
-#             print(out[0].shape, out[1].shape)
-#
-#         for linear_map in set(slim.maps.values()) - slim.square_maps:
-#             rnn = RNN(8, hsizes=[16, 16], bias=bias, linear_map=linear_map)
-#             out = rnn(x)
-#             print(out[0].shape, out[1].shape)
-#
-#         for name, linear_map in slim.maps.items():
-#             print(name)
-#             rnn = RNN(8, hsizes=[8, 8], bias=bias, linear_map=linear_map)
-#             out = rnn(x)
-#             print(out[0].shape, out[1].shape)
-#
-#         for linear_map in set(slim.maps.values()) - slim.square_maps:
-#             rnn = RNN(8, hsizes=[16, 16], bias=bias, linear_map=linear_map)
-#             out = rnn(x)
-#             print(out[0].shape, out[1].shape)
+if __name__ == '__main__':
+    x = torch.rand(20, 5, 8)
+    for bias in [True, False]:
+        for name, linear_map in slim.maps.items():
+            print(name)
+            rnn = RNN(8, hsizes=[8, 8], bias=bias, linear_map=linear_map)
+            out = rnn(x)
+            print(out[0].shape, out[1].shape)
+
+        for linear_map in set(slim.maps.values()) - slim.square_maps:
+            rnn = RNN(8, hsizes=[16, 16], bias=bias, linear_map=linear_map)
+            out = rnn(x)
+            print(out[0].shape, out[1].shape)
+
+        for name, linear_map in slim.maps.items():
+            print(name)
+            rnn = RNN(8, hsizes=[8, 8], bias=bias, linear_map=linear_map)
+            out = rnn(x)
+            print(out[0].shape, out[1].shape)
+
+        for linear_map in set(slim.maps.values()) - slim.square_maps:
+            rnn = RNN(8, hsizes=[16, 16], bias=bias, linear_map=linear_map)
+            out = rnn(x)
+            print(out[0].shape, out[1].shape)

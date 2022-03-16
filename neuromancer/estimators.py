@@ -18,12 +18,14 @@ import slim
 # local imports
 import neuromancer.blocks as blocks
 from neuromancer.dynamics import BlockSSM
-from neuromancer.component import Component, check_key_subset
+from neuromancer.component import Component, check_keys
 
 
 class TimeDelayEstimator(Component):
+    DEFAULT_INPUT_KEYS = ["Yp"]
+    DEFAULT_OUTPUT_KEYS = ["x0", "reg_error"]
 
-    def __init__(self, data_dims, nsteps=1, window_size=1, input_keys=[], name='estimator'):
+    def __init__(self, data_dims, nsteps=1, window_size=1, input_keys=['Yp'], name='estimator'):
         """
 
         :param data_dims: dict {str: tuple of ints) Data structure describing dimensions of input variables
@@ -32,11 +34,13 @@ class TimeDelayEstimator(Component):
         :param input_keys: (List of str) List of input variable names
         :param name: (str) Name for tracking output of module.
         """
-        output_keys = [f"{k}_{name}" if name is not None else k for k in ["x0", "reg_error"]]
-        super().__init__(input_keys=input_keys, output_keys=output_keys, name=name)
-
+        super().__init__(
+            input_keys,
+            TimeDelayEstimator.DEFAULT_OUTPUT_KEYS,
+            name,
+        )
         assert window_size <= nsteps, f'Window size {window_size} longer than sequence length {nsteps}.'
-        check_key_subset(set(input_keys), set(data_dims.keys()))
+        check_keys(set(input_keys), set(data_dims.keys()))
         self.name, self.data_dims = name, data_dims
         self.nsteps, self.window_size = nsteps, window_size
         self.nx = data_dims['x0'][-1]
@@ -63,7 +67,7 @@ class TimeDelayEstimator(Component):
         :param data: (dict {str: torch.Tensor})
         :return: (torch.Tensor)
         """
-        check_key_subset(self.input_keys, set(data.keys()))
+        check_keys(self.input_keys, set(data.keys()))
         featlist = []
         for k in self.input_keys:
             assert self.data_dims[k][-1] == data[k].shape[-1], \
@@ -86,14 +90,14 @@ class TimeDelayEstimator(Component):
         :return: (dict {str: torch.tensor)}
         """
         features = self.features(data)
-        output = {name: tensor for tensor, name
-                  in zip([self.net(features),  self.reg_error()], self.output_keys)}
-        return output
+        return {
+            'x0': self.net(features),
+            'reg_error': self.reg_error()
+        }
 
 
 class seq2seqTimeDelayEstimator(TimeDelayEstimator):
     DEFAULT_OUTPUT_KEYS = ["Xtd", "reg_error"]
-
     def __init__(self, data_dims, nsteps=1, window_size=1, input_keys=['Yp'], timedelay=0, name='estimator'):
         """
 
@@ -101,13 +105,13 @@ class seq2seqTimeDelayEstimator(TimeDelayEstimator):
         :param nsteps: (int) Prediction horizon
         :param window_size: (int) Size of sequence history to use as input to the state estimator.
         :param input_keys: (List of str) List of input variable names
-        :param timedelay:
         :param name: (str) Name for tracking output of module.
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
         self.nx = data_dims['x0'][-1]
         self.timedelay = timedelay
         self.nx_td = self.nx * (1+self.timedelay)
+        print('nx_td', self.nx_td)
         self.out_features = self.nx_td
 
     def forward(self, data):
@@ -118,9 +122,10 @@ class seq2seqTimeDelayEstimator(TimeDelayEstimator):
         """
         features = self.features(data)
         Xtd = self.net(features).reshape(self.timedelay+1, -1, self.nx)
-        output = {name: tensor for tensor, name
-                  in zip([Xtd,  self.reg_error()], self.output_keys)}
-        return output
+        print('outfeats', self.out_features)
+        print('netoutfeats', self.net.out_features)
+        print(Xtd.shape)
+        return {'Xtd': Xtd, 'reg_error': self.reg_error()}
 
 
 class FullyObservable(TimeDelayEstimator):
@@ -130,29 +135,41 @@ class FullyObservable(TimeDelayEstimator):
         """
         Dummmy estimator to use consistent API for fully and partially observable systems
         """
-        super().__init__(data_dims, nsteps=nsteps, window_size=window_size,
-                         input_keys=input_keys, name=name)
+        super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
         self.net = nn.Identity()
 
     def features(self, data):
-        return data[self.input_keys[0]][self.nsteps-1]
+        return data['Yp'][self.nsteps-1]
 
     def reg_error(self):
         return torch.tensor(0.0)
 
 
-class FullyObservable_MultiStep(FullyObservable):
+
+
+class FullyObservable_MH(TimeDelayEstimator):
     def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
                  linear_map=slim.Linear, nonlin=nn.Identity, hsizes=[],
                  input_keys=['Yp'], linargs=dict(), name='fully_observable'):
         """
         Dummmy estimator to use consistent API for fully and partially observable systems
         """
-        super().__init__(data_dims, nsteps=nsteps, window_size=window_size,
-                         input_keys=input_keys, name=name)
+        super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
+        self.net = nn.Identity()
 
     def features(self, data):
-        return data[self.input_keys[0]][:self.window_size, :, :]  # 3D tensor
+        return data['Yp'][0]
+
+    def reg_error(self):
+        return torch.tensor(0.0)
+
+
+
+
+
+
+
+
 
 
 class FullyObservableAugmented(FullyObservable):
@@ -162,8 +179,7 @@ class FullyObservableAugmented(FullyObservable):
         """
         Dummmy estimator to use consistent API for fully observable systems with augmented state space with disturbaces
         """
-        super().__init__(data_dims, nsteps=nsteps, window_size=window_size,
-                         input_keys=input_keys, name=name)
+        super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
         self.net = nn.Identity()
         self.nd = nd   # dimensions of the augmented states
         self.d0 = d0   # fixed initial conditions of the augmented state
@@ -195,7 +211,9 @@ class seq2seqLinearEstimator(seq2seqTimeDelayEstimator):
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys,
                          timedelay=timedelay, name=name)
+        print('infeats', self.in_features, 'out_feats', self.out_features)
         self.net = linear_map(self.in_features, self.out_features, bias=bias, **linargs)
+        print('netin', self.net.in_features, 'netout', self.net.out_features)
 
 
 class MLPEstimator(TimeDelayEstimator):
@@ -274,9 +292,7 @@ class RNNEstimator(TimeDelayEstimator):
 
     def forward(self, data):
         features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
-        output = {name: tensor for tensor, name
-                  in zip([self.net(features),  self.reg_error()], self.output_keys)}
-        return output
+        return {'x0': self.net(features), 'reg_error': self.net.reg_error()}
 
 
 class seq2seqRNNEstimator(seq2seqTimeDelayEstimator):
@@ -295,15 +311,12 @@ class seq2seqRNNEstimator(seq2seqTimeDelayEstimator):
     def forward(self, data):
         features = torch.cat([data[k][self.nsteps-self.window_size:self.nsteps] for k in self.input_keys], dim=2)
         Xtd = self.net(features).reshape(self.timedelay+1, -1, self.nx)
-        output = {name: tensor for tensor, name
-                  in zip([Xtd, self.net.reg_error()], self.output_keys)}
-        return output
+        return {'x0': Xtd, 'reg_error': self.net.reg_error()}
 
 
 class LinearKalmanFilter(Component):
     DEFAULT_INPUT_KEYS = ["Yp", "Up", "Dp"]
     DEFAULT_OUTPUT_KEYS = ["x0", "reg_error"]
-    # TODO: this model is broken
     """
     Time-Varying Linear Kalman Filter
     """
@@ -355,7 +368,6 @@ class LinearKalmanFilter(Component):
 
 
 estimators = {'fullobservable': FullyObservable,
-              'fullobservable_multistep': FullyObservable_MultiStep,
               'linear': LinearEstimator,
               'mlp': MLPEstimator,
               'rnn': RNNEstimator,
@@ -364,5 +376,103 @@ estimators = {'fullobservable': FullyObservable,
 seq2seq_estimators = {'seq2seq_linear': seq2seqLinearEstimator,
                       'seq2seq_mlp': seq2seqMLPEstimator,
                       'seq2seq_rnn': seq2seqRNNEstimator,
-                      'seq2seq_residual_mlp': seq2seqResMLPEstimator,
-                      }
+                      'seq2seq_residual_mlp': seq2seqResMLPEstimator}
+
+if __name__ == '__main__':
+    nx, ny, nu, nd = 15, 7, 5, 2
+    N = 40
+
+    samples = 1
+    # Data format: (N,samples,dim)
+    Y = torch.rand(N, samples, ny)
+    U = torch.rand(N, samples, nu)
+    D = torch.rand(N, samples, nd)
+    data = {'Yp': Y, 'Up': U, 'Dp': D}
+    data_dims = {'x0': (nx,), 'Yp': (N, ny), 'Up': (N, nu), 'Dp': (N, nd)}
+    input_keys = ['Yp']
+
+    for bias in [True, False]:
+        for name, est in estimators.items():
+            print(name)
+            e = est(data_dims, input_keys=input_keys)
+            e_out = e(data)
+            for k, v in e_out.items():
+                print(f'{k}: {v.shape}')
+            for lin in set(slim.maps.values()) - slim.square_maps:
+                print(lin)
+                e = est(data_dims, input_keys=input_keys, bias=bias, linear_map=lin)
+                e_out = e(data)
+                for k, v in e_out.items():
+                    print(f'{k}: {v.shape}')
+
+    for bias in [True, False]:
+        for name, est in estimators.items():
+            print(name)
+            e = est(data_dims, nsteps=N, window_size=N, input_keys=input_keys)
+            e_out = e(data)
+            for k, v in e_out.items():
+                print(f'{k}: {v.shape}')
+            for lin in set(slim.maps.values()) - slim.square_maps:
+                print(lin)
+                e = est(data_dims, nsteps=N, window_size=N, input_keys=input_keys, bias=bias, linear_map=lin)
+                e_out = e(data)
+                for k, v in e_out.items():
+                    print(f'{k}: {v.shape}')
+
+    for bias in [True, False]:
+        for name, est in estimators.items():
+            print(name)
+            e = est(data_dims, nsteps=N, window_size=N-1, input_keys=input_keys)
+            e_out = e(data)
+            for k, v in e_out.items():
+                print(f'{k}: {v.shape}')
+            for lin in set(slim.maps.values()) - slim.square_maps:
+                print(lin)
+                e = est(data_dims, nsteps=N, window_size=N-1, input_keys=input_keys, bias=bias, linear_map=lin)
+                e_out = e(data)
+                for k, v in e_out.items():
+                    print(f'{k}: {v.shape}')
+
+    for bias in [True, False]:
+        for name, est in seq2seq_estimators.items():
+            print(name)
+            e = est(data_dims, nsteps=N, window_size=N, timedelay=N-1, input_keys=input_keys)
+            e_out = e(data)
+            for k, v in e_out.items():
+                print(f'{k}: {v.shape}')
+            for lin in set(slim.maps.values()) - slim.square_maps:
+                print(lin)
+                e = est(data_dims, nsteps=N, window_size=N, timedelay=N-1, input_keys=input_keys, bias=bias, linear_map=lin)
+                e_out = e(data)
+                for k, v in e_out.items():
+                    print(f'{k}: {v.shape}')
+
+    for bias in [True, False]:
+        for name, est in seq2seq_estimators.items():
+            print(name)
+            e = est(data_dims, nsteps=N, window_size=N-1, timedelay=0, input_keys=input_keys)
+            e_out = e(data)
+            for k, v in e_out.items():
+                print(f'{k}: {v.shape}')
+            for lin in set(slim.maps.values()) - slim.square_maps:
+                print(lin)
+                e = est(data_dims, nsteps=N, window_size=N-1, timedelay=0, input_keys=input_keys, bias=bias, linear_map=lin)
+                e_out = e(data)
+                for k, v in e_out.items():
+                    print(f'{k}: {v.shape}')
+
+
+    print('Kalman filter')
+    fx, fu, fd = [slim.Linear(insize, nx) for insize in [nx, nu, nd]]
+    fy = slim.Linear(nx, ny)
+    model = BlockSSM(fx, fy, fu, fd)
+    est = LinearKalmanFilter(model=model)
+    est_out = est(data)
+    for k, v in est_out.items():
+        print(f'{k}: {v.shape}')
+
+
+
+
+
+

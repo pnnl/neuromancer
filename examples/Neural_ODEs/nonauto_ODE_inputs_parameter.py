@@ -7,6 +7,7 @@ import slim
 import psl
 
 from neuromancer import blocks, estimators, dynamics, arg, integrators, ode
+from neuromancer.interpolation import LinInterp_Offline
 from neuromancer.activations import activations
 from neuromancer.visuals import VisualizerOpen
 from neuromancer.trainer import Trainer
@@ -44,7 +45,8 @@ def get_sequence_dataloaders(
     """
 
     #data, _ = normalize_data(data, norm_type)
-    train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
+    train_data, dev_data, test_data = \
+        split_sequence_data(data, nsteps, moving_horizon, split_ratio)
 
     train_data = SequenceDataset(
         train_data,
@@ -91,8 +93,8 @@ def get_sequence_dataloaders(
         num_workers=num_workers,
     )
 
-    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
-
+    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), \
+           train_data.dataset.dims
 
 
 def get_loss(objectives, constraints, type):
@@ -102,91 +104,69 @@ def get_loss(objectives, constraints, type):
         loss = BarrierLoss(objectives, constraints)
     return loss
 
+
 # %%
-"""
+# Get the data by simulating system in PSL:
+system = psl.systems['TwoTank'] # non-autonomous system
 
-Get some data from the L-V system for prototyping.
-
-"""
-system = psl.systems['Brusselator1D']
-
-modelSystem = system()
-raw = modelSystem.simulate(ts=0.05)
+ts = 1.0
+nsim = 2000
+modelSystem = system(ts=ts, nsim=nsim)
+raw = modelSystem.simulate()
 psl.plot.pltOL(Y=raw['Y'])
 psl.plot.pltPhase(X=raw['Y'])
 
+t = (np.arange(nsim+1)*ts).reshape(-1, 1)
+raw['Time'] = t[:-1]
+
+#%% Interpolant for offline mode
+t = torch.from_numpy(t)
+u = raw['U'].astype(np.float32)
+u = np.append(u,u[-1,:]).reshape(-1,2)
+ut = torch.from_numpy(u)
+interp_u = LinInterp_Offline(t, ut)
+
+#%% Interpolation class for online mode
+# Interp_Online = LinInterp_Online()
+
+#%%
 #  Train, Development, Test sets - nstep and loop format
-nsteps = 1
-nstep_data, loop_data, dims = get_sequence_dataloaders(raw, nsteps, moving_horizon=False)
-train_data, dev_data, test_data = nstep_data
+nsteps = 1  # nsteps rollouts in training
+nstep_data, loop_data, dims = get_sequence_dataloaders(raw, nsteps,
+                            moving_horizon=True)
+
+train_data, dev_data, test_data = nstep_data  #(nstep, # batches, sys dim)
 train_loop, dev_loop, test_loop = loop_data
 
 # %% Identity mapping
-nx = 2
+nx = dims['X'][1]
+
 estim = estimators.FullyObservable(
     {**train_data.dataset.dims, "x0": (nx,)},
     linear_map=slim.maps['identity'],
     input_keys=["Yp"],
 )
 
+estim(train_data.dataset.get_full_batch())
+
 # %% Instantiate the blocks, dynamics model:
+nu = dims['U'][1]
 
-"""
-The below definition can be found in ode.py. This file contains user-defined gray box
-systems as a subclass of ODESystem(). 
-
-class HybridBrusselatorMLP(ODESystem):
-    def __init__(self, insize=2, outsize=2):
-        super().__init__(insize=insize, outsize=outsize)
-        self.alpha = nn.Parameter(torch.tensor([5.0]), requires_grad=True)
-        self.beta = nn.Parameter(torch.tensor([5.0]), requires_grad=True)
-    
-    def ode_equations(self, x): 
-
-        x1 = x[:,[0]]
-        x2 = x[:,[-1]]
-
-        dx1 = self.alpha + x2*x1**2 - self.beta*x1 - x1
-        dx2 = self.beta*x1 - x2*x1**2
-
-        dx = torch.cat([dx1, dx2],dim=-1)
-
-        return dx
-"""
-
-"""
-class parameter_tune_sys(ode.ODESystem):
-    def __init__(self, insize=2, outsize=2):
-        super().__init__(insize=insize, outsize=outsize)
-        self.alpha = torch.nn.Parameter(torch.tensor([5.0]), requires_grad=True)
-        self.beta = torch.nn.Parameter(torch.tensor([5.0]), requires_grad=True)
-    
-    def ode_equations(self, x): 
-
-        x1 = x[:,[0]]
-        x2 = x[:,[-1]]
-
-        dx1 = self.alpha + x2*x1**2 - self.beta*x1 - x1
-        dx2 = self.beta*x1 - x2*x1**2
-
-        dx = torch.cat([dx1, dx2],dim=-1)
-
-        return dx
-
-brussels = parameter_tune_sys()
-"""
-
-brussels = ode.BrusselatorParam()
-fxRK4 = integrators.RK4(brussels, h=0.05)
+twoTankSystem = ode.TwoTankParam()
+twoTankSystem.c1 = torch.nn.Parameter(torch.tensor([0.0]), requires_grad=True)
+twoTankSystem.c2 = torch.nn.Parameter(torch.tensor([0.0]), requires_grad=True)
+fx_int = integrators.RK4(twoTankSystem, interp_u=interp_u, h=modelSystem.ts)
 fy = slim.maps['identity'](nx, nx)
-dynamics_model = dynamics.ODEAuto(fxRK4, fy, name='dynamics',
-                                  input_key_map={"x0": f"x0_{estim.name}"})
+
+dynamics_model = dynamics.ODENonAuto(fx_int, fy, extra_inputs=['Uf'],
+                input_key_map={"x0": f"x0_{estim.name}", "Time": "Timef", 'Yf': 'Yf'},  #TBC2: sth wrong with input_key_map
+                name='dynamics',  # must be named 'dynamics' due to some issue in visuals.py
+                online_flag=False
+                )
 
 # %% Constraints + losses:
 yhat = Variable(f"Y_pred_{dynamics_model.name}")
 y = Variable("Yf")
-x0 = Variable(f"x0_{estim.name}")
-xhat = Variable(f"X_pred_{dynamics_model.name}")
 
 yFD = (y[1:] - y[:-1])
 yhatFD = (yhat[1:] - yhat[:-1])
@@ -210,7 +190,7 @@ problem = Problem(components, loss)
 problem = problem.to(device)
 
 # %%
-optimizer = torch.optim.Adam(problem.parameters(), lr=0.1)
+optimizer = torch.optim.Adam(problem.parameters(), lr=0.001)
 logger = BasicLogger(args=None, savedir='test', verbosity=1,
                      stdout="nstep_dev_"+reference_loss.output_keys[0])
 
@@ -227,6 +207,7 @@ visualizer = VisualizerOpen(
     trace_movie=False,
 )
 callback = SysIDCallback(simulator, visualizer)
+
 
 trainer = Trainer(
     problem,
@@ -249,8 +230,4 @@ trainer = Trainer(
 best_model = trainer.train()
 # %%
 best_outputs = trainer.test(best_model)
-# %%
-print('alpha = '+str(brussels.alpha.item()))
-print('beta = '+str(brussels.beta.item()))
-
 # %%

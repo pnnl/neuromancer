@@ -33,6 +33,11 @@ class Integrator(nn.Module, ABC):
         pass
 
     def forward(self, x, u=torch.empty((1, 1)), t=torch.empty((1, 1))):
+        """
+        This function needs x only for autonomous systems. x is 2D.
+        It needs both x and t for nonautonomous system w/ offline interpolation. Both x and t are 2D.
+        It needs all x, t and u for nonautonomous system w/ online interpolation. x is 2D while both t and u are 3D.
+        """
         return self.integrate(x, u, t)
 
 
@@ -202,13 +207,9 @@ class Runge_Kutta_Fehlberg(Integrator):
         return x_t1_high
 
 
-# TODO: to be updated for non-autonomous systems - currently works only for autonomous
 class MultiStep_PredictorCorrector(Integrator):
     def __init__(self, block, interp_u=None, h=1.0):
         """
-        an only work for autonomous system for now,
-        because there is dimensionality issue in self.state
-
         :param block:
         :param interp_u:
         :param h:
@@ -222,37 +223,95 @@ class MultiStep_PredictorCorrector(Integrator):
                     x[1:2, :, :] = x_{t-2},
                     x[2:3, :, :] = x_{t-1},
                     x[3:4, :, :] = x_{t}
-        :param u: (torch.Tensor, shape=[nsteps, batchsize, nu])
-        :param t: (torch.Tensor, shape=[nsteps, batchsize, 1])
+        :param t: (torch.Tensor, shape=[batchsize, 1]) for autonomous and nonautonomous systems
         :return x_{t+1}: (torch.Tensor, shape=[batchsize, SysDim])
         """
-
         assert x.shape[0] == 4, "This four-step method requires x.shape[0] = 4."
         x0 = x[0, :, :]
         x1 = x[1, :, :]
         x2 = x[2, :, :]
         x3 = x[3, :, :]     # current state
-        # assert u.shape[0] == 4,  "This four-step method requires u.shape[0] = 4."
-        # u0 = u[0, :, :]
-        # u1 = u[1, :, :]
-        # u2 = u[2, :, :]
-        # u3 = u[3, :, :]
-        # assert t.shape[0] == 4,  "This four-step method requires t.shape[0] = 4."
-        # t0 = t[0, :, :]
-        # t1 = t[1, :, :]
-        # t2 = t[2, :, :]
-        # t3 = t[3, :, :]
-
+        # Predictor: linear multistep Adams–Bashforth method (explicit)
         x4_pred = x3 + self.h*(55/24*self.block(self.state(x3, t, t, u)) -
                                59/24*self.block(self.state(x2, t-self.h, t, u)) +
                                37/24*self.block(self.state(x1, t-self.h*2, t, u)) -
-                               9/24*self.block(self.state(x0, t-self.h*3, t, u)))
+                               9/24*self.block(self.state(x0, t-self.h*3, t, u))) 
+        # Corrector: linear multistep Adams–Moulton method (implicit)
         x4_corr = x3 + self.h*(251/720*self.block(self.state(x4_pred, t+self.h, t, u)) +
                                646/720*self.block(self.state(x3, t, t, u)) -
                                264/720*self.block(self.state(x2, t-self.h, t, u)) +
-                               106/720*self.block(self.state(x1, t-self.h*2, t, u)) -
-                               19/720*self.block(self.state(x0, t-self.h*3, t, u)))
+                               106/720*self.block(self.state(x1, t-2*self.h, t, u)) -
+                               19/720*self.block(self.state(x0, t-3*self.h, t, u)))
         return x4_corr  # (overlapse moving windows #, state dim) -> 2D tensor
+
+
+class LeapFrog(Integrator):
+    def __init__(self, block, interp_u=None, h=1.0):
+        """
+        Leapfrog integration for ddx = f(x)
+        https://en.wikipedia.org/wiki/Leapfrog_integration
+        :param block:
+        :param interp_u:
+        :param h:
+        """
+        super().__init__(block=block, interp_u=interp_u, h=h)
+
+    def integrate(self, X, u, t):
+        """
+        :param X: (torch.Tensor, shape=[batchsize, 2*SysDim]) where X[:, :SysDim] = x_t and X[:, SysDim:] = \dot{x}_t
+        :return X_{t+1}: (torch.Tensor, shape=[batchsize, 2*SysDim]) where X_{t+1}[:, :SysDim] = x_{t+1} and X_{t+1}[:, SysDim:] = \dot{x}_{t+1}
+        """
+        SysDim = X.shape[-1]//2
+        x = X[:, :SysDim]  # x at t = i*h
+        dx = X[:, SysDim:2*SysDim]  # dx at t = i*h
+        x_1 = x + dx*self.h + 0.5*self.block(self.state(x, t, t, u))*self.h**2  # x at t = (i + 1)*h
+        ddx_1 = self.block(self.state(x_1, t+self.h, t, u))  # ddx at t = (i + 1)*h.
+        dx_1 = dx + 0.5*(self.block(self.state(x, t, t, u)) + ddx_1)*self.h  # dx at t = (i + 1)*h
+        return torch.cat([x_1, dx_1], dim=-1)
+
+
+class Yoshida4(Integrator):
+    def __init__(self, block, interp_u=None, h=1.0):
+        """
+        4th order Yoshida integrator for ddx = f(x). One step under the 4th order Yoshida integrator requires four intermediary steps. 
+        https://en.wikipedia.org/wiki/Leapfrog_integration#4th_order_Yoshida_integrator
+        :param block:
+        :param interp_u:
+        :param h:
+        """
+        super().__init__(block=block, interp_u=interp_u, h=h)
+
+    def integrate(self, X, u, t):
+        """
+        :param X: (torch.Tensor, shape=[batchsize, 2*SysDim]) where X[:, :SysDim] = x_t and X[:, SysDim:] = \dot{x}_t
+        :return X_{t+1}: (torch.Tensor, shape=[batchsize, 2*SysDim]) where X_{t+1}[:, :SysDim] = x_{t+1} and X_{t+1}[:, SysDim:] = \dot{x}_{t+1}
+        """
+        SysDim = X.shape[-1]//2
+        x = X[:, :SysDim]  # x at t = i*h
+        dx = X[:, SysDim:2*SysDim]  # dx at t = i*h
+        # constants
+        w0 = -2**(1/3)/(2 - 2**(1/3))
+        w1 = 1/(2 - 2**(1/3))
+        c1 = w1/2
+        c4 = c1
+        c2 = (w0 + w1)/2
+        c3 = c2
+        d1 = w1
+        d3 = d1
+        d2 = w0
+        # intermediate step 1
+        x_1 = x + c1*dx*self.h
+        dx_1 = dx + d1*self.block(self.state(x_1, t + c1*self.h, t, u))*self.h
+        # intermediate step 2
+        x_2 = x_1 + c2*dx_1*self.h
+        dx_2 = dx_1 + d2*self.block(self.state(x_2, t + c1*self.h + c2*self.h, t, u))*self.h
+        # intermediate step 3
+        x_3 = x_2 + c3*dx_2*self.h
+        dx_3 = dx_2 + d3*self.block(self.state(x_3, t + c1*self.h + c2*self.h + c3*self.h, t, u))*self.h
+        # intermediate step 4
+        x_4 = x_3 + c4*dx_3*self.h
+        dx_4 = dx_3
+        return torch.cat([x_4, dx_4], dim=-1)
 
 
 integrators = {'Euler': Euler,
@@ -261,5 +320,9 @@ integrators = {'Euler': Euler,
                'RK4': RK4,
                'RK4_Trap': RK4_Trap,
                'Luther': Luther,
-               'Runge_Kutta_Fehlberg': Runge_Kutta_Fehlberg,
-               }
+               'Runge_Kutta_Fehlberg': Runge_Kutta_Fehlberg}
+
+integrators_multistep = {'MultiStep_PredictorCorrector': MultiStep_PredictorCorrector}  
+
+integrators_second_order = {'LeapFrog': LeapFrog,
+                            'Yoshida4': Yoshida4}

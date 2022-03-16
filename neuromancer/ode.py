@@ -133,8 +133,8 @@ class LotkaVolterraHybrid(ODESystem):
         assert self.block.out_features == 1
 
     def ode_equations(self, x):
-        x1 = x[:,[0]]
-        x2 = x[:,[-1]]
+        x1 = x[:, [0]]
+        x2 = x[:, [-1]]
         dx1 = self.alpha*x1 - self.beta*self.block(x)
         dx2 = self.delta*self.block(x) - self.gamma*x2
         return torch.cat([dx1, dx2], dim=-1)

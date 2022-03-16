@@ -45,7 +45,8 @@ def get_sequence_dataloaders(
     """
 
     #data, _ = normalize_data(data, norm_type)
-    train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
+    train_data, dev_data, test_data = \
+        split_sequence_data(data, nsteps, moving_horizon, split_ratio)
 
     train_data = SequenceDataset(
         train_data,
@@ -92,7 +93,9 @@ def get_sequence_dataloaders(
         num_workers=num_workers,
     )
 
-    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
+    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), \
+           train_data.dataset.dims
+
 
 def get_loss(objectives, constraints, type):
     if type == 'penalty':
@@ -101,13 +104,14 @@ def get_loss(objectives, constraints, type):
         loss = BarrierLoss(objectives, constraints)
     return loss
 
+
 # %%
 # Get the data by simulating system in PSL:
 system = psl.systems['TwoTank'] # non-autonomous system
 
 ts = 1.0
 nsim = 2000
-modelSystem = system(ts = ts, nsim = nsim)
+modelSystem = system(ts=ts, nsim=nsim)
 raw = modelSystem.simulate()
 psl.plot.pltOL(Y=raw['Y'])
 psl.plot.pltPhase(X=raw['Y'])
@@ -127,11 +131,11 @@ interp_u = LinInterp_Offline(t, ut)
 
 #%%
 #  Train, Development, Test sets - nstep and loop format
-nsteps = 1 # nsteps rollouts in training
+nsteps = 30  # nsteps rollouts in training
 nstep_data, loop_data, dims = get_sequence_dataloaders(raw, nsteps,
- moving_horizon=True)
+                            moving_horizon=True)
 
-train_data, dev_data, test_data = nstep_data #(nstep, # batches, sys dim)
+train_data, dev_data, test_data = nstep_data  #(nstep, # batches, sys dim)
 train_loop, dev_loop, test_loop = loop_data
 
 # %% Identity mapping
@@ -139,28 +143,24 @@ nx = dims['X'][1]
 
 estim = estimators.FullyObservable(
     {**train_data.dataset.dims, "x0": (nx,)},
-    linear_map = slim.maps['identity'],
-    input_keys = ["Yp"],
+    linear_map=slim.maps['identity'],
+    input_keys=["Yp"],
 )
 
 estim(train_data.dataset.get_full_batch())
 
 # %% Instantiate the blocks, dynamics model:
 nu = dims['U'][1]
+black_box_ode = blocks.MLP(insize=nx+nu, outsize=nx, hsizes=[30, 30],
+                           linear_map=slim.maps['linear'],
+                           nonlin=activations['gelu'])
+fx_int = integrators.RK4(black_box_ode, interp_u=interp_u, h=modelSystem.ts)
+fy = slim.maps['identity'](nx, nx)
 
-twoTankSystem = ode.TwoTankParam()
-
-twoTankSystem.c1 = torch.nn.Parameter(torch.tensor([0.0]), requires_grad = True)
-twoTankSystem.c2 = torch.nn.Parameter(torch.tensor([0.0]), requires_grad = True)
-
-fx_int = integrators.RK4(twoTankSystem, interp_u = interp_u, h = modelSystem.ts)
-
-fy = slim.maps['identity'](nx,nx)
-
-dynamics_model = dynamics.ODENonAuto(fx_int, fy, extra_inputs = ['Uf'], 
-                input_key_map={"x0": f"x0_{estim.name}", "Time": "Timef", 'Yf': 'Yf'}, #TBC2: sth wrong with input_key_map
-                name='dynamics', # must be named 'dynamics' due to some issue in visuals.py
-                online_flag = False
+dynamics_model = dynamics.ODENonAuto(fx_int, fy, extra_inputs=['Uf'],
+                input_key_map={"x0": f"x0_{estim.name}", "Time": "Timef", 'Yf': 'Yf'},  #TBC2: sth wrong with input_key_map
+                name='dynamics',  # must be named 'dynamics' due to some issue in visuals.py
+                online_flag=False
                 )
 
 # %% Constraints + losses:
@@ -177,7 +177,7 @@ reference_loss = ((yhat == y)^2)
 reference_loss.name = "ref_loss"
 
 # %%
-objectives = [reference_loss,fd_loss]
+objectives = [reference_loss, fd_loss]
 constraints = []
 components = [estim, dynamics_model]
 # create constrained optimization loss
@@ -190,7 +190,8 @@ problem = problem.to(device)
 
 # %%
 optimizer = torch.optim.Adam(problem.parameters(), lr=0.001)
-logger = BasicLogger(args=None, savedir= 'test', verbosity=1, stdout="nstep_dev_"+reference_loss.output_keys[0])
+logger = BasicLogger(args=None, savedir='test', verbosity=1,
+                     stdout="nstep_dev_"+reference_loss.output_keys[0])
 
 simulator = OpenLoopSimulator(
     problem, train_loop, dev_loop, test_loop, eval_sim=True, device=device,

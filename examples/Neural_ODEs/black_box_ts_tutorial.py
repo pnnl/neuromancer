@@ -191,7 +191,8 @@ if __name__ == "__main__":
     fxRK4 = integrators.RK4(fx, h=ts)
     fy = slim.maps['identity'](nx, nx)
 
-    dynamics_model = dynamics.ODEAuto(fxRK4, fy, name='dynamics', input_key_map={"x0": f"x0_{estim.name}"})
+    dynamics_model = dynamics.ODEAuto(fxRK4, fy, name='dynamics',
+                                      input_key_map={"x0": f"x0_{estim.name}"})
 
     # %% Constraints + losses:
     yhat = Variable(f"Y_pred_{dynamics_model.name}")
@@ -274,8 +275,8 @@ if __name__ == "__main__":
             H[:,j] = y[j:j+m]
         return H
 
-    H1 = hankel(y1[:,0],50)
-    H0 = hankel(y0[:,0],50)
+    H1 = hankel(y1[:, 0], 50)
+    H0 = hankel(y0[:, 0], 50)
 
     u0, s0, vh0 = np.linalg.svd(H0, full_matrices=False)
     u1, s1, vh1 = np.linalg.svd(H1, full_matrices=False)
@@ -283,37 +284,36 @@ if __name__ == "__main__":
     # %%
     plt.figure()
     x = np.arange(len(s0))
-    plt.scatter(x,np.log10(s0),label='data')
-    plt.scatter(x,np.log10(s1),label='pred')
+    plt.scatter(x, np.log10(s0), label='data')
+    plt.scatter(x, np.log10(s1), label='pred')
     plt.legend()
     plt.show()
-    print(s0[0]/s0[-1]) # condition number of the sigma matrix
-    print(s1[0]/s1[-1]) # condition number of the sigma matrix
+    print(s0[0]/s0[-1])  # condition number of the sigma matrix
+    print(s1[0]/s1[-1])  # condition number of the sigma matrix
 
     # %%
     # %% Vector field?
-    xx = torch.tensor(np.linspace(0,5,100),dtype=torch.float)
-    yy = torch.tensor(np.linspace(0,5,100),dtype=torch.float)
+    xx = torch.tensor(np.linspace(0, 5, 100), dtype=torch.float)
+    yy = torch.tensor(np.linspace(0, 5, 100), dtype=torch.float)
 
-    grid_x, grid_y = torch.meshgrid(xx,yy)
+    grid_x, grid_y = torch.meshgrid(xx, yy)
 
     XX = 0.0*grid_x
     YY = 0.0*grid_y
 
-    for ii,xc in enumerate(xx):
-        for jj,yc in enumerate(yy):
-            XX[jj,ii],YY[jj,ii] = fx(torch.tensor([xc,yc]))
+    for ii, xc in enumerate(xx):
+        for jj, yc in enumerate(yy):
+            XX[jj, ii],YY[jj, ii] = fx(torch.tensor([xc, yc]))
 
     # %%
     t = torch.arange(1000)
-    y = np.zeros((1000,2))
-    y0 = torch.tensor([1.0,0.0])
-    for j,t in enumerate(t):
+    y = np.zeros((1000, 2))
+    y0 = torch.tensor([1.0, 0.0])
+    for j, t in enumerate(t):
         if j==0:
-            y[j,:] = fxRK4(torch.tensor(y0,dtype=torch.float)).detach().numpy()
+            y[j, :] = fxRK4(torch.tensor(y0, dtype=torch.float)).detach().numpy()
         else:
-            y[j,:] = fxRK4(torch.tensor(y[j-1,:],dtype=torch.float)).detach().numpy()
-
+            y[j, :] = fxRK4(torch.tensor(y[j-1, :], dtype=torch.float)).detach().numpy()
     plt.plot(y)
     plt.show()
 
@@ -325,37 +325,37 @@ if __name__ == "__main__":
     """
 
     # Ground truth vector field:
-    xxt = np.linspace(0,5,100)
-    yyt = np.linspace(0,5,100)
+    xxt = np.linspace(0, 5, 100)
+    yyt = np.linspace(0, 5, 100)
 
-    grid_xt, grid_yt = np.meshgrid(xxt,yyt)
+    grid_xt, grid_yt = np.meshgrid(xxt, yyt)
 
     XXt = 0.0*grid_xt
     YYt = 0.0*grid_yt
 
-    for ii,xc in enumerate(xxt):
-        for jj,yc in enumerate(yyt):
-            XXt[jj,ii] = 1.0 + yc*xc**2 -3.0*xc - xc
-            YYt[jj,ii] = 3.0*xc - yc*xc**2
+    for ii, xc in enumerate(xxt):
+        for jj, yc in enumerate(yyt):
+            XXt[jj, ii] = 1.0 + yc*xc**2 -3.0*xc - xc
+            YYt[jj, ii] = 3.0*xc - yc*xc**2
 
     plt.figure()
-    plt.streamplot(grid_xt,grid_yt, XXt, YYt)
-    plt.plot(raw['Y'][:,0],raw['Y'][:,1],color='white',linewidth=3)
+    plt.streamplot(grid_xt, grid_yt, XXt, YYt)
+    plt.plot(raw['Y'][:, 0], raw['Y'][:, 1], color='white', linewidth=3)
     plt.show()
 
     # %%
-    plt.contour(grid_xt,grid_yt,np.log10(abs(XX.detach().numpy() - XXt) + 1e-8),levels=20)
-    plt.plot(raw['Y'][:,0],raw['Y'][:,1],color='white',linewidth=3)
-    plt.plot(y[:,0],y[:,1],color='red',linewidth=3)
+    plt.contour(grid_xt, grid_yt, np.log10(abs(XX.detach().numpy() - XXt) + 1e-8), levels=20)
+    plt.plot(raw['Y'][:, 0], raw['Y'][:, 1], color='white', linewidth=3)
+    plt.plot(y[:, 0], y[:, 1], color='red', linewidth=3)
 
     # %%
-    plt.contour(grid_xt,grid_yt,np.log10(abs(YY.detach().numpy() - YYt) + 1e-8),levels=20)
-    plt.plot(raw['Y'][:,0],raw['Y'][:,1],color='white',linewidth=3)
-    plt.plot(y[:,0],y[:,1],color='red',linewidth=3)
+    plt.contour(grid_xt, grid_yt, np.log10(abs(YY.detach().numpy() - YYt) + 1e-8), levels=20)
+    plt.plot(raw['Y'][:, 0], raw['Y'][:, 1], color='white', linewidth=3)
+    plt.plot(y[:, 0], y[:, 1], color='red', linewidth=3)
     # %%
-    plt.streamplot(grid_xt,grid_yt, XX.detach().numpy(), YY.detach().numpy())
-    plt.plot(raw['Y'][:,0],raw['Y'][:,1],color='white',linewidth=3)
-    plt.plot(y[:,0],y[:,1],color='red',linewidth=3)
+    plt.streamplot(grid_xt, grid_yt, XX.detach().numpy(), YY.detach().numpy())
+    plt.plot(raw['Y'][:, 0], raw['Y'][:, 1], color='white', linewidth=3)
+    plt.plot(y[:, 0], y[:, 1], color='red', linewidth=3)
     # %%
 
     # %%

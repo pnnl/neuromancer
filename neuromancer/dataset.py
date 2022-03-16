@@ -279,6 +279,226 @@ class SequenceDataset(Dataset):
         )
 
 
+class SequenceDataset_MultiStep(Dataset):
+    def __init__(
+        self,
+        data,
+        nsteps_p=1,
+        nsteps_f=1,
+        moving_horizon=False,
+        name="data",
+    ):
+        """
+
+        :param nsteps_p: (int) N-step input horizon for batching data.
+        :param nsteps_f: (int) N-step output horizon for batching data.
+        """
+
+        super().__init__()
+        self.name = name
+
+        self.multisequence = _is_multisequence_data(data)
+        assert _is_sequence_data(data) or self.multisequence, \
+            "data must be provided as a dictionary or list of dictionaries"
+
+        if isinstance(data, dict):
+            data = [data]
+
+        keys = _validate_keys(data)
+
+        # _sslices used to slice out sequences from a multi-sequence dataset
+        self._sslices = _get_sequence_time_slices(data)
+        assert all([nsteps_p < (sl.stop - sl.start) for sl in self._sslices]), \
+            f"length of time series data must be greater than nsteps_p" 
+        assert all([nsteps_f < (sl.stop - sl.start) for sl in self._sslices]), \
+            f"length of time series data must be greater than nsteps_f"
+        self.nsteps_p = nsteps_p
+        self.nsteps_f = nsteps_f
+
+        self.variables = list(keys)
+        self.full_data = torch.cat(
+            [torch.cat([torch.tensor(d[k], dtype=torch.float) for k in self.variables], dim=1) for d in data],
+            dim=0,
+        )
+        self.nsim = self.full_data.shape[0]
+        self.dims = {k: (self.nsim, *data[0][k].shape[1:],) for k in self.variables}
+
+        # _vslices used to slice out sequences of individual variables from full_data and batched_data
+        i = 0
+        self._vslices = {}
+        for k, v in self.dims.items():
+            self._vslices[k] = slice(i, i + v[1], 1)
+            i += v[1]
+
+        self.dims = {
+            **self.dims,
+            **{k + "p": (self.nsim - 1, v[1]) for k, v in self.dims.items()},
+            **{k + "f": (self.nsim - 1, v[1]) for k, v in self.dims.items()},
+            "nsim": self.nsim,
+            "nsteps_p": nsteps_p,
+            "nsteps_f": nsteps_f,
+        }
+
+        self.batched_data_p = torch.cat(
+            [batch_tensor(self.full_data[s.start:s.stop-nsteps_p, ...],
+                          nsteps_p, mh=moving_horizon) for s in self._sslices],
+            dim=0,
+        )
+        self.batched_data_p = self.batched_data_p.permute(0, 2, 1)
+
+        self.batched_data_f = torch.cat(
+            [batch_tensor(self.full_data[s.start+nsteps_p:s.stop, ...],
+                          nsteps_f, mh=moving_horizon) for s in self._sslices],
+            dim=0,
+        )
+        self.batched_data_f = self.batched_data_f.permute(0, 2, 1)
+
+    def __len__(self):
+        """Gives the number of N-step batches in the dataset."""
+        return min([len(self.batched_data_p) - 1, len(self.batched_data_f) - 1])
+
+    def __getitem__(self, i):
+        """Fetch a single N-step sequence from the dataset."""
+        return {
+            **{
+                k + "p": self.batched_data_p[i, :, self._vslices[k]]
+                for k in self.variables
+            },
+            **{
+                # k + "f": self.batched_data_f[i + 1, :, self._vslices[k]]
+                k + "f": self.batched_data_f[i, :, self._vslices[k]]
+                for k in self.variables
+            },
+        }
+
+    def _get_full_sequence_impl(self, start=0, end=None):
+        """Returns the full sequence of data as a dictionary. Useful for open-loop evaluation.
+        """
+        if end is not None and end < 0:
+            end = self.full_data.shape[0] + end
+        elif end is None:
+            end = self.full_data.shape[0]
+        return {
+            **{
+                k + "p": self.full_data[start : end - self.nsteps_f, self._vslices[k]].unsqueeze(1)
+                for k in self.variables
+            },
+            **{
+                k + "f": self.full_data[start + self.nsteps_p : end, self._vslices[k]].unsqueeze(1)
+                for k in self.variables
+            },
+            "name": "loop_" + self.name,
+        }
+
+    def get_full_sequence(self):
+        return (
+            [self._get_full_sequence_impl(start=s.start, end=s.stop) for s in self._sslices]
+            if self.multisequence
+            else self._get_full_sequence_impl()
+        )
+
+    def get_full_batch(self):
+        return {
+            **{
+                k + "p": self.batched_data_p[:-1, :, self._vslices[k]].transpose(0, 1)
+                for k in self.variables
+            },
+            **{
+                k + "f": self.batched_data_f[1:, :, self._vslices[k]].transpose(0, 1)
+                for k in self.variables
+            },
+            "name": "nstep_" + self.name,
+        }
+
+    def collate_fn(self, batch):
+        """Batch collation for dictionaries of samples generated by this dataset. This wraps the
+        default PyTorch batch collation function and does some light post-processing to transpose
+        the data for NeuroMANCER models and add a "name" field.
+
+        :param batch: (dict str: torch.Tensor) dataset sample.
+        """
+        batch = default_collate(batch)
+        return {
+            **{k: v.transpose(0, 1) for k, v in batch.items()},
+            "name": "nstep_" + self.name,
+        }
+
+    def __repr__(self):
+        varinfo = "\n    ".join([f"{x}: {d}" for x, d in self.dims.items() if x not in {"nsteps", "nsim"}])
+        seqinfo = f"    nsequences: {len(self._sslices)}\n" if self.multisequence else ""
+        return (
+            f"{type(self).__name__}:\n"
+            f"  multi-sequence: {self.multisequence}\n"
+            f"{seqinfo}"
+            f"  variables (shapes):\n"
+            f"    {varinfo}\n"
+            f"  nsim: {self.nsim}\n"
+            f"  nsteps_p: {self.nsteps_p}\n"
+            f"  nsteps_f: {self.nsteps_f}\n"
+            f"  batches_p: {self.batched_data_p.shape[0]}\n"
+            f"  batches_f: {self.batched_data_f.shape[0]}\n"
+        )
+
+
+def get_sequence_dataloaders_multistep(
+    data, nsteps_p, nsteps_f, moving_horizon=False, norm_type="zero-one", split_ratio=None, num_workers=0,
+):
+
+    #data, _ = normalize_data(data, norm_type)
+    train_data, dev_data, test_data = split_sequence_data(data, nsteps_p+nsteps_f, moving_horizon, split_ratio)
+    
+    train_data = SequenceDataset_MultiStep(
+        train_data,
+        nsteps_p=nsteps_p,
+        nsteps_f=nsteps_f,
+        moving_horizon=moving_horizon,
+        name="train",
+    )
+
+    dev_data = SequenceDataset_MultiStep(
+        dev_data,
+        nsteps_p=nsteps_p,
+        nsteps_f=nsteps_f,
+        moving_horizon=moving_horizon,
+        name="dev",
+    )
+    test_data = SequenceDataset_MultiStep(
+        test_data,
+        nsteps_p=nsteps_p,
+        nsteps_f=nsteps_f,
+        moving_horizon=moving_horizon,
+        name="test",
+    )
+
+    train_loop = train_data.get_full_sequence()
+    dev_loop = dev_data.get_full_sequence()
+    test_loop = test_data.get_full_sequence()
+
+    train_data = DataLoader(
+        train_data,
+        batch_size=len(train_data),
+        shuffle=False,
+        collate_fn=train_data.collate_fn,
+        num_workers=num_workers,
+    )
+    dev_data = DataLoader(
+        dev_data,
+        batch_size=len(dev_data),
+        shuffle=False,
+        collate_fn=dev_data.collate_fn,
+        num_workers=num_workers,
+    )
+    test_data = DataLoader(
+        test_data,
+        batch_size=len(test_data),
+        shuffle=False,
+        collate_fn=test_data.collate_fn,
+        num_workers=num_workers,
+    )
+
+    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
+
+
 class StaticDataset(Dataset):
     def __init__(
         self,

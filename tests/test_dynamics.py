@@ -154,19 +154,24 @@ def test_tdblack_ssm_shape(samples, nsteps, time_delay, nx, ny, nu, nd, hsize, n
     assert output['Y_pred_black_ssm'].shape[2] == ny
 
 
+integrators_generic = [v for v in integrators.integrators.values()]
+
+
 @given(st.integers(1, 10),
        st.integers(1, 3),
        st.integers(1, 5),
        st.integers(1, 5),
-       st.integers(1, 3))
+       st.integers(1, 3),
+       st.sampled_from(integrators_generic),
+       )
 @settings(max_examples=1000, deadline=None)
-def test_ode_auto_shape(samples, nsteps, nx, hsize, nlayers):
+def test_ode_auto_shape(samples, nsteps, nx, hsize, nlayers, integrator):
     x = torch.rand(samples, nx)
     Y = torch.rand(nsteps, samples, nx)
     data = {'x0': x, 'Yf': Y}
     hsizes = [hsize for k in range(nlayers)]
     fx = MLP(nx, nx, hsizes=hsizes)
-    fxRK4 = integrators.RK4(fx, h=1.0)
+    fxRK4 = integrator(fx, h=1.0)
     fy = slim.maps['identity'](nx, nx)
     model = dynamics.ODEAuto(fxRK4, fy, name='neural_ode')
     output = model(data)
@@ -179,27 +184,29 @@ def test_ode_auto_shape(samples, nsteps, nx, hsize, nlayers):
     assert output[f'Y_pred_{model.name}'].shape[2] == nx
 
 
-integrators_generic = [v for v in integrators.integrators.values()]
-
-
 @given(st.integers(1, 10),
        st.integers(2, 10),
        st.integers(1, 5),
        st.integers(1, 5),
        st.integers(1, 3),
-       st.sampled_from(integrators_generic))
+       st.sampled_from(integrators_generic),
+       st.sampled_from([True, False])
+       )
 @settings(max_examples=200, deadline=None)
-def test_ode_nonauto_time_shape(samples, nsteps, nx, hsize, nlayers, integrator):
+def test_ode_nonauto_time_shape(samples, nsteps, nx, hsize, nlayers, integrator, online_flag):
     # create input interpolator
-    t = (torch.arange(nsteps) * 10).unsqueeze(-1)
-    interp_u = interpolation.LinInterp_Offline(t, t)
+    if online_flag:
+        interp_u = interpolation.LinInterp_Online()
+    else:
+        t = (torch.arange(nsteps) * 10).unsqueeze(-1)
+        interp_u = interpolation.LinInterp_Offline(t, t)
 
     # create NODE model
     hsizes = [hsize for k in range(nlayers)]
     fx = MLP(nx+1, nx, bias=True, hsizes=hsizes, linear_map=slim.maps['linear'])
     fxRK4 = integrator(fx, interp_u=interp_u, h=0.1)
     fy = slim.maps['identity'](nx, nx)
-    model = dynamics.ODENonAuto(fxRK4, fy, name='neural_ode')
+    model = dynamics.ODENonAuto(fxRK4, fy, name='neural_ode', online_flag = online_flag)
 
     # test model
     x = torch.rand(samples, nx)
@@ -222,20 +229,25 @@ def test_ode_nonauto_time_shape(samples, nsteps, nx, hsize, nlayers, integrator)
        st.integers(1, 5),
        st.integers(1, 5),
        st.integers(1, 3),
-       st.sampled_from(integrators_generic))
+       st.sampled_from(integrators_generic),
+       st.sampled_from([True, False])
+)
 @settings(max_examples=200, deadline=None)
-def test_ode_nonauto_inputs_shape(samples, nsteps, nx, nu, hsize, nlayers, integrator):
+def test_ode_nonauto_inputs_shape(samples, nsteps, nx, nu, hsize, nlayers, integrator, online_flag):
     # create input interpolator
-    t = (torch.arange(nsteps) * 10).unsqueeze(-1)
-    u = torch.sin(t).repeat(1, nu)
-    interp_u = interpolation.LinInterp_Offline(t, u)
+    if online_flag:
+        interp_u = interpolation.LinInterp_Online()
+    else:
+        t = (torch.arange(nsteps) * 10).unsqueeze(-1)
+        u = torch.sin(t).repeat(1, nu)
+        interp_u = interpolation.LinInterp_Offline(t, u)
 
     # create NODE model
     hsizes = [hsize for k in range(nlayers)]
     fx = MLP(nx+nu, nx, bias=True, hsizes=hsizes, linear_map=slim.maps['linear'])
     fxRK4 = integrator(fx, interp_u=interp_u, h=0.1)
     fy = slim.maps['identity'](nx, nx)
-    model = dynamics.ODENonAuto(fxRK4, fy, extra_inputs=['Uf'], name='neural_ode')
+    model = dynamics.ODENonAuto(fxRK4, fy, extra_inputs=['Uf'], name='neural_ode', online_flag = online_flag)
 
     # test model
     x = torch.rand(samples, nx)
@@ -251,4 +263,124 @@ def test_ode_nonauto_inputs_shape(samples, nsteps, nx, nu, hsize, nlayers, integ
     assert output[f'Y_pred_{model.name}'].shape[0] == nsteps
     assert output[f'Y_pred_{model.name}'].shape[1] == samples
     assert output[f'Y_pred_{model.name}'].shape[2] == nx
-#
+
+
+integrators_multistep = [v for v in integrators.integrators_multistep.values()]
+
+
+@given(st.integers(1, 10),
+       st.integers(1, 3),
+       st.integers(1, 5),
+       st.integers(1, 5),
+       st.integers(1, 3),
+       st.sampled_from(integrators_multistep),
+       )
+@settings(max_examples=1000, deadline=None)
+def test_ode_auto_multistep_shape(samples, nsteps_rollouts, nx, hsize, nlayers, integrator):
+    input_window_size = 4
+    output_window_size = 1 # must be 1. otherwise, dynamics and integrator classes need to change
+    nsteps_p = input_window_size + nsteps_rollouts - 1
+    nsteps_f = output_window_size + nsteps_rollouts - 1 
+    x = torch.rand(input_window_size, samples, nx)
+    Yp = torch.rand(nsteps_p, samples, nx)
+    Yf = torch.rand(nsteps_f, samples, nx)
+    data = {'x0': x, 'Yf': Yf, 'Yp':Yp}
+    hsizes = [hsize for k in range(nlayers)]
+    fx = MLP(nx, nx, hsizes=hsizes)
+    fx = integrator(fx, h=1.0)
+    fy = slim.maps['identity'](nx, nx)
+    model = dynamics.ODEAuto_MultiStep(fx, fy, name='neural_ode')
+    output = model(data)
+
+    assert output[f'X_pred_{model.name}'].shape[0] == nsteps_f
+    assert output[f'X_pred_{model.name}'].shape[1] == samples
+    assert output[f'X_pred_{model.name}'].shape[2] == nx
+    assert output[f'Y_pred_{model.name}'].shape[0] == nsteps_f
+    assert output[f'Y_pred_{model.name}'].shape[1] == samples
+    assert output[f'Y_pred_{model.name}'].shape[2] == nx
+
+
+@given(st.integers(1, 10),
+       st.integers(1, 10),
+       st.integers(1, 5),
+       st.integers(1, 5),
+       st.integers(1, 3),
+       st.sampled_from(integrators_multistep),
+       st.integers(2, 100),
+       )
+@settings(max_examples=200, deadline=None)
+def test_ode_nonauto_multistep_time_shape(samples, nsteps_rollouts, nx, hsize, nlayers, integrator, nsim):
+    # create input interpolator
+    t = (torch.arange(nsim)).unsqueeze(-1)
+    interp_u = interpolation.LinInterp_Offline(t, t)
+
+    # create NODE model
+    hsizes = [hsize for k in range(nlayers)]
+    fx = MLP(nx+1, nx, bias=True, hsizes=hsizes, linear_map=slim.maps['linear'])
+    fx = integrator(fx, interp_u=interp_u, h=0.1)
+    fy = slim.maps['identity'](nx, nx)
+    model = dynamics.ODENonAuto_MultiStep(fx, fy, name='neural_ode')
+
+    # test model
+    input_window_size = 4
+    output_window_size = 1 # must be 1. otherwise, dynamics and integrator classes need to change
+    nsteps_p = input_window_size + nsteps_rollouts - 1
+    nsteps_f = output_window_size + nsteps_rollouts - 1
+    x = torch.rand(input_window_size, samples, nx)
+    Yp = torch.rand(nsteps_p, samples, nx)
+    Yf = torch.rand(nsteps_f, samples, nx)
+    Time = torch.rand(nsteps_f, samples, 1)
+    data = {'x0': x, 'Yf': Yf, 'Yp':Yp, 'Time': Time}
+    output = model(data)
+
+    assert output[f'X_pred_{model.name}'].shape[0] == nsteps_f
+    assert output[f'X_pred_{model.name}'].shape[1] == samples
+    assert output[f'X_pred_{model.name}'].shape[2] == nx
+    assert output[f'Y_pred_{model.name}'].shape[0] == nsteps_f
+    assert output[f'Y_pred_{model.name}'].shape[1] == samples
+    assert output[f'Y_pred_{model.name}'].shape[2] == nx
+
+@given(st.integers(1, 10),
+       st.integers(1, 10),
+       st.integers(1, 5),
+       st.integers(1, 5),
+       st.integers(1, 5),
+       st.integers(1, 3),
+       st.sampled_from(integrators_multistep),
+       st.integers(2, 100),
+)
+@settings(max_examples=200, deadline=None)
+def test_ode_nonauto_multistep_inputs_shape(samples, nsteps_rollouts, nx, nu, hsize, nlayers, integrator, nsim):
+    # create input interpolator
+    t = (torch.arange(nsim)).unsqueeze(-1)
+    u = torch.sin(t).repeat(1, nu)
+    interp_u = interpolation.LinInterp_Offline(t, u)
+
+    # create NODE model
+    hsizes = [hsize for k in range(nlayers)]
+    fx = MLP(nx+nu, nx, bias=True, hsizes=hsizes, linear_map=slim.maps['linear'])
+    fx = integrator(fx, interp_u=interp_u, h=0.1)
+    fy = slim.maps['identity'](nx, nx)
+    model = dynamics.ODENonAuto_MultiStep(fx, fy, extra_inputs=['Uf'], name='neural_ode')
+
+    # test model
+    input_window_size = 4
+    output_window_size = 1
+    nsteps_p = input_window_size + nsteps_rollouts - 1
+    nsteps_f = output_window_size + nsteps_rollouts - 1
+    x = torch.rand(input_window_size, samples, nx)
+    Yp = torch.rand(nsteps_p, samples, nx)
+    Yf = torch.rand(nsteps_f, samples, nx)
+    U = torch.rand(nsteps_f, samples, nu)
+    Time = torch.rand(nsteps_rollouts, samples, 1)
+    data = {'x0': x, 'Yf': Yf, 'Yp':Yp, 'Time': Time, 'Uf':U}
+    output = model(data)
+
+    assert output[f'X_pred_{model.name}'].shape[0] == nsteps_f
+    assert output[f'X_pred_{model.name}'].shape[1] == samples
+    assert output[f'X_pred_{model.name}'].shape[2] == nx
+    assert output[f'Y_pred_{model.name}'].shape[0] == nsteps_f
+    assert output[f'Y_pred_{model.name}'].shape[1] == samples
+    assert output[f'Y_pred_{model.name}'].shape[2] == nx
+
+# TBC: multi_step dynamics for nonauto 

@@ -174,7 +174,6 @@ class BlockSSM(SSM):
                 y = self.xoyu(y, fyu)
             X.append(x)
             Y.append(y)
-
         tensor_lists = [X, Y, FU, FD, FE]
         tensor_lists = [t for t in tensor_lists if t]
         output = {name: torch.stack(tensor_list) for tensor_list, name
@@ -240,7 +239,6 @@ class BlackSSM(SSM):
                 y = self.xoyu(y, fyu)
             X.append(x)
             Y.append(y)
-
         tensor_lists = [X, Y, FE]
         tensor_lists = [t for t in tensor_lists if t]
         output = {name: torch.stack(tensor_list) for tensor_list, name
@@ -261,13 +259,58 @@ class BlackSSM(SSM):
         assert self.fx.out_features == self.fy.in_features, 'Output map must have same input size as output size of state transition'
 
 
+class ODEAuto(SSM):
+    DEFAULT_INPUT_KEYS = ["x0", "Yf"]
+    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
+
+    def __init__(self, fx, fy, name='dynamics', input_key_map={}):
+        """
+        State space model for solving autonomous ODEs w/ single-step integrators:
+
+        :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
+        :param fy: (nn.Module) Observation function
+        :param name: (str) Name for tracking output
+        :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
+        :param extra_inputs: (list of str) Input keys to be added to canonical input.
+        """
+        self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS
+
+        super().__init__(input_key_map, name)
+
+        self.fx, self.fy = fx, fy
+        self.nx, self.ny = self.fx.out_features, self.fy.out_features
+
+    def forward(self, data):
+        nsteps = data[self.input_key_map['Yf']].shape[0]
+        x = data[self.input_key_map['x0']]
+        X, Y = [], []
+        for i in range(nsteps):
+            x = self.fx(x)
+            y = self.fy(x)
+            X.append(x)
+            Y.append(y)
+        tensor_lists = [X, Y]
+        tensor_lists = [t for t in tensor_lists if t]
+        output = {name: torch.stack(tensor_list) for tensor_list, name
+                  in zip(tensor_lists, self.output_keys[1:])
+                  if tensor_list}
+        output[self.output_keys[0]] = self.reg_error()
+        return output
+
+    def reg_error(self):
+        """
+        :return: 0-dimensional torch.Tensor
+        """
+        return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
+
+
 class ODENonAuto(SSM):
     DEFAULT_INPUT_KEYS = ["x0", "Yf", "Time"]
     DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
 
     def __init__(self, fx, fy, name='dynamics', input_key_map={}, extra_inputs=[], online_flag=False):
         """
-        State space model for autonomous/non-autonomous ODE:
+        State space model for non-autonomous ODEs w/ single-step integrators:
 
         :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
         :param fy: (nn.Module) Observation function
@@ -277,9 +320,7 @@ class ODENonAuto(SSM):
         """
         self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + extra_inputs
         self.extra_inputs = extra_inputs
-
         super().__init__(input_key_map, name)
-
         self.fx, self.fy = fx, fy
         self.nx, self.ny = self.fx.out_features, self.fy.out_features
         self.online_flag = online_flag
@@ -320,13 +361,13 @@ class ODENonAuto(SSM):
         return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
 
 
-class ODEAuto(SSM):
-    DEFAULT_INPUT_KEYS = ["x0", "Yf"]
+class ODEAuto_MultiStep(ODEAuto):
+    DEFAULT_INPUT_KEYS = ["x0", "Yf", "Yp"]
     DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
 
     def __init__(self, fx, fy, name='dynamics', input_key_map={}):
         """
-        State space model for autonomous/non-autonomous ODE:
+        State space model for solving autonomous ODE w/ multi-step integrators:
 
         :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
         :param fy: (nn.Module) Observation function
@@ -335,21 +376,20 @@ class ODEAuto(SSM):
         :param extra_inputs: (list of str) Input keys to be added to canonical input.
         """
         self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS
-
-        super().__init__(input_key_map, name)
-
-        self.fx, self.fy = fx, fy
-        self.nx, self.ny = self.fx.out_features, self.fy.out_features
+        super().__init__(fx, fy, name, input_key_map)
 
     def forward(self, data):
-        nsteps = data[self.input_key_map['Yf']].shape[0]
-        x = data[self.input_key_map['x0']]
+        nsteps_p = data[self.input_key_map['Yp']].shape[0]
+        x_3D = data[self.input_key_map['x0']] 
         X, Y = [], []
-        for i in range(nsteps):
-            x = self.fx(x)
-            y = self.fy(x)
-            X.append(x)
+        input_window_size = x_3D.shape[0]
+        for i in range(nsteps_p - input_window_size + 1):
+            x_2D = self.fx(x_3D) # Now x_2D is the latest state, i.e. the prediction
+            y = self.fy(x_2D)            
+            X.append(x_2D)
             Y.append(y)
+            # circularly shift and overide the oldest state in the 3D input 
+            x_3D = torch.cat([x_3D[1:, :, :], torch.unsqueeze(x_2D, dim=0)], dim=0)
         tensor_lists = [X, Y]
         tensor_lists = [t for t in tensor_lists if t]
         output = {name: torch.stack(tensor_list) for tensor_list, name
@@ -358,12 +398,53 @@ class ODEAuto(SSM):
         output[self.output_keys[0]] = self.reg_error()
         return output
 
-    def reg_error(self):
+
+class ODENonAuto_MultiStep(ODENonAuto):
+    DEFAULT_INPUT_KEYS = ["x0", "Yf", "Yp", "Time"]
+    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
+
+    def __init__(self, fx, fy, name='dynamics', input_key_map={}, extra_inputs=[]):
+        """
+        State space model for solving non-autonomous ODE w/ multi-step integrators:
+
+        :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
+        :param fy: (nn.Module) Observation function
+        :param name: (str) Name for tracking output
+        :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
+        :param extra_inputs: (list of str) Input keys to be added to canonical input.
+        """
+        super().__init__(fx, fy, name, input_key_map=input_key_map,
+         extra_inputs=extra_inputs, online_flag=False) 
+        # No need for online interpolation because flow map evaluation only at grid point.
+
+    def forward(self, data):
         """
 
-        :return: 0-dimensional torch.Tensor
+        :param data:
+        :return:
         """
-        return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
+        nsteps_p = data[self.input_key_map['Yp']].shape[0]
+        x_3D = data[self.input_key_map['x0']] 
+        Time = data[self.input_key_map['Time']]  # (nsteps, # of batches, 1)
+        inputs = torch.cat([data[k] for k in self.extra_inputs], dim=-1) \
+            if len(self.extra_inputs) is not 0 else Time
+        X, Y = [], []
+        input_window_size = x_3D.shape[0]
+        for i in range(nsteps_p - input_window_size + 1): # nsteps: moving horizon
+            x_2D = self.fx(x_3D, inputs[i], Time[i]) # offline interpolation by default. No need for online interpolation because flow map evaluation only at grid point.
+            # Now x_2D is the latest state, i.e. the prediction
+            y = self.fy(x_2D)            
+            X.append(x_2D)
+            Y.append(y)
+            # circularly shift and overide the oldest state in the 3D input 
+            x_3D = torch.cat([x_3D[1:, :, :], torch.unsqueeze(x_2D, dim=0)], dim=0)
+        tensor_lists = [X, Y]
+        tensor_lists = [t for t in tensor_lists if t]
+        output = {name: torch.stack(tensor_list) for tensor_list, name
+                  in zip(tensor_lists, self.output_keys[1:])
+                  if tensor_list}
+        output[self.output_keys[0]] = self.reg_error()
+        return output
 
 
 class TimeDelayBlockSSM(BlockSSM):
@@ -448,7 +529,6 @@ class TimeDelayBlockSSM(BlockSSM):
             y = self.fy(x_delayed)
             X.append(x)
             Y.append(y)
-
         tensor_lists = [X, Y, FU, FD, FE]
         tensor_lists = [t for t in tensor_lists if t]
         output = {name: torch.stack(tensor_list) for tensor_list, name
@@ -521,7 +601,6 @@ class TimeDelayBlackSSM(BlackSSM):
             y = self.fy(x_delayed)
             X.append(x)
             Y.append(y)
-
         tensor_lists = [X, Y, FE]
         tensor_lists = [t for t in tensor_lists if t]
         output = {name: torch.stack(tensor_list) for tensor_list, name

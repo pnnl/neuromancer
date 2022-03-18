@@ -336,7 +336,7 @@ class Variable(nn.Module):
         data_tensors = [v for v in data.values() if isinstance(v, torch.Tensor)]
         if self.value is not None:
             if data_tensors:
-                self.value.to(data_tensors[0].device)
+                self.value = self.value.to(data_tensors[0].device)
             value = self.value
         elif self.op == 'add':
             value = self.left(data) + self.right(data)

@@ -374,12 +374,13 @@ class PosDef(nn.Module):
     Enforce positive-definiteness of lyapunov function ICNN, V = g(x)
     Equation 12 from https://arxiv.org/abs/2001.06116
     """
-    def __init__(self, g, eps=0.01, d=1.0):
+    def __init__(self, g, max=None, eps=0.01, d=1.0):
         """
 
         :param g: (nn.Module) An ICNN network
         :param eps: (float)
         :param d: (float)
+        :param max: (float)
         """
         super().__init__()
         self.g = g
@@ -389,11 +390,15 @@ class PosDef(nn.Module):
         self.eps = eps
         self.d = d
         self.smReLU = SmoothedReLU(self.d)
+        self.max = max
 
     def forward(self, x):
         shift_to_zero = self.smReLU(self.g(x) - self.g(self.zero))
         quad_psd = self.eps*(x**2).sum(1, keepdim=True)
-        return shift_to_zero + quad_psd
+        z = shift_to_zero + quad_psd
+        if self.max is not None:
+            z = z - torch.relu(z - self.max)
+        return z
 
 
 class PytorchRNN(nn.Module):

@@ -57,11 +57,10 @@ user@machine:~$ source activate neuromancer
 
 
 ###  Solving Dynamics Aware Economic Dispatch 
-Constructing a surrogate model of generator swing dynamics with a Koopman operator (KO) approach and leveraging differentiable predictive control to learn a solution map from forecast system loads to a schedule of 
-generation inputs that meets the loads at least cost.
+Constructing a surrogate model of generator swing dynamics with a Koopman operator (KO) approach and leveraging differentiable predictive control to learn a solution map from forecast system loads to a schedule of generation inputs that meets the loads at least cost.
 
 Implementation of the methods and results presented in the American Control Conference proceeding (accepted): [Koopman-based Differentiable Predictive Control for the
-Dynamics-Aware Economic Dispatch Problem](link).
+Dynamics-Aware Economic Dispatch Problem](https://arxiv.org/abs/2203.08984).
 
 
 
@@ -126,4 +125,15 @@ neuromancer/examples/DED
 
 4. Output of the DED-DPC model can be evaluated by running the script DED_DPC_sim.py 
 
+## Cite as
 
+```yaml
+@misc{King_DED_2022,
+      title={Koopman-based Differentiable Predictive Control for the Dynamics-Aware Economic Dispatch Problem}, 
+      author={Ethan King, Jan Drgona, Aaron Tuor, Shrirang Abhyankar, Craig Bakker, Arnab Bhattacharya, Draguna Vrabie},
+      year={2022},
+      eprint={arXiv:2203.08984},
+      archivePrefix={arXiv},
+      primaryClass={eess.SY}
+}
+```

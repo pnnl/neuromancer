@@ -56,7 +56,7 @@ user@machine:~$ source activate neuromancer
 ```
 
 
-###  Solving Dynamics Aware Economic Dispatch 
+##  Solving Dynamics Aware Economic Dispatch 
 Constructing a surrogate model of generator swing dynamics with a Koopman operator (KO) approach and leveraging differentiable predictive control to learn a solution map from forecast system loads to a schedule of generation inputs that meets the loads at least cost.
 
 Implementation of the methods and results presented in the American Control Conference proceeding (accepted): [Koopman-based Differentiable Predictive Control for the
@@ -125,7 +125,7 @@ neuromancer/examples/DED
 
 4. Output of the DED-DPC model can be evaluated by running the script DED_DPC_sim.py 
 
-## Cite as
+### Cite as
 
 ```yaml
 @misc{King_DED_2022,

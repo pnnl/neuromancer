@@ -12,6 +12,42 @@ from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.dataloader import default_collate
 
 
+class DictDataset(Dataset):
+    """
+    Basic dataset compatible with neuromancer Trainer
+    """
+
+    def __init__(self, datadict, name='train'):
+        """
+
+        :rtype: object
+        :param datadict: (dict {str: Tensor})
+        :param name: (str) Name of dataset
+        """
+        super().__init__()
+        self.datadict = datadict
+        lens = [v.shape[0] for v in datadict.values()]
+        assert len(set(lens)) == 1, 'Mismatched number of samples in dataset tensors'
+        self.length = lens[0]
+        self.name = name
+
+    def __getitem__(self, i):
+        """Fetch a single item from the dataset."""
+        return {k: v[i] for k, v in self.datadict.items()}
+
+    def __len__(self):
+        return self.length
+
+    def collate_fn(self, batch):
+        """Wraps the default PyTorch batch collation function and adds a name field.
+
+        :param batch: (dict str: torch.Tensor) dataset sample.
+        """
+        batch = default_collate(batch)
+        batch['name'] = self.name
+        return batch
+
+
 def _is_multisequence_data(data):
     return isinstance(data, list) and all([isinstance(x, dict) for x in data])
 

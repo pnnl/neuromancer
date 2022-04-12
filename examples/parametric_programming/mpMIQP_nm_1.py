@@ -25,8 +25,8 @@ import neuromancer.arg as arg
 from neuromancer.constraint import Variable
 from neuromancer.activations import activations
 from neuromancer.loggers import BasicLogger, MLFlowLogger
-from neuromancer.dataset import normalize_data, split_static_data, StaticDataset
-from neuromancer.loss import PenaltyLoss, BarrierLoss, AugmentedLagrangeLoss
+from neuromancer.dataset import get_static_dataloaders
+from neuromancer.loss import get_loss
 from neuromancer.solvers import GradientProjection
 from neuromancer.maps import ManyToMany
 from neuromancer import blocks
@@ -90,72 +90,6 @@ def arg_mpLP_problem(prefix=''):
     return parser
 
 
-def get_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
-    """This will generate dataloaders for a given dictionary of data.
-    Dataloaders are hard-coded for full-batch training to match NeuroMANCER's training setup.
-
-    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
-        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
-        computed over the number of sequences rather than their lengths.
-    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
-    :param split_ratio: (list float) percentage of data in train and development splits; see
-        function `split_sequence_data` for more info.
-    """
-
-    if norm_type is not None:
-        data, _ = normalize_data(data, norm_type)
-    train_data, dev_data, test_data = split_static_data(data, split_ratio)
-
-    train_data = StaticDataset(
-        train_data,
-        name="train",
-    )
-    dev_data = StaticDataset(
-        dev_data,
-        name="dev",
-    )
-    test_data = StaticDataset(
-        test_data,
-        name="test",
-    )
-
-    train_data = DataLoader(
-        train_data,
-        batch_size=len(train_data),
-        shuffle=False,
-        collate_fn=train_data.collate_fn,
-        num_workers=num_workers,
-    )
-    dev_data = DataLoader(
-        dev_data,
-        batch_size=len(dev_data),
-        shuffle=False,
-        collate_fn=dev_data.collate_fn,
-        num_workers=num_workers,
-    )
-    test_data = DataLoader(
-        test_data,
-        batch_size=len(test_data),
-        shuffle=False,
-        collate_fn=test_data.collate_fn,
-        num_workers=num_workers,
-    )
-
-    return (train_data, dev_data, test_data), train_data.dataset.dims
-
-
-def get_loss(objectives, constraints, train_data, args):
-    if args.loss == 'penalty':
-        loss = PenaltyLoss(objectives, constraints)
-    elif args.loss == 'barrier':
-        loss = BarrierLoss(objectives, constraints, barrier=args.barrier_type)
-    elif args.loss == 'augmented_lagrange':
-        optimizer_args = {'inner_loop': args.inner_loop, "eta": args.eta, 'sigma': args.sigma,
-                          'mu_init': args.mu_init, "mu_max": args.mu_max}
-        loss = AugmentedLagrangeLoss(objectives, constraints, train_data, **optimizer_args)
-    return loss
-
-
 if __name__ == "__main__":
     """
     # # #  optimization problem hyperparameters
@@ -174,7 +108,7 @@ if __name__ == "__main__":
     np.random.seed(args.data_seed)
     nsim = 9000  # number of datapoints: increase sample density for more robust results
     samples = {"p1": np.random.uniform(low=1.0, high=11.0, size=(nsim, 1))}
-    data, dims = get_dataloaders(samples)
+    data, dims = get_static_dataloaders(samples)
     train_data, dev_data, test_data = data
 
     """

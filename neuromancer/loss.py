@@ -271,3 +271,15 @@ losses = {'penalty': PenaltyLoss,
           'barrier': BarrierLoss,
           'augmented_lagrange': AugmentedLagrangeLoss}
 
+
+def get_loss(objectives, constraints, train_data, args):
+    if args.loss == 'penalty':
+        loss = PenaltyLoss(objectives, constraints, batch_second=args.batch_second)
+    elif args.loss == 'barrier':
+        loss = BarrierLoss(objectives, constraints,
+                           barrier=args.barrier_type, batch_second=args.batch_second)
+    elif args.loss == 'augmented_lagrange':
+        optimizer_args = {'inner_loop': args.inner_loop, "eta": args.eta, 'sigma': args.sigma,
+                          'mu_init': args.mu_init, "mu_max": args.mu_max}
+        loss = AugmentedLagrangeLoss(objectives, constraints, train_data, **optimizer_args)
+    return loss

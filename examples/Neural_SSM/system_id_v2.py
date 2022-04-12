@@ -37,9 +37,8 @@ from neuromancer.constraint import Loss
 from neuromancer.simulators import OpenLoopSimulator, MultiSequenceOpenLoopSimulator
 from neuromancer.callbacks import SysIDCallback
 from neuromancer.loggers import BasicLogger, MLFlowLogger
-from neuromancer.dataset import read_file, normalize_data, split_sequence_data, SequenceDataset
-from torch.utils.data import DataLoader
-from neuromancer.loss import PenaltyLoss, BarrierLoss
+from neuromancer.dataset import read_file, get_sequence_dataloaders
+from neuromancer.loss import get_loss
 from neuromancer.constraint import Variable
 
 
@@ -56,7 +55,7 @@ def arg_sys_id_problem(prefix='', system='CSTR'):
     #  DATA
     gp.add("-dataset", type=str, default=system,
            help="select particular dataset with keyword")
-    gp.add("-nsteps", type=int, default=32,
+    gp.add("-nsteps", type=int, default=12,
            help="prediction horizon.")
     gp.add("-nsim", type=int, default=10000,
            help="Number of time steps for full dataset. (ntrain + ndev + ntest)"
@@ -70,12 +69,12 @@ def arg_sys_id_problem(prefix='', system='CSTR'):
            help="Random seed used for simulated data")
     #  COMPONENTS
     gp.add("-ssm_type", type=str, choices=["blackbox", "hw", "hammerstein",
-                                "blocknlin", "linear"], default="hammerstein",
+                                "blocknlin", "linear"], default="blocknlin",
            help='Choice of block structure for system identification model')
     gp.add("-state_estimator", type=str, choices=["rnn", "mlp", "linear",
                             "residual_mlp", "fully_observable"], default="mlp",
            help='Choice of model architecture for state estimator.')
-    gp.add("-estimator_input_window", type=int, default=8,
+    gp.add("-estimator_input_window", type=int, default=6,
            help="Number of previous time steps measurements to include in state estimator input")
     gp.add("-nx_hidden", type=int, default=32,
            help="Number of hidden states per output")
@@ -126,7 +125,7 @@ def arg_sys_id_problem(prefix='', system='CSTR'):
            help="Step size for gradient descent.")
     gp.add("-patience", type=int, default=100,
            help="How many epochs to allow for no improvement in eval metric before early stopping.")
-    gp.add("-warmup", type=int, default=10,
+    gp.add("-warmup", type=int, default=100,
            help="Number of epochs to wait before enacting early stopping policy.")
     gp.add("-skip_eval_sim", action="store_true",
            help="Whether to run simulator during evaluation phase of training.")
@@ -141,74 +140,6 @@ def arg_sys_id_problem(prefix='', system='CSTR'):
     gp.add("-batch_second", default=True, choices=[True, False],
            help="whether the batch is a second dimension in the dataset.")
     return parser
-
-
-def get_sequence_dataloaders(
-    data, nsteps, moving_horizon=False, norm_type="zero-one", split_ratio=None, num_workers=0,
-):
-    """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
-    data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
-    training setup.
-
-    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
-        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
-        computed over the number of sequences rather than their lengths.
-    :param nsteps: (int) length of windowed subsequences for N-step training.
-    :param moving_horizon: (bool) whether to use moving horizon batching.
-    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
-    :param split_ratio: (list float) percentage of data in train and development splits; see
-        function `split_sequence_data` for more info.
-    """
-
-    data, _ = normalize_data(data, norm_type)
-    train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
-
-    train_data = SequenceDataset(
-        train_data,
-        nsteps=nsteps,
-        moving_horizon=moving_horizon,
-        name="train",
-    )
-    dev_data = SequenceDataset(
-        dev_data,
-        nsteps=nsteps,
-        moving_horizon=moving_horizon,
-        name="dev",
-    )
-    test_data = SequenceDataset(
-        test_data,
-        nsteps=nsteps,
-        moving_horizon=moving_horizon,
-        name="test",
-    )
-
-    train_loop = train_data.get_full_sequence()
-    dev_loop = dev_data.get_full_sequence()
-    test_loop = test_data.get_full_sequence()
-
-    train_data = DataLoader(
-        train_data,
-        batch_size=len(train_data),
-        shuffle=False,
-        collate_fn=train_data.collate_fn,
-        num_workers=num_workers,
-    )
-    dev_data = DataLoader(
-        dev_data,
-        batch_size=len(dev_data),
-        shuffle=False,
-        collate_fn=dev_data.collate_fn,
-        num_workers=num_workers,
-    )
-    test_data = DataLoader(
-        test_data,
-        batch_size=len(test_data),
-        shuffle=False,
-        collate_fn=test_data.collate_fn,
-        num_workers=num_workers,
-    )
-
-    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
 
 
 def get_model_components(args, dims, estim_name="estim", dynamics_name="dynamics"):
@@ -310,52 +241,7 @@ def get_objective_terms(args, dims, estimator, dynamics_model):
         observation_lower_bound_penalty,
         observation_upper_bound_penalty,
     ]
-
-    # dxudmin = -0.05
-    # dxudmax = 0.05
-    # if args.ssm_type != "blackbox":
-    #     if "U" in dims:
-    #         inputs_max_influence_lb = Loss(
-    #             [f"fU_{dynamics_model.name}"],
-    #             lambda x: torch.mean(F.relu(-x + dxudmin)),
-    #             weight=args.Q_con_fdu,
-    #             name="input_influence_lb",
-    #         )
-    #         inputs_max_influence_ub = Loss(
-    #             [f"fU_{dynamics_model.name}"],
-    #             lambda x: torch.mean(F.relu(x - dxudmax)),
-    #             weight=args.Q_con_fdu,
-    #             name="input_influence_ub",
-    #         )
-    #         constraints += [inputs_max_influence_lb, inputs_max_influence_ub]
-    #     if "D" in dims:
-    #         disturbances_max_influence_lb = Loss(
-    #             [f"fD_{dynamics_model.name}"],
-    #             lambda x: torch.mean(F.relu(-x + dxudmin)),
-    #             weight=args.Q_con_fdu,
-    #             name="dist_influence_lb",
-    #         )
-    #         disturbances_max_influence_ub = Loss(
-    #             [f"fD_{dynamics_model.name}"],
-    #             lambda x: torch.mean(F.relu(x - dxudmax)),
-    #             weight=args.Q_con_fdu,
-    #             name="dist_influence_ub",
-    #         )
-    #         constraints += [
-    #             disturbances_max_influence_lb,
-    #             disturbances_max_influence_ub,
-    #         ]
-
     return objectives, constraints
-
-
-def get_loss(objectives, constraints, args):
-    if args.loss == 'penalty':
-        loss = PenaltyLoss(objectives, constraints, batch_second=args.batch_second)
-    elif args.loss == 'barrier':
-        loss = BarrierLoss(objectives, constraints, barrier=args.barrier_type,
-                           batch_second=args.batch_second)
-    return loss
 
 
 if __name__ == "__main__":
@@ -387,7 +273,7 @@ if __name__ == "__main__":
     components = [estimator, dynamics_model]
     objectives, constraints = get_objective_terms(args, dims, estimator, dynamics_model)
     # create constrained optimization loss
-    loss = get_loss(objectives, constraints, args)
+    loss = get_loss(objectives, constraints, train_data, args)
     # construct constrained optimization problem
     problem = Problem(components, loss)
     # plot computational graph

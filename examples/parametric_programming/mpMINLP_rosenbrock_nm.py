@@ -26,10 +26,10 @@ import neuromancer.arg as arg
 from neuromancer.constraint import Variable
 from neuromancer.activations import activations
 from neuromancer.loggers import BasicLogger, MLFlowLogger
-from neuromancer.dataset import normalize_data, split_static_data, StaticDataset
-from neuromancer.loss import PenaltyLoss, BarrierLoss, AugmentedLagrangeLoss
+from neuromancer.dataset import get_static_dataloaders
+from neuromancer.loss import get_loss
 from neuromancer.solvers import GradientProjection
-from neuromancer.maps import ManyToMany
+from neuromancer.maps import Map
 from neuromancer import blocks
 from neuromancer.integers import IntegerCorrector
 
@@ -91,72 +91,6 @@ def arg_mpLP_problem(prefix=''):
     return parser
 
 
-def get_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
-    """This will generate dataloaders for a given dictionary of data.
-    Dataloaders are hard-coded for full-batch training to match NeuroMANCER's training setup.
-
-    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
-        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
-        computed over the number of sequences rather than their lengths.
-    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
-    :param split_ratio: (list float) percentage of data in train and development splits; see
-        function `split_sequence_data` for more info.
-    """
-
-    if norm_type is not None:
-        data, _ = normalize_data(data, norm_type)
-    train_data, dev_data, test_data = split_static_data(data, split_ratio)
-
-    train_data = StaticDataset(
-        train_data,
-        name="train",
-    )
-    dev_data = StaticDataset(
-        dev_data,
-        name="dev",
-    )
-    test_data = StaticDataset(
-        test_data,
-        name="test",
-    )
-
-    train_data = DataLoader(
-        train_data,
-        batch_size=len(train_data),
-        shuffle=False,
-        collate_fn=train_data.collate_fn,
-        num_workers=num_workers,
-    )
-    dev_data = DataLoader(
-        dev_data,
-        batch_size=len(dev_data),
-        shuffle=False,
-        collate_fn=dev_data.collate_fn,
-        num_workers=num_workers,
-    )
-    test_data = DataLoader(
-        test_data,
-        batch_size=len(test_data),
-        shuffle=False,
-        collate_fn=test_data.collate_fn,
-        num_workers=num_workers,
-    )
-
-    return (train_data, dev_data, test_data), train_data.dataset.dims
-
-
-def get_loss(objectives, constraints, train_data, args):
-    if args.loss == 'penalty':
-        loss = PenaltyLoss(objectives, constraints)
-    elif args.loss == 'barrier':
-        loss = BarrierLoss(objectives, constraints, barrier=args.barrier_type)
-    elif args.loss == 'augmented_lagrange':
-        optimizer_args = {'inner_loop': args.inner_loop, "eta": args.eta, 'sigma': args.sigma,
-                          'mu_init': args.mu_init, "mu_max": args.mu_max}
-        loss = AugmentedLagrangeLoss(objectives, constraints, train_data, **optimizer_args)
-    return loss
-
-
 if __name__ == "__main__":
     """
     # # #  optimization problem hyperparameters
@@ -177,28 +111,23 @@ if __name__ == "__main__":
     nsim = 20000  # number of datapoints: increase sample density for more robust results
     samples = {"a": np.random.uniform(low=0.2, high=2.2, size=(nsim, 1)),
                "p": np.random.uniform(low=2.0, high=6.0, size=(nsim, 1))}
-    data, dims = get_dataloaders(samples)
+    data, dims = get_static_dataloaders(samples)
     train_data, dev_data, test_data = data
 
     """
     # # #  mpNLP primal solution map architecture
     """
-    f1 = blocks.MLP(insize=2, outsize=1,
-                bias=True,
-                linear_map=slim.maps['linear'],
-                nonlin=activations['relu'],
-                hsizes=[args.nx_hidden] * args.n_layers)
-    f2 = blocks.MLP(insize=2, outsize=1,
-                bias=True,
-                linear_map=slim.maps['linear'],
-                nonlin=activations['relu'],
-                hsizes=[args.nx_hidden] * args.n_layers)
-    sol_map = ManyToMany([f1, f2],
+    func = blocks.MLP(insize=2, outsize=2,
+                    bias=True,
+                    linear_map=slim.maps['linear'],
+                    nonlin=activations['relu'],
+                    hsizes=[args.nx_hidden] * args.n_layers)
+    sol_map = Map(func,
             input_keys=["a", "p"],
-            output_keys=["x", "y"],
+            output_keys=["x"],
             name='primal_map')
 
-    integer_map = IntegerCorrector(input_keys=['x', 'y'],
+    integer_map = IntegerCorrector(input_keys=['x'],
                                    method='sawtooth',
                                    nsteps=1, stepsize=0.2,
                                    name='int_map')
@@ -207,8 +136,8 @@ if __name__ == "__main__":
     # # #  mpMINLP objective and constraints formulation in Neuromancer
     """
     # variables
-    x = Variable("x")
-    y = Variable("y")
+    x = Variable("x")[:, [0]]
+    y = Variable("x")[:, [1]]
     # sampled parameters
     p = Variable('p')
     a = Variable('a')
@@ -240,7 +169,7 @@ if __name__ == "__main__":
         components.append(integer_map)
 
     if args.proj_grad:  # use projected gradient update
-        project_keys = ["x", "y"]
+        project_keys = ["x"]
         projection = GradientProjection(constraints, input_keys=project_keys,
                                         num_steps=5, name='proj')
         components.append(projection)
@@ -297,7 +226,7 @@ if __name__ == "__main__":
     """
     MIQP Integer correction at inference
     """
-    int_map = IntegerCorrector(input_keys=['x', 'y'],
+    int_map = IntegerCorrector(input_keys=['x'],
                                    method='sawtooth',
                                    nsteps=1, stepsize=1.0,
                                    name='int_map')
@@ -345,8 +274,8 @@ if __name__ == "__main__":
     datapoint['p'] = torch.tensor([[p]])
     datapoint['name'] = "test"
     model_out = problem(datapoint)
-    x_nm = model_out['test_' + "x"][0, :].detach().numpy()
-    y_nm = model_out['test_' + "y"][0, :].detach().numpy()
+    x_nm = model_out['test_' + "x"][0, 0].detach().numpy()
+    y_nm = model_out['test_' + "x"][0, 1].detach().numpy()
     print(x_nm)
     print(y_nm)
     ax.plot(x_nm, y_nm, 'r*', markersize=10)

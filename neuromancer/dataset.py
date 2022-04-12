@@ -476,64 +476,6 @@ class SequenceDataset_MultiStep(Dataset):
         )
 
 
-def get_sequence_dataloaders_multistep(
-    data, nsteps_p, nsteps_f, moving_horizon=False, norm_type="zero-one", split_ratio=None, num_workers=0,
-):
-
-    #data, _ = normalize_data(data, norm_type)
-    train_data, dev_data, test_data = split_sequence_data(data, nsteps_p+nsteps_f, moving_horizon, split_ratio)
-    
-    train_data = SequenceDataset_MultiStep(
-        train_data,
-        nsteps_p=nsteps_p,
-        nsteps_f=nsteps_f,
-        moving_horizon=moving_horizon,
-        name="train",
-    )
-
-    dev_data = SequenceDataset_MultiStep(
-        dev_data,
-        nsteps_p=nsteps_p,
-        nsteps_f=nsteps_f,
-        moving_horizon=moving_horizon,
-        name="dev",
-    )
-    test_data = SequenceDataset_MultiStep(
-        test_data,
-        nsteps_p=nsteps_p,
-        nsteps_f=nsteps_f,
-        moving_horizon=moving_horizon,
-        name="test",
-    )
-
-    train_loop = train_data.get_full_sequence()
-    dev_loop = dev_data.get_full_sequence()
-    test_loop = test_data.get_full_sequence()
-
-    train_data = DataLoader(
-        train_data,
-        batch_size=len(train_data),
-        shuffle=False,
-        collate_fn=train_data.collate_fn,
-        num_workers=num_workers,
-    )
-    dev_data = DataLoader(
-        dev_data,
-        batch_size=len(dev_data),
-        shuffle=False,
-        collate_fn=dev_data.collate_fn,
-        num_workers=num_workers,
-    )
-    test_data = DataLoader(
-        test_data,
-        batch_size=len(test_data),
-        shuffle=False,
-        collate_fn=test_data.collate_fn,
-        num_workers=num_workers,
-    )
-
-    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
-
 
 class StaticDataset(Dataset):
     def __init__(
@@ -812,3 +754,184 @@ denorm_fns = {
     "zero-one": denormalize_01,
     "one-one": denormalize_11,
 }
+
+
+
+def get_static_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
+    """This will generate dataloaders for a given dictionary of data.
+    Dataloaders are hard-coded for full-batch training to match NeuroMANCER's training setup.
+
+    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
+        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
+        computed over the number of sequences rather than their lengths.
+    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
+    :param split_ratio: (list float) percentage of data in train and development splits; see
+        function `split_sequence_data` for more info.
+    """
+
+    if norm_type is not None:
+        data, _ = normalize_data(data, norm_type)
+    train_data, dev_data, test_data = split_static_data(data, split_ratio)
+
+    train_data = StaticDataset(
+        train_data,
+        name="train",
+    )
+    dev_data = StaticDataset(
+        dev_data,
+        name="dev",
+    )
+    test_data = StaticDataset(
+        test_data,
+        name="test",
+    )
+
+    train_data = DataLoader(
+        train_data,
+        batch_size=len(train_data),
+        shuffle=False,
+        collate_fn=train_data.collate_fn,
+        num_workers=num_workers,
+    )
+    dev_data = DataLoader(
+        dev_data,
+        batch_size=len(dev_data),
+        shuffle=False,
+        collate_fn=dev_data.collate_fn,
+        num_workers=num_workers,
+    )
+    test_data = DataLoader(
+        test_data,
+        batch_size=len(test_data),
+        shuffle=False,
+        collate_fn=test_data.collate_fn,
+        num_workers=num_workers,
+    )
+
+    return (train_data, dev_data, test_data), train_data.dataset.dims
+
+
+def get_sequence_dataloaders(
+    data, nsteps, moving_horizon=False, norm_type=None, split_ratio=None, num_workers=0,
+):
+    """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
+    data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
+    training setup.
+
+    :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
+        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
+        computed over the number of sequences rather than their lengths.
+    :param nsteps: (int) length of windowed subsequences for N-step training.
+    :param moving_horizon: (bool) whether to use moving horizon batching.
+    :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
+    :param split_ratio: (list float) percentage of data in train and development splits; see
+        function `split_sequence_data` for more info.
+    """
+    if norm_type is not None:
+        data, _ = normalize_data(data, norm_type)
+    train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
+
+    train_data = SequenceDataset(
+        train_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="train",
+    )
+    dev_data = SequenceDataset(
+        dev_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="dev",
+    )
+    test_data = SequenceDataset(
+        test_data,
+        nsteps=nsteps,
+        moving_horizon=moving_horizon,
+        name="test",
+    )
+
+    train_loop = train_data.get_full_sequence()
+    dev_loop = dev_data.get_full_sequence()
+    test_loop = test_data.get_full_sequence()
+
+    train_data = DataLoader(
+        train_data,
+        batch_size=len(train_data),
+        shuffle=False,
+        collate_fn=train_data.collate_fn,
+        num_workers=num_workers,
+    )
+    dev_data = DataLoader(
+        dev_data,
+        batch_size=len(dev_data),
+        shuffle=False,
+        collate_fn=dev_data.collate_fn,
+        num_workers=num_workers,
+    )
+    test_data = DataLoader(
+        test_data,
+        batch_size=len(test_data),
+        shuffle=False,
+        collate_fn=test_data.collate_fn,
+        num_workers=num_workers,
+    )
+
+    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
+
+
+def get_sequence_dataloaders_multistep(
+        data, nsteps_p, nsteps_f, moving_horizon=False, norm_type="zero-one", split_ratio=None, num_workers=0,
+):
+    # data, _ = normalize_data(data, norm_type)
+    train_data, dev_data, test_data = split_sequence_data(data, nsteps_p + nsteps_f, moving_horizon, split_ratio)
+
+    train_data = SequenceDataset_MultiStep(
+        train_data,
+        nsteps_p=nsteps_p,
+        nsteps_f=nsteps_f,
+        moving_horizon=moving_horizon,
+        name="train",
+    )
+
+    dev_data = SequenceDataset_MultiStep(
+        dev_data,
+        nsteps_p=nsteps_p,
+        nsteps_f=nsteps_f,
+        moving_horizon=moving_horizon,
+        name="dev",
+    )
+    test_data = SequenceDataset_MultiStep(
+        test_data,
+        nsteps_p=nsteps_p,
+        nsteps_f=nsteps_f,
+        moving_horizon=moving_horizon,
+        name="test",
+    )
+
+    train_loop = train_data.get_full_sequence()
+    dev_loop = dev_data.get_full_sequence()
+    test_loop = test_data.get_full_sequence()
+
+    train_data = DataLoader(
+        train_data,
+        batch_size=len(train_data),
+        shuffle=False,
+        collate_fn=train_data.collate_fn,
+        num_workers=num_workers,
+    )
+    dev_data = DataLoader(
+        dev_data,
+        batch_size=len(dev_data),
+        shuffle=False,
+        collate_fn=dev_data.collate_fn,
+        num_workers=num_workers,
+    )
+    test_data = DataLoader(
+        test_data,
+        batch_size=len(test_data),
+        shuffle=False,
+        collate_fn=test_data.collate_fn,
+        num_workers=num_workers,
+    )
+
+    return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims

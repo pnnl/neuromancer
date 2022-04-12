@@ -1,7 +1,5 @@
 # %%
 import torch
-import numpy as np
-import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 import slim
 import psl
@@ -14,25 +12,14 @@ from neuromancer.problem import Problem
 from neuromancer.simulators import OpenLoopSimulator, MultiSequenceOpenLoopSimulator
 from neuromancer.callbacks import SysIDCallback
 from neuromancer.loggers import BasicLogger, MLFlowLogger
-from neuromancer.dataset import read_file, normalize_data, split_sequence_data, SequenceDataset, get_sequence_dataloaders_multistep
+from neuromancer.dataset import get_sequence_dataloaders_multistep
 from neuromancer.constraint import Variable
-from neuromancer.loss import PenaltyLoss, BarrierLoss
-
-import numpy as np
-import matplotlib.pyplot as plt
+from neuromancer.loss import PenaltyLoss
 
 torch.manual_seed(0)
 
 # %%
 device = "cpu"
-
-# %%
-def get_loss(objectives, constraints, type):
-    if type == 'penalty':
-        loss = PenaltyLoss(objectives, constraints)
-    elif type == 'barrier':
-        loss = BarrierLoss(objectives, constraints)
-    return loss
 
 # %%
 """
@@ -98,7 +85,7 @@ objectives = [reference_loss, fd_loss]
 constraints = []
 components = [estim, dynamics_model]
 # create constrained optimization loss
-loss = get_loss(objectives, constraints, 'penalty')
+loss = PenaltyLoss(objectives, constraints, batch_second=True)
 # construct constrained optimization problem
 problem = Problem(components, loss)
 # plot computational graph

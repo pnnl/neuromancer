@@ -221,10 +221,10 @@ if __name__ == "__main__":
     CVXPY benchmark
     """
     # Define and solve the CVXPY problem.
-    x = cp.Variable(1)
-    y = cp.Variable(1)
+    x = cp.Variable(1, integer=True)
+    y = cp.Variable(1, integer=True)
     p1 = 10.0  # problem parameter
-    def QP_param(p1):
+    def MIQP_param(p1):
         prob = cp.Problem(cp.Minimize(x ** 2 + y ** 2),
                           [-x - y + p1 <= 0])
         return prob
@@ -271,9 +271,9 @@ if __name__ == "__main__":
                  path_effects=[patheffects.withTickedStroke()], alpha=0.7)
         fig.colorbar(cp_plot, ax=ax[row_id, column_id])
 
-        # Solve QP
-        prob = QP_param(p)
-        prob.solve()
+        # Solve MIQP via CVXPY
+        prob = MIQP_param(p)
+        prob.solve(solver='ECOS_BB', verbose=True)
 
         # Solve MIQP via neuromancer
         datapoint = {}

@@ -230,11 +230,11 @@ if __name__ == "__main__":
     CVXPY benchmark
     """
     # Define and solve the CVXPY problem.
-    x = cp.Variable(1)
-    y = cp.Variable(1)
+    x = cp.Variable(1, integer=True)
+    y = cp.Variable(1, integer=True)
     p1 = 10.0  # problem parameter
 
-    def LP_param(p1, p2):
+    def MILP_param(p1, p2):
         prob = cp.Problem(cp.Minimize(x + 2*y),
                           [-x - y + p1 <= 0,
                            x + y - p1 - 5 <= 0,
@@ -296,8 +296,8 @@ if __name__ == "__main__":
         fig.colorbar(cp_plot, ax=ax[row_id, column_id])
 
         # Solve LP
-        prob = LP_param(p, p)
-        prob.solve()
+        prob = MILP_param(p, p)
+        prob.solve(solver='ECOS_BB', verbose=True)
 
         # Solve MILP via neuromancer
         datapoint = {}

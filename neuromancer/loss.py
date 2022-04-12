@@ -273,6 +273,8 @@ losses = {'penalty': PenaltyLoss,
 
 
 def get_loss(objectives, constraints, train_data, args):
+    if not hasattr(args, 'batch_second'):
+        args.batch_second = False
     if args.loss == 'penalty':
         loss = PenaltyLoss(objectives, constraints, batch_second=args.batch_second)
     elif args.loss == 'barrier':

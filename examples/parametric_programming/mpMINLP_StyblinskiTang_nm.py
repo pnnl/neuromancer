@@ -1,13 +1,13 @@
 """
-Solve the Rosenbrock problem, formulated as the NLP using Neuromancer toolbox:
-minimize     (1-x)^2 + a*(y-x^2)^2
+Solve the Styblinski–Tang problem, formulated as the NLP using Neuromancer toolbox:
+minimize     x**4 -15*x**2 + 5*x + y**4 -15*y**2 + 5*y
 subject to   (p/2)^2 <= x^2 + y^2 <= p^2
              x>=y
 
 problem parameters:             a, p
-problem decition variables:     x, y
+problem decition variables:     x, y \in Z
 
-https://en.wikipedia.org/wiki/Rosenbrock_function
+https://en.wikipedia.org/wiki/Test_functions_for_optimization
 """
 
 
@@ -19,7 +19,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
 import cvxpy as cp
 import numpy as np
-from casadi import *
 
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
@@ -32,6 +31,7 @@ from neuromancer.loss import get_loss
 from neuromancer.solvers import GradientProjection
 from neuromancer.maps import Map
 from neuromancer import blocks
+from neuromancer.integers import IntegerCorrector
 
 
 def arg_mpLP_problem(prefix=''):
@@ -84,6 +84,10 @@ def arg_mpLP_problem(prefix=''):
            help="inner loop in augmented lagrangian")
     gp.add("-proj_grad", default=False, choices=[True, False],
            help="Whether to use projected gradient update or not.")
+    gp.add("-train_integer", default=False, choices=[True, False],
+           help="Whether to use integer update during training or not.")
+    gp.add("-inference_integer", default=True, choices=[True, False],
+           help="Whether to use integer update during inference or not.")
     return parser
 
 
@@ -105,8 +109,8 @@ if __name__ == "__main__":
     #  theta_samples.min() <= theta <= theta_samples.max()
     np.random.seed(args.data_seed)
     nsim = 20000  # number of datapoints: increase sample density for more robust results
-    samples = {"a": np.random.uniform(low=0.2, high=1.5, size=(nsim, 1)),
-               "p": np.random.uniform(low=0.5, high=2.0, size=(nsim, 1))}
+    samples = {"a": np.random.uniform(low=0.2, high=2.2, size=(nsim, 1)),
+               "p": np.random.uniform(low=0.0, high=5.0, size=(nsim, 1))}
     data, dims = get_static_dataloaders(samples)
     train_data, dev_data, test_data = data
 
@@ -122,8 +126,14 @@ if __name__ == "__main__":
             input_keys=["a", "p"],
             output_keys=["x"],
             name='primal_map')
+
+    integer_map = IntegerCorrector(input_keys=['x'],
+                                   method='sawtooth',
+                                   nsteps=1, stepsize=0.2,
+                                   name='int_map')
+
     """
-    # # #  mpNLP objective and constraints formulation in Neuromancer
+    # # #  mpMINLP objective and constraints formulation in Neuromancer
     """
     # variables
     x = Variable("x")[:, [0]]
@@ -133,19 +143,13 @@ if __name__ == "__main__":
     a = Variable('a')
 
     # objective function
-    f = (1-x)**2 + a*(y-x**2)**2
+    f = x**4 -15*x**2 + 5*x + y**4 -15*y**2 + 5*y
     obj = f.minimize(weight=args.Q, name='obj')
 
     # constraints
     con_1 = (x >= y)
     con_2 = ((p/2)**2 <= x**2+y**2)
     con_3 = (x**2+y**2 <= p**2)
-    # g1 = y - x
-    # con_1 = (g1 <= 0)
-    # g2 = -x**2-y**2 - (p/2)**2
-    # con_2 = (g2 <= 0)
-    # g3 = x**2+y**2 - p**2
-    # con_3 = (g3 <= 0)
     con_1.name = 'c1'
     con_2.name = 'c2'
     con_3.name = 'c3'
@@ -154,6 +158,9 @@ if __name__ == "__main__":
     objectives = [obj]
     constraints = [args.Q_con*con_1, args.Q_con*con_2, args.Q_con*con_3]
     components = [sol_map]
+
+    if args.train_integer:  # MINLP = use integer correction update during training
+        components.append(integer_map)
 
     if args.proj_grad:  # use projected gradient update
         project_keys = ["x"]
@@ -171,7 +178,7 @@ if __name__ == "__main__":
     """
     # # # Metrics and Logger
     """
-    args.savedir = 'test_mpNLP_Rosebnrock'
+    args.savedir = 'test_mpMINLP_Himmelblau'
     args.verbosity = 1
     metrics = ["train_loss", "train_obj", "train_mu_scaled_penalty_loss", "train_con_lagrangian",
                "train_mu", "train_c1", "train_c2", "train_c3"]
@@ -180,7 +187,7 @@ if __name__ == "__main__":
     elif args.logger == 'mlflow':
         Logger = MLFlowLogger
     logger = Logger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'mpmpNLP_Rosebnrock'
+    logger.args.system = 'mpmpMINLP_Himmelblau'
 
     """
     # # #  mpQP problem solution in Neuromancer
@@ -209,50 +216,48 @@ if __name__ == "__main__":
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
 
-    """
-    CasADi benchmark
-    """
-    # selected parameters
-    p = 1.0
-    a = 1.0
 
-    # instantiate casadi optimizaiton problem class
-    opti = casadi.Opti()
-    # define variables
-    x = opti.variable()
-    y = opti.variable()
-    # define objective and constraints
-    opti.minimize((1 - x) ** 2 + a * (y - x ** 2) ** 2)
-    opti.subject_to(x >= y)
-    opti.subject_to((p / 2) ** 2 <= x ** 2 + y ** 2)
-    opti.subject_to(x ** 2 + y ** 2 <= p ** 2)
-    # select IPOPT solver and solve the NLP
-    opti.solver('ipopt')
-    sol = opti.solve()
-    print(sol.value(x))
-    print(sol.value(y))
+    """
+    MIQP Integer correction at inference
+    """
+    int_map = IntegerCorrector(input_keys=['x'],
+                                   method='sawtooth',
+                                   nsteps=1, stepsize=1.0,
+                                   name='int_map')
+    if args.inference_integer:
+        if args.train_integer:
+            problem.components[1] = int_map
+        else:
+            problem.components.append(int_map)
 
     """
     Plots
     """
+    # parameters
+    p = 4.0
     a = 1.0
-    p = 1.0
-    x1 = np.arange(-0.5, 1.5, 0.02)
-    y1 = np.arange(-0.5, 1.5, 0.02)
+
+    plt.rc('axes', titlesize=14)  # fontsize of the title
+    plt.rc('axes', labelsize=14)  # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=14)  # fontsize of the x tick labels
+    plt.rc('ytick', labelsize=14)  # fontsize of the y tick labels
+
+    x1 = np.arange(-5., 5., 0.02)
+    y1 = np.arange(-5., 5., 0.02)
     xx, yy = np.meshgrid(x1, y1)
 
     # eval objective and constraints
-    J = (1 - xx) ** 2 + a * (yy - xx ** 2) ** 2
+    J = xx**4 -15*xx**2 + 5*xx + yy**4 -15*yy**2 + 5*yy
     c1 = xx - yy
     c2 = xx ** 2 + yy ** 2 - (p / 2) ** 2
     c3 = -(xx ** 2 + yy ** 2) + p ** 2
 
     fig, ax = plt.subplots(1, 1)
-    cp = ax.contourf(xx, yy, J,
-                     levels=[0, 0.05, 0.2, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0],
-                     alpha=0.6)
+    levels = [-150, -120, -100, -80, -40, 0, 50, 150, 300, 600]
+    cp = ax.contour(xx, yy, J, levels=levels, alpha=0.4, linewidths=2)
+    cp = ax.contourf(xx, yy, J, levels=levels, alpha=0.4)
+
     fig.colorbar(cp)
-    ax.set_title('Rosenbrock problem')
     cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
     plt.setp(cg1.collections,
              path_effects=[patheffects.withTickedStroke()], alpha=0.7)
@@ -263,7 +268,7 @@ if __name__ == "__main__":
     plt.setp(cg3.collections,
              path_effects=[patheffects.withTickedStroke()], alpha=0.7)
 
-    # Solution to mpNLP via Neuromancer
+    # Solution to mpMINLP via trained map
     datapoint = {}
     datapoint['a'] = torch.tensor([[a]])
     datapoint['p'] = torch.tensor([[p]])
@@ -273,7 +278,13 @@ if __name__ == "__main__":
     y_nm = model_out['test_' + "x"][0, 1].detach().numpy()
     print(x_nm)
     print(y_nm)
+    ax.plot(x_nm, y_nm, 'r*', markersize=20)
 
-    # optimal points CasADi vs Neuromancer
-    ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10)
-    ax.plot(x_nm, y_nm, 'r*', markersize=10)
+    # Plot admissible integer solutions
+    x_int = np.arange(-5., 6., 1.0)
+    y_int = np.arange(-5., 6., 1.0)
+    xx, yy = np.meshgrid(x_int, y_int)
+    ax.plot(xx, yy, 'bo', markersize=3.5)
+    ax.set_xlim(-5.0, 5.0)
+    ax.set_ylim(-5.0, 5.0)
+    fig.tight_layout()

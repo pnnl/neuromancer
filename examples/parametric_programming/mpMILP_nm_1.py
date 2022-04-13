@@ -25,7 +25,7 @@ from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.dataset import get_static_dataloaders
 from neuromancer.loss import get_loss
 from neuromancer.solvers import GradientProjection
-from neuromancer.maps import ManyToMany
+from neuromancer.maps import Map
 from neuromancer import blocks
 from neuromancer.integers import IntegerCorrector
 
@@ -112,22 +112,17 @@ if __name__ == "__main__":
     """
     # # #  mpQP primal solution map architecture
     """
-    f1 = blocks.MLP(insize=2, outsize=1,
-                bias=True,
-                linear_map=slim.maps['linear'],
-                nonlin=activations['relu'],
-                hsizes=[args.nx_hidden] * args.n_layers)
-    f2 = blocks.MLP(insize=2, outsize=1,
-                bias=True,
-                linear_map=slim.maps['linear'],
-                nonlin=activations['relu'],
-                hsizes=[args.nx_hidden] * args.n_layers)
-    sol_map = ManyToMany([f1, f2],
+    func = blocks.MLP(insize=2, outsize=2,
+                    bias=True,
+                    linear_map=slim.maps['linear'],
+                    nonlin=activations['relu'],
+                    hsizes=[args.nx_hidden] * args.n_layers)
+    sol_map = Map(func,
             input_keys=["p1", "p2"],
-            output_keys=["x", "y"],
+            output_keys=["x"],
             name='primal_map')
 
-    integer_map = IntegerCorrector(input_keys=['x', 'y'],
+    integer_map = IntegerCorrector(input_keys=['x'],
                                    method='sawtooth',
                                    nsteps=1, stepsize=0.2,
                                    name='int_map')
@@ -136,8 +131,8 @@ if __name__ == "__main__":
     # # #  mpQP objective and constraints formulation in Neuromancer
     """
     # variables
-    x = Variable("x")
-    y = Variable("y")
+    x = Variable("x")[:, [0]]
+    y = Variable("x")[:, [1]]
     # sampled parameters
     p1 = Variable('p1')
     p2 = Variable('p2')
@@ -160,7 +155,7 @@ if __name__ == "__main__":
     con_4.name = 'c4'
 
     """
-    # # #  mpMIQP problem formulation in Neuromancer
+    # # #  mpMILP problem formulation in Neuromancer
     """
     # list of objectives, constraints, and components (solution maps)
     objectives = [obj]
@@ -172,7 +167,7 @@ if __name__ == "__main__":
         components.append(integer_map)
 
     if args.proj_grad:  # use projected gradient update
-        project_keys = ["x", "y"]
+        project_keys = ["x"]
         projection = GradientProjection(constraints, project_keys)
         components.append(projection)
 
@@ -186,7 +181,7 @@ if __name__ == "__main__":
     """
     # # # Metrics and Logger
     """
-    args.savedir = 'test_mpMILP_2'
+    args.savedir = 'test_mpMILP'
     args.verbosity = 1
     metrics = ["train_loss", "train_obj", "train_mu_scaled_penalty_loss", "train_con_lagrangian",
                "train_mu", "train_c1"]
@@ -195,7 +190,7 @@ if __name__ == "__main__":
     elif args.logger == 'mlflow':
         Logger = MLFlowLogger
     logger = Logger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'mpMILP_2'
+    logger.args.system = 'mpMILP'
 
 
     """
@@ -243,9 +238,9 @@ if __name__ == "__main__":
         return prob
 
     """
-    MIQP Integer correction at inference
+    MILP Integer correction at inference
     """
-    int_map = IntegerCorrector(input_keys=['x', 'y'],
+    int_map = IntegerCorrector(input_keys=['x'],
                                    method='sawtooth',
                                    nsteps=1, stepsize=1.0,
                                    name='int_map')
@@ -258,13 +253,82 @@ if __name__ == "__main__":
     """
     Plots
     """
-    # test problem parameters
+    # # # single plot  # # #
+    plt.rc('axes', titlesize=14)  # fontsize of the title
+    plt.rc('axes', labelsize=14)  # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=14)  # fontsize of the x tick labels
+    plt.rc('ytick', labelsize=14)  # fontsize of the y tick labels
+
+    p = 3.0
+    x1 = np.arange(-2.0, 10.0, 0.05)
+    y1 = np.arange(-2.0, 10.0, 0.05)
+    xx, yy = np.meshgrid(x1, y1)
+
+    # eval objective and constraints
+    J = xx + 2 * yy
+    c1 = xx + yy - p
+    c2 = -xx - yy + p + 5
+    c3 = -xx + yy - p + 5
+    c4 = xx - yy + p
+
+    fig, ax = plt.subplots(1, 1)
+    # Plot constraints and loss contours
+    levels = [-6, -3, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30]
+    cp_plot = ax.contour(xx, yy, J, levels=levels, alpha=0.4)
+    cp_plot = ax.contourf(xx, yy, J, levels=levels, alpha=0.4)
+    cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
+    cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
+    cg3 = ax.contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
+    cg4 = ax.contour(xx, yy, c4, [0], colors='mediumblue', alpha=0.7)
+    plt.setp(cg1.collections,
+             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+    plt.setp(cg2.collections,
+             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+    plt.setp(cg3.collections,
+             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+    plt.setp(cg4.collections,
+             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+    fig.colorbar(cp_plot)
+
+    # Solve MIQP via neuromancer
+    datapoint = {}
+    datapoint['p1'] = torch.tensor([[p]])
+    datapoint['p2'] = torch.tensor([[p]])
+    datapoint['name'] = "test"
+    model_out = problem(datapoint)
+    x_nm = model_out['test_' + "x"][0, 0].detach().numpy()
+    y_nm = model_out['test_' + "x"][0, 1].detach().numpy()
+
+    print(f'primal solution MIQP x={x.value}, y={y.value}')
+    print(f'parameter p={p}')
+    print(f'primal solution DPP x1={x_nm}, x2={y_nm}')
+    print(f' f: {model_out["test_" + f.key]}')
+    print(f' g1: {model_out["test_" + g1.key]}')
+
+    # Plot optimal solutions
+    # ax.plot(x.value, y.value, 'g*', markersize=10)
+    ax.plot(x_nm, y_nm, 'r*', markersize=20)
+    # Plot admissible integer solutions
+    x_int = np.arange(-2.0, 10.0, 1.0)
+    y_int = np.arange(-2.0, 10.0, 1.0)
+    xx, yy = np.meshgrid(x_int, y_int)
+    ax.plot(xx, yy, 'bo', markersize=3.5)
+    ax.set_ylim(-2.0, 8.0)
+    ax.set_xlim(-2.0, 8.0)
+    fig.tight_layout()
+
+
+    # # #  test set of problem parameters  # # #
+    plt.rc('axes', titlesize=10)  # fontsize of the title
+    plt.rc('axes', labelsize=10)  # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=10)  # fontsize of the x tick labels
+    plt.rc('ytick', labelsize=10)  # fontsize of the y tick labels
+
     params = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-    p = 10.0
     x1 = np.arange(-1.0, 10.0, 0.05)
     y1 = np.arange(-1.0, 10.0, 0.05)
     xx, yy = np.meshgrid(x1, y1)
-    fig, ax = plt.subplots(3,3)
+    fig, ax = plt.subplots(3, 3)
     row_id = 0
     column_id = 0
     for i, p in enumerate(params):
@@ -305,8 +369,8 @@ if __name__ == "__main__":
         datapoint['p2'] = torch.tensor([[p]])
         datapoint['name'] = "test"
         model_out = problem(datapoint)
-        x_nm = model_out['test_' + "x"][0, :].detach().numpy()
-        y_nm = model_out['test_' + "y"][0, :].detach().numpy()
+        x_nm = model_out['test_' + "x"][0, 0].detach().numpy()
+        y_nm = model_out['test_' + "x"][0, 1].detach().numpy()
 
         print(f'primal solution MILP x={x.value}, y={y.value}')
         print(f'parameter p={p}')

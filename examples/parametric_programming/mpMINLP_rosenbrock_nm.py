@@ -239,10 +239,17 @@ if __name__ == "__main__":
     """
     Plots
     """
+    # parameters
     a = 0.8
     p = 4.0
-    x1 = np.arange(-5., 6., 0.02)
-    y1 = np.arange(-5., 6., 0.02)
+
+    plt.rc('axes', titlesize=14)  # fontsize of the title
+    plt.rc('axes', labelsize=14)  # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=14)  # fontsize of the x tick labels
+    plt.rc('ytick', labelsize=14)  # fontsize of the y tick labels
+
+    x1 = np.arange(-5., 5., 0.02)
+    y1 = np.arange(-5., 5., 0.02)
     xx, yy = np.meshgrid(x1, y1)
 
     # eval objective and constraints
@@ -251,13 +258,13 @@ if __name__ == "__main__":
     c2 = xx ** 2 + yy ** 2 - (p / 2) ** 2
     c3 = -(xx ** 2 + yy ** 2) + p ** 2
 
+    levels = [0, 0.1, 0.5, 1.0, 2.0, 5.0,
+             10., 20., 50., 100., 200.]
     fig, ax = plt.subplots(1, 1)
-    cp = ax.contourf(xx, yy, J,
-                     levels=[0, 0.05, 0.2, 0.5, 1.0, 2.0, 4.0, 7.0,
-                             10., 20., 30., 50., 70., 100., 150., 200.],
-                     alpha=0.6)
+    cp = ax.contour(xx, yy, J, levels=levels, alpha=0.4, linewidths=2)
+    cp = ax.contourf(xx, yy, J, levels=levels, alpha=0.4)
+
     fig.colorbar(cp)
-    ax.set_title('mpMINLP Rosenbrock problem')
     cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
     plt.setp(cg1.collections,
              path_effects=[patheffects.withTickedStroke()], alpha=0.7)
@@ -278,10 +285,13 @@ if __name__ == "__main__":
     y_nm = model_out['test_' + "x"][0, 1].detach().numpy()
     print(x_nm)
     print(y_nm)
-    ax.plot(x_nm, y_nm, 'r*', markersize=10)
+    ax.plot(x_nm, y_nm, 'r*', markersize=20)
 
     # Plot admissible integer solutions
     x_int = np.arange(-5., 6., 1.0)
     y_int = np.arange(-5., 6., 1.0)
     xx, yy = np.meshgrid(x_int, y_int)
-    ax.plot(xx, yy, 'bo', markersize=2)
+    ax.plot(xx, yy, 'bo', markersize=3.5)
+    ax.set_xlim(-5.0, 5.0)
+    ax.set_ylim(-5.0, 5.0)
+    fig.tight_layout()

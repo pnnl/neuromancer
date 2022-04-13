@@ -1,13 +1,13 @@
 """
-Solve the Rosenbrock problem, formulated as the NLP using Neuromancer toolbox:
-minimize     (1-x)^2 + a*(y-x^2)^2
+Solve the Gomez and Levy function problem, formulated as the NLP using Neuromancer toolbox:
+minimize     4*x**2 - 2.1*x**4 + 1/3*x**6 + x*y - 4*y**2 + 4*y**4
 subject to   (p/2)^2 <= x^2 + y^2 <= p^2
              x>=y
 
 problem parameters:             a, p
 problem decition variables:     x, y
 
-https://en.wikipedia.org/wiki/Rosenbrock_function
+https://en.wikipedia.org/wiki/Test_functions_for_optimization
 """
 
 
@@ -133,19 +133,13 @@ if __name__ == "__main__":
     a = Variable('a')
 
     # objective function
-    f = (1-x)**2 + a*(y-x**2)**2
+    f = 4*x**2 - 2.1*x**4 + 1/3*x**6 + x*y - 4*y**2 + 4*y**4
     obj = f.minimize(weight=args.Q, name='obj')
 
     # constraints
     con_1 = (x >= y)
     con_2 = ((p/2)**2 <= x**2+y**2)
     con_3 = (x**2+y**2 <= p**2)
-    # g1 = y - x
-    # con_1 = (g1 <= 0)
-    # g2 = -x**2-y**2 - (p/2)**2
-    # con_2 = (g2 <= 0)
-    # g3 = x**2+y**2 - p**2
-    # con_3 = (g3 <= 0)
     con_1.name = 'c1'
     con_2.name = 'c2'
     con_3.name = 'c3'
@@ -213,7 +207,7 @@ if __name__ == "__main__":
     CasADi benchmark
     """
     # selected parameters
-    p = 1.0
+    p = 4.0
     a = 1.0
 
     # instantiate casadi optimizaiton problem class
@@ -222,7 +216,7 @@ if __name__ == "__main__":
     x = opti.variable()
     y = opti.variable()
     # define objective and constraints
-    opti.minimize((1 - x) ** 2 + a * (y - x ** 2) ** 2)
+    opti.minimize(4*x**2 - 2.1*x**4 + 1/3*x**6 + x*y - 4*y**2 + 4*y**4)
     opti.subject_to(x >= y)
     opti.subject_to((p / 2) ** 2 <= x ** 2 + y ** 2)
     opti.subject_to(x ** 2 + y ** 2 <= p ** 2)
@@ -235,22 +229,20 @@ if __name__ == "__main__":
     """
     Plots
     """
-    a = 1.0
-    p = 1.0
-    x1 = np.arange(-0.5, 1.5, 0.02)
-    y1 = np.arange(-0.5, 1.5, 0.02)
+    x1 = np.arange(-5., 5., 0.02)
+    y1 = np.arange(-5., 5., 0.02)
     xx, yy = np.meshgrid(x1, y1)
 
     # eval objective and constraints
-    J = (1 - xx) ** 2 + a * (yy - xx ** 2) ** 2
+    J = 4*xx**2 - 2.1*xx**4 + 1/3*xx**6 + xx*yy - 4*yy**2 + 4*yy**4
     c1 = xx - yy
     c2 = xx ** 2 + yy ** 2 - (p / 2) ** 2
     c3 = -(xx ** 2 + yy ** 2) + p ** 2
 
     fig, ax = plt.subplots(1, 1)
-    cp = ax.contourf(xx, yy, J,
-                     levels=[0, 0.05, 0.2, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0],
-                     alpha=0.6)
+    levels = [-5, -1., -0.5, -0.1, 0.0, 0.1, 0.5, 1, 2, 3, 4, 5, 7, 10, 20, 50,
+              100, 300, 1000, 3000, 6000]
+    cp = ax.contourf(xx, yy,  J, levels=levels, alpha=0.6)
     fig.colorbar(cp)
     ax.set_title('Rosenbrock problem')
     cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)

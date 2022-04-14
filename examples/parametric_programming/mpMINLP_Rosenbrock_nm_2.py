@@ -84,7 +84,7 @@ def arg_mpLP_problem(prefix=''):
            help="inner loop in augmented lagrangian")
     gp.add("-proj_grad", default=False, choices=[True, False],
            help="Whether to use projected gradient update or not.")
-    gp.add("-train_integer", default=False, choices=[True, False],
+    gp.add("-train_integer", default=True, choices=[True, False],
            help="Whether to use integer update during training or not.")
     gp.add("-inference_integer", default=True, choices=[True, False],
            help="Whether to use integer update during inference or not.")
@@ -128,7 +128,7 @@ if __name__ == "__main__":
 
     integer_map = IntegerCorrector(input_keys=['x'],
                                    method='sawtooth',
-                                   nsteps=1, stepsize=0.2,
+                                   nsteps=1, stepsize=0.8,
                                    name='int_map')
 
     """

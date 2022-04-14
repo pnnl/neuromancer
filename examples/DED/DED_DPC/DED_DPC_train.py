@@ -224,6 +224,35 @@ StO_map = sv_model.components[1]
 dynamics_model = sv_model.components[2]
 
 
+#freeze the model weights
+
+fxud = dynamics_model.fxud
+for parma in fxud.parameters():
+    parma.requires_grad = False
+fxud.device = device
+
+fxud.KO.device = device
+for parma in fxud.KO.parameters():
+    parma.requires_grad = False
+
+fpsi = dynamics_model.fpsi 
+for parma in fpsi.parameters():
+    parma.requires_grad = False
+fpsi.device = device
+
+for parma in estimator.parameters():
+    parma.requires_grad = False
+estimator.to(device)
+
+for parma in StO_map.parameters():
+    parma.requires_grad = False
+
+for parma in StO_map.fpsi.parameters():
+    parma.requires_grad = False
+
+StO_map.to(device)
+
+
 
 '''
 ##############################
@@ -245,6 +274,23 @@ cnv_fn.to(device)
 
 policy = Forecast_Policy(cnv_fn,input_keys={f"psi_0_{StO_map.name}": "x0"} ) #control policy component
 policy.to(device)
+
+
+
+
+
+'''
+##############################
+### Update the Model Dynamics To Use the Control Policy Function
+###############################
+'''
+
+from neuromancer.DED import KoopmanUpdateModel
+
+
+dynamics_model = KoopmanUpdateModel(fxud,fpsi,input_keys={f"psi_0_{StO_map.name}": "x0", "U_pred_policy" : "Uf"})
+
+
 
 
 

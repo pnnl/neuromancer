@@ -35,7 +35,7 @@ class GradientProjection(Component):
         self.step_size = step_size
         self.input_keys = input_keys
         self.batch_second = batch_second
-        self._constraints_check()
+        # self._constraints_check()
 
     def _constraints_check(self):
         """

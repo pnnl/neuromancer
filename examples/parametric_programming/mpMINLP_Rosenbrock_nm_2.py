@@ -31,7 +31,7 @@ from neuromancer.loss import get_loss
 from neuromancer.solvers import GradientProjection
 from neuromancer.maps import Map
 from neuromancer import blocks
-from neuromancer.integers import IntegerCorrector
+from neuromancer.integers import IntegerProjection
 
 
 def arg_mpLP_problem(prefix=''):
@@ -126,8 +126,8 @@ if __name__ == "__main__":
             output_keys=["x"],
             name='primal_map')
 
-    integer_map = IntegerCorrector(input_keys=['x'],
-                                   method='sawtooth',
+    integer_map = IntegerProjection(input_keys=['x'],
+                                   method='round_sawtooth',
                                    nsteps=1, stepsize=0.8,
                                    name='int_map')
 
@@ -225,8 +225,8 @@ if __name__ == "__main__":
     """
     MIQP Integer correction at inference
     """
-    int_map = IntegerCorrector(input_keys=['x'],
-                                   method='sawtooth',
+    int_map = IntegerProjection(input_keys=['x'],
+                                   method='round_sawtooth',
                                    nsteps=1, stepsize=1.0,
                                    name='int_map')
     if args.inference_integer:

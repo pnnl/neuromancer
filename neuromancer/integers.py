@@ -13,18 +13,38 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from neuromancer.component import Component
+from neuromancer.gradients import gradient
 
 
-def sawtooth(value):
+def sawtooth_round(value):
     # https: // en.wikipedia.org / wiki / Sawtooth_wave
     x = (torch.atan(torch.tan(np.pi * value))) / np.pi
     return x
 
+def sawtooth_floor(value):
+    x = (torch.atan(torch.tan(np.pi * value + 0.5*np.pi))) / np.pi + 0.5
+    return x
 
-def smooth_sawtooth(value):
+def sawtooth_ceil(value):
+    x = (-np.pi+torch.atan(torch.tan(np.pi * value + 0.5*np.pi))) / np.pi + 0.5
+    return x
+
+def smooth_sawtooth_round(value):
     x = (torch.tanh(torch.tan(np.pi * value))) / np.pi
     return x
 
+def smooth_sawtooth_floor(value):
+    x = (torch.tanh(torch.tan(np.pi * value + 0.5*np.pi))) / np.pi + 0.5
+    return x
+
+def smooth_sawtooth_ceil(value):
+    x = (-np.pi+torch.tanh(torch.tan(np.pi * value + 0.5*np.pi))) / np.pi + 0.5
+    return x
+
+def smooth_sine_integer(value):
+    # https://connectionism.tistory.com/100
+    x = torch.sin(2*np.pi*value)/(2*np.pi)
+    return x
 
 class VarConstraint(Component, ABC):
 
@@ -75,12 +95,19 @@ class SoftBinary(VarConstraint):
         return torch.sigmoid(self.scale*(x - self.threshold))
 
 
-class IntegerCorrector(VarConstraint):
-    step_methods = {'sawtooth': sawtooth,
-                   'smooth_sawtooth': smooth_sawtooth}
 
-    def __init__(self, input_keys, output_keys=[], method="sawtooth", nsteps=1, stepsize=0.5, name=None):
+class IntegerProjection(VarConstraint):
+    step_methods = {'round_sawtooth': sawtooth_round,
+                    'round_smooth_sawtooth': smooth_sawtooth_round,
+                    'ceil_sawtooth': sawtooth_ceil,
+                    'ceil_smooth_sawtooth': smooth_sawtooth_ceil,
+                    'floor_sawtooth': sawtooth_floor,
+                    'floor_smooth_sawtooth': smooth_sawtooth_floor,
+                    }
+
+    def __init__(self, input_keys, output_keys=[], method="round_sawtooth", nsteps=1, stepsize=0.5, name=None):
         """
+
         IntegerCorrector is class for imposing differentiable integer correction on input variables in the input_keys list
         :param input_keys: (dict {str: str}) Input keys of variables to be constrained, e.g., ["x", "y", "z"]
         :param output_keys: [str] optional list of strings to define new variable keys at the output,
@@ -108,10 +135,11 @@ class IntegerCorrector(VarConstraint):
             x = x - self.stepsize*self.step(x)
         return x
 
-class BinaryCorrector(IntegerCorrector):
+
+class BinaryProjection(IntegerProjection):
 
     def __init__(self, input_keys, output_keys=[], threshold=0.0, scale=1.,
-                 method="sawtooth", nsteps=1, stepsize=0.5, name=None):
+                 method="round_sawtooth", nsteps=1, stepsize=0.5, name=None):
         """
         SoftBinary is class for imposing binary constraints correction on input variables in the input_keys list
         generates: x in {0, 1}
@@ -133,6 +161,104 @@ class BinaryCorrector(IntegerCorrector):
         for k in range(self.nsteps):
             x = x - self.stepsize * self.step(x)
         return x
+
+
+class IntegerInequalityProjection(IntegerProjection):
+    """
+    """
+    def __init__(self, constraints, input_keys, output_keys=[],
+                 method="sawtooth", direction='gradient',
+                 nsteps=1, stepsize=0.5, batch_second=False, name=None):
+        """
+        Implementation of projected gradient method for corrections of integer constraints violations
+
+        :param constraints: list of objects which implement the Loss interface (e.g. Objective, Loss, or Constraint)
+        :param input_keys: (List of str) List of input variable names
+        :param output_keys:
+        :param method:
+        :param direction:
+        :param nsteps: (int) number of iteration steps for the projections
+        :param stepsize: (float) scaling factor for projection updates
+        :param batch_second:
+        :param name:
+        """
+        super().__init__(input_keys=input_keys, output_keys=output_keys,
+                         nsteps=nsteps, stepsize=stepsize, name=name)
+        self.constraints = nn.ModuleList(constraints)
+        self.batch_second = batch_second
+        self._constraints_check()
+        self.get_direction = {'gradient': self.get_direction_gradient,
+                              'random': self.get_direction_random}[direction]
+        self.round_step = self._set_step_method('round_' + method)
+        self.ceil_step = self._set_step_method('ceil_' + method)
+        self.floor_step = self._set_step_method('floor_' + method)
+
+    def _constraints_check(self):
+        """
+        :return:
+        """
+        for con in self.constraints:
+            assert str(con.comparator) in ['lt', 'gt'], \
+                f'constraint {con} must be inequality (lt or gt), but it is {str(con.comparator)}'
+
+    def int_projection(self, x):
+        for k in range(self.nsteps):
+            x = x - self.stepsize*self.round_step(x)
+        return x
+
+    def int_ineq_projection(self, x, mask, direction):
+        floor_mask = direction > 0
+        ceil_mask = direction < 0
+        for k in range(self.nsteps):
+            ceil_step = ceil_mask * self.ceil_step(x)
+            floor_step = floor_mask * self.floor_step(x)
+            step = ceil_step + floor_step
+            # TODO: instead of bulk correction in all directions iterate over integer variables updates
+            #  and check constr viol each time
+            x = x - mask*self.stepsize*step
+        return x
+
+    def con_viol_energy(self, input_dict):
+        """
+        Calculate the constraints violation potential energy over batches
+        """
+        C_violations = []
+        for con in self.constraints:
+            output = con(input_dict)
+            cviolation = output[con.output_keys[2]]
+            if self.batch_second:
+                cviolation = cviolation.transpose(0, 1)
+            cviolation = cviolation.reshape(cviolation.shape[0], -1)
+            C_violations.append(cviolation)
+        C_violations = torch.cat(C_violations, dim=-1)
+        energy = torch.mean(torch.abs(C_violations), dim=1)
+        return energy
+
+    def get_direction_gradient(self, energy, x):
+        step = gradient(energy, x)
+        # TODO: check to make this differentiable by division only on nonzero values
+        direction = step/torch.abs(step)
+        direction[direction != direction] = 0  # replacing nan with 0
+        return direction
+
+    def get_direction_random(self, energy, x):
+        # TODO: code up random direction
+        pass
+
+    def forward(self, input_dict):
+        output_dict = {}
+        # Step 1: get to nearest integer via sawtooth integer projection
+        for key_in, key_out in zip(self.input_keys, self.output_keys):
+            output_dict[key_out] = self.int_projection(input_dict[key_in])
+            input_dict[key_in] = output_dict[key_out]
+        # Step 2: check for con viol for variables if all zero terminate
+        energy = self.con_viol_energy(input_dict)
+        mask = energy > 0
+        # Step 3: calculate directions via random search and project onto feasible region
+        for key_out in self.output_keys:
+            direction = self.get_direction(energy, output_dict[key_out])
+            output_dict[key_out] = self.int_ineq_projection(output_dict[key_out], mask, direction)
+        return output_dict
 
 
 def generate_truth_table(num_binaries):

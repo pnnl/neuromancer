@@ -1,5 +1,5 @@
 """
-Solve the Styblinski–Tang problem, formulated as the NLP using Neuromancer toolbox:
+Solve the Styblinski–Tang problem, formulated as the MINLP using Neuromancer toolbox:
 minimize     x**4 -15*x**2 + 5*x + y**4 -15*y**2 + 5*y
 subject to   (p/2)^2 <= x^2 + y^2 <= p^2
              x>=y

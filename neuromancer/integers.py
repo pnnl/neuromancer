@@ -46,6 +46,7 @@ def smooth_sine_integer(value):
     x = torch.sin(2*np.pi*value)/(2*np.pi)
     return x
 
+
 class VarConstraint(Component, ABC):
 
     def __init__(self, input_keys, output_keys=[], name=None):
@@ -95,7 +96,6 @@ class SoftBinary(VarConstraint):
         return torch.sigmoid(self.scale*(x - self.threshold))
 
 
-
 class IntegerProjection(VarConstraint):
     step_methods = {'round_sawtooth': sawtooth_round,
                     'round_smooth_sawtooth': smooth_sawtooth_round,
@@ -141,7 +141,7 @@ class BinaryProjection(IntegerProjection):
     def __init__(self, input_keys, output_keys=[], threshold=0.0, scale=1.,
                  method="round_sawtooth", nsteps=1, stepsize=0.5, name=None):
         """
-        SoftBinary is class for imposing binary constraints correction on input variables in the input_keys list
+        BinaryProjection is class for imposing binary constraints correction on input variables in the input_keys list
         generates: x in {0, 1}
         if x <  threshold then x = 0
         if x >= threshold then x =1
@@ -213,8 +213,6 @@ class IntegerInequalityProjection(IntegerProjection):
             ceil_step = ceil_mask * self.ceil_step(x)
             floor_step = floor_mask * self.floor_step(x)
             step = ceil_step + floor_step
-            # TODO: instead of bulk correction in all directions iterate over integer variables updates
-            #  and check constr viol each time
             x = x - mask*self.stepsize*step
         return x
 
@@ -258,6 +256,9 @@ class IntegerInequalityProjection(IntegerProjection):
         for key_out in self.output_keys:
             direction = self.get_direction(energy, output_dict[key_out])
             output_dict[key_out] = self.int_ineq_projection(output_dict[key_out], mask, direction)
+            # TODO: instead of bulk correction in all directions
+            #  iterate over integer variables updates
+            #  and check constr viol each time
         return output_dict
 
 

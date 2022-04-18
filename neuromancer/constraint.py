@@ -218,6 +218,10 @@ class Constraint(Component):
         self.comparator = comparator
         self.weight = weight
 
+    def update_name(self, name):
+        self.name = name
+        self.output_keys = [name, f'{name}_value', f'{name}_violation']
+
     @property
     def variable_names(self):
         return [self.left.name, self.right.name]

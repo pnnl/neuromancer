@@ -2,11 +2,12 @@ from hypothesis import given, settings, strategies as st
 
 import torch
 from neuromancer.maps import Map, ManyToMany, OneToOne
-from neuromancer.integers import SoftBinary, IntegerCorrector, BinaryCorrector
+from neuromancer.integers import SoftBinary, IntegerProjection, BinaryProjection
 from neuromancer import blocks
 
 _ = torch.set_grad_enabled(False)
 
+methods = ["round_sawtooth", "round_smooth_sawtooth"]
 
 def test_SoftBinary_IO_keys():
     data = {'x': torch.randn(500, 5)}
@@ -45,9 +46,9 @@ def test_SoftBinary_output():
 
 def test_BinaryCorrector_IO_keys():
     data = {'x': torch.randn(500, 5)}
-    bound1 = BinaryCorrector(input_keys=['x'])
+    bound1 = BinaryProjection(input_keys=['x'])
     output_keys1 = list(bound1(data).keys())
-    bound2 = BinaryCorrector(input_keys=['x'], output_keys=['x1'])
+    bound2 = BinaryProjection(input_keys=['x'], output_keys=['x1'])
     output_keys2 = list(bound2(data).keys())
     assert len(output_keys1) == 1
     assert output_keys1[0] == 'x'
@@ -57,9 +58,9 @@ def test_BinaryCorrector_IO_keys():
 
 def test_BinaryCorrector_multiIO_keys():
     data = {'x': torch.randn(500, 5), 'y': torch.randn(500, 5), 'z': torch.randn(500, 5)}
-    bound1 = BinaryCorrector(input_keys=['x', 'y'])
+    bound1 = BinaryProjection(input_keys=['x', 'y'])
     output_keys1 = list(bound1(data).keys())
-    bound2 = BinaryCorrector(input_keys=['x', 'y', 'z'])
+    bound2 = BinaryProjection(input_keys=['x', 'y', 'z'])
     output_keys2 = list(bound2(data).keys())
     assert len(output_keys1) == 2
     assert output_keys1[0] == 'x'
@@ -74,11 +75,10 @@ def test_BinaryCorrector_output():
     data = {'x': torch.randn(500, 5)}
     tolerance = 1e-6
     thresholds = [0.0, 0.5, 1.0, 2.0]
-    methods = ["sawtooth", "smooth_sawtooth"]
     for method in methods:
         for threshold in thresholds:
-            nsteps = 1 if method == "sawtooth" else 5
-            bound = BinaryCorrector(input_keys=['x'], threshold=threshold, scale=1.,
+            nsteps = 1 if method == "round_sawtooth" else 5
+            bound = BinaryProjection(input_keys=['x'], threshold=threshold, scale=1.,
                                     method=method, nsteps=nsteps, stepsize=1.0)
             out = bound(data)
             false_idx = data['x'] < threshold
@@ -89,9 +89,9 @@ def test_BinaryCorrector_output():
 
 def test_IntegerCorrector_IO_keys():
     data = {'x': torch.randn(500, 5)}
-    bound1 = IntegerCorrector(input_keys=['x'])
+    bound1 = IntegerProjection(input_keys=['x'])
     output_keys1 = list(bound1(data).keys())
-    bound2 = IntegerCorrector(input_keys=['x'], output_keys=['x1'])
+    bound2 = IntegerProjection(input_keys=['x'], output_keys=['x1'])
     output_keys2 = list(bound2(data).keys())
     assert len(output_keys1) == 1
     assert output_keys1[0] == 'x'
@@ -101,9 +101,9 @@ def test_IntegerCorrector_IO_keys():
 
 def test_IntegerCorrector_multiIO_keys():
     data = {'x': torch.randn(500, 5), 'y': torch.randn(500, 5), 'z': torch.randn(500, 5)}
-    bound1 = IntegerCorrector(input_keys=['x', 'y'])
+    bound1 = IntegerProjection(input_keys=['x', 'y'])
     output_keys1 = list(bound1(data).keys())
-    bound2 = IntegerCorrector(input_keys=['x', 'y', 'z'])
+    bound2 = IntegerProjection(input_keys=['x', 'y', 'z'])
     output_keys2 = list(bound2(data).keys())
     assert len(output_keys1) == 2
     assert output_keys1[0] == 'x'
@@ -117,10 +117,9 @@ def test_IntegerCorrector_multiIO_keys():
 def test_IntegerCorrector_output():
     data = {'x': torch.randn(500, 5)}
     tolerance = 1e-6
-    methods = ["sawtooth", "smooth_sawtooth"]
     for method in methods:
-        nsteps = 1 if method == "sawtooth" else 5
-        bound = IntegerCorrector(input_keys=['x'], method=method, nsteps=nsteps, stepsize=1.0)
+        nsteps = 1 if method == "round_sawtooth" else 5
+        bound = IntegerProjection(input_keys=['x'], method=method, nsteps=nsteps, stepsize=1.0)
         out = bound(data)
         assert torch.all(torch.abs(out['x'] - torch.round(data['x'])) <= tolerance)
         assert torch.all(torch.abs(out['x'] - torch.round(data['x'])) <= tolerance)

@@ -20,7 +20,7 @@ sns.set_theme(style="white")
 import copy
 
 from neuromancer.activations import activations
-from neuromancer import blocks, estimators, dynamics
+from neuromancer import estimators, dynamics
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
 from neuromancer.constraint import Variable, Loss
@@ -417,7 +417,6 @@ if __name__ == "__main__":
     # Uf = [u_0, ..., u_N]
     activation = activations['relu']
     linmap = slim.maps['linear']
-    block = blocks.MLP
     policy = policies.MLPPolicy(
         {f'x0_{estimator.name}': (nx,), **dims},
         nsteps=args.nsteps,

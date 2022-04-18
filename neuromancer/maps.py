@@ -27,7 +27,7 @@ class Map(Component):
             many to many - if there are many input keys and many output keys
                 https://en.wikipedia.org/wiki/Many-to-many_(data_model)
 
-        :param map: (nn.Module)
+        :param func: (nn.Module)
         :param input_keys: (list[str])
         :param output_keys: (list[str])
         :param name:
@@ -71,7 +71,7 @@ class ManyToMany(Map):
                 https://en.wikipedia.org/wiki/Many-to-many_(data_model)
             many to one - if there are many input keys and single output key, maps via single map
 
-        :param map: (nn.Module) or (List[nn.Module])
+        :param func: (nn.Module) or (List[nn.Module])
         :param input_keys: (list[str])
         :param output_keys: (list[str])
         :param name:
@@ -109,7 +109,7 @@ class OneToOne(ManyToMany):
         via list of maps (List[nn.Module]) with the same length as input_keys and output_keys
             https://en.wikipedia.org/wiki/One-to-one_(data_model)
 
-        :param map: (nn.Module) or (List[nn.Module])
+        :param func: (nn.Module) or (List[nn.Module])
         :param input_keys: (list[str])
         :param output_keys: (list[str])
         :param name:
@@ -126,3 +126,39 @@ class OneToOne(ManyToMany):
         return out_dict
 
 
+class Map2Dto3D(Map):
+    def __init__(
+        self,
+        func,
+        input_keys,
+        output_keys,
+        dim1,
+        dim2,
+        name=None,
+    ):
+        """
+
+        :param func: (nn.Module)
+        :param input_keys: (list[str])
+        :param output_keys: ([str])
+        :param name:
+        """
+        super().__init__(func=func, input_keys=input_keys, output_keys=output_keys, name=name)
+        self.dim1 = dim1
+        self.dim2 = dim2
+
+        assert self.func.out_features == dim1*dim2, \
+            f'product of dim1 {dim1} and dim2 {dim2} must equal to func.out_features {self.func.out_features}'
+
+    def forward(self, data):
+        """
+
+        :param data: (dict {str: torch.tensor)} 2D tensor
+        :return: (dict {str: torch.tensor)} 3D tensor
+        """
+        out_dict = {}
+        x = [data[k] for k in self.input_keys]
+        out_2D = self.func(torch.cat(x, dim=-1))
+        out_3D = out_2D.reshape(-1, self.dim1, self.dim2)
+        out_dict[self.output_keys[0]] = out_3D
+        return out_dict

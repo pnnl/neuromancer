@@ -39,7 +39,6 @@ class Policy(Component):
 
         self.name, self.data_dims = name, data_dims
         self.nsteps = nsteps
-        self.data_dims = data_dims
         self.nu = data_dims["U"][-1]
         data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
         self.sequence_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 2)

@@ -29,10 +29,9 @@ from neuromancer.activations import activations
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.dataset import get_static_dataloaders
 from neuromancer.loss import get_loss
-from neuromancer.solvers import GradientProjection
 from neuromancer.maps import Map
 from neuromancer import blocks
-from neuromancer.integers import IntegerCorrector
+from neuromancer.integers import IntegerProjection, IntegerInequalityProjection
 
 
 def arg_mpLP_problem(prefix=''):
@@ -83,8 +82,10 @@ def arg_mpLP_problem(prefix=''):
            help="mu_max in augmented lagrangian.")
     gp.add("-inner_loop", type=int, default=1,
            help="inner loop in augmented lagrangian")
-    gp.add("-proj_grad", default=False, choices=[True, False],
-           help="Whether to use projected gradient update or not.")
+    gp.add("-train_proj_int_ineq", default=False, choices=[True, False],
+           help="Whether to use integer constraints projection during training or not.")
+    gp.add("-inference_proj_int_ineq", default=True, choices=[True, False],
+           help="Whether to use integer constraints projection during inference or not.")
     gp.add("-train_integer", default=True, choices=[True, False],
            help="Whether to use integer update during training or not.")
     gp.add("-inference_integer", default=True, choices=[True, False],
@@ -128,8 +129,8 @@ if __name__ == "__main__":
             output_keys=["x"],
             name='primal_map')
 
-    integer_map = IntegerCorrector(input_keys=['x'],
-                                   method='sawtooth',
+    integer_map = IntegerProjection(input_keys=['x'],
+                                   method='round_sawtooth',
                                    nsteps=1, stepsize=0.1,
                                    name='int_map')
 
@@ -163,16 +164,15 @@ if __name__ == "__main__":
     if args.train_integer:  # MINLP = use integer correction update during training
         components.append(integer_map)
 
-    if args.proj_grad:  # use projected gradient update
-        project_keys = ["x"]
-        projection = GradientProjection(constraints, input_keys=project_keys,
-                                        num_steps=5, name='proj')
-        components.append(projection)
+    if args.train_proj_int_ineq:
+        int_projection = IntegerInequalityProjection(constraints, input_keys=["x"],
+                                            nsteps=1, stepsize=0.5, name='proj_int')
+        components.append(int_projection)
 
     # create constrained optimization loss
     loss = get_loss(objectives, constraints, train_data, args)
     # construct constrained optimization problem
-    problem = Problem(components, loss, grad_inference=args.proj_grad)
+    problem = Problem(components, loss)
     # plot computational graph
     problem.plot_graph()
 
@@ -219,15 +219,30 @@ if __name__ == "__main__":
 
 
     """
-    MIQP Integer correction at inference
+    MIP Integer correction at inference
     """
-    int_map = IntegerCorrector(input_keys=['x'],
-                                   method='sawtooth',
+    # integer projection to nearest integer
+    int_map = IntegerProjection(input_keys=['x'],
+                                   method='round_sawtooth',
                                    nsteps=1, stepsize=1.0,
                                    name='int_map')
     if args.inference_integer:
         if args.train_integer:
             problem.components[1] = int_map
+        else:
+            problem.components.append(int_map)
+
+
+    # integer projection to feasible set
+    int_projection = IntegerInequalityProjection(constraints, input_keys=["x"],  method="sawtooth",
+                                        nsteps=1, stepsize=1.0, name='proj_int')
+
+    if args.inference_proj_int_ineq:
+        if args.train_proj_int_ineq:
+            if args.train_integer:
+                problem.components[2] = int_map
+            else:
+                problem.components[1] = int_map
         else:
             problem.components.append(int_map)
 

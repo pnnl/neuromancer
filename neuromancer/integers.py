@@ -251,14 +251,33 @@ class IntegerInequalityProjection(IntegerProjection):
             input_dict[key_in] = output_dict[key_out]
         # Step 2: check for con viol for variables if all zero terminate
         energy = self.con_viol_energy(input_dict)
+        # TODO: this is not differentiable: all masks need to be detached?
         mask = energy > 0
+
         # Step 3: calculate directions via random search and project onto feasible region
         for key_out in self.output_keys:
+            # Step 3a, get the gradient constraints violation directions
             direction = self.get_direction(energy, output_dict[key_out])
             output_dict[key_out] = self.int_ineq_projection(output_dict[key_out], mask, direction)
+
+            # # Step 3b, random dropout of the directions
+            # dropout_directions = []
+            # outputs = []
+            # for i in range(2):
+            #     dropout = torch.randint(0, 2, direction.shape, dtype=torch.float32)
+            #     dropout_directions.append(dropout)
+            #     # output_dict[key_out] = self.int_ineq_projection(output_dict[key_out], mask, direction)
+            #     x = self.int_ineq_projection(output_dict[key_out], mask, direction)
+            #     outputs.append(x)
+            # output_dict[key_out] = torch.mean(torch.stack(outputs), dim=0)
+
             # TODO: instead of bulk correction in all directions
-            #  iterate over integer variables updates
+            #  random search over integer variables updates with fixed random samples
+            #  and heat parameter in [0, 1] that defined portion of the directions - via dropout
+            #  generate fixed number of unique directions to evaluate
+            #  balance between exploration and exploitation
             #  and check constr viol each time
+            #  perform bookkeeping not to visit the same directions
         return output_dict
 
 

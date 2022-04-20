@@ -162,3 +162,37 @@ class Map2Dto3D(Map):
         out_3D = out_2D.reshape(-1, self.dim1, self.dim2)
         out_dict[self.output_keys[0]] = out_3D
         return out_dict
+
+
+class Transform(Component):
+    def __init__(
+        self,
+        callable,
+        input_keys,
+        output_keys=[],
+        name=None,
+    ):
+        """
+        perform any pytorch transformation via callable
+
+        :param callable: (callable)
+        :param input_keys: (list[str])
+        :param output_keys: (list[str])
+        :param name:
+        """
+        input_keys = input_keys if isinstance(input_keys, list) else [input_keys]
+        output_keys = output_keys if isinstance(output_keys, list) else [output_keys]
+        if bool(output_keys):
+            assert len(input_keys) == len(output_keys), \
+                f'Number of input keys {len(input_keys)} ' \
+                f'must equal to number of output keys {len(output_keys)} '
+        else:
+            output_keys = input_keys
+        super().__init__(input_keys=input_keys, output_keys=output_keys, name=name)
+        self.callable = callable
+
+    def forward(self, data):
+        out_dict = {}
+        for in_key, out_key in zip(self.input_keys, self.output_keys):
+            out_dict[out_key] = self.callable(data[in_key])
+        return out_dict

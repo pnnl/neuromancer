@@ -40,6 +40,9 @@ class Integrator(nn.Module, ABC):
         """
         return self.integrate(x, u, t)
 
+    def reg_error(self):
+        return sum([k.reg_error() for k in self.children() if hasattr(k, "reg_error")])
+
 
 class Euler(Integrator):
     def __init__(self, block, interp_u=None, h=1.0):

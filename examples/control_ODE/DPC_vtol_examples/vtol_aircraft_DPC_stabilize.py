@@ -492,6 +492,9 @@ if __name__ == "__main__":
     # Train control policy
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
+    # load best model dict
+    problem.load_state_dict(best_model)
+    policy = problem.components[1]
 
     """
     # # #  Plots and Analysis

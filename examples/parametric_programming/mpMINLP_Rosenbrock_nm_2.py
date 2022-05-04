@@ -31,7 +31,7 @@ from neuromancer.loss import get_loss
 from neuromancer.solvers import GradientProjection
 from neuromancer.maps import Map
 from neuromancer import blocks
-from neuromancer.integers import IntegerProjection
+from neuromancer.integers import IntegerProjection, IntegerInequalityProjection
 
 
 def arg_mpLP_problem(prefix=''):
@@ -82,12 +82,23 @@ def arg_mpLP_problem(prefix=''):
            help="mu_max in augmented lagrangian.")
     gp.add("-inner_loop", type=int, default=1,
            help="inner loop in augmented lagrangian")
-    gp.add("-proj_grad", default=False, choices=[True, False],
-           help="Whether to use projected gradient update or not.")
     gp.add("-train_integer", default=True, choices=[True, False],
            help="Whether to use integer update during training or not.")
-    gp.add("-inference_integer", default=True, choices=[True, False],
+    gp.add("-inference_integer", default=False, choices=[True, False],
            help="Whether to use integer update during inference or not.")
+    gp.add("-train_proj_int_ineq", default=False, choices=[True, False],
+           help="Whether to use integer constraints projection during training or not.")
+    gp.add("-inference_proj_int_ineq", default=True, choices=[True, False],
+           help="Whether to use integer constraints projection during inference or not.")
+    gp.add("-n_projections_train", type=int, default=1,
+           help="number of mip constraints projection steps during training")
+    gp.add("-n_projections_inference", type=int, default=10,
+           help="number of mip constraints projections steps at the inference time")
+    gp.add("-proj_dropout", type=float, default=0.5,
+           help="random dropout of the mip constraints projections.")
+    gp.add("-direction", default='gradient',
+           choices=['gradient', 'random'],
+           help="method for obtaining directions for integer constraints projections.")
     return parser
 
 
@@ -126,11 +137,6 @@ if __name__ == "__main__":
             output_keys=["x"],
             name='primal_map')
 
-    integer_map = IntegerProjection(input_keys=['x'],
-                                   method='round_sawtooth',
-                                   nsteps=1, stepsize=0.8,
-                                   name='int_map')
-
     """
     # # #  mpMINLP objective and constraints formulation in Neuromancer
     """
@@ -165,18 +171,24 @@ if __name__ == "__main__":
     components = [sol_map]
 
     if args.train_integer:  # MINLP = use integer correction update during training
+        integer_map = IntegerProjection(input_keys=['x'],
+                                        method='round_sawtooth',
+                                        nsteps=1, stepsize=0.8,
+                                        name='int_map')
         components.append(integer_map)
+    if args.train_proj_int_ineq:
+        int_projection = IntegerInequalityProjection(constraints, input_keys=["x"],
+                                                     n_projections=args.n_projections_train,
+                                                     dropout=args.proj_dropout,
+                                                     direction=args.direction,
+                                                     nsteps=3, stepsize=0.1, name='proj_int')
+        components.append(int_projection)
 
-    if args.proj_grad:  # use projected gradient update
-        project_keys = ["x"]
-        projection = GradientProjection(constraints, input_keys=project_keys,
-                                        num_steps=5, name='proj')
-        components.append(projection)
 
     # create constrained optimization loss
     loss = get_loss(objectives, constraints, train_data, args)
     # construct constrained optimization problem
-    problem = Problem(components, loss, grad_inference=args.proj_grad)
+    problem = Problem(components, loss, grad_inference=args.train_proj_int_ineq)
     # plot computational graph
     problem.plot_graph()
 
@@ -220,11 +232,13 @@ if __name__ == "__main__":
     # Train mpLP solution map
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
-
+    # load best model dict
+    problem.load_state_dict(best_model)
 
     """
-    MIQP Integer correction at inference
+    MIP Integer correction at inference
     """
+    # integer projection to nearest integer
     int_map = IntegerProjection(input_keys=['x'],
                                    method='round_sawtooth',
                                    nsteps=1, stepsize=1.0,
@@ -234,6 +248,21 @@ if __name__ == "__main__":
             problem.components[1] = int_map
         else:
             problem.components.append(int_map)
+
+    # integer projection to feasible set
+    int_projection = IntegerInequalityProjection(constraints, input_keys=["x"],  method="sawtooth",
+                                                 n_projections=args.n_projections_inference,
+                                                 dropout=args.proj_dropout,
+                                                 direction=args.direction,
+                                                 nsteps=1, stepsize=1.0, name='proj_int')
+    if args.inference_proj_int_ineq:
+        if args.train_proj_int_ineq:
+            if args.train_integer:
+                problem.components[2] = int_projection
+            else:
+                problem.components[1] = int_projection
+        else:
+            problem.components.append(int_projection)
 
     """
     Plots
@@ -284,6 +313,21 @@ if __name__ == "__main__":
     datapoint['p'] = torch.tensor([[p]])
     datapoint['name'] = "test"
     model_out = problem(datapoint)
+
+    # intermediate solutions
+    X = []
+    Y = []
+    if args.inference_proj_int_ineq:
+        for k in range(args.n_projections_inference+2):
+            x_nm_k = model_out['test_' + "x" + f'_{k}'][0, 0].detach().numpy()
+            y_nm_k = model_out['test_' + "x" + f'_{k}'][0, 1].detach().numpy()
+            X.append(x_nm_k)
+            Y.append(y_nm_k)
+            marker_size = 5 + k * (10 / args.n_projections_inference+2)
+            ax.plot(x_nm_k, y_nm_k, 'g*', markersize=marker_size)
+        ax.plot(np.asarray(X), np.asarray(Y), 'g--')
+
+    # final solution
     x_nm = model_out['test_' + "x"][0, 0].detach().numpy()
     y_nm = model_out['test_' + "x"][0, 1].detach().numpy()
     print(x_nm)

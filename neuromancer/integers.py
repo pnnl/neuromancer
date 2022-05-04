@@ -48,7 +48,6 @@ def smooth_sine_integer(value):
 
 
 class VarConstraint(Component, ABC):
-
     def __init__(self, input_keys, output_keys=[], name=None):
         """
         VarConstraint is canonical Component class for imposing binary and integer constraints on variables in the input_keys
@@ -78,7 +77,6 @@ class VarConstraint(Component, ABC):
 
 
 class SoftBinary(VarConstraint):
-
     def __init__(self, input_keys, output_keys=[], threshold=0.0, scale=10., name=None):
         """
         SoftBinary is class for imposing soft binary constraints on input variables in the input_keys list
@@ -104,7 +102,6 @@ class IntegerProjection(VarConstraint):
                     'floor_sawtooth': sawtooth_floor,
                     'floor_smooth_sawtooth': smooth_sawtooth_floor,
                     }
-
     def __init__(self, input_keys, output_keys=[], method="round_sawtooth", nsteps=1, stepsize=0.5, name=None):
         """
 
@@ -137,7 +134,6 @@ class IntegerProjection(VarConstraint):
 
 
 class BinaryProjection(IntegerProjection):
-
     def __init__(self, input_keys, output_keys=[], threshold=0.0, scale=1.,
                  method="round_sawtooth", nsteps=1, stepsize=0.5, name=None):
         """
@@ -164,26 +160,25 @@ class BinaryProjection(IntegerProjection):
 
 
 class IntegerInequalityProjection(IntegerProjection):
-    """
-    """
-    def __init__(self, constraints, input_keys, output_keys=[],
-                 method="sawtooth", direction='gradient',
+    def __init__(self, constraints, input_keys,
+                 method="sawtooth", direction='gradient', dropout=0.,
+                 n_projections=1, viol_tolerance=1e-3,
                  nsteps=1, stepsize=0.5, batch_second=False, name=None):
         """
         Implementation of projected gradient method for corrections of integer constraints violations
 
         :param constraints: list of objects which implement the Loss interface (e.g. Objective, Loss, or Constraint)
         :param input_keys: (List of str) List of input variable names
-        :param output_keys:
-        :param method:
-        :param direction:
-        :param nsteps: (int) number of iteration steps for the projections
+        :param method: (str) selecting method from list of available integer projection methods
+        :param direction: (str) selecting constraints projection direction method
+        :param dropout: (float) ratio of random directions to be dropped
+        :param n_projections: (int) number of outer loop to calculate integer projections directions
+        :param nsteps: (int) number of iteration steps for the inner loop of projections
         :param stepsize: (float) scaling factor for projection updates
         :param batch_second:
         :param name:
         """
-        super().__init__(input_keys=input_keys, output_keys=output_keys,
-                         nsteps=nsteps, stepsize=stepsize, name=name)
+        super().__init__(input_keys=input_keys, nsteps=nsteps, stepsize=stepsize, name=name)
         self.constraints = nn.ModuleList(constraints)
         self.batch_second = batch_second
         self._constraints_check()
@@ -192,28 +187,44 @@ class IntegerInequalityProjection(IntegerProjection):
         self.round_step = self._set_step_method('round_' + method)
         self.ceil_step = self._set_step_method('ceil_' + method)
         self.floor_step = self._set_step_method('floor_' + method)
+        self.dropout = dropout
+        self.viol_tolerance = viol_tolerance
+        self.n_projections = n_projections
+        self.output_keys = ['n_projections']
+        for key in self.input_keys:
+            for k in range(self.n_projections+2):
+                self.output_keys.append(key + f'_{k}')
 
     def _constraints_check(self):
-        """
-        :return:
-        """
         for con in self.constraints:
             assert str(con.comparator) in ['lt', 'gt'], \
                 f'constraint {con} must be inequality (lt or gt), but it is {str(con.comparator)}'
 
     def int_projection(self, x):
+        """
+        projection to the nearest integer
+        :param x: tensor
+        :return: tensor
+        """
         for k in range(self.nsteps):
             x = x - self.stepsize*self.round_step(x)
         return x
 
     def int_ineq_projection(self, x, mask, direction):
+        """
+        projection to integer in the direction of the constraints projection
+        :param x: tensor
+        :param mask:
+        :param direction:
+        :return: tensor
+        """
         floor_mask = direction > 0
         ceil_mask = direction < 0
         for k in range(self.nsteps):
             ceil_step = ceil_mask * self.ceil_step(x)
             floor_step = floor_mask * self.floor_step(x)
             step = ceil_step + floor_step
-            x = x - mask*self.stepsize*step
+            x = x - mask.view(-1, 1)*self.stepsize*step
         return x
 
     def con_viol_energy(self, input_dict):
@@ -234,50 +245,42 @@ class IntegerInequalityProjection(IntegerProjection):
 
     def get_direction_gradient(self, energy, x):
         step = gradient(energy, x)
-        # TODO: check to make this differentiable by division only on nonzero values
         direction = step/torch.abs(step)
         direction[direction != direction] = 0  # replacing nan with 0
         return direction
 
     def get_direction_random(self, energy, x):
-        # TODO: code up random direction
-        pass
+        direction = torch.randn(x.shape)
+        return direction
 
     def forward(self, input_dict):
         output_dict = {}
         # Step 1: get to nearest integer via sawtooth integer projection
-        for key_in, key_out in zip(self.input_keys, self.output_keys):
-            output_dict[key_out] = self.int_projection(input_dict[key_in])
-            input_dict[key_in] = output_dict[key_out]
-        # Step 2: check for con viol for variables if all zero terminate
-        energy = self.con_viol_energy(input_dict)
-        # TODO: this is not differentiable: all masks need to be detached?
-        mask = energy > 0
-
-        # Step 3: calculate directions via random search and project onto feasible region
-        for key_out in self.output_keys:
-            # Step 3a, get the gradient constraints violation directions
-            direction = self.get_direction(energy, output_dict[key_out])
-            output_dict[key_out] = self.int_ineq_projection(output_dict[key_out], mask, direction)
-
-            # # Step 3b, random dropout of the directions
-            # dropout_directions = []
-            # outputs = []
-            # for i in range(2):
-            #     dropout = torch.randint(0, 2, direction.shape, dtype=torch.float32)
-            #     dropout_directions.append(dropout)
-            #     # output_dict[key_out] = self.int_ineq_projection(output_dict[key_out], mask, direction)
-            #     x = self.int_ineq_projection(output_dict[key_out], mask, direction)
-            #     outputs.append(x)
-            # output_dict[key_out] = torch.mean(torch.stack(outputs), dim=0)
-
-            # TODO: instead of bulk correction in all directions
-            #  random search over integer variables updates with fixed random samples
-            #  and heat parameter in [0, 1] that defined portion of the directions - via dropout
-            #  generate fixed number of unique directions to evaluate
-            #  balance between exploration and exploitation
-            #  and check constr viol each time
-            #  perform bookkeeping not to visit the same directions
+        for key in self.input_keys:
+            output_dict[key+'_0'] = input_dict[key]
+            input_dict[key] = self.int_projection(input_dict[key])
+            output_dict[key+'_1'] = input_dict[key]
+        for k in range(self.n_projections):
+            # Step 2: check for con viol for variables if all zero terminate
+            energy = self.con_viol_energy(input_dict)
+            mask = energy > self.viol_tolerance
+            output_dict['n_projections'] = k
+            if energy.sum() == 0.0:
+                for key in self.input_keys:
+                    for j in range(k, self.n_projections):
+                        output_dict[key + f'_{j + 2}'] = input_dict[key]
+                break
+            # Step 3: calculate directions via random search and project onto feasible region
+            for key in self.input_keys:
+                # Step 3a, get the gradient constraints violation directions
+                direction = self.get_direction(energy, input_dict[key])
+                if self.dropout:
+                    # Step 3b, random dropout of the directions
+                    dropout = torch.bernoulli(self.dropout*torch.ones(direction.shape)).to(direction.device)
+                    direction = dropout*direction
+                # Step 3bc, proejction
+                input_dict[key] = self.int_ineq_projection(input_dict[key], mask, direction)
+                output_dict[key + f'_{k+2}'] = input_dict[key]
         return output_dict
 
 

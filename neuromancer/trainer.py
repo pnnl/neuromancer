@@ -90,7 +90,7 @@ class Trainer:
         """
         self.callback.begin_train(self)
 
-        for i in range(self.epochs):
+        for i in range(self.current_epoch, self.current_epoch+self.epochs):
             self.current_epoch = i
             self.model.train()
             losses = []

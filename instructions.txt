@@ -131,7 +131,7 @@ source ~/.bashrc # for some reason the default shell on the dgx-1s is not bash
 # you need to setup your env with mlflow on this machine too. If this was the machine you did your dev on you are already set.
 # If not you may need an anaconda dist.
 
-wget https://repo.anaconda.com/archive/Anaconda3-2019.10-Linux-x86_64.sh
+wget https://repo.anaconda.com/archive/Anaconda3-2021.11-Linux-x86_64.sh
 bash Anaconda3-2019.10-Linux-x86_64.sh
 conda env create -f env.yml
 source activate mpc2
@@ -161,11 +161,15 @@ scancel -u username
 
 # example cpy files 
 scp drgo694@ohmahgerd:/qfs/projects/deepmpc/mlflow/neurips_exp_2020_5_31/nonlin_sysid_2020_5_31.* ./
-
+scp *.py drgo694@marianas:/qfs/projects/dadaist/MIP_experiments/
 
 # check number of files
  ls -l|wc -l
 
 # export environment
 conda-env export > file.yml
+
+# interactive node in the terminal
+srun -A dadaist -p dlv -t 12:00:00 --pty -n 2 -N 1 bash
+
 

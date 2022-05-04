@@ -202,6 +202,8 @@ if __name__ == "__main__":
     # Train mpLP solution map
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
+    # load best model dict
+    problem.load_state_dict(best_model)
 
     """
     CasADi benchmark

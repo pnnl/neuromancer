@@ -277,6 +277,7 @@ class IntegerInequalityProjection(IntegerProjection):
             output_dict[key+'_0'] = input_dict[key]
             input_dict[key] = self.int_projection(input_dict[key])
             output_dict[key+'_1'] = input_dict[key]
+        output_dict['n_projections'] = 0
         for k in range(self.n_projections):
             # Step 2: check for con viol for variables if all zero terminate
             energy = self.con_viol_energy(input_dict)

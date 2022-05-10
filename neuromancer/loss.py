@@ -144,13 +144,15 @@ class BarrierLoss(PenaltyLoss):
                 'inverse': lambda value: 1/(-value),
                 }
 
-    def __init__(self, objectives, constraints, barrier='log10', batch_second=False):
+    def __init__(self, objectives, constraints, barrier='log10', upper_bound=1000.,
+                 batch_second=False):
         """
         :param problem: (neuromancer.problem.Problem)
         :param train_data: (torch DataLoader)
         """
         super().__init__(objectives, constraints, batch_second)
         self.barrier = self._set_barrier(barrier)
+        self.upper_bound = upper_bound
 
     def _set_barrier(self, barrier):
         if barrier in self.barriers:
@@ -167,19 +169,23 @@ class BarrierLoss(PenaltyLoss):
             cviolation <= 0 -> barrier
         """
         loss = 0.0
+        b_loss = 0.0
         output_dict = super().calculate_constraints(input_dict)
         for c in self.constraints:
             cvalue = output_dict[c.output_keys[1]]
             cviolation = output_dict[c.output_keys[2]]
-            penalty_mask = cviolation > 0
+            penalty_mask = cviolation >= 0
             cbarrier = self.barrier(cvalue)
             cbarrier[cbarrier != cbarrier] = 0  # replacing nan with 0 -> infeasibility
             cbarrier[cbarrier == float("Inf")] = 0  # replacing inf with 0 -> active constraints
             output_dict[f'{c.name}_barrier'] = cbarrier
+            cbarrier = torch.clamp(cbarrier, max=self.upper_bound)
             # calculate loss
             penalty_loss = c.weight * torch.mean(penalty_mask * cviolation)
             barrier_loss = torch.mean(~penalty_mask * cbarrier)
+            b_loss += barrier_loss
             loss += penalty_loss + barrier_loss
+        output_dict['barrier_loss'] = b_loss
         output_dict['penalty_loss'] = loss
         return output_dict
 

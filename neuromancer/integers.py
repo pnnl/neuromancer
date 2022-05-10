@@ -166,6 +166,20 @@ class IntegerInequalityProjection(IntegerProjection):
                  nsteps=1, stepsize=0.5, batch_second=False, name=None):
         """
         Implementation of projected gradient method for corrections of integer constraints violations
+        Algorithm
+            input: decision variable x
+            do: projection to the nearest integer
+            for step in range(n_projections):
+                do: evaluate constraints violation energy (magnitude of viols per sample)
+                do: if no violations then terminate
+                do: else calculate directions of constraints corrections via constraints gradients or random search
+                do: random dropout of the directions
+                do: MIP projection
+                    for k in range(nsteps):
+                        do: projected gradient: x = x - stepsize*direction
+                        do: compute integer directions: int_direction via ceil or floor based on sign(direction)
+                        do: integer gradient: x = x - stepsize*int_direction
+            return x
 
         :param constraints: list of objects which implement the Loss interface (e.g. Objective, Loss, or Constraint)
         :param input_keys: (List of str) List of input variable names
@@ -213,14 +227,17 @@ class IntegerInequalityProjection(IntegerProjection):
     def int_ineq_projection(self, x, mask, direction):
         """
         projection to integer in the direction of the constraints projection
-        :param x: tensor
-        :param mask:
-        :param direction:
-        :return: tensor
+        :param x: (tensor) primal integer decision variable
+        :param mask: mask of infeasible samples
+        :param direction: constraints gradient w.r.t. x
+        :return: (tensor) projected primal integer decision variable
         """
         floor_mask = direction > 0
         ceil_mask = direction < 0
+        # TODO: we need to first take a step in the continuous space towards constraints
+        #  for the ceil and floor to take any effect
         for k in range(self.nsteps):
+            x = x - mask.view(-1, 1)*self.stepsize*direction
             ceil_step = ceil_mask * self.ceil_step(x)
             floor_step = floor_mask * self.floor_step(x)
             step = ceil_step + floor_step
@@ -270,7 +287,7 @@ class IntegerInequalityProjection(IntegerProjection):
                     for j in range(k, self.n_projections):
                         output_dict[key + f'_{j + 2}'] = input_dict[key]
                 break
-            # Step 3: calculate directions via random search and project onto feasible region
+            # Step 3: calculate directions and project onto feasible region
             for key in self.input_keys:
                 # Step 3a, get the gradient constraints violation directions
                 direction = self.get_direction(energy, input_dict[key])
@@ -278,7 +295,7 @@ class IntegerInequalityProjection(IntegerProjection):
                     # Step 3b, random dropout of the directions
                     dropout = torch.bernoulli(self.dropout*torch.ones(direction.shape)).to(direction.device)
                     direction = dropout*direction
-                # Step 3bc, proejction
+                # Step 3bc, projection
                 input_dict[key] = self.int_ineq_projection(input_dict[key], mask, direction)
                 output_dict[key + f'_{k+2}'] = input_dict[key]
         return output_dict

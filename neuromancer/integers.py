@@ -162,7 +162,7 @@ class BinaryProjection(IntegerProjection):
 class IntegerInequalityProjection(IntegerProjection):
     def __init__(self, constraints, input_keys,
                  method="sawtooth", direction='gradient', dropout=0.,
-                 n_projections=1, viol_tolerance=1e-3,
+                 n_projections=1, viol_tolerance=1e-3, proj_grad_stepsize=0.01,
                  nsteps=1, stepsize=0.5, batch_second=False, name=None):
         """
         Implementation of projected gradient method for corrections of integer constraints violations
@@ -202,6 +202,7 @@ class IntegerInequalityProjection(IntegerProjection):
         self.ceil_step = self._set_step_method('ceil_' + method)
         self.floor_step = self._set_step_method('floor_' + method)
         self.dropout = dropout
+        self.proj_grad_stepsize = proj_grad_stepsize
         self.viol_tolerance = viol_tolerance
         self.n_projections = n_projections
         self.output_keys = ['n_projections']
@@ -234,10 +235,8 @@ class IntegerInequalityProjection(IntegerProjection):
         """
         floor_mask = direction > 0
         ceil_mask = direction < 0
-        # TODO: we need to first take a step in the continuous space towards constraints
-        #  for the ceil and floor to take any effect
         for k in range(self.nsteps):
-            x = x - mask.view(-1, 1)*self.stepsize*direction
+            x = x - mask.view(-1, 1)*self.proj_grad_stepsize*direction
             ceil_step = ceil_mask * self.ceil_step(x)
             floor_step = floor_mask * self.floor_step(x)
             step = ceil_step + floor_step
@@ -378,4 +377,29 @@ def soft_binary_to_integer(binary, A, b, int_values, tolerance=0.01):
     return soft_integer, integer
 
 
+
+"""
+objective gradients ideas:
+    1, combine constraints gradients with objective gradients - check for agreed signs
+    2, after finding feasible point keep going and track the objective and constraints value
+    3, constrain local search feasible space: 
+        3a, hypercupe arround the first integer
+        3b, linear cutting planes: discard (assumption convexity of constraints)
+    4, search over different random initializations of the weights of neural networks 
+    5, barrier integer projection: round towards nearest integer 
+        taking into consideration barrier function values and their gradients
+        instead of projecting back to the feasible space, 
+        search for admissible integers within the feasible space
+        interior point local integer search
+        5a, get fractional value of decision variable x
+        5b, get hypercube of integers arround x
+        5c, drop infeasible points for which constr viol >0 
+            option 1: extensive eval of constraints per each point of the hypercube
+            option 2: learn small classifier to detect feasible and infeasible points based on a 
+            fewer number of constraints evaluations 
+    6, instead of path explore always from the x_0 point
+        pick one integer at the time from the directions and for each eval constr viol 
+        if feasible eval loss and log
+        after m samples are evaluated pick the best value
+"""
 

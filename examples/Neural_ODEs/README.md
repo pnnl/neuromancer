@@ -38,7 +38,7 @@ Autonomous ODEs are those that do not explicitly depend on time; as such, the dy
 state variables alone. A fully-specified neural ODE of this type requires a RHS function (either a neural
 network or other tensor-tensor mapping. The use of the ODEAuto class is as follows:
 
-![Image](auto_ODE.jpy)
+![My Image](my-auto_ODE.jpg)
 
 [^1]: Ricky TQ Chen, Yulia Rubanova, Jesse Bettencourt, and David K Duvenaud. Neural ordinary differential
 equations. Advances in neural information processing systems, 31, 2018.

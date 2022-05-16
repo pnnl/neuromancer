@@ -54,7 +54,21 @@ by the ODEs:
 
 Supposing that the model is known except for one or more of the parameters, one can build a consistent
 tensor-tensor mapping to pass to an integrator and ODENonAuto class. First, the ODE RHS is defined:
+
 <img src="examples/Neural_ODEs/Duffing_param.jpg" alt="Duffing_param" width="600"/>
+
+Note that in this definition, only the paramter ω is tunable; thus, this is a 1-parameter training task.
+Additionally, note the dimensionality: expected is a state dimension of three, with the third dimension
+corresponding to time. The specification of the Neural ODE begins with defining a continuous representation
+of time:
+
+<img src="examples/Neural_ODEs/nonauto_ODE.jpg" alt="nonauto ODE" width="600"/>
+
+2. Other external inputs
+Control signals are dealt with in the same manner as time: they must first be represented in a continuous
+form via an interpolant. Specification of these interpolants is as follows:
+
+<img src="examples/Neural_ODEs/nonauto_ODE_u.jpg" alt="nonauto ODE" width="600"/>
 
 ## Reference
 

@@ -38,7 +38,25 @@ Autonomous ODEs are those that do not explicitly depend on time; as such, the dy
 state variables alone. A fully-specified neural ODE of this type requires a RHS function (either a neural
 network or other tensor-tensor mapping. The use of the ODEAuto class is as follows:
 
-![My Image](my-auto_ODE.jpg)
+<img src="examples/Neural_ODEs/auto_ODE.jpg" alt="auto ODE" width="600"/>
+
+Note that the transition dynamics fx is a square mapping (nx → nx) of states as expected.
+
+### Non-Autonomous ODEs
+Non-autonomous ODEs depend on time, external inputs, or both time and inputs. The syntax for these
+systems changes as continuos-time representations of time and any external inputs must be available and
+provided to the integrator. This is handled with the construction and passing of interpolants.
+
+1. Time as input
+An example non-autonomous system with explicit dependence on time is the Forced Duffing Oscillator, given
+by the ODEs:
+> <img src="https://latex.codecogs.com/svg.image?\begin{cases}\frac{dx_1}{dt}&space;=&space;x_2&space;\\\frac{dx_2}{dt}&space;=&space;-\delta&space;x_2&space;-&space;\alpha&space;x_1&space;-&space;\beta&space;x_1^3&space;&plus;&space;\gamma&space;\cos&space;(\omega&space;t)\end{cases}" title="https://latex.codecogs.com/svg.image?\begin{cases}\frac{dx_1}{dt} = x_2 \\\frac{dx_2}{dt} = -\delta x_2 - \alpha x_1 - \beta x_1^3 + \gamma \cos (\omega t)\end{cases}" />
+
+Supposing that the model is known except for one or more of the parameters, one can build a consistent
+tensor-tensor mapping to pass to an integrator and ODENonAuto class. First, the ODE RHS is defined:
+<img src="examples/Neural_ODEs/Duffing_param.jpg" alt="Duffing_param" width="600"/>
+
+## Reference
 
 [^1]: Ricky TQ Chen, Yulia Rubanova, Jesse Bettencourt, and David K Duvenaud. Neural ordinary differential
 equations. Advances in neural information processing systems, 31, 2018.

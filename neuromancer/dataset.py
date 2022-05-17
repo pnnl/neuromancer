@@ -575,8 +575,7 @@ class GraphDataset(Dataset):
         build_graphs: str = None,
         connectivity_radius: float = 0.015,
         graph_self_loops=True,
-        name: str = "data",
-        **kwargs
+        name: str = "data"
     ):
         """[A Neuromancer Dataset to handle graph data.]
 
@@ -594,7 +593,7 @@ class GraphDataset(Dataset):
         :param name: [str], Name of dataset. Defaults to "data"
         :param **kwargs, Torch Dataset kwargs
         """
-        super(GraphDataset, self).__init__(**kwargs)
+        super(GraphDataset, self).__init__()
         self.node_attr = node_attr
         self.edge_attr = edge_attr
         self.graph_attr = graph_attr
@@ -615,8 +614,19 @@ class GraphDataset(Dataset):
         self.make_map()
 
     def build_graphs(self, feature, self_loops):
-        from torch_geometric.nn import radius_graph
-                
+        """
+        try:
+            from torch_geometric.nn import radius_graph
+        except:
+        """
+        def radius_graph(x, r, loop):
+            dist = torch.cdist(x,x)
+            links = [torch.argwhere(d<r) for d in dist]
+            edges = [(i,j) for i in range(len(links)) for j in links[i] if i!=j or loop]
+            if len(edges) == 0:
+                return torch.zeros(2,0,dtype=torch.long)
+            return torch.tensor(edges, dtype=torch.long).permute(1,0)
+        
         data = self.node_attr.get(feature)
         assert data is not None, "Feature to build graphs not found in node_attr."
 
@@ -634,7 +644,7 @@ class GraphDataset(Dataset):
                 timesteps = data[i].size(1)
                 inds = np.arange(self.seq_len-1, timesteps, self.seq_stride)
                 for pos in inds:
-                    edge_index = tg.nn.radius_graph(data[i][:, pos],
+                    edge_index = radius_graph(data[i][:, pos],
                                                     self.connectivity_radius,
                                                     loop=self_loops)
                     graphs[(i, pos+1)] = edge_index

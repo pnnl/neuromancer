@@ -1,266 +1,19 @@
 import torch
 import torch.nn as nn
-import torch_geometric as tg
 from torch_scatter import scatter_sum
 from neuromancer.dynamics import SSM 
 from neuromancer import blocks
 from neuromancer import integrators
-
-class GraphTimestepper(SSM):
-    DEFAULT_INPUT_KEYS = ["x0", "Yf"]
-    DEFAULT_OUTPUT_KEYS = ["reg_error", "latent_state", "Y_pred"]
-
-    def __init__(self,
-                 num_node_features,
-                 num_edge_features,
-                 out_size,
-                 latent_size=128,
-                 hidden_sizes=[128, 128],
-                 message_passing_steps=10,
-                 preprocessor = None,
-                 graph_encoder = None,
-                 integrator = None,
-                 decoder = None,
-                 fx=None,
-                 fx_keys=[],
-                 separate_batch_dim = False,
-                 input_key_map={},
-                 add_out_keys=[],
-                 name="graph_timestepper",
-                 device='cpu',):
-        """Graph Neural Timestepper composed of a preprocessor, a encoder, processor, and decoder block.
-
-        :param num_node_features: [int] Number of node features after preprocesser
-        :param num_edge_features: [int] Number of edge features after preprocesser
-        :param out_size: [int] Dimension of output
-        :param latent_size: [int], Dimension of latent size per node/edge, defaults to 128
-        :param hidden_sizes: [list int], Dimensions of hidden sizes of nodes/edges, defaults to [128]
-        :param message_passing_steps: [int], Number of message passing layers, defaults to 10
-        :param preprocessor: [nn.Module] Accepts a dictionary and returns a dictionary of tensors with keys [edge_index, node_attr, edge_attr, (opt) batch]. Other key/values will be added to output dict.
-        :param graph_encoder: [nn.Module] Input Tensor: (nodes, num_node_features). Output Tensor: (nodes, latent_dim). Defaults to a linear layer.
-        :param integrator: [Integrator] Input (x, block, *args, **kwargs). Ouput x_new
-        :param decoder: [nn.Module] Input Tensor: (nodes, latent_dim). Output Tensor: (nodes, out_size)
-        :param fx: [nn.Module] Module to handle extraneous input given in fx_keys
-        :param fx_keys: Key names for extraneous variables.
-        :param separate_batch_dim: [bool] True when data should be handled with separate batch and node dimensions
-        :param input_key_map: [dict] Remaps the name of the inputs
-        :param add_output_keys: [list string] Names of output variables in addition to defaults.
-        :param name: [string] Name of module. Prepended to all outputs.
-        :param device: [torch.device], Device to run the model on, defaults to 'cpu'
-        """
-        super().__init__(input_key_map, name)
-        self.out_size = out_size
-        self.latent_size = latent_size
-        self.hidden_sizes = hidden_sizes
-        self.message_passing_steps = message_passing_steps
-        self.device = device
-        self.preprocessor = preprocessor if preprocessor is not None else nn.Identity()
-        self.node_features = num_node_features
-        self.edge_features = num_edge_features
-        self.in_features = self.node_features
-        self.out_features = self.out_size
-        self.separate_batch_dim = separate_batch_dim
-        self.fx = fx
-        self.fx_keys = fx_keys
-        self.input_keys += self.fx_keys
-
-        #Build default graph_encoder consisting of MLPs on node and edge features
-        if graph_encoder is None:
-            node_encoder = nn.Sequential(
-                blocks.MLP(
-                    insize=self.node_features,
-                    outsize=self.latent_size,
-                    nonlin=nn.ReLU,
-                    hsizes=self.hidden_sizes),
-                nn.LayerNorm(self.latent_size))
-            edge_encoder = nn.Sequential(
-                blocks.MLP(
-                    insize=self.edge_features,
-                    outsize=self.latent_size,
-                    nonlin=nn.ReLU,
-                    hsizes=self.hidden_sizes),
-                nn.LayerNorm(self.latent_size))
-            graph_encoder = GraphFeatureUpdate(node_encoder, edge_encoder)
-        self.encoder = graph_encoder
-
-        #Build Processor as a series of message passing steps
-        integrator = integrators.get(integrator, Replace)
-        processor = nn.ModuleList()
-        for _ in range(self.message_passing_steps):
-            node_process = nn.Sequential(
-                blocks.MLP(
-                    insize = self.latent_size * 2,
-                    outsize = self.latent_size,
-                    nonlin = nn.ReLU,
-                    hsizes = self.hidden_sizes,
-                ),
-                nn.LayerNorm(self.latent_size)
-            )
-            edge_process = nn.Sequential(
-                blocks.MLP(
-                    insize = self.latent_size * 3,
-                    outsize = self.latent_size,
-                    nonlin = nn.ReLU,
-                    hsizes = self.hidden_sizes
-                ),
-                nn.LayerNorm(self.latent_size)
-            )
-            processor.append(
-                integrator(
-                    GraphFeatureUpdate(
-                        node_process,
-                        edge_process
-                    ),
-                    interp_u=graph_interp_u
-                )
-            )
-            processor[-1].state = lambda x, tq, t, u: GraphFeatures.cat([x, processor[-1].interp_u(tq,t,u)], dim=-1)
-
-        self.processor = ArgSequential(processor)
-
-        #Defines decoder or creates default MLP
-        self.decoder = decoder if decoder is not None else\
-                        blocks.MLP(
-                            insize=self.latent_size,
-                            outsize=self.out_size,
-                            nonlin=nn.ReLU,
-                            hsizes=self.hidden_sizes)
-        self.to(self.device)
-
-    def forward(self, data):
-        """Forward pass of the module
-
-        :param data: [{"x0": Tensor, "Yf": Tensor}]
-        :return: ["reg_error": Tensor, "latent_state": Tensor, "Y_pred": Tensor]
-        """
-        nsteps = data[self.input_key_map['Yf']].shape[0]
-        #X = data[self.input_key_map['x0']]
-        #batch_size, num_nodes, latent_dim = data['position'].shape
-        X = self.preprocessor(data)
-        batch = X.pop('batch',None)
-        edge_index = X.pop('edge_index')
-        node_attr = X.pop('node_attr')
-        edge_attr = X.pop('edge_attr')
-        add_outputs = X
-
-        if self.separate_batch_dim:
-            batch_size, num_nodes = node_attr.shape[:2]
-            num_edges = edge_attr.shape[1]
-            node_attr, edge_attr, edge_index, batch = self._collate(node_attr, edge_attr, edge_index)
-
-        #Encode
-        G = GraphFeatures(node_attr, edge_attr)
-        G = self.encode(G)
-
-        #Process
-        X = [G]
-        for h in range(nsteps):
-            G = self.process(G, edge_index, **{key: data[key][h] for key in self.fx_keys})
-            X.append(G)
-
-        #Decode
-        Y=[]
-        for x in X[1:]:
-            Y.append(self.decode(x))
-
-        Y=torch.stack(Y, dim=1)
-        X=torch.stack([x['node_attr'] for x in X], dim=0)
-        X=X.reshape(X.shape[0],-1)
-
-        if self.separate_batch_dim:
-            Y = Y.reshape(batch_size, num_nodes, nsteps, self.out_size).permute(2,0,1,3).squeeze(-1)
-            X = X.reshape(batch_size, num_nodes, nsteps, self.latent_size).permute(2,0,1,3).reshape(nsteps, batch_size, -1)
-
-        out = {'Y_pred': Y, 
-               'latent_state': X,
-               'reg_error': self.reg_error(),
-               **add_outputs}
-        return out
-
-    def encode(self, G):
-        """Encodes graph features into the latent space
-
-        :param G: [Graph_Features]
-        :return: [Graph_Features]
-        """
-        return self.encoder(G)
-
-    def process(self, G, edge_index, **kwargs):
-        """Processes a series of message passing steps on the graph.
-
-        :param G: [Graph_Features]
-        :param edge_index: [Tensor] Shape (2, edges)
-        :param kwargs: Additional input to fx
-        :return: [Graph_Features]
-        """
-        u = {'node_attr':G['node_attr'], 'edge_attr':G['edge_attr'], 'edge_index':edge_index}
-        G = self.processor(G, u)
-        if self.fx:
-            G.node_attr = G.node_attr + self.fx(**kwargs).view(G.node_attr.shape)
-        return G
-
-    def decode(self, G):
-        """Transforms the graph features from the latent space to the output space.
-
-        :param G: [Graph_Features]
-        :return: [Graph_Features]
-        """
-        return self.decoder(G['node_attr'])
-            
-    def _collate(self, node_attr, edge_attr, edge_index):
-        """Takes a set of graph attributes and batches them. 
-           Subsequent graphs after the first have their node indices incremented.
-
-        :param node_attr:[list tensor]
-        :param edge_attr: [list tensor]
-        :param edge_index: [list tensor]
-        :return: tensors node_attr (batch*nodes, *), edge_attr (batch_edges, *), edge_index (2, batch*edges), batch (batch*nodes)
-        """
-        #Assumes (batch, node/edge, features)
-        batch_size, num_nodes, node_features = node_attr.shape
-        _, num_edges, edge_features = edge_attr.shape
-
-        node_attr = torch.reshape(node_attr, (batch_size * num_nodes, node_features))
-        edge_attr = torch.reshape(edge_attr, (batch_size * num_edges, edge_features))
-        
-        #Handle node and batch index incrementing
-        new_edge_index = torch.zeros((2, num_edges*batch_size),dtype=torch.long)
-        batches = torch.zeros(batch_size*num_nodes, dtype=torch.long)
-        for i in range(batch_size):
-            batches[num_nodes*i:num_nodes*(i+1)] = i
-            new_edge_index[:, num_edges*i:num_edges*(i+1)] = edge_index + (num_nodes * i)
-
-        return node_attr, edge_attr, new_edge_index, batches
-
-    def _uncollate(self, node_attr, edge_attr, edge_index, batches):
-        """Takes a batched set of graph attributes and separates the graphs apart
-           Graphs must be the same except for the values of the node and edge attributes
-
-        :param node_attr: [tensor] (batch*nodes, ...)
-        :param edge_attr: [tensor] (batch*edges, ...)
-        :param edge_index: [tensor] (2, batch*edges)
-        :param batches: [tensor] (batch*nodes)
-        :return: tensors of the form (batch, ...)
-        """
-        #Assumes (batch*(nodes/edges), features)
-        #Returns (batch, nodes/edges, features)
-        batch_size = (batches[-1]+1).item()
-        num_nodes = node_attr.shape[0] // batch_size
-        num_edges = edge_attr.shape[0] // batch_size
-
-        node_attr = torch.reshape(node_attr, (batch_size, num_nodes, -1))
-        edge_attr = torch.reshape(edge_attr, (batch_size, num_edges, -1))
-        edge_index = edge_index[:, :num_edges]
-        return node_attr, edge_attr, edge_index
-
-    def reg_error(self):
-        return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
-
+import types
 
 class GraphFeatures(nn.Module):
-    def __init__(self, 
-                 node_attr=None, 
-                 edge_attr=None):
+    def __init__(self, node_attr=None, edge_attr=None):
+        """Tuple-like class that encapsulates node and edge attributes while overloading
+        operators to apply to them individually.
+
+        :param node_attr: [Tensor], defaults to None
+        :param edge_attr: [Tensor], defaults to None
+        """
         super(GraphFeatures, self).__init__()
         self.node_attr = node_attr
         self.edge_attr = edge_attr
@@ -319,100 +72,64 @@ class GraphFeatures(nn.Module):
             return None
 
     @staticmethod
-    def cat(x,dim=0):
-        node_attr = torch.cat([y.node_attr for y in x],dim)
-        edge_attr = torch.cat([y.edge_attr for y in x],dim)
+    def cat(x, dim=0):
+        node_attr = torch.cat([y.node_attr for y in x], dim)
+        edge_attr = torch.cat([y.edge_attr for y in x], dim)
         return GraphFeatures(node_attr,edge_attr)
 
         
 class GraphFeatureUpdate(nn.Module):
-    def __init__(self, node_enc=None, edge_enc=None):
+    def __init__(self, node_f=None, edge_f=None):
+        """Module to update the node and edge attributes of GraphFeatures
+
+        :param node_enc: _description_, defaults to None
+        :param edge_enc: _description_, defaults to None
+        """
         super(GraphFeatureUpdate, self).__init__()
-        self.node_enc = node_enc if node_enc is not None else lambda x : x
-        self.edge_enc = edge_enc if edge_enc is not None else lambda x : x
+        self.node_f = node_f if node_f is not None else lambda x : x
+        self.edge_f = edge_f if edge_f is not None else lambda x : x
         self.in_features=["node_attr", "edge_attr"]
         self.out_features = ["node_attr","edge_attr"]
     
     def forward(self, g):
-        edge = self.edge_enc(g.edge_attr)
-        node = self.node_enc(g.node_attr)
+        """Calls node_f and edge_f on the node and edge attributes of a graph.
+
+        :param g: [GraphFeatures]
+        :return: [GraphFeatures] Modified node and edge attributes.
+        """
+        edge = self.edge_f(g.edge_attr)
+        node = self.node_f(g.node_attr)
         return GraphFeatures(node, edge)
-
-
-class NodeModel(nn.Module):
-    def __init__(self, 
-        node_features: int, 
-        edge_features: int, 
-        output_size: int, 
-        hidden_sizes: int,
-        global_features: int = 0,
-        nonlin: nn.Module = nn.ReLU,
-        linear_map: nn.Module = slim.Linear,
-        add_layer_norm = True):
-
-        super(NodeModel, self).__init__()
-        self.in_features = node_features + edge_features + global_features
-        self.out_features = output_size
-        seq = [blocks.MLP(
-                insize = self.in_features,
-                outsize = output_size,
-                nonlin = nonlin,
-                hsizes = hidden_sizes,
-                linear_map = linear_map,
-                )]
-        if add_layer_norm:
-            seq.append(nn.LayerNorm(output_size))
-        self.node_enc = nn.Sequential(*seq)
-
-    def forward(self, x):
-        return self.node_enc(x)
-
-
-class EdgeModel(nn.Module):
-    def __init__(self, node_features, edge_features, output_size, hidden_sizes):
-        """Layer to Update Edge Features
-
-        :param node_features: [int] Number of features per node
-        :param edge_features: [int] Number of features per edge
-        :param latent_size: [int] Output dimension for node features
-        :param hidden_sizes: [list int] Dimensions of hidden sizes
-        """
-        super(EdgeModel, self).__init__()
-        self.in_features = node_features * 2 +edge_features
-        self.out_features = output_size
-        self.edge_enc = nn.Sequential(
-            blocks.MLP(
-                insize = self.in_features,
-                outsize = output_size,
-                nonlin = nn.ReLU,
-                hsizes = hidden_sizes,
-                ),
-            nn.LayerNorm(output_size)
-        )
-
-    def forward(self, edge_attr):
-        """Forward pass of module
-        
-        :param edge_attr: [Tensor] Edge Features, shape: (edges, edge_features)
-        :return: [Tensor] New Edge Features, shape: (edges, latent_size)
-        """
-        return self.edge_enc(edge_attr)
+    
+    def reg_error(self):
+        return sum([k.reg_error() for k in [self.node_f, self.edge_f] if hasattr(k, "reg_error")])
 
 
 class ArgSequential(nn.Sequential):
-    """A version of a Sequential Module that shares args across modules
-    """
     def __init__(self, *args):
+        """A version of a Sequential Module that shares additional args across modules.
+        Used exactly like nn.Sequential but the forward function accepts additional arguments.
+        Each module in the sequence must be able to accept the additional arguments as well.
+        """
         super(ArgSequential, self).__init__(*args)
     
     def forward(self, X, *args, **kwargs):
         for module in self:
             X = module(X, *args, **kwargs)
         return X
+    
+    def reg_error(self):
+        return sum([k.reg_error() for k in self if hasattr(k, "reg_error")])
 
 
 class Replace(integrators.Integrator):
     def __init__(self, block, interp_u=None, h=1.0):
+        """An Integrator style module for x_t+1 = f(x_t)
+
+        :param block: [nn.Module]
+        :param interp_u: [function, nn.Module], defaults to None
+        :param h: Not Used.
+        """
         super(Replace, self).__init__(block, interp_u, h)
 
     def integrate(self, x, u, t):
@@ -421,6 +138,10 @@ class Replace(integrators.Integrator):
 
 class nnLambda(nn.Module):
     def __init__(self, lam = lambda x: x):
+        """nn.Module that encapsulates a lambda function.
+
+        :param lam: [lambda], defaults to lambda x : x
+        """
         super(nnLambda, self).__init__()
         assert type(lam) is types.LambdaType
         self.lam = lam
@@ -429,7 +150,16 @@ class nnLambda(nn.Module):
         return self.lam(*args)
     
 
-def graph_interp_u(tq,t,u):
+def graph_interp_u(tq, t, u):
+    """Provides the interpetration to use integrators with graph features.
+    Sums the edge attributes incident to a node and returns them as the node_attr.
+    Concatenates the two node attributes incident to an edge and returns them as edge features.
+
+    :param tq: Not used.
+    :param t: Not used.
+    :param u: {"edge_index": Tensor, "node_attr": Tensor, "edge_attr": Tensor}
+    :return: [GraphFeatuers] 
+    """
     row, col = u['edge_index'][0], u['edge_index'][1]
     node_attr = scatter_sum(u['edge_attr'], col, dim=0)
     edge_attr = torch.cat([u['node_attr'][row], u['node_attr'][col]], dim=-1)

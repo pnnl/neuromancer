@@ -34,7 +34,7 @@ def test_integrator_black_ode_auto_shape(batchsize, nx, integrator):
 @settings(max_examples=200, deadline=None)
 def test_integrator_black_ode_non_auto_shape(batchsize, nsteps, nx, nu, integrator):
     # create input interpolator
-    t = (torch.arange(nsteps) * 10).unsqueeze(-1)
+    t = (torch.arange(nsteps) * 10).unsqueeze(-1).float()
     u = torch.sin(t).repeat(1, nu)
     interp_u = interpolation.LinInterp_Offline(t, u)
     # instantiate mlp and integrator
@@ -71,7 +71,7 @@ def test_integrator_white_ode_nonauto_params_shape(batchsize, nsteps, integrator
     nx = fx.out_features
     nu = fx.in_features - nx
     # create input interpolator
-    t = (torch.arange(nsteps) * 10).unsqueeze(-1)
+    t = (torch.arange(nsteps) * 10).unsqueeze(-1).float()
     u = torch.sin(t).repeat(1, nu)
     interp_u = interpolation.LinInterp_Offline(t, u)
     # create integrator
@@ -117,7 +117,7 @@ def test_integrator_black_ode_auto_multistep_shape(batchsize, nx, integrator):
        st.sampled_from(integrators_multistep))
 @settings(max_examples=200, deadline=None)
 def test_integrator_black_ode_nonauto_multistep_shape(batchsize, nsteps, nx, nu, integrator):
-    t = (torch.arange(nsteps) * 10).unsqueeze(-1)
+    t = (torch.arange(nsteps) * 10).unsqueeze(-1).float()
     u = torch.sin(t).repeat(1, nu)
     interp_u = interpolation.LinInterp_Offline(t, u)
 

@@ -128,29 +128,38 @@ class PenaltyLoss(AggregateLoss):
         objectives_dict = self.calculate_objectives(input_dict)
         input_dict = {**input_dict, **objectives_dict}
         fx = objectives_dict['objective_loss']
-
         penalties_dict = self.calculate_constraints(input_dict)
         input_dict = {**input_dict, **penalties_dict}
         penalties = penalties_dict['penalty_loss']
-
         input_dict['loss'] = fx + penalties
         return input_dict
 
+# TODO: make these attributes of the BarrierLoss class
+shift = 1.0
+alpha = 0.5
 
 class BarrierLoss(PenaltyLoss):
-    # choices of barrier functions
-    barriers = {'log10': lambda value: -torch.log10(-value),
-                'log': lambda value: -torch.log(-value),
-                'inverse': lambda value: 1/(-value),
-                }
 
-    def __init__(self, objectives, constraints, barrier='log10', upper_bound=1000.,
-                 batch_second=False):
+    def __init__(self, objectives, constraints, barrier='log10', upper_bound=1.,
+                 shift=1., alpha=0.5, batch_second=False):
         """
         :param problem: (neuromancer.problem.Problem)
         :param train_data: (torch DataLoader)
         """
         super().__init__(objectives, constraints, batch_second)
+
+        # choices of barrier functions
+        #   warning: log10, log, inverse, and softlog might get numerically unstable
+        #   softexp is numerically stable and thus a prefered option
+        self.shift = shift
+        self.alpha = alpha
+        self.barriers = {'log10': lambda value: -torch.log10(-value),
+                    'log': lambda value: -torch.log(-value),
+                    'inverse': lambda value: 1 / (-value),
+                    'softexp': lambda value: (torch.exp(self.alpha * value) - 1) / self.alpha + self.alpha,
+                    'softlog': lambda value: -torch.log(1 + self.alpha * (-value - self.alpha)) / self.alpha,
+                    'expshift': lambda value: torch.exp(value + self.shift)
+                    }
         self.barrier = self._set_barrier(barrier)
         self.upper_bound = upper_bound
 
@@ -174,17 +183,19 @@ class BarrierLoss(PenaltyLoss):
         for c in self.constraints:
             cvalue = output_dict[c.output_keys[1]]
             cviolation = output_dict[c.output_keys[2]]
-            penalty_mask = cviolation >= 0
+            penalty_mask = cvalue >= 0
             cbarrier = self.barrier(cvalue)
-            cbarrier[cbarrier != cbarrier] = 0  # replacing nan with 0 -> infeasibility
-            cbarrier[cbarrier == float("Inf")] = 0  # replacing inf with 0 -> active constraints
+            cbarrier[cbarrier != cbarrier] = 0.0  # replacing nan with 0 -> infeasibility
+            cbarrier[cbarrier == float("Inf")] = 0.0  # replacing inf with 0 -> active constraints
+            cbarrier = torch.clamp(cbarrier, min=0.0, max=self.upper_bound)
             output_dict[f'{c.name}_barrier'] = cbarrier
-            cbarrier = torch.clamp(cbarrier, max=self.upper_bound)
-            # calculate loss
-            penalty_loss = c.weight * torch.mean(penalty_mask * cviolation)
-            barrier_loss = torch.mean(~penalty_mask * cbarrier)
-            b_loss += barrier_loss
-            loss += penalty_loss + barrier_loss
+            if penalty_mask.any():
+                penalty_loss = c.weight * torch.mean(penalty_mask * cviolation)
+                loss += penalty_loss
+            if (~penalty_mask).any():
+                barrier_loss = torch.mean(~penalty_mask * cbarrier)
+                b_loss += barrier_loss
+                loss += barrier_loss
         output_dict['barrier_loss'] = b_loss
         output_dict['penalty_loss'] = loss
         return output_dict

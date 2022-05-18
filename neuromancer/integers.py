@@ -275,6 +275,14 @@ class IntegerInequalityProjection(IntegerProjection):
         for key in self.input_keys:
             output_dict[key+'_0'] = input_dict[key]
             input_dict[key] = self.int_projection(input_dict[key])
+            # TODO: interior point projection
+            #   assumption: convergence of the fractional point to feasible region
+            #   do standard int_projection
+            #   check if after this int projection we violate constraints
+            #   if so take projection towards the constraints interior
+            #   from the original fractional point based on the directions of
+            #   combined constraints and loss gradient
+            #   currently we are doing projection of exterior points to find feasible points
             output_dict[key+'_1'] = input_dict[key]
         output_dict['n_projections'] = 0
         for k in range(self.n_projections):

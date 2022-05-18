@@ -115,7 +115,9 @@ class PenaltyLoss(AggregateLoss):
     def __init__(self, objectives, constraints, batch_second=False):
         """
 
-        :param problem: (Problem)
+        :param objectives:
+        :param constraints:
+        :param batch_second: will be true for sequential datasets
         """
         super().__init__(objectives, constraints, batch_second)
 
@@ -134,17 +136,25 @@ class PenaltyLoss(AggregateLoss):
         input_dict['loss'] = fx + penalties
         return input_dict
 
-# TODO: make these attributes of the BarrierLoss class
-shift = 1.0
-alpha = 0.5
 
 class BarrierLoss(PenaltyLoss):
 
     def __init__(self, objectives, constraints, barrier='log10', upper_bound=1.,
                  shift=1., alpha=0.5, batch_second=False):
         """
-        :param problem: (neuromancer.problem.Problem)
-        :param train_data: (torch DataLoader)
+
+        References for relaxed barrier functions:
+            https://arxiv.org/abs/1602.01321
+            https://arxiv.org/abs/1904.04205v2
+            https://ieeexplore.ieee.org/document/7493643/
+
+        :param objectives:
+        :param constraints:
+        :param batch_second: will be true for sequential datasets
+        :param barrier: (string) type of the barrier function
+        :param upper_bound (scalar) upper bound for the barrier function value
+        :param shift (scalar) shift of the expshift barrier function towards the left
+        :param alpha (scalar) bending of the soft exponential function
         """
         super().__init__(objectives, constraints, batch_second)
 
@@ -206,7 +216,8 @@ class AugmentedLagrangeLoss(AggregateLoss):
     def __init__(self, objectives, constraints, train_data, inner_loop=10, sigma=2.,
                  mu_max=1000., mu_init=0.001, eta=1.0, batch_second=False):
         """
-        :param problem: (neuromancer.problem.Problem)
+        :param objectives:
+        :param constraints:
         :param train_data: (torch DataLoader)
         :param inner_loop: (int) Number of iterations for the inner loop optimization. Lagrange multipliers
                                  are updated in the outer loop every inner_loop iterations.

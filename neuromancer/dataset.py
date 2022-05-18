@@ -1,7 +1,7 @@
 from glob import glob
 import math
 import os
-from typing import Union
+from typing import Dict, Union, Optional
 import warnings
 
 import numpy as np
@@ -559,6 +559,189 @@ class StaticDataset(Dataset):
             f"    {varinfo}\n"
             f"  nsamples: {self.nsamples}\n"
         )
+
+
+class GraphDataset(Dataset):
+    def __init__(
+        self,
+        node_attr: Optional[Dict] = {},
+        edge_attr: Optional[Dict] = {},
+        graph_attr: Optional[Dict] = {},
+        metadata: Optional[Dict] = {},
+        seq_len: int = 6,
+        seq_horizon: int = 1,
+        seq_stride: int = 1,
+        graphs: Optional[Dict] = None,
+        build_graphs: str = None,
+        connectivity_radius: float = 0.015,
+        graph_self_loops=True,
+        name: str = "data"
+    ):
+        """[A Neuromancer Dataset to handle graph data.]
+
+        :param node_attr: [dict str : list tensor], Categorical or Sequential Node Features. Tensor shapes: (nodes, (opt) steps, feature_dim)
+        :param edge_attr: [dict str : list tensor], Categorical or Sequential edge data. Tensor shapes: (edges, (opt) steps, feature_dim)
+        :param graph_attr: [dict str : list tensor], Catagorical or Sequential graph data. Tensor shapes: (1, (opt) steps, feature_dim)
+        :param metadata: [dict str : tensor], Parameters/Features of the experiment as a whole
+        :param seq_len: [int], Length sequential data. Defaults to 6
+        :param seq_horizon: [int], Number of timesteps to predict. Defaults to 1.
+        :param seq_stride: [int], Timesteps between sequences. Defaults to 1
+        :param graphs: [dict int/(int, int) : tensor], Optional dictionary of graphs where the key is the experiment index (and timestep). Graphs are stored in adj tensor form: (2, edges)
+        :param build_graphs: [str], Name of feature to use for building graphs. Defaults to None/Doesn't build grpahs. Requires torch_geometric
+        :param connectivity_radius: Maximum distance to connect nodes when building graphs.
+        :param graph_self_loops: [bool], If True, include self loops when building graphs.
+        :param name: [str], Name of dataset. Defaults to "data"
+        :param **kwargs, Torch Dataset kwargs
+        """
+        super(GraphDataset, self).__init__()
+        self.node_attr = node_attr
+        self.edge_attr = edge_attr
+        self.graph_attr = graph_attr
+
+        exp = next(filter(lambda x: x, (self.node_attr, self.edge_attr, self.graph_attr, {0: []})))
+        self.experiments = len(list(exp.values())[0])
+
+        self.metadata = metadata
+        self.seq_len = seq_len
+        self.seq_horizon = seq_horizon
+        self.seq_stride = seq_stride
+        self.connectivity_radius = connectivity_radius
+        self.graphs = graphs if (graphs or not build_graphs) else self.build_graphs(
+            build_graphs,
+            self_loops=graph_self_loops
+        )
+        self.name = name
+        self.make_map()
+
+    def build_graphs(self, feature, self_loops):
+        """
+        try:
+            from torch_geometric.nn import radius_graph
+        except:
+        """
+        def radius_graph(x, r, loop):
+            dist = torch.cdist(x,x)
+            links = [torch.argwhere(d<r) for d in dist]
+            edges = [(i,j) for i in range(len(links)) for j in links[i] if i!=j or loop]
+            if len(edges) == 0:
+                return torch.zeros(2,0,dtype=torch.long)
+            return torch.tensor(edges, dtype=torch.long).permute(1,0)
+        
+        data = self.node_attr.get(feature)
+        assert data is not None, "Feature to build graphs not found in node_attr."
+
+        graphs = {}
+        #If building graph based on catagorical feature
+        if data[0].ndim == 2:
+            for i in range(len(data)):
+                edge_index = radius_graph(data[i],
+                                                self.connectivity_radius,
+                                                loop=self_loops)
+                graphs[i] = edge_index
+        #If building graph based on sequential feature
+        if data[0].ndim == 3:
+            for i in range(len(data)):
+                timesteps = data[i].size(1)
+                inds = np.arange(self.seq_len-1, timesteps, self.seq_stride)
+                for pos in inds:
+                    edge_index = radius_graph(data[i][:, pos],
+                                                    self.connectivity_radius,
+                                                    loop=self_loops)
+                    graphs[(i, pos+1)] = edge_index
+        return graphs
+
+    def shuffle(self):
+        """Randomizes the order of sample sequences"""
+        np.random.shuffle(self.map)
+
+    def make_map(self):
+        """Order the sample sequences"""
+        #Check if there is temporal data
+        for attr in (self.node_attr, self.edge_attr, self. graph_attr):
+            for feature in list(attr.values()):
+                if feature[0].ndim == 3:
+                    endpoint = feature[0].shape[1] -self.seq_horizon + 1
+                    self.map = np.mgrid[0:self.experiments,
+                                        self.seq_len : endpoint : self.seq_stride].reshape(2, -1).T
+                    return
+        self.map = np.mgrid[0:self.experiments, 0:1].reshape(2, -1).T
+
+    def __len__(self):
+        return len(self.map)
+
+    def __getitem__(self, idx):
+        """Returns a sample at idx
+
+        :param idx: [int] Index of Sample
+        :return: [DataDict] Sample containing positions Tensor and next_position Tensor
+        """
+        s, t = self.map[idx]
+
+        sample = {}
+        nodes = 0
+        for key in self.edge_attr:
+            attr = self.edge_attr[key][s]
+            if attr.ndim == 3:
+                attr = attr[:, t - self.seq_len: t]
+                sample["y_"+key] = attr[:, t: t + self.seq_horizon]
+            sample[key] = attr
+        for key in self.node_attr:
+            attr = self.node_attr[key][s]
+            if attr.ndim == 3:
+                sample["y_"+key] = attr[:, t: t + self.seq_horizon]
+                attr = attr[:, t - self.seq_len: t]
+            sample[key] = attr
+            sample['num_nodes'] = attr.size(0)
+        for key in self.graph_attr:
+            attr = self.graph_attr[key][s]
+            if attr.ndim == 3:
+                attr = attr[:, t-self.seq_len: t]
+                sample["y_"+key] = attr[:, t: t + self.seq_horizon]
+            sample[key] = attr
+        if self.graphs:
+            sample['edge_index'] = self.graphs.get(s, self.graphs.get((s, t)))
+            sample['num_edges'] = sample['edge_index'].size(1)
+            if "num_nodes" not in sample:
+                sample["num_nodes"] = torch.max(
+                    sample['edge_index']).item() + 1
+        sample['batch'] = torch.zeros((sample["num_nodes"],), dtype=torch.long)
+        sample["name"] = self.name
+        return sample
+
+    @staticmethod
+    def collate_fn(x):
+        """Batch collation for dictionaries of samples generated by this dataset. This wraps the
+        default PyTorch batch collation function and does some light post-processing to transpose
+        the data for NeuroMANCER models and add a "name" field.
+
+        :param batch: (list of dict str: torch.Tensor) dataset sample. Requires key 'edge_index'
+        """
+        out = {}
+        keys = list(x[0].keys())
+
+        for s in ['edge_index', 'name', 'batch', 'num_nodes', 'num_edges']:
+            if s in keys:
+                keys.remove(s)
+        for key in keys:
+            out[key] = torch.cat([y[key] for y in x], dim=0)
+
+        #Handle node and batch index incrementing
+        nodes = [y['num_nodes'] for y in x]
+        batches = [y['batch'] for y in x]
+        for i in range(1, len(batches)):
+            batches[i].fill_(i)
+        out['batch'] = torch.cat(batches, dim=0)
+        if 'edge_index' in x[0].keys():
+            offset = 0
+            edges = []
+            for i in range(len(x)):
+                edges.append(x[i]['edge_index'] + offset)
+                offset += nodes[i]
+            out['edge_index'] = torch.cat(edges, dim=1)
+            out['num_edges'] = out['edge_index'].size(1)
+        out['num_nodes'] = sum(nodes)
+        out['name'] = x[0]['name']
+        return out
 
 
 def normalize_data(data, norm_type, stats=None):

@@ -6,10 +6,8 @@ from typing import Dict, List, Callable
 from abc import ABC, abstractmethod
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
-try:
-    import pydot
-except ImportError:
-    pydot = None
+import pydot
+
 from itertools import combinations
 import warnings
 
@@ -77,9 +75,6 @@ class Problem(nn.Module):
         return input_dict
 
     def graph(self, include_objectives=True):
-        if pydot is None:
-            print("Error: pydot could not be imported, could not construct model graph")
-            return
         self._check_unique_names()
 
         graph = pydot.Dot("problem", graph_type="digraph", splines="spline", rankdir="LR")

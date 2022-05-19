@@ -13,9 +13,9 @@ import torch.nn.functional as F
 from neuromancer.estimators import MLPEstimator
 from neuromancer.dynamics import block_model, BlockSSM
 from neuromancer.problem import Problem
-from neuromancer.constraint import Loss
+from neuromancer.constraint import Loss, Variable
 from neuromancer.blocks import MLP
-from neuromancer.plot import plot_model_graph
+from neuromancer.loss import PenaltyLoss
 import slim
 
 """
@@ -110,6 +110,8 @@ For alternative way of defining objectives and constraints via high-level variab
 reference_loss = Loss(["Y_pred_dynamics", "Yf"], F.mse_loss, name="reference_loss")
 estimator_loss = Loss(["X_pred_dynamics", "x0_estim"], lambda x, y: F.mse_loss(x[-1, :-1, :], y[1:]), name="estimator_loss")
 bounds_constraint = Loss(["Y_pred_dynamics"], lambda x: F.relu(0.5 - x).mean(), name="bounds_constraint")
+ypred = Variable('Y_pred_dynamics')
+bounds_constraint = ypred < 0.5
 
 """
 At last, let's put together a `Problem` class to combine everything. Like `Component`s, when we instantiate a `Problem` 
@@ -117,13 +119,14 @@ we can inspect its string representation to get an overview of all the construct
 """
 objectives = [reference_loss, estimator_loss]
 constraints = [bounds_constraint]
+loss = PenaltyLoss(objectives, constraints, batch_second=True)
+
 trainable_components = [estim, dynamics]
-model = Problem(objectives, constraints, trainable_components)
+model = Problem(trainable_components, loss)
 print(model)
 
 # plot computational graph
-plot_model_graph(model, data.keys())
-
+model.plot_graph()
 """
 With our `Problem` created, we can now push the data dictionary we previously defined through it to receive the outputs 
 of each component and the values of each objective and constraint we specified. Note that we wrap the data into a `DataDict` 

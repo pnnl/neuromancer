@@ -25,16 +25,30 @@ user@machine:~$ conda env create -f env.yml
 ##### If .yml env creation fails create the environment manually
 
 ```console
-user@machine:~$ conda config --add channels conda-forge pytorch
-user@machine:~$ conda create -n neuromancer python=3.7
-user@machine:~$ source activate neuromancer
-(neuromancer) user@machine:~$ conda install pytorch torchvision -c pytorch
-(neuromancer) user@machine:~$ conda install scipy pandas matplotlib control pyts numba scikit-learn dill
-(neuromancer) user@machine:~$ conda install mlflow boto3
-(neuromancer) user@machine:~$ conda install -c powerai gym
-(neuromancer) user@machine:~$ conda install -c anaconda pytest
-(neuromancer) user@machine:~$conda install hypothesis
-```
+$ conda config --add channels conda-forge pytorch
+$ conda create -n neuromancer python=3.7
+$ source activate neuromancer
+(neuromancer) $ conda install pytorch torchvision -c pytorch
+(neuromancer) $ conda install scipy pandas matplotlib control pyts numba scikit-learn dill
+(neuromancer) $ conda install mlflow boto3
+(neuromancer) $ conda install -c powerai gym
+(neuromancer) $ conda install -c anaconda pytest
+(neuromancer) $ conda install hypothesis
+(neuromancer) $ conda install -c coecms celluloid
+(neuromancer) $ conda install pydot=1.4.2
+(neuromancer) $ conda install -c conda-forge cvxpy casadi
+
+##### Install torch-scatter
+
+To install torch-scatter you will need to know the pytorch and 
+cuda versions on your conda environment
+
+```console
+$ (neuromancer) python -c "import torch; print(torch.__version__)"
+1.11.0
+$ (neuromancer) python -c "import torch; print(torch.version.cuda)"
+11.3
+(neuromancer) $ pip install torch-scatter -f https://data.pyg.org/whl/torch-1.11.0+cu113.html```
 
 ##### Install neuromancer ecosystem 
 

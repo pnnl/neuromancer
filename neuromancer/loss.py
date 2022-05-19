@@ -8,7 +8,7 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 from neuromancer.gradients import gradient
-
+from neuromancer.constraint import Constraint
 
 
 class AggregateLoss(nn.Module, ABC):
@@ -23,6 +23,8 @@ class AggregateLoss(nn.Module, ABC):
         """
         super().__init__()
         self.objectives = nn.ModuleList(objectives)
+        for c in constraints:
+            assert isinstance(c, Constraint)
         self.constraints = nn.ModuleList(constraints)
         self.batch_second = batch_second
 

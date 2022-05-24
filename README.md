@@ -1,77 +1,74 @@
-# NeuroMANCER
-## Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations
+# Neural Lyapunov Differentiable Predictive Control 
+Code for the paper [Neural Lyapunov Differentiable Predictive Control](https://arxiv.org/abs/2205.10728)
 
-## [Complete Documentation](https://pnnl.github.io/neuromancer/)
-![UML diagram](figs/class_diagram.png)
+Neural Lyapunov DPC combines the principles of Lyapunov functions, model predictive control, reinforcement learning, and differentiable programming to offer a systematic way for offline unsupervised model-based policy optimization with goal-parametrized domain-aware intrinsic rewards.
 
-## Setup
 
-##### Clone and install neuromancer, linear maps, and emulator submodules 
-```console
+## Method and Examples
 
-user@machine:~$ git clone https://gitlab.pnnl.gov/dadaist/neuromancer.git
-user@machine:~$ git clone https://gitlab.pnnl.gov/dadaist/psl.git
-user@machine:~$ git clone https://gitlab.pnnl.gov/dadaist/slim.git
+![methodology.](examples/control_ODE/Lyapunov_DPC/fig_method/Lyap_DPC_method.png)  
+*Conceptual methodology of the neural Lyapunov differentiable predictive control. 
+Simulation of the differentiable constrained closed-loop system dynamics with neural Lyapunov function 
+in the forward pass is followed by backward pass computing direct policy gradients for policy optimization*
 
+
+![cl_trajectories.](examples/control_ODE/Lyapunov_DPC/fig_double_integrator/closed_loop_dpc.png)  
+*Example 1: Closed-loop state and control trajectories for
+double integrator.*
+
+![cl_trajectories.](examples/control_ODE/Lyapunov_DPC/fig_double_integrator/Lyap_CL_contour.png)  
+*Example 1: Stability regions via discrete-time Lyapunov stability
+condition (5) for double integrator.*
+
+![cl_trajectories.](examples/control_ODE/Lyapunov_DPC/fig_double_integrator/lyapunov.png)  
+*Example 1: Learned Lyapunov function for double integrator.*
+
+![cl_trajectories.](examples/control_ODE/Lyapunov_DPC/fig_double_integrator/phase_space.png)  
+*Example 1: Closed-loop phase portrait with overlaid Lyapunov
+contours for double integrator.*
+
+
+![cl_trajectories.](examples/control_ODE/Lyapunov_DPC/fig_pvtol/closed_loop_dpc.png)  
+*Example 2: Closed-loop state and control trajectories for
+PVTOL aircraft.*
+
+![cl_trajectories.](examples/control_ODE/Lyapunov_DPC/fig_pvtol/Lyap_CL_contour.png)  
+*Example 2: Stability regions via discrete-time Lyapunov stability
+condition (5) for PVTOL aircraft. Visualized on 2D slice of
+the 6D state space.*
+
+![cl_trajectories.](examples/control_ODE/Lyapunov_DPC/fig_pvtol/lyapunov.png)  
+*Example 2: Learned Lyapunov function for PVTOL
+aircraft. Visualized on 2D slice of the 6D state space.*
+
+![cl_trajectories.](examples/control_ODE/Lyapunov_DPC/fig_pvtol/phase_space.png)  
+*Example 2: Closed-loop phase portrait with overlaid Lyapunov
+contours for PVTOL aircraft. Visualized on 2D slice of the 6D
+state space.*
+
+
+## Cite as
+
+```yaml
+@misc{mukherjee2022neural,
+      title={Neural Lyapunov Differentiable Predictive Control}, 
+      author={Sayak Mukherjee and Ján Drgoňa and Aaron Tuor and Mahantesh Halappanavar and Draguna Vrabie},
+      year={2022},
+      eprint={2205.10728},
+      archivePrefix={arXiv},
+      primaryClass={eess.SY}
+}
 ```
 
-##### Create the environment via .yml (Linux)
 
-```console
-user@machine:~$ conda env create -f env.yml
-(neuromancer) user@machine:~$ source activate neuromancer
-```
+## Files for Running the Neural Lyapunov Differentiable Predictive Control Examples
 
-##### If .yml env creation fails create the environment manually
+examples are stored in the folder: .\examples\control_ODE\Lyapunov_DPC\
 
-```console
-$ conda config --add channels conda-forge pytorch
-$ conda create -n neuromancer python=3.7
-$ source activate neuromancer
-(neuromancer) $ conda install pytorch torchvision -c pytorch
-(neuromancer) $ conda install scipy pandas matplotlib control pyts numba scikit-learn dill
-(neuromancer) $ conda install mlflow boto3
-(neuromancer) $ conda install -c powerai gym
-(neuromancer) $ conda install -c anaconda pytest
-(neuromancer) $ conda install hypothesis
-(neuromancer) $ conda install -c coecms celluloid
-(neuromancer) $ conda install pydot=1.4.2
-(neuromancer) $ conda install -c conda-forge cvxpy casadi
+### Example 1: double integrator
+- double_integrator_LyapDPC_nstep.py - DPC stabilization double integrator example 
+- double_integrator_LyapDPC_var_ref.py - DPC reference tracking double integrator example 
 
-##### Install torch-scatter
+### Example 2: pvtol aircraft model
+- vtol_aircraft_LyapDPC_stabilize.py - DPC stabilization pvtol model example 
 
-To install torch-scatter you will need to know the pytorch and 
-cuda versions on your conda environment
-
-```console
-$ (neuromancer) python -c "import torch; print(torch.__version__)"
-1.11.0
-$ (neuromancer) python -c "import torch; print(torch.version.cuda)"
-11.3
-(neuromancer) $ pip install torch-scatter -f https://data.pyg.org/whl/torch-1.11.0+cu113.html```
-
-##### Install neuromancer ecosystem 
-
-
-```console
-(neuromancer) user@machine:~$ cd ../psl
-(neuromancer) user@machine:~$ python setup.py develop
-(neuromancer) user@machine:~$ cd ../slim
-(neuromancer) user@machine:~$ python setup.py develop
-(neuromancer) user@machine:~$ cd ../neuromancer 
-(neuromancer) user@machine:~$ python setup.py develop
-```
-
-### TODOs
-
-datasets category
-    [ ] In datasets add data_transforms method to act on dataset.data to generate: finite difference sequences via np.diff, nonlinear expansions, spectral decompositions
-
-
-blocks, dynamics, policies, estimators category    
-    [ ] Re-implement RNN state preservation for open loop simulation
-    [ ] full trajectory estimators: This will entail only taking the first N-steps for all the non-static inputs
-    [ ] Pytorch Extended Kalman Filter: 
-            https://filterpy.readthedocs.io/en/latest/_modules/filterpy/kalman/EKF.html
-    [ ] Implement LQR policy, similar structure to Linear Kalman Filter: 
-            Scipy reference https://nbviewer.jupyter.org/url/argmin.net/code/little_LQR_demo.ipynb

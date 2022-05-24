@@ -939,8 +939,7 @@ denorm_fns = {
 }
 
 
-
-def get_static_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0):
+def get_static_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0, batch_size=32):
     """This will generate dataloaders for a given dictionary of data.
     Dataloaders are hard-coded for full-batch training to match NeuroMANCER's training setup.
 
@@ -949,7 +948,7 @@ def get_static_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0
         computed over the number of sequences rather than their lengths.
     :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
     :param split_ratio: (list float) percentage of data in train and development splits; see
-        function `split_sequence_data` for more info.
+        function `split_sequence_data` for more info.get_static_dataloaders
     """
 
     if norm_type is not None:
@@ -971,21 +970,21 @@ def get_static_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0
 
     train_data = DataLoader(
         train_data,
-        batch_size=len(train_data),
-        shuffle=False,
+        batch_size=batch_size,
+        shuffle=True,
         collate_fn=train_data.collate_fn,
         num_workers=num_workers,
     )
     dev_data = DataLoader(
         dev_data,
-        batch_size=len(dev_data),
+        batch_size=batch_size,
         shuffle=False,
         collate_fn=dev_data.collate_fn,
         num_workers=num_workers,
     )
     test_data = DataLoader(
         test_data,
-        batch_size=len(test_data),
+        batch_size=batch_size,
         shuffle=False,
         collate_fn=test_data.collate_fn,
         num_workers=num_workers,

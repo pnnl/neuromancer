@@ -299,6 +299,7 @@ class IntegerInequalityProjection(IntegerProjection):
             for key in self.input_keys:
                 # Step 3a, get the gradient constraints violation directions
                 direction = self.get_direction(energy, input_dict[key])
+                # TODO: averaged direction of constraints and objectives
                 if self.dropout:
                     # Step 3b, random dropout of the directions
                     dropout = torch.bernoulli(self.dropout*torch.ones(direction.shape)).to(direction.device)

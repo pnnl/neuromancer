@@ -67,7 +67,6 @@ examples are stored in the folder: .\examples\control_ODE\Lyapunov_DPC\
 
 ### Example 1: double integrator
 - double_integrator_LyapDPC_nstep.py - DPC stabilization double integrator example 
-- double_integrator_LyapDPC_var_ref.py - DPC reference tracking double integrator example 
 
 ### Example 2: pvtol aircraft model
 - vtol_aircraft_LyapDPC_stabilize.py - DPC stabilization pvtol model example 

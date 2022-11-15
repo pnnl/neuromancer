@@ -14,7 +14,7 @@ estimators = [v for k, v in estimators.items() if k != 'fullobservable']
 
 @given(st.integers(1, 10),
        st.integers(1, 3),
-       st.integers(1, 3),
+       st.integers(4, 10),
        st.integers(1, 3),
        st.integers(1, 3),
        st.integers(1, 3),

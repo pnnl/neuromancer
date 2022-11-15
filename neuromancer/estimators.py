@@ -39,6 +39,7 @@ class TimeDelayEstimator(Component):
         self.name, self.data_dims = name, data_dims
         self.nsteps, self.window_size = nsteps, window_size
         self.nx = data_dims['x0'][-1]
+        self.ny = data_dims['Yp'][-1]
         data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
         self.sequence_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 2)
         self.static_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 1)
@@ -102,27 +103,28 @@ class FullyObservable(TimeDelayEstimator):
         self.net = nn.Identity()
 
     def features(self, data):
-        return data[self.input_keys[0]][:, 0, :]
+        return data[self.input_keys[0]][:, self.nsteps-1, :]
 
     def reg_error(self):
         return torch.tensor(0.0)
 
 
 class FullyObservableAugmented(FullyObservable):
-    def __init__(self, data_dims, nsteps=1, window_size=1, nd=1, d0=0.0, bias=False,
+    def __init__(self, data_dims, nsteps=1, window_size=1, d0=0.0, bias=False,
                  linear_map=slim.Linear, nonlin=nn.Identity, hsizes=[],
                  input_keys=['Yp'], linargs=dict(), name='fully_observable_aug'):
         """
-        Dummmy estimator to use consistent API for fully observable systems with augmented state space with disturbaces
+        Dummmy estimator to use consistent API for fully observable systems with augmented state space with disturbances
         """
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size,
                          input_keys=input_keys, name=name)
         self.net = nn.Identity()
-        self.nd = nd   # dimensions of the augmented states
+        self.nd = self.nx - self.ny   # dimensions of the augmented states
         self.d0 = d0   # fixed initial conditions of the augmented state
 
     def features(self, data):
-        augmented_state = self.d0*torch.ones([data['Yp'][:, 0, :].shape[0], self.nd])
+        nsamples, ny = data['Yp'][:, 0, :].shape
+        augmented_state = self.d0*torch.ones([nsamples, self.nd])
         return torch.cat([data['Yp'][:, self.nsteps - 1, :], augmented_state], 1)
 
 
@@ -151,6 +153,29 @@ class MLPEstimator(TimeDelayEstimator):
         super().__init__(data_dims, nsteps=nsteps, window_size=window_size, input_keys=input_keys, name=name)
         self.net = blocks.MLP(self.in_features, self.out_features, bias=bias,
                               linear_map=linear_map, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
+
+
+class MLPAugmentedEstimator(MLPEstimator):
+    """
+    Appends observed variables to state estimated from a Multi-layer Perceptron
+    """
+    def __init__(self, data_dims, nsteps=1, window_size=1, bias=False,
+                 linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64],
+                 input_keys=['Yp'], linargs=dict(), name='MLP_estim'):
+        """
+        See base class for arguments
+        """
+        super().__init__(data_dims, nsteps=nsteps, window_size=window_size, bias=bias,
+                         linear_map=linear_map, nonlin=nonlin, hsizes=hsizes,
+                         input_keys=input_keys, linargs=linargs, name=name)
+        self.net = blocks.MLP(self.in_features, self.nx - self.ny, bias=bias,
+                              linear_map=linear_map, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
+
+    def forward(self, data):
+        X = data[self.input_keys[0]][:, self.nsteps - 1, :]
+        output = super().forward(data)
+        output[self.output_keys[0]] = torch.cat([X, output[self.output_keys[0]]], dim=-1)
+        return output
 
 
 class ResMLPEstimator(TimeDelayEstimator):
@@ -191,4 +216,6 @@ estimators = {'fullobservable': FullyObservable,
               'linear': LinearEstimator,
               'mlp': MLPEstimator,
               'rnn': RNNEstimator,
-              'residual_mlp': ResMLPEstimator}
+              'residual_mlp': ResMLPEstimator,
+              'mlpaugmented': MLPAugmentedEstimator,
+              'fullobservableaugmented': FullyObservableAugmented}

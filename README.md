@@ -28,7 +28,7 @@ $ conda activate neuromancer
 ```
 
 For MAC OS and Window users you may have to install dependencies manually.
-
+conda install -c defaults intel-openmp -f
 ## Install dependencies using Conda
 ``` bash
 $ conda create -n neuromancer python=3.10.4
@@ -50,7 +50,9 @@ $ conda activate neuromancer
 (neuromancer) user@machine:~$ python setup.py develop
 ```
 
-To install torch-scatter you will need to know the pytorch and 
+## Torch-scatter
+Torch-scatter requires a pip install which usually fails when using conda create with a yml file. 
+If you get an error message about the pip install you will need to know the pytorch and 
 cuda versions on your conda environment (these should be installed already if using the env.yml file).
 
 ``` bash

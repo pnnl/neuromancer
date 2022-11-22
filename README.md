@@ -17,9 +17,10 @@ user@machine:~$ git clone -b master https://gitlab.pnnl.gov/dadaist/psl.git --si
 user@machine:~$ git clone -b master https://gitlab.pnnl.gov/dadaist/slim.git --single-branch
 
 ```
-## Install dependencies using .yml file
 
-For Ubuntu users the simplest way to install NeuroMANCER dependencies is via the env.yml file.
+## Install dependencies
+
+### Ubuntu
 
 ``` bash
 $ conda env create -f env.yml
@@ -27,9 +28,17 @@ $ conda activate neuromancer
 (neuromancer) $ 
 ```
 
-For MAC OS and Window users you may have to install dependencies manually.
-conda install -c defaults intel-openmp -f
-## Install dependencies using Conda
+### Windows
+
+``` bash
+$ conda env create -f windows_env.yml
+$ conda activate neuromancer
+$ (neuromancer) conda install -c defaults intel-openmp -f
+(neuromancer) $
+```
+
+### Other operating systems
+
 ``` bash
 $ conda create -n neuromancer python=3.10.4
 $ conda activate neuromancer
@@ -38,22 +47,21 @@ $ conda activate neuromancer
 (neuromancer) $ conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba networkx
 (neuromancer) $ conda install networkx plum-dispatch
 (neuromancer) $ conda install -c anaconda pytest hypothesis
+(neuromancer) $ conda install cvxpy cvxopt casadi seaborn
 ```
 
 ## Install neuromancer ecosystem
-```console
-(neuromancer) user@machine:~$ cd ../psl
-(neuromancer) user@machine:~$ python setup.py develop
-(neuromancer) user@machine:~$ cd ../slim
-(neuromancer) user@machine:~$ python setup.py develop
-(neuromancer) user@machine:~$ cd ../neuromancer 
-(neuromancer) user@machine:~$ python setup.py develop
+``` bash
+(neuromancer) $ cd psl; python setup.py develop
+(neuromancer) $ cd ../slim; python setup.py develop
+(neuromancer) $ cd ../neuromancer; python setup.py develop
 ```
 
-## Torch-scatter
+## Install Torch-scatter
 Torch-scatter requires a pip install which usually fails when using conda create with a yml file. 
 If you get an error message about the pip install you will need to know the pytorch and 
 cuda versions on your conda environment (these should be installed already if using the env.yml file).
+Make sure to change the pip install to reflect your version of pytorch and cuda. 
 
 ``` bash
 $ (neuromancer) python -c "import torch; print(torch.__version__)"
@@ -63,18 +71,13 @@ $ (neuromancer) python -c "import torch; print(torch.version.cuda)"
 (neuromancer) $ pip install torch-scatter -f https://data.pyg.org/whl/torch-1.12.1+cu102.html
 ```
 
+
 ## Examples
 
 For detailed examples of NeuroMANCER usage
 for control, system identification, and parametric programming as well as tutorials for basic usage, see the scripts
 in the examples folder. 
 
-The parametric programming examples have additional package dependencies for benchmarking
-against traditional constrained optimization solvers, e.g., cvxpy (these should also have been installed using env.yml)
-
-```console
-(neuromancer) user@machine:~$ conda install cvxpy cvxopt casadi seaborn
-```
 ## For developers
 All test code is developed using pytest and hypothesis. Please refer to 
 the test folder and create unit tests for any new modules introduced to the library. 

@@ -32,5 +32,5 @@ plt.scatter(tq_vec_plot, uq_vec_plot, s = 8, label = 'the interp (vectorized)')
 plt.title('if t is uniformly sampled')
 plt.xlabel('time')
 plt.legend()
-plt.show()
-
+plt.show(block=True)
+plt.interactive(False)

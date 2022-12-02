@@ -7,18 +7,17 @@ import numpy as np
 import slim
 import psl
 import os
+import matplotlib.pyplot as plt
 
 from neuromancer import blocks, estimators, dynamics, integrators, ode
 from neuromancer.interpolation import LinInterp_Offline
-from neuromancer.visuals import VisualizerOpen
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
-from neuromancer.simulators import OpenLoopSimulator, MultiSequenceOpenLoopSimulator
-from neuromancer.callbacks import SysIDCallback
-from neuromancer.loggers import BasicLogger, MLFlowLogger
+from neuromancer.loggers import BasicLogger
 from neuromancer.constraint import variable
 from neuromancer.dataset import get_sequence_dataloaders
 from neuromancer.loss import PenaltyLoss
+import neuromancer.simulator as sim
 
 
 torch.manual_seed(0)
@@ -35,7 +34,7 @@ raw = modelSystem.simulate()
 psl.plot.pltOL(Y=raw['Y'])
 psl.plot.pltPhase(X=raw['Y'])
 
-t = (np.arange(nsim)*ts).reshape(-1, 1)
+t = (np.arange(nsim+1)*ts).reshape(-1, 1)
 raw['Time'] = t
 
 t = torch.from_numpy(t)
@@ -67,12 +66,10 @@ fx_int = integrators.RK4(duffing_sys, interp_u=interp_u, h=modelSystem.ts)
 fy = slim.maps['identity'](nx, nx)
 
 dynamics_model = dynamics.ODENonAuto(fx_int, fy, 
-input_key_map={"x0": f"x0_{estim.name}", "Time": "Timef", 'Yf': 'Yf'},  # TBC2: sth wrong with input_key_map
-name='dynamics',    # must be named 'dynamics' due to some issue in visuals.py
-online_flag=False
-)
+input_key_map={"x0": estim.output_keys[0], 'Yf': 'Yf', 'Time': 'Timef'},
+               extra_inputs=['Time'], name='dynamics', online_flag=False)
 # %% Constraints + losses:
-yhat = variable(f"Y_pred_{dynamics_model.name}")
+yhat = variable(dynamics_model.output_keys[2])
 y = variable("Yf")
 
 yFD = (y[:, 1:, :] - y[:, :-1, :])
@@ -101,28 +98,13 @@ optimizer = torch.optim.Adam(problem.parameters(), lr=0.1)
 logger = BasicLogger(args=None, savedir='test', verbosity=1,
                      stdout="nstep_dev_"+reference_loss.output_keys[0])
 
-simulator = OpenLoopSimulator(
-    problem, train_loop, dev_loop, test_loop, eval_sim=True, device=device,
-) if isinstance(train_loop, dict) else MultiSequenceOpenLoopSimulator(
-    problem, train_loop, dev_loop, test_loop, eval_sim=True, device=device,
-)
-visualizer = VisualizerOpen(
-    dynamics_model,
-    1,
-    'test',
-    training_visuals=False,
-    trace_movie=False,
-)
-callback = SysIDCallback(simulator, visualizer)
-
 trainer = Trainer(
     problem,
     train_data,
     dev_data,
     test_data,
     optimizer,
-    callback=callback,
-    patience=10,
+    patience=20,
     warmup=10,
     epochs=100,
     eval_metric="nstep_dev_"+reference_loss.output_keys[0],
@@ -134,4 +116,27 @@ trainer = Trainer(
 )
 best_model = trainer.train()
 best_outputs = trainer.test(best_model)
-os.system('cp test/open_loop.png ../figs/duffing_parameter.png')
+
+"""
+Test open loop performance
+"""
+# TODO: investigate the time
+sim_steps = 400
+# dynamics_model.fx.block.omega = torch.nn.Parameter(torch.tensor([0.5]))
+nm_system = sim.DynamicsNeuromancer(dynamics_model,
+                name='nm', input_key_map={'x': 'x_nm', 'Time': 'Time'})
+psl_system = sim.DynamicsPSL(modelSystem,
+                name='psl', input_key_map={'x': 'x_psl', 'Time': 'Time'})
+psl_system.model.ts = ts
+components = [nm_system, psl_system]
+system = sim.SystemSimulator(components)
+x0 = np.asarray(modelSystem.x0)
+data_init = {'x_psl': x0, 'x_nm': x0}
+Time = raw['Time'][:sim_steps+1, :]
+data_traj = {'Time': Time}
+trajectories = system.simulate(nsim=sim_steps, data_init=data_init, data_traj=data_traj)
+plt.close('all')
+psl.plot.pltOL(Y=trajectories['y_psl'], Ytrain=trajectories['y_nm'])
+plt.show(block=True)
+plt.interactive(False)
+

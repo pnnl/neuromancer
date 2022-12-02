@@ -94,7 +94,7 @@ class Policy(Component):
 class Compensator(Policy):
     def __init__(self, data_dims, policy_output_keys, nsteps=1, input_keys=['Ep'], name='compensator'):
         """
-
+            Additive compensator for the nominal policy: e.g. for online updates
         :param data_dims: dict {str: tuple of ints) Data structure describing dimensions of input variables
         :param policy_output_keys: output keys of the original policy to add upon
         :param nsteps: (int) Prediction horizon
@@ -116,7 +116,6 @@ class Compensator(Policy):
         U_nominal = data[self.policy_output_keys]
         features = self.features(data)
         U_compensator = self.net(features).reshape(features.shape[0], -1)
-        # additive compensator for the nominal policy: e.g. for online updates
         Uf = U_nominal + U_compensator
         output = {name: tensor for tensor, name
                   in zip([Uf, self.reg_error()], self.output_keys)}
@@ -164,7 +163,7 @@ class LinearPolicy(Policy):
 
 
 class MLPPolicy(Policy):
-    def __init__(self, data_dims, nsteps=1, bias=False,
+    def __init__(self, data_dims, nsteps=1, bias=True,
                  linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64],
                  input_keys=["x0"], linargs=dict(), name="MLP_policy"):
         """
@@ -175,9 +174,23 @@ class MLPPolicy(Policy):
         self.net = blocks.MLP(insize=self.in_features, outsize=self.out_features, bias=bias,
                               linear_map=linear_map, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
 
+class MLP_boundsPolicy(Policy):
+    def __init__(self, data_dims, nsteps=1, bias=True,
+                 linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64],
+                 min=0.0, max=1.0, method='sigmoid_scale',
+                 input_keys=["x0"], linargs=dict(), name="MLP_policy"):
+        """
+
+        See LinearPolicy for arguments
+        """
+        super().__init__(data_dims, nsteps=nsteps, input_keys=input_keys, name=name)
+        self.net = blocks.MLP_bounds(insize=self.in_features, outsize=self.out_features, bias=bias,
+                              linear_map=linear_map, nonlin=nonlin, hsizes=hsizes,
+                              min=min, max=max, method=method, linargs=linargs)
+
 
 class RNNPolicy(Policy):
-    def __init__(self, data_dims, nsteps=1, bias=False,
+    def __init__(self, data_dims, nsteps=1, bias=True,
                  linear_map=slim.Linear, nonlin=nn.GELU, hsizes=[64],
                  input_keys=["x0"], linargs=dict(), name="RNN_policy"):
         """

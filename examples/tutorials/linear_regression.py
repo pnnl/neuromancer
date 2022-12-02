@@ -37,8 +37,8 @@ if __name__ == "__main__":
     plt.plot(losses)
     plt.savefig('regression_loss.png')
     plt.close()
-    # Neuromancer.Variable model
 
+    # Neuromancer.Variable model
     var_x = variable("x")
     var_w = variable(t_w_2, display_name="w")
     var_b = variable(t_b_2, display_name="b")

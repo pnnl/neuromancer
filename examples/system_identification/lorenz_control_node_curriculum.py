@@ -41,7 +41,7 @@ def get_box(system, ts, nsim):
     :param ts: (float) Timestep interval size
     :param nsim: (int) Number of simulation steps to use in defining box
     """
-    sim = system.simulate(ts=ts, nsim=nsim, U=system.get_U(nsim))['X']
+    sim = system.simulate(ts=ts, nsim=nsim, U=system.get_U(nsim))['X'][:-1, :]
     return {'min': sim.min(axis=0), 'max': sim.max(axis=0)}
 
 
@@ -59,7 +59,7 @@ class Validator:
         X, U = [], []
         for x0 in self.x0s:
             sim = sys.simulate(ts=args.ts, nsim=1000, x0=x0, U=sys.get_U(1000))
-            X.append(sim['X']), U.append(sim['U'])
+            X.append(sim['X'][:-1, :]), U.append(sim['U'])
 
         self.reals = {'X': torch.tensor(np.stack(X), dtype=torch.float32),
                       'U': torch.tensor(np.stack(U), dtype=torch.float32)}
@@ -91,11 +91,14 @@ def get_data(nsteps, box, sys):
         sim = sys.simulate(ts=args.ts, nsim=nsteps, x0=get_x0(box), U=sys.get_U(nsteps))
         # this will have the same starting point as the last state in sim but will be 1 timestep longer and you
         # throw away the first state.
-        X.append(sim['X'])
+        X.append(sim['X'][:-1, :])
         U.append(sim['U'])
                 
     X, U = np.stack(X), np.stack(U)
     sim = sys.simulate(ts=args.ts, nsim=args.nsim*nsteps, x0=get_x0(box), U=sys.get_U(args.nsim*nsteps))
+
+    sim['Y'] = sim['Y'][:-1, :]
+    sim['X'] = sim['X'][:-1, :]
 
     nx, nu = X.shape[-1], U.shape[-1]
     x, u  = sim['X'].reshape(args.nsim, nsteps, nx), sim['U'].reshape(args.nsim, nsteps, nu)
@@ -178,7 +181,7 @@ if __name__ == "__main__":
     ssm = SSMIntegrator(integrator, nsteps=args.nsteps)
     opt = optim.Adam(ssm.parameters(), args.lr, betas=(0.0, 0.9))
     validator = Validator(ssm, sys, box)
-    callback = TSCallback(validator, args.logdir, figname='figs/lorenz_control_node_curriculum.png')
+    callback = TSCallback(validator, args.logdir, figname='test/lorenz_control_node_curriculum.png')
     objective = Loss(['X', 'X_ssm'], F.mse_loss, weight=args.q_mse, name='mse')
     loss = PenaltyLoss([objective], [])
     problem = Problem([ssm], loss)

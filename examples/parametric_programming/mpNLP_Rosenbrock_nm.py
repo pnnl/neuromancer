@@ -280,7 +280,10 @@ if __name__ == "__main__":
     # optimal points CasADi vs Neuromancer
     ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10)
     ax.plot(x_nm, y_nm, 'r*', markersize=10)
-    plt.savefig('figs/mpNLP_Rosenbrock_nm.png')
+    # plt.savefig('figs/mpNLP_Rosenbrock_nm.png')
+    plt.show(block=True)
+    plt.interactive(False)
+
     """
     Benchmark Solution
     """

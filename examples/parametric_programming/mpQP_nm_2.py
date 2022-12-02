@@ -296,7 +296,9 @@ if __name__ == "__main__":
         ax[row_id, column_id].plot(x_nm, y_nm, 'r*', markersize=10)
         column_id += 1
     plt.show()
-    plt.savefig('figs/mpQP_nm_2.png')
+    # plt.savefig('figs/mpQP_nm_2.png')
+    plt.show(block=True)
+    plt.interactive(False)
 
     """
     Benchmark Solution

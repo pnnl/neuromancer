@@ -69,7 +69,7 @@ class Validator:
         self.x0s = [get_x0(args.system) for i in range(10)]
         X = []
         for x0 in self.x0s:
-            x = modelSystem.simulate(ts=args.ts, nsim=1000, x0=x0)['X']
+            x = modelSystem.simulate(ts=args.ts, nsim=1000, x0=x0)['X'][:-1, :]
             X.append(x)
 
         self.reals = {'X': torch.tensor(np.stack(X), dtype=torch.float32)}
@@ -105,7 +105,7 @@ class SSMIntegrator(Component):
 
 
 class TSCallback(Callback):
-    def __init__(self, validator, logdir, figname='figs/open_loop.png'):
+    def __init__(self, validator, logdir, figname='test/open_loop.png'):
         self.validator = validator
         self.logdir = logdir
         self.figname=figname
@@ -120,12 +120,13 @@ class TSCallback(Callback):
 
 def get_data(nsteps):
     train_set = np.stack([
-        modelSystem.simulate(ts=args.ts, nsim=nsteps, x0=get_x0(args.system))['X']
+        modelSystem.simulate(ts=args.ts, nsim=nsteps, x0=get_x0(args.system))['X'][:-1, :]
         for _ in range(args.nsim)
     ], axis=0)
     nx = train_set[0].shape[-1]
 
-    train_set_long = modelSystem.simulate(ts=args.ts, nsim=args.nsim * nsteps, x0=get_x0(args.system))['X']
+    train_set_long = modelSystem.simulate(ts=args.ts, nsim=args.nsim * nsteps,
+                                          x0=get_x0(args.system))['X'][:-1, :]
     train_set_long = train_set_long.reshape(args.nsim, nsteps, nx)
     train_set = np.concatenate([train_set, train_set_long])
 

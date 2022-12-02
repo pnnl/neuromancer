@@ -5,7 +5,6 @@
 **/build
 *.vscode
 **/dist
-*.pdf
 *.pth
 
 # Byte-compiled / optimized / DLL files

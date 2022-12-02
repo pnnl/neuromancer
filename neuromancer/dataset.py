@@ -151,11 +151,11 @@ def _validate_keys(data):
 
 class SequenceDataset(Dataset):
     def __init__(
-            self,
-            data,
-            nsteps=1,
-            moving_horizon=False,
-            name="data",
+        self,
+        data,
+        nsteps=1,
+        moving_horizon=False,
+        name="data",
     ):
         """Dataset for handling sequential data and transforming it into the dictionary structure
         used by NeuroMANCER models.
@@ -217,7 +217,7 @@ class SequenceDataset(Dataset):
         }
 
         self.batched_data = torch.cat(
-            [batch_tensor(self.full_data[s, ...], nsteps, mh=moving_horizon) for s in self._sslices],
+            [batch_tensor(self.full_data[s, ...] , nsteps, mh=moving_horizon) for s in self._sslices],
             dim=0,
         )
         self.batched_data = self.batched_data.permute(0, 2, 1)
@@ -309,9 +309,9 @@ class SequenceDataset(Dataset):
 
 class StaticDataset(Dataset):
     def __init__(
-            self,
-            data,
-            name="data",
+        self,
+        data,
+        name="data",
     ):
         """Dataset for handling static data and transforming it into the dictionary structure
         used by NeuroMANCER models.
@@ -389,19 +389,19 @@ class StaticDataset(Dataset):
 
 class GraphDataset(Dataset):
     def __init__(
-            self,
-            node_attr: Optional[Dict] = {},
-            edge_attr: Optional[Dict] = {},
-            graph_attr: Optional[Dict] = {},
-            metadata: Optional[Dict] = {},
-            seq_len: int = 6,
-            seq_horizon: int = 1,
-            seq_stride: int = 1,
-            graphs: Optional[Dict] = None,
-            build_graphs: str = None,
-            connectivity_radius: float = 0.015,
-            graph_self_loops=True,
-            name: str = "data"
+        self,
+        node_attr: Optional[Dict] = {},
+        edge_attr: Optional[Dict] = {},
+        graph_attr: Optional[Dict] = {},
+        metadata: Optional[Dict] = {},
+        seq_len: int = 6,
+        seq_horizon: int = 1,
+        seq_stride: int = 1,
+        graphs: Optional[Dict] = None,
+        build_graphs: str = None,
+        connectivity_radius: float = 0.015,
+        graph_self_loops=True,
+        name: str = "data"
     ):
         """[A Neuromancer Dataset to handle graph data.]
 
@@ -445,36 +445,35 @@ class GraphDataset(Dataset):
             from torch_geometric.nn import radius_graph
         except:
         """
-
         def radius_graph(x, r, loop):
-            dist = torch.cdist(x, x)
-            links = [torch.argwhere(d < r) for d in dist]
-            edges = [(i, j) for i in range(len(links)) for j in links[i] if i != j or loop]
+            dist = torch.cdist(x,x)
+            links = [torch.argwhere(d<r) for d in dist]
+            edges = [(i,j) for i in range(len(links)) for j in links[i] if i!=j or loop]
             if len(edges) == 0:
-                return torch.zeros(2, 0, dtype=torch.long)
-            return torch.tensor(edges, dtype=torch.long).permute(1, 0)
-
+                return torch.zeros(2,0,dtype=torch.long)
+            return torch.tensor(edges, dtype=torch.long).permute(1,0)
+        
         data = self.node_attr.get(feature)
         assert data is not None, "Feature to build graphs not found in node_attr."
 
         graphs = {}
-        # If building graph based on catagorical feature
+        #If building graph based on catagorical feature
         if data[0].ndim == 2:
             for i in range(len(data)):
                 edge_index = radius_graph(data[i],
-                                          self.connectivity_radius,
-                                          loop=self_loops)
+                                                self.connectivity_radius,
+                                                loop=self_loops)
                 graphs[i] = edge_index
-        # If building graph based on sequential feature
+        #If building graph based on sequential feature
         if data[0].ndim == 3:
             for i in range(len(data)):
                 timesteps = data[i].size(1)
-                inds = np.arange(self.seq_len - 1, timesteps, self.seq_stride)
+                inds = np.arange(self.seq_len-1, timesteps, self.seq_stride)
                 for pos in inds:
                     edge_index = radius_graph(data[i][:, pos],
-                                              self.connectivity_radius,
-                                              loop=self_loops)
-                    graphs[(i, pos + 1)] = edge_index
+                                                    self.connectivity_radius,
+                                                    loop=self_loops)
+                    graphs[(i, pos+1)] = edge_index
         return graphs
 
     def shuffle(self):
@@ -483,13 +482,13 @@ class GraphDataset(Dataset):
 
     def make_map(self):
         """Order the sample sequences"""
-        # Check if there is temporal data
-        for attr in (self.node_attr, self.edge_attr, self.graph_attr):
+        #Check if there is temporal data
+        for attr in (self.node_attr, self.edge_attr, self. graph_attr):
             for feature in list(attr.values()):
                 if feature[0].ndim == 3:
-                    endpoint = feature[0].shape[1] - self.seq_horizon + 1
+                    endpoint = feature[0].shape[1] -self.seq_horizon + 1
                     self.map = np.mgrid[0:self.experiments,
-                               self.seq_len: endpoint: self.seq_stride].reshape(2, -1).T
+                                        self.seq_len : endpoint : self.seq_stride].reshape(2, -1).T
                     return
         self.map = np.mgrid[0:self.experiments, 0:1].reshape(2, -1).T
 
@@ -510,20 +509,20 @@ class GraphDataset(Dataset):
             attr = self.edge_attr[key][s]
             if attr.ndim == 3:
                 attr = attr[:, t - self.seq_len: t]
-                sample["y_" + key] = attr[:, t: t + self.seq_horizon]
+                sample["y_"+key] = attr[:, t: t + self.seq_horizon]
             sample[key] = attr
         for key in self.node_attr:
             attr = self.node_attr[key][s]
             if attr.ndim == 3:
-                sample["y_" + key] = attr[:, t: t + self.seq_horizon]
+                sample["y_"+key] = attr[:, t: t + self.seq_horizon]
                 attr = attr[:, t - self.seq_len: t]
             sample[key] = attr
             sample['num_nodes'] = attr.size(0)
         for key in self.graph_attr:
             attr = self.graph_attr[key][s]
             if attr.ndim == 3:
-                attr = attr[:, t - self.seq_len: t]
-                sample["y_" + key] = attr[:, t: t + self.seq_horizon]
+                attr = attr[:, t-self.seq_len: t]
+                sample["y_"+key] = attr[:, t: t + self.seq_horizon]
             sample[key] = attr
         if self.graphs:
             sample['edge_index'] = self.graphs.get(s, self.graphs.get((s, t)))
@@ -552,7 +551,7 @@ class GraphDataset(Dataset):
         for key in keys:
             out[key] = torch.cat([y[key] for y in x], dim=0)
 
-        # Handle node and batch index incrementing
+        #Handle node and batch index incrementing
         nodes = [y['num_nodes'] for y in x]
         batches = [y['batch'] for y in x]
         for i in range(1, len(batches)):
@@ -763,7 +762,8 @@ denorm_fns = {
 }
 
 
-def get_static_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0, batch_size=32):
+def get_static_dataloaders(data, norm_type=None, split_ratio=None,
+                           num_workers=0, batch_size=32):
     """This will generate dataloaders for a given dictionary of data.
     Dataloaders are hard-coded for full-batch training to match NeuroMANCER's training setup.
 
@@ -818,8 +818,8 @@ def get_static_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0
 
 
 def get_sequence_dataloaders(
-        data, nsteps, moving_horizon=False, norm_type=None, split_ratio=None, num_workers=0,
-):
+    data, nsteps, moving_horizon=False, norm_type=None, split_ratio=None,
+        num_workers=0, batch_size=32):
     """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
     data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
     training setup.
@@ -862,21 +862,21 @@ def get_sequence_dataloaders(
 
     train_data = DataLoader(
         train_data,
-        batch_size=len(train_data),
+        batch_size=batch_size,
         shuffle=False,
         collate_fn=train_data.collate_fn,
         num_workers=num_workers,
     )
     dev_data = DataLoader(
         dev_data,
-        batch_size=len(dev_data),
+        batch_size=batch_size,
         shuffle=False,
         collate_fn=dev_data.collate_fn,
         num_workers=num_workers,
     )
     test_data = DataLoader(
         test_data,
-        batch_size=len(test_data),
+        batch_size=batch_size,
         shuffle=False,
         collate_fn=test_data.collate_fn,
         num_workers=num_workers,

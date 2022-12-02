@@ -15,8 +15,8 @@ class AggregateLoss(nn.Module, ABC):
         """
         Abstract aggregate loss class for calculating constraints, objectives, and aggegate loss values
 
-        :param objectives:
-        :param constraints:
+        :param objectives: (list (Objective)) list of neuromancer objective classes
+        :param constraints: (list (Constraint)) list of neuromancer constraint classes
         """
         super().__init__()
         self.objectives = nn.ModuleList(objectives)
@@ -100,17 +100,13 @@ class AggregateLoss(nn.Module, ABC):
 
 
 class PenaltyLoss(AggregateLoss):
-    """
-
-    :param input_dict:
-    :return:
-    """
 
     def __init__(self, objectives, constraints):
         """
+        Penalty loss
 
-        :param objectives:
-        :param constraints:
+        :param objectives: (list (Objective)) list of neuromancer objective classes
+        :param constraints: (list (Constraint)) list of neuromancer constraint classes
         """
         super().__init__(objectives, constraints)
 
@@ -135,14 +131,15 @@ class BarrierLoss(PenaltyLoss):
     def __init__(self, objectives, constraints, barrier='log10', upper_bound=1.,
                  shift=1., alpha=0.5):
         """
+        Barrier loss
 
         References for relaxed barrier functions:
             https://arxiv.org/abs/1602.01321
             https://arxiv.org/abs/1904.04205v2
             https://ieeexplore.ieee.org/document/7493643/
 
-        :param objectives:
-        :param constraints:
+        :param objectives: (list (Objective)) list of neuromancer objective classes
+        :param constraints: (list (Constraint)) list of neuromancer constraint classes
         :param barrier: (string) type of the barrier function
         :param upper_bound (scalar) upper bound for the barrier function value
         :param shift (scalar) shift of the expshift barrier function towards the left
@@ -208,8 +205,8 @@ class AugmentedLagrangeLoss(AggregateLoss):
     def __init__(self, objectives, constraints, train_data, inner_loop=10, sigma=2.,
                  mu_max=1000., mu_init=0.001, eta=1.0):
         """
-        :param objectives:
-        :param constraints:
+        :param objectives: (list (Objective)) list of neuromancer objective classes
+        :param constraints: (list (Constraint)) list of neuromancer constraint classes
         :param train_data: (torch DataLoader)
         :param inner_loop: (int) Number of iterations for the inner loop optimization. Lagrange multipliers
                                  are updated in the outer loop every inner_loop iterations.

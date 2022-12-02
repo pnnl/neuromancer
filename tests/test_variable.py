@@ -4,7 +4,7 @@ from neuromancer.constraint import variable
 import pytest
 import torch.nn as nn
 import torch.nn.functional as F
-
+torch.set_grad_enabled(True)
 
 def test_init():
     variable()

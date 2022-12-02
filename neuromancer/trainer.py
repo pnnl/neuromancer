@@ -64,7 +64,8 @@ class Trainer:
         self.logger = logger
         self.epochs = epochs
         self.current_epoch = 0
-        self.logger.log_weights(self.model)
+        if logger is not None:
+            self.logger.log_weights(self.model)
         self.train_metric = train_metric
         self.dev_metric = dev_metric
         self.test_metric = test_metric
@@ -131,7 +132,11 @@ class Trainer:
                 else:
                     if i > self.warmup:
                         self.badcount += 1
-                self.logger.log_metrics(output, step=i)
+                if self.logger is not None:
+                    self.logger.log_metrics(output, step=i)
+                else:
+                    mean_loss = output[f'mean_{self.train_metric}']
+                    print(f'epoch: {i}  {self.train_metric}: {mean_loss}')
 
                 self.callback.end_eval(self, output)  # visualizations
 
@@ -142,10 +147,11 @@ class Trainer:
 
         self.callback.end_train(self, output)  # write training visualizations
 
-        self.logger.log_artifacts({
-            "best_model_state_dict.pth": self.best_model,
-            "best_model.pth": self.model,
-        })
+        if self.logger is not None:
+            self.logger.log_artifacts({
+                "best_model_state_dict.pth": self.best_model,
+                "best_model.pth": self.model,
+            })
         return self.best_model
 
     def test(self, best_model):
@@ -169,7 +175,9 @@ class Trainer:
                 output = {**output, **batch_output}
 
         self.callback.end_test(self, output)    # simulator/visualizations/output concat
-        self.logger.log_metrics({f"best_{k}": v for k, v in output.items()})
+
+        if self.logger is not None:
+            self.logger.log_metrics({f"best_{k}": v for k, v in output.items()})
 
         return output
 

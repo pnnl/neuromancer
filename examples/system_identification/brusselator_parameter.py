@@ -4,26 +4,26 @@ Parameter estimation for a 1D Brusselator system.
 import torch
 import slim
 import psl
-import os
+import numpy as np
+import matplotlib.pyplot as plt
 
 from neuromancer import blocks, estimators, dynamics, arg, integrators, ode
-from neuromancer.visuals import VisualizerOpen
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
-from neuromancer.simulators import OpenLoopSimulator, MultiSequenceOpenLoopSimulator
-from neuromancer.callbacks import SysIDCallback
-from neuromancer.loggers import BasicLogger, MLFlowLogger
+from neuromancer.loggers import BasicLogger
 from neuromancer.dataset import get_sequence_dataloaders
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
+import neuromancer.simulator as sim
+
 
 torch.manual_seed(0)
 device = "cpu"
 
 system = psl.systems['Brusselator1D']
-
+ts = 0.05
 modelSystem = system()
-raw = modelSystem.simulate(ts=0.05)
+raw = modelSystem.simulate(ts=ts)
 psl.plot.pltOL(Y=raw['Y'])
 psl.plot.pltPhase(X=raw['Y'])
 #  Train, Development, Test sets - nstep and loop format
@@ -42,16 +42,16 @@ estim = estimators.FullyObservable(
 
 # %% Instantiate the blocks, dynamics model:
 brussels = ode.BrusselatorParam()
-fxRK4 = integrators.RK4(brussels, h=0.05)
+fxRK4 = integrators.RK4(brussels, h=ts)
 fy = slim.maps['identity'](nx, nx)
 dynamics_model = dynamics.ODEAuto(fxRK4, fy, name='dynamics',
-                                  input_key_map={"x0": f"x0_{estim.name}"})
+                        input_key_map={"x0": estim.output_keys[0]})
 
 # %% Constraints + losses:
-yhat = variable(f"Y_pred_{dynamics_model.name}")
+yhat = variable(dynamics_model.output_keys[2])
 y = variable("Yf")
-x0 = variable(f"x0_{estim.name}")
-xhat = variable(f"X_pred_{dynamics_model.name}")
+x0 = variable(estim.output_keys[0])
+xhat = variable(dynamics_model.output_keys[1])
 
 yFD = (y[:, 1:, :] - y[:, :-1, :])
 yhatFD = (yhat[:, 1:, :] - yhat[:, :-1, :])
@@ -80,28 +80,12 @@ optimizer = torch.optim.Adam(problem.parameters(), lr=0.1)
 logger = BasicLogger(args=None, savedir='test', verbosity=1,
                      stdout="nstep_dev_"+reference_loss.output_keys[0])
 
-simulator = OpenLoopSimulator(
-    problem, train_loop, dev_loop, test_loop, eval_sim=True, device=device,
-) if isinstance(train_loop, dict) else MultiSequenceOpenLoopSimulator(
-    problem, train_loop, dev_loop, test_loop, eval_sim=True, device=device,
-)
-visualizer = VisualizerOpen(
-    dynamics_model,
-    1,
-    'test',
-    training_visuals=False,
-    trace_movie=False,
-)
-
-callback = SysIDCallback(simulator, visualizer)
-
 trainer = Trainer(
     problem,
     train_data,
     dev_data,
     test_data,
     optimizer,
-    callback=callback,
     patience=10,
     warmup=10,
     epochs=100,
@@ -116,7 +100,26 @@ trainer = Trainer(
 best_model = trainer.train()
 # %%
 best_outputs = trainer.test(best_model)
-os.system('cp test/open_loop.png figs/brusselator_parameter.png')
+# os.system('cp test/open_loop.png figs/brusselator_parameter.png')
 # %%
 print('alpha = '+str(brussels.alpha.item()))
 print('beta = '+str(brussels.beta.item()))
+
+"""
+Test open loop performance
+"""
+nm_system = sim.DynamicsNeuromancer(dynamics_model,
+                name='nm', input_key_map={'x': 'x_nm'})
+psl_system = sim.DynamicsPSL(modelSystem,
+                name='psl', input_key_map={'x': 'x_psl'})
+psl_system.model.ts = ts
+components = [nm_system, psl_system]
+system = sim.SystemSimulator(components)
+x0 = np.ones(nx)
+data_init = {'x_psl': x0, 'x_nm': x0}
+trajectories = system.simulate(nsim=400, data_init=data_init)
+plt.close('all')
+psl.plot.pltOL(Y=trajectories['y_psl'], Ytrain=trajectories['y_nm'])
+plt.show(block=True)
+plt.interactive(False)
+

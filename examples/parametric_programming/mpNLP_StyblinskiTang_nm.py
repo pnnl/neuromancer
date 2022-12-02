@@ -161,7 +161,7 @@ if __name__ == "__main__":
     """
     # # # Metrics and Logger
     """
-    args.savedir = 'test_mpNLP_Rosebnrock'
+    args.savedir = 'test_mpNLP_StyblinskiTang'
     args.verbosity = 1
     metrics = ["train_loss", "train_obj", "train_mu_scaled_penalty_loss", "train_con_lagrangian",
                "train_mu", "train_c1", "train_c2", "train_c3"]
@@ -170,7 +170,7 @@ if __name__ == "__main__":
     elif args.logger == 'mlflow':
         Logger = MLFlowLogger
     logger = Logger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'mpmpNLP_Rosebnrock'
+    logger.args.system = 'mpmpNLP_StyblinskiTang'
 
     """
     # # #  mpQP problem solution in Neuromancer
@@ -270,7 +270,10 @@ if __name__ == "__main__":
     # optimal points CasADi vs Neuromancer
     ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10)
     ax.plot(x_nm, y_nm, 'r*', markersize=10)
-    plt.savefig('figs/mpNLP_StyblinskiTang_nm.png')
+    # plt.savefig('figs/mpNLP_StyblinskiTang_nm.png')
+    plt.show(block=True)
+    plt.interactive(False)
+
     """
     Benchmark Solution
     """

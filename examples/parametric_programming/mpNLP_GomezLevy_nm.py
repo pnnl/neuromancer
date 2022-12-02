@@ -161,7 +161,7 @@ if __name__ == "__main__":
     """
     # # # Metrics and Logger
     """
-    args.savedir = 'test_mpNLP_Rosebnrock'
+    args.savedir = 'test_mpNLP_GomezLevy'
     args.verbosity = 1
     metrics = ["train_loss", "train_obj", "train_mu_scaled_penalty_loss", "train_con_lagrangian",
                "train_mu", "train_c1", "train_c2", "train_c3"]
@@ -170,7 +170,7 @@ if __name__ == "__main__":
     elif args.logger == 'mlflow':
         Logger = MLFlowLogger
     logger = Logger(args=args, savedir=args.savedir, verbosity=args.verbosity, stdout=metrics)
-    logger.args.system = 'mpmpNLP_Rosebnrock'
+    logger.args.system = 'mpmpNLP_GomezLevy'
 
     """
     # # #  problem solution in Neuromancer
@@ -256,7 +256,7 @@ if __name__ == "__main__":
               100, 300, 1000, 3000, 6000]
     cp = ax.contourf(xx, yy,  J, levels=levels, alpha=0.6)
     fig.colorbar(cp)
-    ax.set_title('Rosenbrock problem')
+    ax.set_title('Gomez Levy problem')
     cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
     plt.setp(cg1.collections,
              path_effects=[patheffects.withTickedStroke()], alpha=0.7)
@@ -280,7 +280,10 @@ if __name__ == "__main__":
     # optimal points CasADi vs Neuromancer
     ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10)
     ax.plot(x_nm, y_nm, 'r*', markersize=10)
-    plt.savefig('figs/mpNLP_GomezLevy_nm.png')
+    # plt.savefig('figs/mpNLP_GomezLevy_nm.png')
+    plt.show(block=True)
+    plt.interactive(False)
+
     """
     Benchmark Solution
     """

@@ -134,6 +134,74 @@ class MLP(nn.Module):
         return x
 
 
+
+def sigmoid_scale(x, min, max):
+    return (max - min) * torch.sigmoid(x) + min
+
+def relu_clamp(x, min, max):
+    x = x + torch.relu(-x + min)
+    x = x - torch.relu(x - max)
+    return x
+
+
+class MLP_bounds(MLP):
+    """
+    Multi-Layer Perceptron consistent with blocks interface
+    """
+    bound_methods = {'sigmoid_scale': sigmoid_scale,
+                    'relu_clamp': relu_clamp}
+
+    def __init__(
+        self,
+        insize,
+        outsize,
+        bias=True,
+        linear_map=slim.Linear,
+        nonlin=SoftExponential,
+        hsizes=[64],
+        linargs=dict(),
+        min=0.0,
+        max=1.0,
+        method='sigmoid_scale',
+    ):
+        """
+
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Linear map class from slim.linear
+        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape
+        :param hsizes: (list of ints) List of hidden layer sizes
+        :param linargs: (dict) Arguments for instantiating linear layer
+        :param dropout: (float) Dropout probability
+        """
+        super().__init__(insize=insize, outsize=outsize, bias=bias,
+                         linear_map=linear_map, nonlin=nonlin,
+                         hsizes=hsizes, linargs=linargs)
+        self.min = min
+        self.max = max
+        self.method = self._set_method(method)
+
+    def _set_method(self, method):
+        if method in self.bound_methods.keys():
+            return self.bound_methods[method]
+        else:
+            assert callable(method), \
+                f'Method, {method} must be a key in {self.bound_methods} ' \
+                f'or a differentiable callable.'
+            return method
+
+    def forward(self, x):
+        """
+
+        :param x: (torch.Tensor, shape=[batchsize, insize])
+        :return: (torch.Tensor, shape=[batchsize, outsize])
+        """
+        for lin, nlin in zip(self.linear, self.nonlin):
+            x = nlin(lin(x))
+        return self.method(x, self.min, self.max)
+
+
 class InteractionEmbeddingMLP(nn.Module):
     """
     Multi-Layer Perceptron which is a hypernetwork hidden state embeddings decided by interaction type and concatenated

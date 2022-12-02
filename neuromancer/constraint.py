@@ -69,7 +69,7 @@ class LT(nn.Module):
         self.norm = norm
 
     def __str__(self):
-        return 'lt'
+        return '<='
 
     def forward(self, left, right):
         """
@@ -103,7 +103,7 @@ class GT(nn.Module):
         self.norm = norm
 
     def __str__(self):
-        return 'gt'
+        return '>='
 
     def forward(self, left, right):
         """
@@ -131,7 +131,7 @@ class Eq(nn.Module):
         self.norm = norm
 
     def __str__(self):
-        return 'eq'
+        return '=='
 
     def forward(self, left, right):
         """
@@ -167,11 +167,11 @@ class Objective(Component):
         :param weight: (float, int, or zero-D torch.Tensor) For scaling calculated Constraint violation loss
         :param name: (str) Optional intuitive name for storing in Problem's output dictionary.
         """
-        if not type(var) is Variable:
-            var = variable(value=var)
+        assert type(var) is Variable, f'{var} must be Variable type'
         if name is None:
             name = f'{var.display_name}_{metric}'
-        super().__init__(input_keys=[], output_keys=[name], name=name)
+        key = f'{var.key}_{metric}'
+        super().__init__(input_keys=var.keys, output_keys=[key], name=name)
         self.var = var
         self.metric = metric
         self.weight = weight
@@ -219,17 +219,26 @@ class Constraint(Component):
         :param name: (str) Optional intuitive name for storing in Problem's output dictionary.
         """
         if not type(left) is Variable:
+            if isinstance(left, (int, float, complex, bool)):
+                display_name = str(left)
+            else:
+                display_name = str(id(left))
             if not isinstance(left, torch.Tensor):
                 left = torch.tensor(left)
-            left = variable(left)
+            left = variable(left, display_name=display_name)
         if not type(right) is Variable:
+            if isinstance(right, (int, float, complex, bool)):
+                display_name = str(right)
+            else:
+                display_name = str(id(right))
             if not isinstance(right, torch.Tensor):
                 right = torch.tensor(right)
-            right = variable(right)
+            right = variable(right, display_name=display_name)
         if name is None:
-            name = f'{left}_{comparator}_{right}'
+            name = f'{left.display_name} {comparator} {right.display_name}'
+        key = f'{left.key}_{comparator}_{right.key}'
         input_keys = left.keys + right.keys
-        output_keys = [name, f'{name}_value', f'{name}_violation']
+        output_keys = [key, f'{key}_value', f'{key}_violation']
         super().__init__(input_keys=input_keys, output_keys=output_keys, name=name)
         self.left = left
         self.right = right

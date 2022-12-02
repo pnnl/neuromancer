@@ -30,7 +30,7 @@ Block components:
 import torch
 import torch.nn as nn
 from typing import List
-
+import slim
 from neuromancer.component import Component
 
 
@@ -84,8 +84,8 @@ class BlockSSM(SSM):
     DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
 
     def __init__(self, fx, fy, fu=None, fd=None, fe=None, fyu=None,
-                 xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, residual=False, name='block_ssm',
-                 input_key_map={}):
+                 xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add,
+                 residual=False, name='block_ssm', input_key_map={}):
         """
         Block structured system dynamics:
 
@@ -185,6 +185,49 @@ class BlockSSM(SSM):
         return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
 
 
+class LinearSSM(BlockSSM):
+    def __init__(self, A, B, C, E=None, input_key_map={}, name=None):
+        """
+
+        """
+        assert isinstance(A, torch.Tensor), \
+            f'State matrix A must be torch.Tensor type, ' \
+            f'got {type(A)}'
+        assert isinstance(B, torch.Tensor), \
+            f'Input matrix B must be torch.Tensor type, ' \
+            f'got {type(B)}'
+        assert isinstance(C, torch.Tensor), \
+            f'Output matrix C must be torch.Tensor type, ' \
+            f'got {type(C)}'
+        assert len(A.shape) == 2, \
+            f'State matrix A must be two dimensional, got {A.shape}'
+        assert len(B.shape) == 2, \
+            f'Input matrix B must be two dimensional, got {B.shape}'
+        assert len(C.shape) == 2, \
+            f'Output matrix C must be two dimensional, got {C.shape}'
+        nx = A.shape[0]
+        nu = B.shape[1]
+        ny = C.shape[0]
+        fu = slim.maps['linear'](nu, nx)
+        fx = slim.maps['linear'](nx, nx)
+        fy = slim.maps['linear'](nx, ny)
+        fx.linear.weight = torch.nn.Parameter(A)
+        fu.linear.weight = torch.nn.Parameter(B)
+        fy.linear.weight = torch.nn.Parameter(C)
+        if E is not None:
+            assert isinstance(E, torch.Tensor), \
+                f'Disturbance matrix E must be torch.Tensor type, ' \
+                f'got {type(E)}'
+            assert len(E.shape) == 2, \
+                f'Disturbance matrix E must be two dimensional, got {E.shape}'
+            nd = E.shape[1]
+            fd = slim.maps['linear'](nx, nd)
+            fd.linear.weight = torch.nn.Parameter(E)
+        else:
+            fd = None
+        super().__init__(fx=fx, fy=fy, fu=fu, fd=fd, input_key_map=input_key_map, name=name)
+
+
 class BlackSSM(SSM):
     DEFAULT_INPUT_KEYS = ["x0", "Yf"]
     DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
@@ -226,7 +269,7 @@ class BlackSSM(SSM):
         x = data[self.input_key_map['x0']]
         for i in range(nsteps):
             x_prev = x
-            xplus = torch.cat([x] + [data[k][:, i, :] for k in self.extra_inputs], dim=1)
+            xplus = torch.cat([x] + [data[self.input_key_map[k]][:, i, :] for k in self.extra_inputs], dim=1)
             x = self.fx(xplus)
             if self.fe is not None:
                 fe = self.fe(x_prev)
@@ -303,7 +346,7 @@ class ODEAuto(SSM):
 
 
 class ODENonAuto(SSM):
-    DEFAULT_INPUT_KEYS = ["x0", "Yf", "Time"]
+    DEFAULT_INPUT_KEYS = ["x0", "Yf"]
     DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
 
     def __init__(self, fx, fy, name='dynamics', input_key_map={}, extra_inputs=[], online_flag=False):
@@ -328,8 +371,12 @@ class ODENonAuto(SSM):
         """
         nsteps = data[self.input_key_map['Yf']].shape[1]
         x = data[self.input_key_map['x0']]
-        Time = data[self.input_key_map['Time']]  # (# of batches, nsteps, 1)
-        inputs = torch.cat([data[k] for k in self.extra_inputs], dim=-1) \
+        if 'Time' in self.input_key_map.keys():
+            Time = data[self.input_key_map['Time']]  # (# of batches, nsteps, 1)
+        else:
+            # dummy time tensor that won't be used
+            Time = torch.ones(data[self.input_key_map['Yf']].shape[0], nsteps, 1)
+        inputs = torch.cat([data[self.input_key_map[k]] for k in self.extra_inputs], dim=-1) \
             if len(self.extra_inputs) is not 0 else Time
         X, Y = [], []
         for i in range(nsteps):

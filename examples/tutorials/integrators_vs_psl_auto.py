@@ -15,10 +15,12 @@ modelSystem = system()
 ts = 0.001
 nsim = 10000
 raw = modelSystem.simulate(ts=ts, nsim=nsim)
-psl.plot.pltOL(Y=raw['Y'])
-psl.plot.pltPhase(X=raw['Y'])
+X = raw['X'][:-1, :]
+Y = raw['Y'][:-1, :]
+psl.plot.pltOL(Y=Y)
+psl.plot.pltPhase(X=Y)
 
-traj_ref = raw['X']
+traj_ref = X
 
 #%% single-step integrator simulation
 ode_block = ode.BrusselatorParam()
@@ -31,7 +33,7 @@ ode_block.beta = torch.nn.Parameter(torch.tensor([3.0]),
 integrator = integrators.RK4(ode_block, interp_u=None, h=ts)
 
 ic = torch.tensor(modelSystem.x0, dtype=torch.float32,
- requires_grad=False).reshape((1, raw['X'].shape[1]))
+ requires_grad=False).reshape((1, X.shape[1]))
 traj_list = [ic]
 
 for step in range(nsim):
@@ -51,7 +53,7 @@ plt.legend()
 
 #%% multi-step integrator simulation
 ic_multistep = torch.from_numpy(traj_ref[:4, :]).reshape((4, 1,
- raw['X'].shape[1]))
+ X.shape[1]))
 
 integrator_multistep = integrators.MultiStep_PredictorCorrector(ode_block,
  interp_u=None, h=ts)

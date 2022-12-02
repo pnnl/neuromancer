@@ -28,6 +28,8 @@ More detailed description of options in the `get_base_parser()` function in comm
 import torch
 import slim
 import psl
+import numpy as np
+import matplotlib.pyplot as plt
 
 from neuromancer import blocks, estimators, dynamics, arg
 from neuromancer.activations import activations
@@ -40,6 +42,7 @@ from neuromancer.loss import get_loss
 from neuromancer.callbacks import SysIDCallback
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.constraint import variable
+import neuromancer.simulator as sim
 
 
 def arg_sys_id_problem(prefix='', system='aero'):
@@ -55,7 +58,7 @@ def arg_sys_id_problem(prefix='', system='aero'):
     #  DATA
     gp.add("-dataset", type=str, default=system,
            help="select particular dataset with keyword")
-    gp.add("-nsteps", type=int, default=32,
+    gp.add("-nsteps", type=int, default=60,
            help="prediction horizon.")
     gp.add("-nsim", type=int, default=10000,
            help="Number of time steps for full dataset. (ntrain + ndev + ntest)"
@@ -80,7 +83,8 @@ def arg_sys_id_problem(prefix='', system='aero'):
            help='Choice of model architecture for state estimator.')
     gp.add("-estimator_input_window", type=int, default=8,
            help="Number of previous time steps measurements to include in state estimator input")
-    gp.add("-nonlinear_map", type=str, default="mlp", choices=["mlp", "rnn", "pytorch_rnn", "linear", "residual_mlp"],
+    gp.add("-nonlinear_map", type=str, default="mlp", choices=["mlp", "mlp_bounds",
+                                            "rnn", "pytorch_rnn", "linear", "residual_mlp"],
            help='Choice of architecture for component blocks in state space model.')
     gp.add("-linear_map", type=str, choices=["linear", "softSVD", "pf"], default="linear",
            help='Choice of map from SLiM package')
@@ -156,6 +160,7 @@ def get_model_components(args, dims, estim_name="estim", dynamics_name="dynamics
     nonlinmap = {
         "linear": linmap,
         "mlp": blocks.MLP,
+        "mlp_bounds": blocks.MLP_bounds,
         "rnn": blocks.RNN,
         "pytorch_rnn": blocks.PytorchRNN,
         "residual_mlp": blocks.ResMLP,
@@ -209,7 +214,7 @@ def get_model_components(args, dims, estim_name="estim", dynamics_name="dynamics
 
 
 def get_objective_terms(args, dims, estimator, dynamics_model):
-    xmin = -0.2
+    xmin = 0.0
     xmax = 1.2
     dxudmin = -0.05
     dxudmax = 0.05
@@ -218,7 +223,7 @@ def get_objective_terms(args, dims, estimator, dynamics_model):
     state_smoothing = args.Q_dx*((xhat[:, 1:, :] == xhat[:,:-1, :])^2)
 
     est_reg = variable(f"reg_error_{estimator.name}")
-    dyn_reg = variable(f"reg_error_{estimator.name}")
+    dyn_reg = variable(f"reg_error_{dynamics_model.name}")
     regularization = args.Q_sub*((est_reg + dyn_reg == 0)^2)
 
     yhat = variable(f"Y_pred_{dynamics_model.name}")
@@ -261,15 +266,18 @@ if __name__ == "__main__":
                              verbosity=args.verbosity, stdout=args.metrics)
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
 
-    # load raw dataset
-    if args.dataset in psl.emulators:
-        data = psl.emulators[args.dataset](nsim=args.nsim, ninit=0, seed=args.data_seed).simulate()
-    elif args.dataset in psl.datasets:
-        data = read_file(psl.datasets[args.dataset])
-    else:
-        data = read_file(args.dataset)
+    torch.manual_seed(args.data_seed)
+    system = psl.systems['TwoTank']
+    ts = 2.0
+    modelSystem = system(ts=ts, nsim=args.nsim)
+    raw = modelSystem.simulate(ts=ts)
+    raw['Y'] = raw['Y'][:-1, :]
+    raw['X'] = raw['X'][:-1, :]
+    psl.plot.pltOL(Y=raw['Y'], U=raw['U'])
+    psl.plot.pltPhase(X=raw['Y'])
+
     # get dataloader
-    nstep_data, loop_data, dims = get_sequence_dataloaders(data, args.nsteps, norm_type=None)
+    nstep_data, loop_data, dims = get_sequence_dataloaders(raw, args.nsteps, norm_type=None)
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data
 
@@ -284,24 +292,8 @@ if __name__ == "__main__":
     # plot computational graph
     problem.plot_graph()
 
-    # define callback
-    simulator = OpenLoopSimulator(
-        problem, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=device,
-    ) if isinstance(train_loop, dict) else MultiSequenceOpenLoopSimulator(
-        problem, train_loop, dev_loop, test_loop, eval_sim=not args.skip_eval_sim, device=device,
-    )
-    visualizer = VisualizerOpen(
-        dynamics_model,
-        args.verbosity,
-        args.savedir,
-        training_visuals=False,
-        figname='two_tank_neural_ssm.png',
-        trace_movie=False,
-    )
-    callback = SysIDCallback(simulator, visualizer)
     # select optimizer
     optimizer = torch.optim.AdamW(problem.parameters(), lr=args.lr)
-
     # get trainer
     trainer = Trainer(
         problem,
@@ -310,9 +302,8 @@ if __name__ == "__main__":
         test_data,
         optimizer,
         logger=logger,
-        callback=callback,
         epochs=args.epochs,
-        eval_metric=f"{dev_loop['name']}_{objectives[0].name}",
+        eval_metric="nstep_dev_" + objectives[0].output_keys[0],
         train_metric="nstep_train_loss",
         dev_metric="nstep_dev_loss",
         test_metric="nstep_test_loss",
@@ -324,3 +315,48 @@ if __name__ == "__main__":
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
     logger.clean_up()
+
+"""
+Test open loop performance
+"""
+# filtering
+psl_system = sim.DynamicsPSL(modelSystem,
+                name='psl', input_key_map={'x': 'x_psl', 'u': 'U'})
+mh = sim.MovingHorizon(input_keys=['x_psl'], nsteps=estimator.window_size,
+                       name='mh')
+estim_nm = sim.EstimatorPytorch(estimator=estimator.net,
+                                input_keys=['x_psl_mh'], name='estim')
+nm_system = sim.DynamicsNeuromancer(dynamics_model,
+                name='nm', input_key_map={'x': 'x_estim', 'u': 'U'})
+components = [mh, estim_nm, nm_system, psl_system]
+system_sim = sim.SystemSimulator(components)
+plt.figure()
+system_sim.plot_graph()
+sim_steps = 2000
+x0 = np.asarray(modelSystem.x0)
+data_init = {'x_psl': x0}
+U = raw['U'][:sim_steps + 1, :]
+data_traj = {'U': U}
+trajectories = system_sim.simulate(nsim=sim_steps, data_init=data_init,
+                                   data_traj=data_traj)
+psl.plot.pltOL(Y=trajectories['y_psl'], Ytrain=trajectories['y_nm'],
+          X=trajectories['x_estim'], U=trajectories['U'])
+plt.show(block=True)
+plt.interactive(True)
+
+# # prediction
+mh = sim.MovingHorizon(input_keys=['y_nm'], nsteps=estimator.window_size, name='mh')
+estim_nm = sim.EstimatorPytorch(estimator=estimator.net,
+                                input_keys=['y_nm_mh'], name='estim')
+components = [mh, estim_nm, nm_system, psl_system]
+system_sim = sim.SystemSimulator(components)
+plt.figure()
+system_sim.plot_graph()
+sim_steps = 2000
+data_init = {'x_psl': x0, 'y_nm': x0}
+trajectories = system_sim.simulate(nsim=sim_steps, data_init=data_init,
+                                   data_traj=data_traj)
+psl.plot.pltOL(Y=trajectories['y_psl'], Ytrain=trajectories['y_nm'],
+          X=trajectories['x_estim'], U=trajectories['U'])
+plt.show(block=True)
+plt.interactive(False)

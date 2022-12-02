@@ -30,7 +30,10 @@ class LinInterp_Offline(Interpolation):
         self.t = t
         self.u = u
         # check timestep size in self.t is identical or not
-        dt_all = torch.diff(self.t, dim=0).to(torch.float64)
+        if self.t.shape[0] == 1:
+            dt_all = torch.zeros(1, 1)
+        else:
+            dt_all = torch.diff(self.t, dim=0).to(torch.float64)
         self.dt_mean = torch.mean(dt_all)*torch.ones_like(dt_all)
 
     def interpolation(self, tq, t=None, u=None):

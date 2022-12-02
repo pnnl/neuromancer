@@ -18,11 +18,11 @@ sys.path.insert(0, os.path.abspath('../neuromancer/'))
 # -- Project information -----------------------------------------------------
 
 project = 'NeuroMANCER'
-copyright = '2020, Aaron Tuor, Jan Drgona, Elliott Skomski, Soumya Vasisht'
-author = 'Aaron Tuor, Jan Drgona, Elliott Skomski, Soumya Vasisht'
+copyright = '2022, Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen, Christian Møldrup Legaard, Draguna Vrabie'
+author = 'Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen, Christian Møldrup Legaard, Draguna Vrabie'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1'
+release = '1.2.1'
 
 
 # -- General configuration ---------------------------------------------------

@@ -16,7 +16,6 @@ NeuroMANCER
    dynamics.rst
    activations.rst
    blocks.rst
-   bounds.rst
    dataset.rst
    estimators.rst
    loggers.rst
@@ -42,8 +41,11 @@ NeuroMANCER
    ode.rst
    pwa_maps.rst
    solvers.rst
+   simulator.rst
 
-Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen, Draguna Vrabie
+
+Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
+Christian Møldrup Legaard, Draguna Vrabie
 
 
 

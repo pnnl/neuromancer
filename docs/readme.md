@@ -6,7 +6,7 @@ and then clone the gh-pages branch of the repo at github.com/pnnl/neuromancer
 ```bash
 
 $ mkdir docs; cd docs
-$ git clone https://github.com/pnnl/neuromancer.git -b
+$ git clone https://github.com/pnnl/neuromancer.git -b gh-pages --single-branch
 
 ```
 
@@ -15,12 +15,10 @@ You will want to install sphinx in order to autogenerate the documentation
 ```bash
 
 $ conda activate neuromancer
-$ conda install sphinx
+$ conda install sphinx -c anaconda
 $ conda install -c conda-forge sphinx_rtd_theme
 
 ```
-
-conda install -c conda-forge sphinx_rtd_theme
 Now navigate to the docs folder in neuromancer and run the makefile to generate docs. 
 
 

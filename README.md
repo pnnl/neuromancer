@@ -64,14 +64,8 @@ user@machine:~$ git clone -b master https://github.com/pnnl/psl.git --single-bra
 user@machine:~$ git clone -b master https://github.com/pnnl/slim.git --single-branch
 
 ```
-<<<<<<< README.md
 ## Install dependencies
 
-=======
-
-## Install dependencies
-
->>>>>>> README.md
 ### Ubuntu
 
 ``` bash
@@ -79,6 +73,9 @@ $ conda env create -f env.yml
 $ conda activate neuromancer
 (neuromancer) $ conda install tqdm
 (neuromancer) $ conda install pytorch-scatter -c pyg
+(neuromancer) $ conda install -c anaconda sphinx
+(neuromancer) $ conda install -c conda-forge sphinx_rtd_theme
+
 ```
 
 ### Windows
@@ -88,21 +85,11 @@ $ conda env create -f windows_env.yml
 $ conda activate neuromancer
 (neuromancer) $ conda install tqdm
 (neuromancer) $ conda install pytorch-scatter -c pyg
+(neuromancer) $ conda install -c anaconda sphinx
+(neuromancer) $ conda install -c conda-forge sphinx_rtd_theme
 (neuromancer) $ conda install -c defaults intel-openmp -f
 ```
 
-<<<<<<< README.md
-=======
-### Windows
-
-``` bash
-$ conda env create -f windows_env.yml
-$ conda activate neuromancer
-$ (neuromancer) conda install -c defaults intel-openmp -f
-(neuromancer) $
-```
-
->>>>>>> README.md
 ### Other operating systems
 
 ``` bash
@@ -114,35 +101,19 @@ $ conda activate neuromancer
 (neuromancer) $ conda install networkx plum-dispatch 
 (neuromancer) $ conda install -c anaconda pytest hypothesis
 (neuromancer) $ conda install cvxpy cvxopt casadi seaborn
-<<<<<<< README.md
 (neuromancer) $ conda install tqdm
 (neuromancer) $ conda install pytorch-scatter -c pyg
+(neuromancer) $ conda install -c anaconda sphinx
+(neuromancer) $ conda install -c conda-forge sphinx_rtd_theme
+
 ```
 
 ## Install neuromancer ecosystem
-=======
-```
-
-## Install neuromancer ecosystem
-``` bash
-(neuromancer) $ cd psl; python setup.py develop
-(neuromancer) $ cd ../slim; python setup.py develop
-(neuromancer) $ cd ../neuromancer; python setup.py develop
-```
-
-## Install Torch-scatter
-Torch-scatter requires a pip install which usually fails when using conda create with a yml file. 
-If you get an error message about the pip install you will need to know the pytorch and 
-cuda versions on your conda environment (these should be installed already if using the env.yml file).
-Make sure to change the pip install to reflect your version of pytorch and cuda. 
-
->>>>>>> README.md
 ``` bash
 (neuromancer) $ cd psl; python setup.py develop
 (neuromancer) $ cd ../slim; python setup.py develop
 (neuromancer) $ cd ../neuromancer; python setup.py develop
 ``` 
-
 
 ## Examples
 
@@ -150,7 +121,6 @@ For detailed examples of NeuroMANCER usage
 for control, system identification, and parametric programming as well as tutorials for basic usage, see the scripts
 in the examples folder. 
 
-<<<<<<< README.md
 The parametric programming examples have additional package dependencies for benchmarking
 against traditional constrained optimization solvers, e.g., cvxpy (these should also have been installed using env.yml)
 
@@ -158,8 +128,6 @@ against traditional constrained optimization solvers, e.g., cvxpy (these should 
 (neuromancer) user@machine:~$ conda install cvxpy cvxopt seaborn
 (neuromancer) user@machine:~$ pip install casadi 
 ```
-=======
->>>>>>> README.md
 ## For developers
 All test code is developed using pytest and hypothesis. Please refer to 
 the test folder and create unit tests for any new modules introduced to the library. 

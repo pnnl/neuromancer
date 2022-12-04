@@ -90,7 +90,7 @@ $ conda activate neuromancer
 (neuromancer) $ conda install -c defaults intel-openmp -f
 ```
 
-### Other operating systems
+### Other operating system
 
 ``` bash
 $ conda create -n neuromancer python=3.10.4

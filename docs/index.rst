@@ -44,7 +44,7 @@ NeuroMANCER
    simulator.rst
 
 
-Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
+Authors: Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
 Christian Møldrup Legaard, Draguna Vrabie
 
 

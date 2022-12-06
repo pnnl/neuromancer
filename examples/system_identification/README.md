@@ -10,11 +10,11 @@ unknown parameters of these structured digital twin models from observational da
 ### System Identification Problem
 Consider the non-autonomous partially observable nonlinear dynamical
 system:
-![sys_ID_problem.](/figs/sys_ID_problem.png)  
+![sys_ID_problem.](/examples/system_identification/figs/sys_ID_problem.PNG)  
 
 We assume access to a limited set of system measurements in the form of tuples, each of which corresponds
 to the input-output pairs along sampled trajectories with temporal gap ∆. That is, we form a dataset
-![sys_ID_dataset.](/figs/sys_ID_dataset.png)
+![sys_ID_dataset.](/examples/system_identification/figs/sys_ID_dataset.PNG)
 where i = 1, 2, . . . , n represents up to n different batches of input-output trajectories with N -step time
 horizon length. The primary objective of the physics-constrained system identification is to construct structured digital
 twin models and learn their unknown parameters from the provided observation data to provide accurate
@@ -57,27 +57,27 @@ become established in application-based research literature.
 The primary learning objective
 is to minimize the mean squared error, Ly , between predicted values and the ground truth measurements
 for the N -step prediction horizon:
-![sys_ID_loss.](/figs/sys_ID_loss.png)
+![sys_ID_loss.](/examples/system_identification/figs/sys_ID_loss.PNG)
 
 The system identification objective (11) can be augmented with various kind 
 of physics-informed soft constraints. In the following we enumerate a few examples.
 First, we apply inequality constraints on output predictions during training 
 in order to promote the boundedness and convergence of our dynamical models:
-![soft_con_sysID.](/figs/soft_con_sysID.png)  
+![soft_con_sysID.](/examples/system_identification/figs/soft_con_sysID.PNG)  
 
 To promote continuous trajectories of our dynamics models, we optionally apply a state smoothing loss
 which minimizes the mean squared error between successive predicted states:
-![state_smoothing.](/figs/state_smoothing.png)  
+![state_smoothing.](/examples/system_identification/figs/state_smoothing.PNG)  
 
 We include constraints penalties as additional terms to the optimization objective 14, and further define
 coefficients, Q∗ as hyperparameters to scale each term in the multi-objective loss function
-![sys_ID_agreggate_loss.](/figs/sys_ID_agreggate_loss.png)  
+![sys_ID_agreggate_loss.](/examples/system_identification/figs/sys_ID_agreggate_loss.PNG)  
 
 
 ### System Identification Training Algorithm
 The physics-constrained system identification training with differentiable 
 digital twin models is summarized in the following Algorithm:
-![sys_ID_algo.](/figs/sys_ID_algo.png)
+![sys_ID_algo.](/examples/system_identification/figs/sys_ID_algo.PNG)
 
 
 ## Neuromancer Syntax and Use

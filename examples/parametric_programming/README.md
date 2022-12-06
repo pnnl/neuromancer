@@ -122,9 +122,7 @@ constraints = [Q_con*con_1, Q_con*con_2, Q_con*con_3]
 components = [sol_map]
 
 # use projected gradient update
-project_keys = ["x"]
-projection = nm.solvers.GradientProjection(constraints, input_keys=project_keys,
-                                num_steps=5, name='proj')
+projection = nm.solvers.GradientProjection(constraints, input_keys=["x"], num_steps=5, name='proj')
 components.append(projection)
 
 # create constrained optimization loss
@@ -168,7 +166,7 @@ https://github.com/pnnl/neuromancer/blob/master/neuromancer/dataset.py
 **constraints** - classes for defining constraints and custom physics-informed loss function terms: 
 https://github.com/pnnl/neuromancer/blob/master/neuromancer/constraint.py
 
-** solvers**  -  implementation of iterative solvers for hard constraints such as gradient projection method: 
+**solvers**  -  implementation of iterative solvers for hard constraints such as gradient projection method: 
 https://github.com/pnnl/neuromancer/blob/master/neuromancer/solvers.py
 
 **loss** - class aggregating all instantiated constraints and loss terms 

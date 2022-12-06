@@ -12,7 +12,7 @@ to solve the parametric optimal control problem by computing the sensitivities
 of objective functions and constraints to changing problem parameters such as initial conditions, 
 boundary conditions, and parametric control tasks such as time-varying reference tracking.
 
-![DPC_abstract.](/figs/DPC_abstract.png)  
+![DPC_abstract.](/examples/control/figs/DPC_abstract.png)  
 *Conceptual methodology. Simulation of the differentiable closed-loop system dynamics 
 in the forward pass is followed by backward pass computing direct policy gradients for policy optimization *
 

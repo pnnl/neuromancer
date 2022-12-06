@@ -25,14 +25,14 @@ $$\mathbf{u}=\pi_{\theta}(\mathbf{x}(t), \mathbf{\xi}(t)) $$
 
 for a given dynamical systems of the continuous time form:
 
-> <img src="https://latex.codecogs.com/svg.image?\frac{d\mathbf{x}(t)}{dt}=\mathbf{f}(\mathbf{x}(t),&space;\mathbf{u}(t))" title="https://latex.codecogs.com/svg.image?\frac{d\mathbf{x}(t)}{dt}=\mathbf{f}(\mathbf{x}(t), \mathbf{u}(t))" />
+$$ \frac{d\mathbf{x}(t)}{dt}=\mathbf{f}(\mathbf{x}(t), \mathbf{u}(t)) $$
 
 where x(t) is the time-varying state of the considered system, u(t) are system control inputs, and f is the state
 transition dynamics.  
 
 Or in the discrete time form (e.g., obtained via ODE solver, or via state space model form):
 
-> <img src="https://latex.codecogs.com/svg.image?\mathbf{x}_{k+1}=\mathbf{f}(\mathbf{x}_k,&space;\mathbf{u}_k)" title="https://latex.codecogs.com/svg.image?\mathbf{x}_{k+1}=\mathbf{f}(\mathbf{x}_k,&space;\mathbf{u}_k)" />
+$$ \mathbf{x}_{k+1}=\mathbf{f}(\mathbf{x}_k,&space;\mathbf{u}_k)$$
 
 Formally we can formulate the DPC problem as a following parametric
 optimal control problem:

@@ -32,11 +32,11 @@ transition dynamics.
 
 Or in the discrete time form (e.g., obtained via ODE solver, or via state space model form):
 
-$$ \mathbf{x}_{k+1}=\mathbf{f}(\mathbf{x}_k,&space;\mathbf{u}_k)$$
+$$ \mathbf{x}_{k+1}=\mathbf{f}(\mathbf{x}_k, \mathbf{u}_k)$$
 
 Formally we can formulate the DPC problem as a following parametric
 optimal control problem:
-![DPC_problem_form.](/examples/control/figs/DPC_problem_form.png)  
+![DPC_problem_form.](/examples/control/figs/DPC_problem_form.PNG)  
 *DPC problem formulation.*
 
 
@@ -48,7 +48,7 @@ is that it allows us to use automatic
 differentiation (backpropagation through time) to directly compute the policy gradient. In particular,
 by representing the problem (15) as a computational graph and leveraging the chain rule, we can directly
 compute the gradients of the loss function w.r.t. the policy parameters W as follows:
-![DPC_policy_gradients.](/examples/control/figs/DPC_policy_gradients.png)  
+![DPC_policy_gradients.](/examples/control/figs/DPC_policy_gradients.PNG)  
 *DPC policy gradients.*
 
 ## DPC Problem Architecture 
@@ -74,7 +74,7 @@ the distribution of initial state conditions and problem parameters sampled from
 X and Ξ, respectively. The computed policy gradients now allow us to perform direct policy optimization via
 a gradient-based optimizer O. Thus the presented procedure introduces a generic approach for data-driven
 solution of model-based parametric optimal control problem (15) with constrained neural control policies
-![DPC_algo.](/examples/control/figs/DPC_algo.png)  
+![DPC_algo.](/examples/control/figs/DPC_algo.PNG)  
 *DPC policy optimization algorithm.*
 
 From a reinforcement learning (RL) perspective, the DPC loss L can be seen as a reward function,

@@ -24,8 +24,8 @@ sol_map = nm.maps.Map(func,
         name='primal_map')
 
 # problem primal variables
-x = nm.variable("x")[:, [0]]
-y = nm.variable("x")[:, [1]]
+x = nm.constraints.variable("x")[:, [0]]
+y = nm.constraints.variable("x")[:, [1]]
 
 # sampled problem parameters
 p = nm.constraints.variable('p')

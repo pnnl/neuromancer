@@ -6,7 +6,7 @@ failed_examples = []
 
 def run(path, failed_examples=failed_examples):
     print(f'Running example scripts in folder {path}')
-    dirs = [k for k in os.listdir(path) if os.path.isdir(k) if k!= 'mlruns']
+    dirs = [k for k in os.listdir(path) if os.path.isdir(k) if k!= 'mlruns' and k != 'figs']
     files = [k for k in os.listdir(path) if k.endswith('.py') and k != 'runall.py']
     for f in files:
         status = os.system(f'python {os.path.join(path, f)} >> results.txt')

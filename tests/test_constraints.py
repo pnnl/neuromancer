@@ -238,7 +238,7 @@ def test_eq_variables(shape):
     cnstr = x == y
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -249,7 +249,7 @@ def test_eq_mse_variables(shape):
     cnstr = (x == y)^2
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -260,7 +260,7 @@ def test_lt_variables(shape):
     cnstr = x < y
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor + 2}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -271,7 +271,7 @@ def test_lt_mse_variables(shape):
     cnstr = (x < y)^2
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor + 2}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -282,7 +282,7 @@ def test_le_variables(shape):
     cnstr = x <= y
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor + 2}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -293,7 +293,7 @@ def test_le_mse_variables(shape):
     cnstr = (x <= y)^2
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor + 2}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -304,7 +304,7 @@ def test_gt_variables(shape):
     cnstr = x > y
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor - 2}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -315,7 +315,7 @@ def test_gt_mse_variables(shape):
     cnstr = (x > y)^2
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor - 2}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -326,7 +326,7 @@ def test_ge_variables(shape):
     cnstr = x >= y
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor - 2}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -337,7 +337,7 @@ def test_ge_mse_variables(shape):
     cnstr = (x >= y)^2
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor - 2}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 ####################################################################################
 
@@ -349,7 +349,7 @@ def test_neq_variables(shape):
     cnstr = x == y
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor + 2}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -360,7 +360,7 @@ def test_neq_mse_variables(shape):
     cnstr = (x == y)^2
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor +2}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -371,7 +371,7 @@ def test_nlt_variables(shape):
     cnstr = x < y
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor - 2}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -382,7 +382,7 @@ def test_nlt_mse_variables(shape):
     cnstr = (x < y)^2
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor - 2}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -393,7 +393,7 @@ def test_nle_variables(shape):
     cnstr = x <= y
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor - 2}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -404,7 +404,7 @@ def test_nle_mse_variables(shape):
     cnstr = (x <= y)^2
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor - 2}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -415,7 +415,7 @@ def test_ngt_variables(shape):
     cnstr = x > y
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor + 2}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -426,7 +426,7 @@ def test_ngt_mse_variables(shape):
     cnstr = (x > y)^2
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor + 2}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -437,7 +437,7 @@ def test_nge_variables(shape):
     cnstr = x >= y
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor + 2}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -448,7 +448,7 @@ def test_nge_mse_variables(shape):
     cnstr = (x >= y)^2
     tensor = torch.randn(shape)
     data = {'x': tensor, 'y': tensor + 2}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -457,7 +457,7 @@ def test_eq_number(shape):
     x = cn.variable(torch.tensor(1.))
     cnstr = x == 1.
     data = {}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -466,7 +466,7 @@ def test_eq_mse_number(shape):
     x = cn.variable(torch.tensor(1.))
     cnstr = (1. == x)^2
     data = {}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -475,7 +475,7 @@ def test_lt_number(shape):
     x = cn.variable('x')
     cnstr = x < 2.
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -484,7 +484,7 @@ def test_lt_mse_number(shape):
     x = cn.variable('x')
     cnstr = (x < 2.)^2
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -493,7 +493,7 @@ def test_le_number(shape):
     x = cn.variable('x')
     cnstr = x <= 2.
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -502,7 +502,7 @@ def test_le_mse_number(shape):
     x = cn.variable('x')
     cnstr = (x <= 2.)^2
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -511,7 +511,7 @@ def test_gt_number(shape):
     x = cn.variable('x')
     cnstr = x > -1.
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -520,7 +520,7 @@ def test_gt_mse_number(shape):
     x = cn.variable('x')
     cnstr = (x > -1.)^2
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -529,7 +529,7 @@ def test_ge_number(shape):
     x = cn.variable('x')
     cnstr = x >= -1.
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -538,7 +538,7 @@ def test_ge_mse_number(shape):
     x = cn.variable('x')
     cnstr = (x >= -1)^2.
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] == 0.
+    assert cnstr(data)[cnstr.key] == 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -547,7 +547,7 @@ def test_neq_number(shape):
     x = cn.variable('x')
     cnstr = x == torch.rand(shape)
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -556,7 +556,7 @@ def test_neq_mse_number(shape):
     x = cn.variable('x')
     cnstr = (x == torch.rand(shape))^2
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -565,7 +565,7 @@ def test_nlt_number(shape):
     x = cn.variable('x')
     cnstr = x < -1.
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -574,7 +574,7 @@ def test_nlt_mse_number(shape):
     x = cn.variable('x')
     cnstr = (x < -1.)^2
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -583,7 +583,7 @@ def test_nle_number(shape):
     x = cn.variable('x')
     cnstr = x <= -1.
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -592,7 +592,7 @@ def test_nle_mse_number(shape):
     x = cn.variable('x')
     cnstr = (x <= -1.)^2
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -601,7 +601,7 @@ def test_ngt_number(shape):
     x = cn.variable('x')
     cnstr = x > 2.
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -610,7 +610,7 @@ def test_ngt_mse_number(shape):
     x = cn.variable('x')
     cnstr = (x > 2.)^2
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -619,7 +619,7 @@ def test_nge_number(shape):
     x = cn.variable('x')
     cnstr = x >= 2.
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
@@ -628,7 +628,7 @@ def test_nge_mse_number(shape):
     x = cn.variable('x')
     cnstr = (x >= 2.)^2
     data = {'x': torch.rand(shape)}
-    assert cnstr(data)[cnstr.name] != 0.
+    assert cnstr(data)[cnstr.key] != 0.
 
 
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))

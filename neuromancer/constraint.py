@@ -69,7 +69,7 @@ class LT(nn.Module):
         self.norm = norm
 
     def __str__(self):
-        return '<='
+        return 'lt'
 
     def forward(self, left, right):
         """
@@ -103,7 +103,7 @@ class GT(nn.Module):
         self.norm = norm
 
     def __str__(self):
-        return '>='
+        return 'gt'
 
     def forward(self, left, right):
         """
@@ -131,7 +131,7 @@ class Eq(nn.Module):
         self.norm = norm
 
     def __str__(self):
-        return '=='
+        return 'eq'
 
     def forward(self, left, right):
         """
@@ -236,9 +236,9 @@ class Constraint(Component):
             right = variable(right, display_name=display_name)
         if name is None:
             name = f'{left.display_name} {comparator} {right.display_name}'
-        key = f'{left.key}_{comparator}_{right.key}'
+        self.key = f'{left.key}_{comparator}_{right.key}'
         input_keys = left.keys + right.keys
-        output_keys = [key, f'{key}_value', f'{key}_violation']
+        output_keys = [self.key, f'{self.key}_value', f'{self.key}_violation']
         super().__init__(input_keys=input_keys, output_keys=output_keys, name=name)
         self.left = left
         self.right = right
@@ -247,6 +247,7 @@ class Constraint(Component):
 
     def update_name(self, name):
         self.name = name
+        self.key = name
         self.output_keys = [name, f'{name}_value', f'{name}_violation']
 
     @property
@@ -274,7 +275,7 @@ class Constraint(Component):
         :param input_key: (str) Name of variable in input dict to take gradient with respect to.
         :return: (torch.Tensor)
         """
-        return gradient(self.forward(input_dict)[self.name], input_dict[input_key])
+        return gradient(self.forward(input_dict)[self.key], input_dict[input_key])
 
     def forward(self, input_dict):
         """

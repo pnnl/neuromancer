@@ -73,13 +73,13 @@ def test_DynamicsPSL_ssm_shapes_types(system_name):
 def test_DynamicsPSL_nonauto_shapes_types(system):
     psl_model = system()
     sys = sim.DynamicsPSL(psl_model, input_key_map={'u': 'u'})
-    input_dict = {'x': np.random.randn(psl_model.nx),
-                  'u': np.random.randn(psl_model.nu)}
+    input_dict = {'x': abs(np.random.randn(psl_model.nx)),
+                  'u': abs(np.random.randn(psl_model.nu))}
     output_dict = sys.step(input_dict)
     assert isinstance(output_dict['x'], np.ndarray)
     assert isinstance(output_dict['y'], np.ndarray)
     assert output_dict['x'].shape == (psl_model.nx,)
-    assert output_dict['y'].shape == (psl_model.nx,)
+    assert output_dict['y'].shape == (psl_model.nx * 2,)
 
 
 @given(

@@ -89,7 +89,8 @@ class BasicLogger:
 class MLFlowLogger(BasicLogger):
     def __init__(self, args=None, savedir='test', verbosity=1, id=None,
                  stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
-                         'nstep_dev_ref_loss', 'loop_dev_ref_loss')):
+                         'nstep_dev_ref_loss', 'loop_dev_ref_loss'),
+                 logout=()):
         """
 
         :param args: (Namespace) returned by argparse.ArgumentParser.parse_args()
@@ -102,12 +103,14 @@ class MLFlowLogger(BasicLogger):
         :param verbosity: (int) Print to stdout every verbosity steps
         :param id: (int) Optional unique experiment ID for hyperparameter optimization
         :param stdout: (list of str) Metrics to print to stdout. These should correspond to keys in the output dictionary of the Problem
+        :param logout: (list of str) List of metric names to log via mlflow
         """
 
         mlflow.set_tracking_uri(args.location)
         mlflow.set_experiment(args.exp)
         mlflow.start_run(run_name=args.run, run_id=id)
         super().__init__(args=args, savedir=savedir, verbosity=verbosity, stdout=stdout)
+        self.logout = logout
 
     def log_parameters(self):
         """
@@ -135,7 +138,17 @@ class MLFlowLogger(BasicLogger):
         :param step: (int) Epoch of training
         """
         super().log_metrics(output, step)
-        for k, v in output.items():
+        _keys = {k for k in output.keys()}
+        if self.logout is not None:
+            keys = []
+            for k in _keys:
+                for kp in self.logout:
+                    if kp in k:
+                        keys.append(k)
+        else:
+            keys = _keys
+        for k in keys:
+            v = output[k]
             if isinstance(v, torch.Tensor) and torch.numel(v) == 1:
                 mlflow.log_metric(k, v.item())
             elif isinstance(v, np.ndarray) and v.size == 1:

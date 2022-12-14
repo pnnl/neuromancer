@@ -319,14 +319,15 @@ class Variable(nn.Module):
         """
         super().__init__()
 
-        self._key = key
-        self._display_name = display_name
         self._func = func
-        self._is_input = key is not None
         if isinstance(value, torch.Tensor) and value.requires_grad:
             value = nn.Parameter(value)
         self._value = value
         self._g, self.ordered_nodes = self.make_graph(input_variables)
+
+        self._is_input = key is not None
+        self.key = key
+        self._display_name = display_name
 
     def make_graph(self, input_variables):
         """
@@ -385,15 +386,23 @@ class Variable(nn.Module):
         Will be used as a display_name if display_name is not provided to __init__
         :return: (str) String intended to be a key in a dict {str: Tensor}
         """
-        if self._key is not None:
-            return self._key
+        return self._key
+
+    @key.setter
+    def key(self, k):
+        if k is None:
+            self._key = str(id(self))
         else:
-            return str(id(self))
+            self.check_keys(k)
+            self._key = k
+
+    def check_keys(self, k):
+        assert k not in {n._key for n in self.ordered_nodes}, f'Key {k} repeats existing key. Keys should be unique.'
 
     @property
     def keys(self):
-        keys = [self._key] if self._key is not None else []
-        return [n._key for n in self.ordered_nodes if n._key is not None] + keys
+        keys = [self._key] if self._is_input else []
+        return [n._key for n in self.ordered_nodes if n._is_input] + keys
 
     def __hash__(self):
         """
@@ -623,12 +632,14 @@ def variable(*size: int, display_name: _name = None) -> Variable:  # pylint: dis
 
 @dispatch
 def variable(size: _size, key: _name = None, display_name=None) -> Variable:  # pylint: disable=function-redefined
+
     """
 
     :param size: Iterable of integer arguments describing shape of parameter
     :param display_name: (str) for plotting graph and __repr__
     :return: Variable with value = nn.Parameter with shape=size, with requires_grad=True
     """
+
     t = torch.randn(size, requires_grad=True)
     return Variable(display_name=display_name, value=t)
 

@@ -71,11 +71,6 @@ user@machine:~$ git clone -b master https://github.com/pnnl/slim.git --single-br
 ``` bash
 $ conda env create -f env.yml
 $ conda activate neuromancer
-(neuromancer) $ conda install tqdm
-(neuromancer) $ conda install pytorch-scatter -c pyg
-(neuromancer) $ conda install -c anaconda sphinx
-(neuromancer) $ conda install -c conda-forge sphinx_rtd_theme
-
 ```
 
 ### Windows
@@ -83,10 +78,7 @@ $ conda activate neuromancer
 ``` bash
 $ conda env create -f windows_env.yml
 $ conda activate neuromancer
-(neuromancer) $ conda install tqdm
-(neuromancer) $ conda install pytorch-scatter -c pyg
-(neuromancer) $ conda install -c anaconda sphinx
-(neuromancer) $ conda install -c conda-forge sphinx_rtd_theme
+$ conda install 
 (neuromancer) $ conda install -c defaults intel-openmp -f
 ```
 
@@ -96,8 +88,8 @@ $ conda activate neuromancer
 $ conda create -n neuromancer python=3.10.4
 $ conda activate neuromancer
 (neuromancer) $ conda config --add channels conda-forge
-(neuromancer) $ conda install pytorch cudatoolkit=10.2 -c pytorch
-(neuromancer) $ conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba networkx
+(neuromancer) $ conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
+(neuromancer) $ conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba
 (neuromancer) $ conda install networkx plum-dispatch 
 (neuromancer) $ conda install -c anaconda pytest hypothesis
 (neuromancer) $ conda install cvxpy cvxopt casadi seaborn

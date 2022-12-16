@@ -12,7 +12,7 @@ to solve the parametric optimal control problem by computing the sensitivities
 of objective functions and constraints to changing problem parameters such as initial conditions, 
 boundary conditions, and parametric control tasks such as time-varying reference tracking.
 
-![DPC_abstract.](/figs/DPC_abstract.png)  
+![DPC_abstract.](/examples/control/figs/DPC_abstract.png)  
 *Conceptual methodology. Simulation of the differentiable closed-loop system dynamics 
 in the forward pass is followed by backward pass computing direct policy gradients for policy optimization *
 
@@ -21,22 +21,22 @@ in the forward pass is followed by backward pass computing direct policy gradien
 Our recent development work in Neuromancer has given us the capability to 
 learn parametric control policy (parametrized by trainable weights W)
 
-> <img src="https://latex.codecogs.com/svg.image?\mathbf{u}=\pi_{W}(\mathbf{x}(t), \mathbf{\xi}(t))" title="https://latex.codecogs.com/svg.image?\mathbf{u}=\pi_{\theta}(\mathbf{x}(t), \mathbf{\xi}(t))" />
+$$\mathbf{u}=\pi_{\theta}(\mathbf{x}(t), \mathbf{\xi}(t)) $$
 
 for a given dynamical systems of the continuous time form:
 
-> <img src="https://latex.codecogs.com/svg.image?\frac{d\mathbf{x}(t)}{dt}=\mathbf{f}(\mathbf{x}(t),&space;\mathbf{u}(t))" title="https://latex.codecogs.com/svg.image?\frac{d\mathbf{x}(t)}{dt}=\mathbf{f}(\mathbf{x}(t), \mathbf{u}(t))" />
+$$ \frac{d\mathbf{x}(t)}{dt}=\mathbf{f}(\mathbf{x}(t), \mathbf{u}(t)) $$
 
 where x(t) is the time-varying state of the considered system, u(t) are system control inputs, and f is the state
 transition dynamics.  
 
 Or in the discrete time form (e.g., obtained via ODE solver, or via state space model form):
 
-> <img src="https://latex.codecogs.com/svg.image?\mathbf{x}_{k+1}=\mathbf{f}(\mathbf{x}_k,&space;\mathbf{u}_k)" title="https://latex.codecogs.com/svg.image?\mathbf{x}_{k+1}=\mathbf{f}(\mathbf{x}_k,&space;\mathbf{u}_k)" />
+$$ \mathbf{x}_{k+1}=\mathbf{f}(\mathbf{x}_k, \mathbf{u}_k)$$
 
 Formally we can formulate the DPC problem as a following parametric
 optimal control problem:
-![DPC_problem_form.](/figs/DPC_problem_form.png)  
+![DPC_problem_form.](/examples/control/figs/DPC_problem_form.PNG)  
 *DPC problem formulation.*
 
 
@@ -48,7 +48,7 @@ is that it allows us to use automatic
 differentiation (backpropagation through time) to directly compute the policy gradient. In particular,
 by representing the problem (15) as a computational graph and leveraging the chain rule, we can directly
 compute the gradients of the loss function w.r.t. the policy parameters W as follows:
-![DPC_policy_gradients.](/figs/DPC_policy_gradients.png)  
+![DPC_policy_gradients.](/examples/control/figs/DPC_policy_gradients.PNG)  
 *DPC policy gradients.*
 
 ## DPC Problem Architecture 
@@ -61,7 +61,7 @@ Similarly to MPC, in the
 open-loop rollouts, the explicit DPC policy generates future control action trajectories over N-step prediction horizon
 given the feedback from the system dynamics model. Then for the closed-loop deployment, we adopt the receding
 horizon control (RHC) strategy by applying only the first time step of the computed control action
-![deep_MPC_var2.](/figs/deep_MPC_var2.png)  
+![deep_MPC_var2.](/examples/control/figs/deep_MPC_var2.png)  
 *Structural equivalence of DPC architecture with MPC constraints.*
 
 
@@ -74,7 +74,7 @@ the distribution of initial state conditions and problem parameters sampled from
 X and Ξ, respectively. The computed policy gradients now allow us to perform direct policy optimization via
 a gradient-based optimizer O. Thus the presented procedure introduces a generic approach for data-driven
 solution of model-based parametric optimal control problem (15) with constrained neural control policies
-![DPC_algo.](/figs/DPC_algo.png)  
+![DPC_algo.](/examples/control/figs/DPC_algo.PNG)  
 *DPC policy optimization algorithm.*
 
 From a reinforcement learning (RL) perspective, the DPC loss L can be seen as a reward function,
@@ -254,13 +254,13 @@ https://github.com/pnnl/neuromancer/blob/master/neuromancer/problem.py
 This folder demonstrates a few examples for training explicit neural control policies
 given dynamical system model in the state space model (SSM) and in the neural ODE form.
 
-![cl_trajectories.](/figs/cl_animation.gif)  
+![cl_trajectories.](/examples/control/figs/cl_animation.gif)  
 *Example 1: Closed-loop trajectories of learned stabilizing neural control policy using DPC policy optimization.*
 
-![cl_trajectories_2.](/figs/closed%20loop%20policy%20training.gif)  
+![cl_trajectories_2.](/examples/control/figs/closed%20loop%20policy%20training.gif)  
 *Example 1: Evolution of the closed-loop trajectories and DPC neural policy during training.*
 
-![dpc_policy.](/figs/policies_surfaces.png)  
+![dpc_policy.](/examples/control/figs/policies_surfaces.png)  
 *Example 1: Landscapes of the learned neural policy via DPC policy optimization algorithm (right) 
 and explicit MPC policy computed using parametric programming solver (left).*
 

@@ -221,7 +221,7 @@ class LinearSSM(BlockSSM):
             assert len(E.shape) == 2, \
                 f'Disturbance matrix E must be two dimensional, got {E.shape}'
             nd = E.shape[1]
-            fd = slim.maps['linear'](nx, nd)
+            fd = slim.maps['linear'](nd, nx)
             fd.linear.weight = torch.nn.Parameter(E)
         else:
             fd = None

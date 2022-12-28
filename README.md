@@ -9,7 +9,7 @@ Christian Møldrup Legaard, Draguna Vrabie
 ## Documentation
 
 The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/)
-and in the [pdf form](documentation.pdf). 
+and in the [pdf form](https://github.com/pnnl/neuromancer/blob/master/Documentation.pdf). 
 
 
 ```python 

@@ -100,7 +100,6 @@ $ conda activate neuromancer
 (neuromancer) $ conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba networkx
 (neuromancer) $ conda install networkx plum-dispatch 
 (neuromancer) $ conda install -c anaconda pytest hypothesis
-(neuromancer) $ conda install cvxpy cvxopt casadi seaborn
 (neuromancer) $ conda install tqdm
 (neuromancer) $ conda install pytorch-scatter -c pyg
 (neuromancer) $ conda install -c anaconda sphinx

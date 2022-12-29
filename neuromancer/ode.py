@@ -73,6 +73,80 @@ class ControlODE(ODESystem):
             dx = self.ode(xu)
         return dx
 
+class GeneralNetworkedODE(ODESystem):
+    """
+    Coupled nonlinear dynamical system with heterogeneous agents.
+    """
+
+    def __init__(self, map = None, 
+                agents = None, 
+                couplings = None,
+                insize = None,
+                outsize = None,
+                inductive_bias = "additive"
+                ):
+        """
+        :param agents: list of ordered dicts, one per agent.
+        :param intrinsics: list of blocks. agent's intrinisic physics.
+        :param couplings: list of blocks. one per interaction type.
+        :param connections: list of list of pairwise interactions, one list per coupling.
+        """
+        super().__init__(insize=insize, outsize=outsize)
+        
+        # Composition of network:
+        self.map = map
+        self.agents = nn.ModuleList(agents)
+        self.couplings = nn.ModuleList(couplings)
+        self.insize = insize
+        self.outsize = outsize
+        self.inductive_bias = inductive_bias
+ 
+        assert len(self.map) == len(self.agents)
+
+    def ode_equations(self, x):
+        """
+        Select the inductive bias to use for the problem:
+         - Additive: f(x_i) + sum(g(x_i,x_j))
+         - General: f(x_i, sum(g(x_i,x_j)))
+         - Composed: f(sum(g(x_i,x_j)))
+        """
+        if self.inductive_bias == "additive":
+            dx = self.intrinsic_physics(x) + self.coupling_physics(x)
+        elif self.inductive_bias == "general":
+            #dx = self.intrinsic_physics(x,self.coupling_physics(x))
+            raise Exception("General RHS not implemented.")
+        elif self.inductive_bias == "compositional":
+            dx = self.intrinsic_physics(self.coupling_physics(x))
+        else:
+            raise Exception("No inductive bias match.")
+
+        return dx[:,:self.outsize]
+
+    def intrinsic_physics(self,x):
+        dx = torch.tensor([]) # initialize empty to avoid indexing tedium
+        # loop over agents and calculate contribution from intrinsic physics
+        for idx,agent_dict in enumerate(self.map):
+            dx = torch.cat((dx,self.agents[idx](x[:,list(agent_dict.values())])),-1)
+        return dx
+
+    def coupling_physics(self,x):
+        """
+        This version of the coupling physics assumes that each coupling physics nn.Module contains the
+        connection information, including what agents are connected and if the connection is symmetric.
+        """
+        dx = torch.zeros_like(x)
+        # first loop over coupling physics listed in self.couplings
+        for physics in self.couplings:
+            # for each physics in self.couplings, loop over the pins and add contribution to dx
+            for pin in physics.pins:
+                send = self.map[pin[0]][physics.feature_name]
+                receive = self.map[pin[1]][physics.feature_name]
+                contribution = physics(x[:,[send,receive]])
+                dx[:,[send]] += contribution
+                if physics.symmetric:
+                    dx[:,[receive]] -= contribution
+        return dx   
+
 
 class TwoTankParam(ODESystem):
     def __init__(self, insize=4, outsize=2):
@@ -338,3 +412,5 @@ ode_param_systems_nonauto = {'DuffingParam': DuffingParam,
 
 ode_hybrid_systems_auto = {'LotkaVolterraHybrid': LotkaVolterraHybrid,
                            'BrusselatorHybrid': BrusselatorHybrid}
+
+ode_networked_systems = {'GeneralNetworkedODE': GeneralNetworkedODE}

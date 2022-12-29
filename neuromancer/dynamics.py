@@ -74,8 +74,6 @@ class SSM(Component):
             **input_key_map
         }
         self.input_keys = list(self.input_key_map.values())
-        assert len(self.input_keys) == len(self.DEFAULT_INPUT_KEYS), \
-            "Length of given input keys must equal the length of default input keys"
 
 
 class BlockSSM(SSM):

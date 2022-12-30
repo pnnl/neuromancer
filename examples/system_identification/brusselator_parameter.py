@@ -20,27 +20,28 @@ import neuromancer.simulator as sim
 torch.manual_seed(0)
 device = "cpu"
 
+# %%  ground truth system
 system = psl.systems['Brusselator1D']
 ts = 0.05
 modelSystem = system()
 raw = modelSystem.simulate(ts=ts)
 psl.plot.pltOL(Y=raw['Y'])
 psl.plot.pltPhase(X=raw['Y'])
-#  Train, Development, Test sets - nstep and loop format
+
+# %%  Train, Development, Test sets - nstep and loop format
 nsteps = 1
 nstep_data, loop_data, dims = get_sequence_dataloaders(raw, nsteps, moving_horizon=False)
 train_data, dev_data, test_data = nstep_data
 train_loop, dev_loop, test_loop = loop_data
 
-# %% Identity mapping
+# %% fully observable estimator
 nx = 2
 estim = estimators.FullyObservable(
     {**train_data.dataset.dims, "x0": (nx,)},
     linear_map=slim.maps['identity'],
-    input_keys=["Yp"],
-)
+    input_keys=["Yp"])
 
-# %% Instantiate the blocks, dynamics model:
+# %% Instantiate the ODE and symbolic dynamics model:
 brussels = ode.BrusselatorParam()
 fxRK4 = integrators.RK4(brussels, h=ts)
 fy = slim.maps['identity'](nx, nx)

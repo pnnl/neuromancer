@@ -39,7 +39,7 @@ class GraphTimestepper(SSM):
         :param message_passing_steps: [int], Number of message passing layers, defaults to 10
         :param preprocessor: [nn.Module] Accepts a dictionary and returns a dictionary of tensors with keys [edge_index, node_attr, edge_attr, (opt) batch]. Other key/values will be added to output dict.
         :param graph_encoder: [nn.Module] Input Tensor: (nodes, num_node_features). Output Tensor: (nodes, latent_dim). Defaults to a linear layer.
-        :param integrator: [Integrator] Input (x, block, *args, **kwargs). Ouput x_new
+        :param integrator: [Integrator] Input (x, block, *args, **kwargs). Output x_new
         :param decoder: [nn.Module] Input Tensor: (nodes, latent_dim). Output Tensor: (nodes, out_size)
         :param fx: [nn.Module] Module to handle extraneous input given in fx_keys
         :param fx_keys: Key names for extraneous variables.

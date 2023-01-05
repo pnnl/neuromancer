@@ -2,19 +2,18 @@
 State space models (SSMs) for dynamical modeling.
 
 Nomenclature:
-
     + x: states
     + y: predicted outputs
     + u: control inputs
     + d: uncontrolled inputs (measured disturbances)
 
 Unstructured (blackbox) dynamical models:
-    + :math:`x_{t+1} = f(x_t,u_t,d_t) odot f_e(x_t)`
+    + :math:`x_{t+1} = f(x_t,u_t,d_t) \odot f_e(x_t)`
     + :math:`y_{t} =  f_y(x_t)`
-    + :math:`odot` is some operator acting on elements, e.g. + or *
+    + :math:`\odot` is some operator acting on elements, e.g. + or *
 
 Block-structured dynamical models:
-    + :math:`x_{t+1} = f_x(x_t) odot f_u(u_t) odot f_d(d_t) odot f_e(x_t)`
+    + :math:`x_{t+1} = f_x(x_t) \odot f_u(u_t) \odot f_d(d_t) \odot f_e(x_t)`
     + :math:`y_t =  f_y(x_t)`
 
 Block components:
@@ -141,7 +140,7 @@ class BlockSSM(SSM):
 
     def forward(self, data):
         """
-
+        performs nstep ahead rollout of a given dynamical system model
         :param data: (dict: {str: Tensor})
         :return: output (dict: {str: Tensor})
         """
@@ -186,7 +185,16 @@ class BlockSSM(SSM):
 class LinearSSM(BlockSSM):
     def __init__(self, A, B, C, E=None, input_key_map={}, name=None):
         """
+        Implementation of Linear State Space Model (LSSM) in discrete time
+            https://en.wikipedia.org/wiki/State-space_representation
+            https://www.mathworks.com/help/ident/ug/what-are-state-space-models.html
 
+        :param A: (torch.tensor) state/system matrix
+        :param B: (torch.tensor) input matrix
+        :param C: (torch.tensor) output matrix
+        :param E: (torch.tensor) disturbance matrix
+        :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
+        :param name: (str) Name for tracking output
         """
         assert isinstance(A, torch.Tensor), \
             f'State matrix A must be torch.Tensor type, ' \
@@ -260,6 +268,7 @@ class BlackSSM(SSM):
 
     def forward(self, data):
         """
+        performs nstep ahead rollout of a given dynamical system model
         """
         nsteps = data[self.input_key_map['Yf']].shape[1]
         X, Y, FE = [], [], []
@@ -320,6 +329,9 @@ class ODEAuto(SSM):
         self.nx, self.ny = self.fx.out_features, self.fy.out_features
 
     def forward(self, data):
+        """
+        performs nstep ahead rollout of a given dynamical system model
+        """
         nsteps = data[self.input_key_map['Yf']].shape[1]
         x = data[self.input_key_map['x0']]
         X, Y = [], []
@@ -356,6 +368,7 @@ class ODENonAuto(SSM):
         :param name: (str) Name for tracking output
         :param input_key_map: (dict {str: str}) Mapping canonical expected input keys to alternate names
         :param extra_inputs: (list of str) Input keys to be added to canonical input.
+        :param online_flag: (bool) whether to use online interpolation or not.
         """
         self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + extra_inputs
         self.extra_inputs = extra_inputs
@@ -366,6 +379,7 @@ class ODENonAuto(SSM):
 
     def forward(self, data):
         """
+        performs nstep ahead rollout of a given dynamical system model
         """
         nsteps = data[self.input_key_map['Yf']].shape[1]
         x = data[self.input_key_map['x0']]

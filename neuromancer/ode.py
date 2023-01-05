@@ -333,7 +333,8 @@ ode_param_systems_auto = {'LorenzParam': LorenzParam,
 ode_param_systems_nonauto = {'DuffingParam': DuffingParam,
                              'TwoTankParam': TwoTankParam,
                              'LorenzControl': LorenzControl,
-                             'CSTR_Param': CSTR_Param}
+                             'CSTR_Param': CSTR_Param,
+                             'VanDerPolControl': VanDerPolControl}
 
 ode_hybrid_systems_auto = {'LotkaVolterraHybrid': LotkaVolterraHybrid,
                            'BrusselatorHybrid': BrusselatorHybrid}

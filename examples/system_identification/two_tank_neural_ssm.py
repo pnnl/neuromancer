@@ -345,18 +345,19 @@ plt.show(block=True)
 plt.interactive(True)
 
 # # prediction
-mh = sim.MovingHorizon(input_keys=['y_nm'], nsteps=estimator.window_size, name='mh')
-estim_nm = sim.EstimatorPytorch(estimator=estimator.net,
-                                input_keys=['y_nm_mh'], name='estim')
-components = [mh, estim_nm, nm_system, psl_system]
+nm_system = sim.DynamicsNeuromancer(dynamics_model,
+                name='nm', input_key_map={'x': 'x_nm', 'u': 'U'})
+components = [nm_system, psl_system]
 system_sim = sim.SystemSimulator(components)
 plt.figure()
 system_sim.plot_graph()
 sim_steps = 2000
-data_init = {'x_psl': x0, 'y_nm': x0}
+nx_nm = dynamics_model.fx.in_features
+x0_nm = np.zeros(nx_nm)
+data_init = {'x_psl': x0, 'x_nm': x0_nm}
 trajectories = system_sim.simulate(nsim=sim_steps, data_init=data_init,
                                    data_traj=data_traj)
 psl.plot.pltOL(Y=trajectories['y_psl'], Ytrain=trajectories['y_nm'],
-          X=trajectories['x_estim'], U=trajectories['U'])
+          X=trajectories['x_nm'], U=trajectories['U'])
 plt.show(block=True)
 plt.interactive(False)

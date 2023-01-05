@@ -9,7 +9,7 @@ Christian Møldrup Legaard, Draguna Vrabie
 ## Documentation
 
 The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/)
-and in the [pdf form](documentation.pdf). 
+and in the [pdf form](https://github.com/pnnl/neuromancer/blob/master/Documentation.pdf). 
 
 
 ```python 
@@ -75,7 +75,6 @@ conda install tqdm
 conda install pytorch-scatter -c pyg
 conda install -c anaconda sphinx
 conda install -c conda-forge sphinx_rtd_theme
-
 ```
 
 ### Windows
@@ -105,7 +104,6 @@ conda install tqdm
 conda install pytorch-scatter -c pyg
 conda install -c anaconda sphinx
 conda install -c conda-forge sphinx_rtd_theme
-
 ```
 
 ## Install neuromancer ecosystem

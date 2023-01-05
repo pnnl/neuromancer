@@ -309,13 +309,17 @@ class DynamicsPSL(SystemDynamics):
             u = data[self.input_key_map['u']].reshape((1, -1))
         else:
             u = None
+        if 'Time' in self.input_key_map.keys():
+            Time = data[self.input_key_map['Time']]
+        else:
+            Time = None
         if 'd' in self.input_key_map.keys():
             d = data[self.input_key_map['d']]
-            out = self.model.simulate(nsim=1, U=u, D=d, x0=x0)
+            out = self.model.simulate(nsim=1, U=u, D=d, x0=x0, Time=Time)
         elif u is not None:
-            out = self.model.simulate(nsim=1, U=u, x0=x0)
+            out = self.model.simulate(nsim=1, U=u, x0=x0, Time=Time)
         else:
-            out = self.model.simulate(nsim=1, x0=x0)
+            out = self.model.simulate(nsim=1, x0=x0, Time=Time)
         output = {}
         output[self.output_keys[0]] = out['X'][1, :]
         if out['Y'].shape[0] == 1:

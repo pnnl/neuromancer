@@ -59,9 +59,9 @@ First clone the neuromancer, [slim](https://github.com/pnnl/slim), and [psl](htt
 
 ```bash
 
-git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
-git clone -b master https://github.com/pnnl/psl.git --single-branch
-git clone -b master https://github.com/pnnl/slim.git --single-branch
+user@machine:~$ git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
+user@machine:~$ git clone -b master https://github.com/pnnl/psl.git --single-branch
+user@machine:~$ git clone -b master https://github.com/pnnl/slim.git --single-branch
 
 ```
 ## Install dependencies
@@ -69,48 +69,48 @@ git clone -b master https://github.com/pnnl/slim.git --single-branch
 ### Ubuntu
 
 ``` bash
-conda env create -f env.yml
-conda activate neuromancer
-conda install tqdm
-conda install pytorch-scatter -c pyg
-conda install -c anaconda sphinx
-conda install -c conda-forge sphinx_rtd_theme
+$ conda env create -f env.yml
+$ conda activate neuromancer
+(neuromancer) $ conda install tqdm
+(neuromancer) $ conda install pytorch-scatter -c pyg
+(neuromancer) $ conda install -c anaconda sphinx
+(neuromancer) $ conda install -c conda-forge sphinx_rtd_theme
 ```
 
 ### Windows
 
 ``` bash
-conda env create -f windows_env.yml
-conda activate neuromancer
-conda install tqdm
-conda install pytorch-scatter -c pyg
-conda install -c anaconda sphinx
-conda install -c conda-forge sphinx_rtd_theme
-conda install -c defaults intel-openmp -f
+$ conda env create -f windows_env.yml
+$ conda activate neuromancer
+(neuromancer) $ conda install tqdm
+(neuromancer) $ conda install pytorch-scatter -c pyg
+(neuromancer) $ conda install -c anaconda sphinx
+(neuromancer) $ conda install -c conda-forge sphinx_rtd_theme
+(neuromancer) $ conda install -c defaults intel-openmp -f
 ```
 
 ### Other operating system
 
 ``` bash
-conda create -n neuromancer python=3.10.4
-conda activate neuromancer
-conda config --add channels conda-forge
-conda install pytorch cudatoolkit=10.2 -c pytorch
-conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba networkx
-conda install networkx plum-dispatch 
-conda install -c anaconda pytest hypothesis
-conda install cvxpy cvxopt casadi seaborn
-conda install tqdm
-conda install pytorch-scatter -c pyg
-conda install -c anaconda sphinx
-conda install -c conda-forge sphinx_rtd_theme
+$ conda create -n neuromancer python=3.10.4
+$ conda activate neuromancer
+(neuromancer) $ conda config --add channels conda-forge
+(neuromancer) $ conda install pytorch cudatoolkit=10.2 -c pytorch
+(neuromancer) $ conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba networkx
+(neuromancer) $ conda install networkx plum-dispatch 
+(neuromancer) $ conda install -c anaconda pytest hypothesis
+(neuromancer) $ conda install tqdm
+(neuromancer) $ conda install pytorch-scatter -c pyg
+(neuromancer) $ conda install -c anaconda sphinx
+(neuromancer) $ conda install -c conda-forge sphinx_rtd_theme
+
 ```
 
 ## Install neuromancer ecosystem
 ``` bash
-cd psl; python setup.py develop
-cd ../slim; python setup.py develop
-cd ../neuromancer; python setup.py develop
+(neuromancer) $ cd psl; python setup.py develop
+(neuromancer) $ cd ../slim; python setup.py develop
+(neuromancer) $ cd ../neuromancer; python setup.py develop
 ``` 
 
 ## Examples
@@ -123,8 +123,8 @@ The parametric programming examples have additional package dependencies for ben
 against traditional constrained optimization solvers, e.g., cvxpy (these should also have been installed using env.yml)
 
 ```console
-conda install cvxpy cvxopt seaborn
-pip install casadi 
+(neuromancer) user@machine:~$ conda install cvxpy cvxopt seaborn
+(neuromancer) user@machine:~$ pip install casadi 
 ```
 ## For developers
 All test code is developed using pytest and hypothesis. Please refer to 

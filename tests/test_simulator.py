@@ -79,7 +79,7 @@ def test_DynamicsPSL_nonauto_shapes_types(system):
     assert isinstance(output_dict['x'], np.ndarray)
     assert isinstance(output_dict['y'], np.ndarray)
     assert output_dict['x'].shape == (psl_model.nx,)
-    assert output_dict['y'].shape == (psl_model.nx * 2,)
+    assert output_dict['y'].shape == (psl_model.nx,)
 
 
 @given(

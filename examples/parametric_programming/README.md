@@ -20,13 +20,13 @@ The following figure conceptually demonstrated the difference between supervised
 and unsupervised Differentiable Parametric Programming (DPP) which solution is obtained by 
 differentiating the objectives and constraints of the parametric optimization  problem.
 
-![DPP_abstract.](/figs/imitationVSdpp1.jpg)  
+![DPP_abstract.](/examples/parametric_programming/figs/imitationVSdpp1.jpg)  
 *Imitation learning VS end-to-end learning using Differentiable Parametric Programming. *
 
 ## DPP Problem Formulation
 A generic formulation of the DPP is given
 in the form of a parametric constrained optimization problem:
-![DPC_problem_form.](/figs/DPP_problem_form.png)  
+![DPC_problem_form.](/examples/parametric_programming/figs/DPP_problem_form.PNG)  
 *DPP problem formulation.*
 
 
@@ -36,7 +36,7 @@ There are several ways in which we can enforce the constraints satisfaction
 while learning the solution π_Θ(ξ) of the differentiable constrained optimization problem (1). 
 The simplest approach is to penalize the constraints violations by augmenting 
 the loss function L (1a) with the penalty functions given as:
-![DPP_penalty_loss.](/figs/DPP_penalty_loss.png)  
+![DPP_penalty_loss.](/examples/parametric_programming/figs/DPP_penalty_loss.PNG)  
 *DPP penalty loss function.*
 
 Other approaches include barrier functions, or Augmented Lagrangian type methods.
@@ -48,13 +48,13 @@ in the DPP problem formulation (1) is that it allows us to use automatic differe
 the gradients of the parametric solution map π_Θ(ξ). In particular, by representing the problem (1) as a
 computational graph and leveraging the chain rule, we can directly compute the gradients of the loss function
 L w.r.t. the solution map weights Θ as follows:
-![DPP_gradients.](/figs/DPP_gradients.png)  
+![DPP_gradients.](/examples/parametric_programming/figs/DPP_gradients.PNG)  
 *DPP penalty loss gradients.*
 
 
 ## DPP Optimization Algorithm
 The gradient-based solution of the DPP problem is summarized in the following Algorithm:
-![DPP_algorithm.](/figs/DPP_algorithm.png)  
+![DPP_algorithm.](/examples/parametric_programming/figs/DPP_algorithm.PNG)  
 *DPP gradient-based solution algorithm.*
 
 
@@ -122,9 +122,7 @@ constraints = [Q_con*con_1, Q_con*con_2, Q_con*con_3]
 components = [sol_map]
 
 # use projected gradient update
-project_keys = ["x"]
-projection = nm.solvers.GradientProjection(constraints, input_keys=project_keys,
-                                num_steps=5, name='proj')
+projection = nm.solvers.GradientProjection(constraints, input_keys=["x"], num_steps=5, name='proj')
 components.append(projection)
 
 # create constrained optimization loss
@@ -168,7 +166,7 @@ https://github.com/pnnl/neuromancer/blob/master/neuromancer/dataset.py
 **constraints** - classes for defining constraints and custom physics-informed loss function terms: 
 https://github.com/pnnl/neuromancer/blob/master/neuromancer/constraint.py
 
-** solvers**  -  implementation of iterative solvers for hard constraints such as gradient projection method: 
+**solvers**  -  implementation of iterative solvers for hard constraints such as gradient projection method: 
 https://github.com/pnnl/neuromancer/blob/master/neuromancer/solvers.py
 
 **loss** - class aggregating all instantiated constraints and loss terms 

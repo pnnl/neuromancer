@@ -5,6 +5,12 @@ called parametric programming problems. Differentiable Parametric Programming (D
 that use automatic differentiation (AD) to compute sensitivities of constrained optimization problems w.r.t.
 to the problem parameters for obtaining parametric solutions of the problem
 
+![Rosenbrock_sensitivity.](/examples/parametric_programming/figs/Rosenbrock_sensitivity.gif)  
+*Parametric sensitivity visualisation of nonlinear Rosenbrock problem 
+whose solution changes with varying objective and constraints parameters. 
+Green star represents solution obtained via online solver (IPOPT), 
+where red star shows orders of magnitude faster solution obtained from offline DPP algorith.*
+
 Recent years have seen a rich literature
 of deep learning (DL) models for solving the constrained optimization problems on real-world tasks such
 as power grid, traffic, or wireless system optimization. Earlier attempts simply adopt imitation learning
@@ -181,7 +187,7 @@ https://github.com/pnnl/neuromancer/blob/master/neuromancer/problem.py
 
 ## DPP Examples
 
-Scripts for various types of differentiable constrained optimization of parametric programs
+Scripts for various types of differentiable constrained optimization of parametric programs.
     + mpNLP_Himmelblau_nm.py: Solve the Himmelblau problem, formulated as the NLP using Neuromancer
         - ![](../figs/mpNLP_Himmelblau_nm.png)
     + mpQP_nm_2.py: Multi-parametric Quadratic Programming (mpQP) problem using Neuromancer.

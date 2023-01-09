@@ -124,7 +124,7 @@ The parametric programming examples have additional package dependencies for ben
 against traditional constrained optimization solvers, e.g., cvxpy (these should also have been installed using env.yml)
 
 ```console
-(neuromancer) user@machine:~$ conda install cvxpy cvxopt seaborn
+(neuromancer) user@machine:~$ conda install cvxpy cvxopt seaborn imageio
 (neuromancer) user@machine:~$ pip install casadi 
 ```
 ## For developers

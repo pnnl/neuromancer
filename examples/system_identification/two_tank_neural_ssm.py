@@ -33,13 +33,10 @@ import matplotlib.pyplot as plt
 
 from neuromancer import blocks, estimators, dynamics, arg
 from neuromancer.activations import activations
-from neuromancer.visuals import VisualizerOpen
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
-from neuromancer.simulators import OpenLoopSimulator, MultiSequenceOpenLoopSimulator
-from neuromancer.dataset import read_file, get_sequence_dataloaders
+from neuromancer.dataset import get_sequence_dataloaders
 from neuromancer.loss import get_loss
-from neuromancer.callbacks import SysIDCallback
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.constraint import variable
 import neuromancer.simulator as sim
@@ -281,11 +278,6 @@ if __name__ == "__main__":
     plt.interactive(True)
 
     # create torch dataloader for a sequential data
-    #   raw data dictionary expects keys ['Y', 'U', 'X'] with numpy array values
-    #   our dataloader will automatically slice the time series dataset to create
-    #   nsteps long sequences and creates new variables by
-    #   appending 'p' for past and 'f' for future trajectories
-    #   check for dataset keys: train_data.dataset.get_full_batch().keys()
     nstep_data, loop_data, dims = get_sequence_dataloaders(raw, args.nsteps, norm_type=None)
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data

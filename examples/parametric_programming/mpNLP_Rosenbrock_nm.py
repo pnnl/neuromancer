@@ -19,6 +19,8 @@ import numpy as np
 from casadi import *
 import time
 import casadi
+import os
+import imageio.v2 as imageio
 
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
@@ -57,7 +59,7 @@ def arg_mpLP_problem(prefix=''):
            help="Whether to use bias in the neural network block component models.")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
-    gp.add("-epochs", type=int, default=1000,
+    gp.add("-epochs", type=int, default=300,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")
@@ -103,9 +105,10 @@ if __name__ == "__main__":
     #  randomly sampled parameters theta generating superset of:
     #  theta_samples.min() <= theta <= theta_samples.max()
     np.random.seed(args.data_seed)
-    nsim = 20000  # number of datapoints: increase sample density for more robust results
-    samples = {"a": np.random.uniform(low=0.2, high=1.5, size=(nsim, 1)),
-               "p": np.random.uniform(low=0.5, high=2.0, size=(nsim, 1))}
+    nsim = 10000  # number of datapoints: increase sample density for more robust results
+    a_low, a_high, p_low, p_high = 0.2, 1.5, 0.5, 2.0
+    samples = {"a": np.random.uniform(low=a_low, high=a_high, size=(nsim, 1)),
+               "p": np.random.uniform(low=p_low, high=p_high, size=(nsim, 1))}
     data, dims = get_static_dataloaders(samples)
     train_data, dev_data, test_data = data
 
@@ -176,7 +179,7 @@ if __name__ == "__main__":
     logger.args.system = 'mpmpNLP_Rosebnrock'
 
     """
-    # # #  mpQP problem solution in Neuromancer
+    # # #  mpNLP problem solution in Neuromancer
     """
     optimizer = torch.optim.AdamW(problem.parameters(), lr=args.lr)
 
@@ -227,7 +230,7 @@ if __name__ == "__main__":
         opti.set_value(a_opti, a)
         return opti, x, y
 
-    # selected parameters
+    # selected parameters for a single instance problem
     p = 1.0
     a = 1.0
     # construct casadi problem
@@ -285,21 +288,86 @@ if __name__ == "__main__":
     plt.interactive(False)
 
     """
-    Benchmark Solution
+    Sensitivity analysis visualisation
+    """
+    x1 = np.arange(-0.5, 1.5, 0.02)
+    y1 = np.arange(-0.5, 1.5, 0.02)
+    xx, yy = np.meshgrid(x1, y1)
+    a_range = np.arange(a_low, a_high, 0.1)
+    p_range = np.arange(p_low, p_high, 0.1)
+    filenames = []
+    savedir = './Rosebnrock_plots/'
+    if not os.path.exists(savedir):
+        os.mkdir(savedir)
+    for p in p_range:
+        for a in a_range:
+            a = numpy.around(a, 1).tolist()
+            p = numpy.around(p, 1).tolist()
+            print(f'solving the case for p={p}, a={a}')
+            # construct casadi problem
+            opti, x, y = NLP_param(a, p)
+            # solve NLP via casadi
+            sol = opti.solve()
+            # eval objective and constraints
+            J = (1 - xx) ** 2 + a * (yy - xx ** 2) ** 2
+            c1 = xx - yy
+            c2 = xx ** 2 + yy ** 2 - (p / 2) ** 2
+            c3 = -(xx ** 2 + yy ** 2) + p ** 2
+            fig, ax = plt.subplots(1, 1)
+            cp = ax.contourf(xx, yy, J,
+                             levels=[0, 0.05, 0.2, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0],
+                             alpha=0.6)
+            fig.colorbar(cp)
+            ax.set_title('Rosenbrock problem')
+            cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
+            plt.setp(cg1.collections,
+                     path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+            cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
+            plt.setp(cg2.collections,
+                     path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+            cg3 = ax.contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
+            plt.setp(cg3.collections,
+                     path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+            # Solution to mpNLP via Neuromancer
+            datapoint = {}
+            datapoint['a'] = torch.tensor([[a]])
+            datapoint['p'] = torch.tensor([[p]])
+            datapoint['name'] = "test"
+            model_out = problem(datapoint)
+            x_nm = model_out['test_' + "x"][0, 0].detach().numpy()
+            y_nm = model_out['test_' + "x"][0, 1].detach().numpy()
+            # optimal points CasADi vs Neuromancer
+            xy_cas = ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10)
+            nx_nm = ax.plot(x_nm, y_nm, 'r*', markersize=10)
+            # save single instance fig
+            figure_path = os.path.join(savedir, f'mpNLP_Rosenbrock_p={p}_a={a}.png')
+            filenames.append(figure_path)
+            if not os.path.exists(figure_path):
+                plt.savefig(figure_path)
+    # generate gif
+    images = []
+    for filename in filenames:
+        images.append(imageio.imread(filename))
+    gif_path = os.path.join(savedir, 'Rosenbroc_sensitivity.gif')
+    imageio.mimsave(gif_path, images)
+
+
+    """
+    Benchmark solution performance
     """
     def eval_constraints(x, y, p):
         """
         evaluate mean constraints violations
         """
         con_1_viol = np.maximum(0, y - x)
-        con_2_viol = np.maximum(0, (p/2)**2 - (x**2+y**2))
-        con_3_viol = np.maximum(0, x**2+y**2 - p**2)
+        con_2_viol = np.maximum(0, (p / 2) ** 2 - (x ** 2 + y ** 2))
+        con_3_viol = np.maximum(0, x ** 2 + y ** 2 - p ** 2)
         con_viol = con_1_viol + con_2_viol + con_3_viol
         con_viol_mean = np.mean(con_viol)
         return con_viol_mean
 
     def eval_objective(x, y, a):
-        obj_value_mean = np.mean((1-x)**2 + a*(y-x**2)**2)
+        obj_value_mean = np.mean((1 - x) ** 2 + a * (y - x ** 2) ** 2)
         return obj_value_mean
 
     # fix random seeds
@@ -352,14 +420,14 @@ if __name__ == "__main__":
     print(f'Solver mean objective value {solver_obj_mean:.4f}')
 
     # neuromancer solver comparison
-    speedup_factor = solver_time/nm_time
+    speedup_factor = solver_time / nm_time
     print(f'Solution speedup factor {speedup_factor:.4f}')
 
     # Difference in primal optimizers
-    dx = (x_solver - x_nm)[:,0]
-    dy = (y_solver - y_nm)[:,0]
-    err_x = np.mean(dx**2)
-    err_y = np.mean(dy**2)
+    dx = (x_solver - x_nm)[:, 0]
+    dy = (y_solver - y_nm)[:, 0]
+    err_x = np.mean(dx ** 2)
+    err_y = np.mean(dy ** 2)
     err_primal = err_x + err_y
     print('MSE primal optimizers:', err_primal)
 

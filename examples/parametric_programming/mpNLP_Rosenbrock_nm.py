@@ -1,5 +1,5 @@
 """
-Solve the Rosenbrock problem, formulated as the NLP using Neuromancer toolbox:
+Solve the parametric Rosenbrock problem, formulated as the NLP using Neuromancer toolbox:
 minimize     (1-x)^2 + a*(y-x^2)^2
 subject to   (p/2)^2 <= x^2 + y^2 <= p^2
              x>=y
@@ -15,6 +15,7 @@ import torch
 import slim
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
+from matplotlib import cm
 import numpy as np
 from casadi import *
 import time
@@ -98,7 +99,6 @@ if __name__ == "__main__":
     args.bias = True
     device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
 
-
     """
     # # #  Dataset 
     """
@@ -106,11 +106,29 @@ if __name__ == "__main__":
     #  theta_samples.min() <= theta <= theta_samples.max()
     np.random.seed(args.data_seed)
     nsim = 10000  # number of datapoints: increase sample density for more robust results
-    a_low, a_high, p_low, p_high = 0.2, 1.5, 0.5, 2.0
+    a_low, a_high, p_low, p_high = 0.2, 1.2, 0.5, 2.0
     samples = {"a": np.random.uniform(low=a_low, high=a_high, size=(nsim, 1)),
                "p": np.random.uniform(low=p_low, high=p_high, size=(nsim, 1))}
     data, dims = get_static_dataloaders(samples)
     train_data, dev_data, test_data = data
+
+    # visualize taining and test samples for 2D parametric space
+    a_train = train_data.dataset.get_full_batch()['a'].numpy()
+    p_train = train_data.dataset.get_full_batch()['p'].numpy()
+    a_test = test_data.dataset.get_full_batch()['a'].numpy()
+    p_test = test_data.dataset.get_full_batch()['p'].numpy()
+    plt.figure()
+    plt.scatter(a_train, p_train, s=1., c='blue', marker='o')
+    plt.scatter(a_test, p_test, s=1., c='red', marker='o')
+    plt.title('Sampled parametric space for training')
+    plt.xlim(a_low, a_high)
+    plt.ylim(p_low, p_high)
+    plt.grid(True)
+    plt.xlabel('a')
+    plt.ylabel('p')
+    plt.legend(['train', 'test'], loc='upper right')
+    plt.show(block=True)
+    plt.interactive(False)
 
     """
     # # #  mpNLP primal solution map architecture
@@ -290,17 +308,21 @@ if __name__ == "__main__":
     """
     Sensitivity analysis visualisation
     """
-    x1 = np.arange(-0.5, 1.5, 0.02)
-    y1 = np.arange(-0.5, 1.5, 0.02)
-    xx, yy = np.meshgrid(x1, y1)
     a_range = np.arange(a_low, a_high, 0.1)
     p_range = np.arange(p_low, p_high, 0.1)
+    a_mesh, p_mesh = np.meshgrid(a_range, p_range)
+    J_mesh_casadi = np.nan*np.ones([p_range.shape[0], a_range.shape[0]])
+    J_mesh_nm = np.nan*np.ones([p_range.shape[0], a_range.shape[0]])
+    x_opt_casadi = np.nan*np.ones([p_range.shape[0], a_range.shape[0]])
+    y_opt_casadi = np.nan*np.ones([p_range.shape[0], a_range.shape[0]])
+    x_opt_nm = np.nan*np.ones([p_range.shape[0], a_range.shape[0]])
+    y_opt_nm = np.nan*np.ones([p_range.shape[0], a_range.shape[0]])
     filenames = []
     savedir = './Rosebnrock_plots/'
     if not os.path.exists(savedir):
         os.mkdir(savedir)
-    for p in p_range:
-        for a in a_range:
+    for i, p in enumerate(p_range):
+        for j, a in enumerate(a_range):
             a = numpy.around(a, 1).tolist()
             p = numpy.around(p, 1).tolist()
             print(f'solving the case for p={p}, a={a}')
@@ -308,7 +330,7 @@ if __name__ == "__main__":
             opti, x, y = NLP_param(a, p)
             # solve NLP via casadi
             sol = opti.solve()
-            # eval objective and constraints
+            # eval objective and constraints over the whole x, y domain for plotting
             J = (1 - xx) ** 2 + a * (yy - xx ** 2) ** 2
             c1 = xx - yy
             c2 = xx ** 2 + yy ** 2 - (p / 2) ** 2
@@ -339,17 +361,127 @@ if __name__ == "__main__":
             # optimal points CasADi vs Neuromancer
             xy_cas = ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10)
             nx_nm = ax.plot(x_nm, y_nm, 'r*', markersize=10)
-            # save single instance fig
+            # save single instance fig of the solution
             figure_path = os.path.join(savedir, f'mpNLP_Rosenbrock_p={p}_a={a}.png')
             filenames.append(figure_path)
             if not os.path.exists(figure_path):
                 plt.savefig(figure_path)
-    # generate gif
+            # objective function values as function of varying params
+            J_mesh_casadi[i,j] = (1 - sol.value(x)) ** 2 + a * (sol.value(y) - sol.value(x) ** 2) ** 2
+            J_mesh_nm[i,j] = (1 - x_nm) ** 2 + a * (y_nm - x_nm ** 2) ** 2
+            # primal solutions as function of varying paramrs
+            x_opt_casadi[i,j] = sol.value(x)
+            y_opt_casadi[i,j] = sol.value(y)
+            x_opt_nm[i,j] = x_nm
+            y_opt_nm[i,j] = y_nm
+
+    # generate gif for parametric sensitivities of the solution
     images = []
     for filename in filenames:
         images.append(imageio.imread(filename))
-    gif_path = os.path.join(savedir, 'Rosenbroc_sensitivity.gif')
+    gif_path = os.path.join(savedir, 'Rosenbrock_sensitivity.gif')
     imageio.mimsave(gif_path, images)
+
+    # plot objective values as function of varying paramters
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    surf = ax.plot_surface(p_mesh, a_mesh, J_mesh_casadi,
+                           cmap=cm.viridis, linewidth=0, antialiased=False)
+    ax.set(xlabel='$p$')
+    ax.set(ylabel='$a$')
+    ax.set(zlabel='$objective value$')
+    ax.set(title='Casadi')
+    figure_path = os.path.join(savedir, f'objective_Casadi.png')
+    if not os.path.exists(figure_path):
+        plt.savefig(figure_path)
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    surf = ax.plot_surface(p_mesh, a_mesh, J_mesh_nm,
+                           cmap=cm.viridis, linewidth=0, antialiased=False)
+    ax.set(xlabel='$p$')
+    ax.set(ylabel='$a$')
+    ax.set(zlabel='$objective value$')
+    ax.set(title='Neuromancer')
+    figure_path = os.path.join(savedir, f'objective_neuromancer.png')
+    if not os.path.exists(figure_path):
+        plt.savefig(figure_path)
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    surf = ax.plot_surface(p_mesh, a_mesh, J_mesh_casadi-J_mesh_nm,
+                           cmap=cm.viridis, linewidth=0, antialiased=False)
+    ax.set(xlabel='$p$')
+    ax.set(ylabel='$a$')
+    ax.set(zlabel='$objective value$')
+    ax.set(title='Neuromancer error')
+    figure_path = os.path.join(savedir, f'objective_error.png')
+    if not os.path.exists(figure_path):
+        plt.savefig(figure_path)
+    plt.figure()
+    plt.imshow(J_mesh_casadi, aspect='equal')
+    plt.xlabel('a')
+    plt.ylabel('p')
+    plt.title('Casadi')
+    plt.colorbar()
+    figure_path = os.path.join(savedir, f'objective_casadi_planar.png')
+    if not os.path.exists(figure_path):
+        plt.savefig(figure_path)
+    plt.figure()
+    plt.imshow(J_mesh_nm, aspect='equal')
+    plt.xlabel('a')
+    plt.ylabel('p')
+    plt.title('Neuromancer')
+    plt.colorbar()
+    figure_path = os.path.join(savedir, f'objective_nm_planar.png')
+    if not os.path.exists(figure_path):
+        plt.savefig(figure_path)
+    plt.figure()
+    plt.imshow(J_mesh_casadi-J_mesh_nm, aspect='equal')
+    plt.xlabel('a')
+    plt.ylabel('p')
+    plt.title('Neuromancer error')
+    plt.colorbar()
+    figure_path = os.path.join(savedir, f'objective_error_planar.png')
+    if not os.path.exists(figure_path):
+        plt.savefig(figure_path)
+
+    # plot primal solution values as function of varying paramters
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    surf = ax.plot_surface(p_mesh, a_mesh, x_opt_casadi,
+                           cmap=cm.viridis, linewidth=0, antialiased=False)
+    ax.set(xlabel='$p$')
+    ax.set(ylabel='$a$')
+    ax.set(zlabel='$x$')
+    ax.set(title='Casadi')
+    figure_path = os.path.join(savedir, f'x_param_Casadi.png')
+    if not os.path.exists(figure_path):
+        plt.savefig(figure_path)
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    surf = ax.plot_surface(p_mesh, a_mesh, x_opt_nm,
+                           cmap=cm.viridis, linewidth=0, antialiased=False)
+    ax.set(xlabel='$p$')
+    ax.set(ylabel='$a$')
+    ax.set(zlabel='$x$')
+    ax.set(title='Neuromancer')
+    figure_path = os.path.join(savedir, f'x_param_neuromancer.png')
+    if not os.path.exists(figure_path):
+        plt.savefig(figure_path)
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    surf = ax.plot_surface(p_mesh, a_mesh, y_opt_casadi,
+                           cmap=cm.viridis, linewidth=0, antialiased=False)
+    ax.set(xlabel='$p$')
+    ax.set(ylabel='$a$')
+    ax.set(zlabel='$y$')
+    ax.set(title='Casadi')
+    figure_path = os.path.join(savedir, f'y_param_Casadi.png')
+    if not os.path.exists(figure_path):
+        plt.savefig(figure_path)
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    surf = ax.plot_surface(p_mesh, a_mesh, y_opt_nm,
+                           cmap=cm.viridis, linewidth=0, antialiased=False)
+    ax.set(xlabel='$p$')
+    ax.set(ylabel='$a$')
+    ax.set(zlabel='$y$')
+    ax.set(title='Neuromancer')
+    figure_path = os.path.join(savedir, f'y_param_neuromancer.png')
+    if not os.path.exists(figure_path):
+        plt.savefig(figure_path)
 
 
     """
@@ -375,7 +507,7 @@ if __name__ == "__main__":
     np.random.seed(args.data_seed)
 
     # select n number of random samples to evaluate
-    n_samples = 100
+    n_samples = 1000
     idx = np.random.randint(0, nsim, n_samples)
     a = samples['a'][idx]
     p = samples['p'][idx]

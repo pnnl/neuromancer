@@ -25,8 +25,8 @@ class Component(nn.Module):
         """
         The NeuroMANCER component base class.
 
-        :param input_keys: (dict {str: str}) dictionary mapping arbitrary variable names to canonical
-            input keys.
+        :param input_keys: (List of str) list of strings representing keys (names) of input variables.
+        :param output_keys: (List of str) list of strings representing keys (names) of output variables.
         :param name: (str) The name of the component, used to tag output variable keys with the name
             of the component that produced them.
         """

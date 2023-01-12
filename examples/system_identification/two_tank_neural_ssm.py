@@ -33,13 +33,10 @@ import matplotlib.pyplot as plt
 
 from neuromancer import blocks, estimators, dynamics, arg
 from neuromancer.activations import activations
-from neuromancer.visuals import VisualizerOpen
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
-from neuromancer.simulators import OpenLoopSimulator, MultiSequenceOpenLoopSimulator
-from neuromancer.dataset import read_file, get_sequence_dataloaders
+from neuromancer.dataset import get_sequence_dataloaders
 from neuromancer.loss import get_loss
-from neuromancer.callbacks import SysIDCallback
 from neuromancer.loggers import BasicLogger, MLFlowLogger
 from neuromancer.constraint import variable
 import neuromancer.simulator as sim
@@ -257,16 +254,18 @@ def get_objective_terms(args, dims, estimator, dynamics_model):
 
 if __name__ == "__main__":
 
-    # for available systems and datasets in PSL library check: psl.systems.keys() and psl.datasets.keys()
     # load argument parser
     parser = arg.ArgParser(parents=[arg_sys_id_problem(system='TwoTank')])
     args, grps = parser.parse_arg_groups()
+    device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
+    torch.manual_seed(args.data_seed)
+    # instantiate logger for managing experiment verbosity and results logging
     log_constructor = MLFlowLogger if args.logger == 'mlflow' else BasicLogger
     logger = log_constructor(args=args, savedir=args.savedir,
                              verbosity=args.verbosity, stdout=args.metrics)
-    device = f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
 
-    torch.manual_seed(args.data_seed)
+    # generate time series data to learn from
+    #   for available systems and datasets in PSL library check: psl.systems.keys() and psl.datasets.keys()
     system = psl.systems['TwoTank']
     ts = 2.0
     modelSystem = system(ts=ts, nsim=args.nsim)
@@ -275,11 +274,14 @@ if __name__ == "__main__":
     raw['X'] = raw['X'][:-1, :]
     psl.plot.pltOL(Y=raw['Y'], U=raw['U'])
     psl.plot.pltPhase(X=raw['Y'])
+    plt.show(block=True)
+    plt.interactive(True)
 
-    # get dataloader
+    # create torch dataloader for a sequential data
     nstep_data, loop_data, dims = get_sequence_dataloaders(raw, args.nsteps, norm_type=None)
     train_data, dev_data, test_data = nstep_data
     train_loop, dev_loop, test_loop = loop_data
+
 
     # get component models, objectives, and constraints
     estimator, dynamics_model = get_model_components(args, dims)
@@ -288,9 +290,14 @@ if __name__ == "__main__":
     # create constrained optimization loss
     loss = get_loss(objectives, constraints, train_data, args)
     # construct constrained optimization problem
+    #   each component, objective term, and constraint
+    #   is mapping symbolic input variables in .input_keys onto
+    #   symbolic output variables in .output_keys
+    #   thus creating symbolic computational graph via the Problem class
     problem = Problem(components, loss)
     # plot computational graph
     problem.plot_graph()
+    plt.show(block=True)
 
     # select optimizer
     optimizer = torch.optim.AdamW(problem.parameters(), lr=args.lr)
@@ -311,7 +318,7 @@ if __name__ == "__main__":
         warmup=args.warmup,
         device=device,
     )
-    # train
+    # train the model
     best_model = trainer.train()
     best_outputs = trainer.test(best_model)
     logger.clean_up()
@@ -319,7 +326,8 @@ if __name__ == "__main__":
 """
 Test open loop performance
 """
-# filtering
+# filtering task
+#   performs rollouts with updates of initial condition based on the ground truth model
 psl_system = sim.DynamicsPSL(modelSystem,
                 name='psl', input_key_map={'x': 'x_psl', 'u': 'U'})
 mh = sim.MovingHorizon(input_keys=['x_psl'], nsteps=estimator.window_size,
@@ -342,21 +350,22 @@ trajectories = system_sim.simulate(nsim=sim_steps, data_init=data_init,
 psl.plot.pltOL(Y=trajectories['y_psl'], Ytrain=trajectories['y_nm'],
           X=trajectories['x_estim'], U=trajectories['U'])
 plt.show(block=True)
-plt.interactive(True)
 
-# # prediction
-mh = sim.MovingHorizon(input_keys=['y_nm'], nsteps=estimator.window_size, name='mh')
-estim_nm = sim.EstimatorPytorch(estimator=estimator.net,
-                                input_keys=['y_nm_mh'], name='estim')
-components = [mh, estim_nm, nm_system, psl_system]
+# prediction task
+#   performs rollouts without initial condition updates
+nm_system = sim.DynamicsNeuromancer(dynamics_model,
+                name='nm', input_key_map={'x': 'x_nm', 'u': 'U'})
+components = [nm_system, psl_system]
 system_sim = sim.SystemSimulator(components)
 plt.figure()
 system_sim.plot_graph()
 sim_steps = 2000
-data_init = {'x_psl': x0, 'y_nm': x0}
+nx_nm = dynamics_model.fx.in_features
+x0_nm = np.zeros(nx_nm)
+data_init = {'x_psl': x0, 'x_nm': x0_nm}
 trajectories = system_sim.simulate(nsim=sim_steps, data_init=data_init,
                                    data_traj=data_traj)
 psl.plot.pltOL(Y=trajectories['y_psl'], Ytrain=trajectories['y_nm'],
-          X=trajectories['x_estim'], U=trajectories['U'])
+          X=trajectories['x_nm'], U=trajectories['U'])
 plt.show(block=True)
-plt.interactive(False)
+

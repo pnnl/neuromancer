@@ -314,7 +314,7 @@ class DynamicsPSL(SystemDynamics):
         else:
             Time = None
         if 'd' in self.input_key_map.keys():
-            d = data[self.input_key_map['d']]
+            d = data[self.input_key_map['d']].reshape((1, -1))
             out = self.model.simulate(nsim=1, U=u, D=d, x0=x0, Time=Time)
         elif u is not None:
             out = self.model.simulate(nsim=1, U=u, x0=x0, Time=Time)

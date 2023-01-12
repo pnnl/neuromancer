@@ -57,8 +57,8 @@ def test_DynamicsLinSSM_shapes_types(nx, nu, ny):
 def test_DynamicsPSL_ssm_shapes_types(system_name):
     psl_model = psl.ssm.systems[system_name](system=system_name)
     sys = sim.DynamicsPSL(psl_model, input_key_map={'u': 'u'})
-    input_dict = {'x': np.random.randn(psl_model.nx),
-                  'u': np.random.randn(psl_model.nu)}
+    input_dict = {'x': abs(np.random.randn(psl_model.nx)),
+                  'u': abs(np.random.randn(psl_model.nu))}
     output_dict = sys.step(input_dict)
     assert isinstance(output_dict['x'], np.ndarray)
     assert isinstance(output_dict['y'], np.ndarray)

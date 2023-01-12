@@ -302,7 +302,8 @@ class Variable(nn.Module):
     Variable is an abstraction that allows for the definition of constraints and objectives with some nice
     syntactic sugar. When a Variable object is called given a dictionary a pytorch tensor is returned, and when
     a Variable object is subjected to a comparison operator a Constraint is returned. Mathematical operators return
-    Variables which will instantiate and perform the sequence of mathematical operations.
+    Variables which will instantiate and perform the sequence of mathematical operations. PyTorch callables
+    called with variables as inputs return variables.
     Supported infix operators (variable * variable, variable * numeric): +, -, *, @, **, <, <=, >, >=, ==, ^
     """
 

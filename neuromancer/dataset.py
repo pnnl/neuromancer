@@ -826,18 +826,28 @@ def get_sequence_dataloaders(
     training setup.
 
     :param data: (dict str: np.array or list[dict str: np.array]) data dictionary or list of data
-        dictionaries; if latter is provided, multi-sequence datasets are created and splits are
-        computed over the number of sequences rather than their lengths.
+            dictionaries; if latter is provided, multi-sequence datasets are created and splits are
+            computed over the number of sequences rather than their lengths.
     :param nsteps: (int) length of windowed subsequences for N-step training.
     :param moving_horizon: (bool) whether to use moving horizon batching.
     :param norm_type: (str) type of normalization; see function `normalize_data` for more info.
     :param split_ratio: (list float) percentage of data in train and development splits; see
-        function `split_sequence_data` for more info.
+            function `split_sequence_data` for more info.
+    :param num_workers: (int, optional) how many subprocesses to use for data loading.
+            0 means that the data will be loaded in the main process. (default: 0)
+    :param batch_size: (int, optional) how many samples per batch to load
+            (default: full-batch via len(data)).
     """
     if norm_type is not None:
         data, _ = normalize_data(data, norm_type)
     train_data, dev_data, test_data = split_sequence_data(data, nsteps, moving_horizon, split_ratio)
 
+    # instantiate NeuroMANCER dictionary datasets
+    #   raw data dictionary expects keys ['Y', 'U', 'X'] with numpy array values
+    #   our dataloader will automatically slice the time series dataset to create
+    #   nsteps long sequences and creates new variables by
+    #   appending 'p' for past and 'f' for future trajectories
+    #   each variable (key) stores tensors with dimensions [batches, nsteps, nx]
     train_data = SequenceDataset(
         train_data,
         nsteps=nsteps,
@@ -856,11 +866,13 @@ def get_sequence_dataloaders(
         moving_horizon=moving_horizon,
         name="test",
     )
-
+    # get full sequence datasets
+    # with dimensions [1, nsteps*batches, nx]
     train_loop = train_data.get_full_sequence()
     dev_loop = dev_data.get_full_sequence()
     test_loop = test_data.get_full_sequence()
 
+    # instantiate Pytorch dataloaders
     train_data = DataLoader(
         train_data,
         batch_size=batch_size if batch_size is not None else len(train_data),

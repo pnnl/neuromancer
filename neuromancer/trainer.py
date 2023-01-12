@@ -91,59 +91,62 @@ class Trainer:
         """
         self.callback.begin_train(self)
 
-        for i in range(self.current_epoch, self.current_epoch+self.epochs):
+        try:
+            for i in range(self.current_epoch, self.current_epoch+self.epochs):
 
-            self.current_epoch = i
-            self.model.train()
-            losses = []
-            for t_batch in self.train_data:
-                t_batch['epoch'] = i
-                t_batch = move_batch_to_device(t_batch, self.device)
-                output = self.model(t_batch)
-                self.optimizer.zero_grad()
-                output[self.train_metric].backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
-                self.optimizer.step()
-                losses.append(output[self.train_metric])
-                self.callback.end_batch(self, output)
-
-            output[f'mean_{self.train_metric}'] = torch.mean(torch.stack(losses))
-            self.callback.begin_epoch(self, output)
-
-            if self.lr_scheduler is not None:
-                self.lr_scheduler.step(output[f'mean_{self.train_metric}'])
-
-            with torch.set_grad_enabled(self.model.grad_inference):
-                self.model.eval()
+                self.current_epoch = i
+                self.model.train()
                 losses = []
-                for d_batch in self.dev_data:
-                    d_batch = move_batch_to_device(d_batch, self.device)
-                    eval_output = self.model(d_batch)
-                    losses.append(eval_output[self.dev_metric])
-                eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
-                output = {**output, **eval_output}
-                self.callback.begin_eval(self, output)  # potential simulator
+                for t_batch in self.train_data:
+                    t_batch['epoch'] = i
+                    t_batch = move_batch_to_device(t_batch, self.device)
+                    output = self.model(t_batch)
+                    self.optimizer.zero_grad()
+                    output[self.train_metric].backward()
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
+                    self.optimizer.step()
+                    losses.append(output[self.train_metric])
+                    self.callback.end_batch(self, output)
 
-                if (self._eval_min and output[self.eval_metric] < self.best_devloss)\
-                        or (not self._eval_min and output[self.eval_metric] > self.best_devloss):
-                    self.best_model = deepcopy(self.model.state_dict())
-                    self.best_devloss = output[self.eval_metric]
-                    self.badcount = 0
-                else:
-                    if i > self.warmup:
-                        self.badcount += 1
-                if self.logger is not None:
-                    self.logger.log_metrics(output, step=i)
-                else:
-                    mean_loss = output[f'mean_{self.train_metric}']
-                    print(f'epoch: {i}  {self.train_metric}: {mean_loss}')
+                output[f'mean_{self.train_metric}'] = torch.mean(torch.stack(losses))
+                self.callback.begin_epoch(self, output)
 
-                self.callback.end_eval(self, output)  # visualizations
+                if self.lr_scheduler is not None:
+                    self.lr_scheduler.step(output[f'mean_{self.train_metric}'])
 
-                self.callback.end_epoch(self, output)
+                with torch.set_grad_enabled(self.model.grad_inference):
+                    self.model.eval()
+                    losses = []
+                    for d_batch in self.dev_data:
+                        d_batch = move_batch_to_device(d_batch, self.device)
+                        eval_output = self.model(d_batch)
+                        losses.append(eval_output[self.dev_metric])
+                    eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
+                    output = {**output, **eval_output}
+                    self.callback.begin_eval(self, output)  # potential simulator
 
-                if self.badcount > self.patience:
-                    break
+                    if (self._eval_min and output[self.eval_metric] < self.best_devloss)\
+                            or (not self._eval_min and output[self.eval_metric] > self.best_devloss):
+                        self.best_model = deepcopy(self.model.state_dict())
+                        self.best_devloss = output[self.eval_metric]
+                        self.badcount = 0
+                    else:
+                        if i > self.warmup:
+                            self.badcount += 1
+                    if self.logger is not None:
+                        self.logger.log_metrics(output, step=i)
+                    else:
+                        mean_loss = output[f'mean_{self.train_metric}']
+                        print(f'epoch: {i}  {self.train_metric}: {mean_loss}')
+
+                    self.callback.end_eval(self, output)  # visualizations
+
+                    self.callback.end_epoch(self, output)
+
+                    if self.badcount > self.patience:
+                        break
+        except KeyboardInterrupt:
+            print("Interrupted training loop.")
 
         self.callback.end_train(self, output)  # write training visualizations
 
@@ -158,7 +161,7 @@ class Trainer:
         """
         Evaluate the model on all data splits.
         """
-        self.model.load_state_dict(best_model)
+        self.model.load_state_dict(best_model, strict=False)
         self.model.eval()
 
         with torch.set_grad_enabled(self.model.grad_inference):

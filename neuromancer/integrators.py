@@ -5,6 +5,8 @@ Single-step integrators for first-order nonautomonomous ODEs
 import torch
 import torch.nn as nn
 
+from torchdiffeq import odeint_adjoint as odeint
+import torchdiffeq
 from abc import ABC, abstractmethod
 
 
@@ -44,13 +46,61 @@ class Integrator(nn.Module, ABC):
         return sum([k.reg_error() for k in self.children() if hasattr(k, "reg_error")])
 
 
+def rms_norm(tensor):
+    return tensor.pow(2).mean().sqrt()
+
+
+def make_norm(state):
+    state_size = state.numel()
+    def norm(aug_state):
+        y = aug_state[1:1 + state_size]
+        adj_y = aug_state[1 + state_size:1 + 2 * state_size]
+        return max(rms_norm(y), rms_norm(adj_y))
+    return norm
+
+
+class DiffEqIntegrator(Integrator):
+    """
+
+    """
+    def __init__(self, block, interp_u=None, h=1.0, method='euler'):#dopri5'):
+        """
+
+        :param block:(nn.Module) A state transition model.
+        :param interp_u: Function for interpolating control input values for intermediate integration steps.
+                         If you assume a constant control sequence over the time intervals of the samples then
+                         lambda u, t: u will work.
+                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
+                         more sophisticated interpolation schemes.
+        :param h: (float) integration step size
+        :param method: (str) Can be dopri8, dopri5, bosh3, fehlberg2, adaptive_heun, euler, midpoint,
+        rk4, explicit_adams, implicit_adams, fixed_adams
+        """
+        super().__init__(block, interp_u=interp_u, h=h)
+        self.method = method
+        self.adjoint_params = torchdiffeq._impl.adjoint.find_parameters(self.block)
+
+    def integrate(self, x, u, t):
+        timepoints = torch.tensor([t[0]-self.h, t[0]])
+        rhs_fun = lambda t, x: self.block(self.state(x, t, t, u))
+        solution = odeint(rhs_fun, x, timepoints, method=self.method,
+                          adjoint_params=self.adjoint_params,
+                          adjoint_options=dict(norm=make_norm(x)))
+        x_t = solution[-1]
+        return x_t
+
+
 class Euler(Integrator):
     def __init__(self, block, interp_u=None, h=1.0):
         """
 
-        :param block:
-        :param interp_u:
-        :param h:
+        :param block: (nn.Module) A state transition model.
+        :param interp_u: Function for interpolating control input values for intermediate integration steps.
+                         If you assume a constant control sequence over the time intervals of the samples then
+                         lambda u, t: u will work.
+                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
+                         more sophisticated interpolation schemes.
+        :param h: (float) integration step size
         """
         super().__init__(block=block, interp_u=interp_u, h=h)
 
@@ -66,7 +116,12 @@ class Euler_Trap(Integrator):
         Forward Euler (explicit). Trapezoidal rule (implicit).
 
         :param block: (nn.Module) A state transition model.
-        :param h: (float) Time step size.
+        :param interp_u: Function for interpolating control input values for intermediate integration steps.
+                         If you assume a constant control sequence over the time intervals of the samples then
+                         lambda u, t: u will work.
+                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
+                         more sophisticated interpolation schemes.
+        :param h: (float) integration step size
         """
         super().__init__(block=block, interp_u=interp_u, h=h)
 
@@ -85,9 +140,13 @@ class RK2(Integrator):
     def __init__(self, block, interp_u=None, h=1.0):
         """
 
-        :param block:
-        :param interp_u:
-        :param h:
+        :param block: (nn.Module) A state transition model.
+        :param interp_u: Function for interpolating control input values for intermediate integration steps.
+                         If you assume a constant control sequence over the time intervals of the samples then
+                         lambda u, t: u will work.
+                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
+                         more sophisticated interpolation schemes.
+        :param h: (float) integration step size
         """
         super().__init__(block=block, interp_u=interp_u, h=h)
 
@@ -102,9 +161,13 @@ class RK4(Integrator):
     def __init__(self, block, interp_u=None, h=1.0):
         """
 
-        :param block:
-        :param interp_u:
-        :param h:
+        :param block: (nn.Module) A state transition model.
+        :param interp_u: Function for interpolating control input values for intermediate integration steps.
+                         If you assume a constant control sequence over the time intervals of the samples then
+                         lambda u, t: u will work.
+                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
+                         more sophisticated interpolation schemes.
+        :param h: (float) integration step size
         """
         super().__init__(block=block, interp_u=interp_u, h=h)
 
@@ -124,6 +187,16 @@ class RK4_Trap(Integrator):
     corrector: implicit trapezoidal rule
     """
     def __init__(self, block, interp_u=None, h=1.0):
+        """
+
+        :param block: (nn.Module) A state transition model.
+        :param interp_u: Function for interpolating control input values for intermediate integration steps.
+                         If you assume a constant control sequence over the time intervals of the samples then
+                         lambda u, t: u will work.
+                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
+                         more sophisticated interpolation schemes.
+        :param h: (float) integration step size
+        """
         super().__init__(block=block, interp_u=interp_u, h=h)
 
     def integrate(self, x, u, t):
@@ -141,9 +214,13 @@ class Luther(Integrator):
     def __init__(self, block, interp_u=None, h=1.0):
         """
 
-        :param block:
-        :param interp_u:
-        :param h:
+        :param block: (nn.Module) A state transition model.
+        :param interp_u: Function for interpolating control input values for intermediate integration steps.
+                         If you assume a constant control sequence over the time intervals of the samples then
+                         lambda u, t: u will work.
+                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
+                         more sophisticated interpolation schemes.
+        :param h: (float) integration step size
         """
         super().__init__(block=block, interp_u=interp_u, h=h)
 
@@ -178,8 +255,12 @@ class Runge_Kutta_Fehlberg(Integrator):
         """
 
         :param block: (nn.Module) A state transition model.
-        :param interp_u:
-        :param h: (float) Time step size.
+        :param interp_u: Function for interpolating control input values for intermediate integration steps.
+                         If you assume a constant control sequence over the time intervals of the samples then
+                         lambda u, t: u will work.
+                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
+                         more sophisticated interpolation schemes.
+        :param h: (float) integration step size
         """
         super().__init__(block=block, interp_u=interp_u, h=h)
         self.local_error = []
@@ -211,9 +292,13 @@ class Runge_Kutta_Fehlberg(Integrator):
 class MultiStep_PredictorCorrector(Integrator):
     def __init__(self, block, interp_u=None, h=1.0):
         """
-        :param block:
-        :param interp_u:
-        :param h:
+        :param block: (nn.Module) A state transition model.
+        :param interp_u: Function for interpolating control input values for intermediate integration steps.
+                         If you assume a constant control sequence over the time intervals of the samples then
+                         lambda u, t: u will work.
+                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
+                         more sophisticated interpolation schemes.
+        :param h: (float) integration step size
         """
         super().__init__(block=block, interp_u=interp_u, h=h)
 
@@ -251,9 +336,13 @@ class LeapFrog(Integrator):
         """
         Leapfrog integration for ddx = f(x)
         https://en.wikipedia.org/wiki/Leapfrog_integration
-        :param block:
-        :param interp_u:
-        :param h:
+        :param block: (nn.Module) A state transition model.
+        :param interp_u: Function for interpolating control input values for intermediate integration steps.
+                         If you assume a constant control sequence over the time intervals of the samples then
+                         lambda u, t: u will work.
+                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
+                         more sophisticated interpolation schemes.
+        :param h: (float) integration step size
         """
         super().__init__(block=block, interp_u=interp_u, h=h)
 
@@ -276,9 +365,13 @@ class Yoshida4(Integrator):
         """
         4th order Yoshida integrator for ddx = f(x). One step under the 4th order Yoshida integrator requires four intermediary steps. 
         https://en.wikipedia.org/wiki/Leapfrog_integration#4th_order_Yoshida_integrator
-        :param block:
-        :param interp_u:
-        :param h:
+        :param block: (nn.Module) A state transition model.
+        :param interp_u: Function for interpolating control input values for intermediate integration steps.
+                         If you assume a constant control sequence over the time intervals of the samples then
+                         lambda u, t: u will work.
+                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
+                         more sophisticated interpolation schemes.
+        :param h: (float) integration step size
         """
         super().__init__(block=block, interp_u=interp_u, h=h)
 

@@ -175,7 +175,7 @@ class MultiSequenceOpenLoopSimulator(Simulator):
         for k in agg_outputs:
             if type(agg_outputs[k][0]) == str: continue
             if len(agg_outputs[k][0].shape) < 2:
-                agg_outputs[k] = torch.mean(torch.stack(agg_outputs[k]))
+                agg_outputs[k] = torch.mean(torch.stack(agg_outputs[k]).float())
             else:
                 if self.stack:
                     agg_outputs[k] = torch.stack(agg_outputs[k])

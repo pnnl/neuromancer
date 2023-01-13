@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torch_scatter import scatter_sum
 from neuromancer import integrators
 import types
 
@@ -160,6 +159,10 @@ def graph_interp_u(tq, t, u):
     :return: [GraphFeatuers] 
     """
     row, col = u['edge_index'][0], u['edge_index'][1]
-    node_attr = scatter_sum(u['edge_attr'], col.to(u['edge_attr'].device), dim=0)
     edge_attr = torch.cat([u['node_attr'][row], u['node_attr'][col]], dim=-1)
+
+    col = col.to(u['edge_attr'].device).unsqueeze(1).repeat(1,u['edge_attr'].shape[1])
+    node_attr = torch.zeros_like(u['node_attr'])
+    node_attr.scatter_reduce_(dim=0, index=col, src=u['edge_attr'], reduce='sum')
+
     return GraphFeatures(node_attr, edge_attr)

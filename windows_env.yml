@@ -300,7 +300,6 @@ dependencies:
   - zlib=1.2.13=hcfcfb64_4
   - zstd=1.5.2=h7755175_4
   - pip:
-    - torch-scatter==2.0.9
     - torchaudio==0.13.0
     - torchvision==0.14.0
 prefix: C:\Users\tuor369\Miniconda3\envs\nm

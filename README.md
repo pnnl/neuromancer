@@ -92,7 +92,6 @@ $ conda activate neuromancer
 (neuromancer) $ conda install -c anaconda pytest hypothesis
 (neuromancer) $ conda install cvxpy cvxopt casadi seaborn
 (neuromancer) $ conda install tqdm
-(neuromancer) $ conda install pytorch-scatter -c pyg
 (neuromancer) $ conda install -c anaconda sphinx
 (neuromancer) $ conda install -c conda-forge sphinx_rtd_theme
 

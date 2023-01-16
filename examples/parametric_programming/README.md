@@ -27,7 +27,7 @@ and unsupervised Differentiable Parametric Programming (DPP) which solution is o
 differentiating the objectives and constraints of the parametric optimization  problem.
 
 ![DPP_abstract.](../parametric_programming/figs/imitationVSdpp1.jpg)  
-*Imitation learning VS end-to-end learning using Differentiable Parametric Programming. *
+*Imitation learning VS end-to-end learning using Differentiable Parametric Programming.*
 
 ## DPP Problem Formulation
 A generic formulation of the DPP is given

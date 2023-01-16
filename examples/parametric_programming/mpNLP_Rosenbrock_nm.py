@@ -60,7 +60,7 @@ def arg_mpLP_problem(prefix=''):
            help="Whether to use bias in the neural network block component models.")
     gp.add("-data_seed", type=int, default=408,
            help="Random seed used for simulated data")
-    gp.add("-epochs", type=int, default=300,
+    gp.add("-epochs", type=int, default=400,
            help='Number of training epochs')
     gp.add("-lr", type=float, default=0.001,
            help="Step size for gradient descent.")

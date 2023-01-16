@@ -5,7 +5,7 @@ called parametric programming problems. Differentiable Parametric Programming (D
 that use automatic differentiation (AD) to compute sensitivities of constrained optimization problems w.r.t.
 to the problem parameters for obtaining parametric solutions of the problem
 
-![Rosenbrock_sensitivity.](/examples/parametric_programming/figs/Rosenbrock_sensitivity.gif)  
+![Rosenbrock_sensitivity.](/figs/Rosenbrock_sensitivity.gif)  
 *Parametric sensitivity visualisation of nonlinear Rosenbrock problem 
 whose solution changes with varying objective and constraints parameters. 
 Green star represents solution obtained via online solver (IPOPT), 
@@ -26,14 +26,13 @@ The following figure conceptually demonstrated the difference between supervised
 and unsupervised Differentiable Parametric Programming (DPP) which solution is obtained by 
 differentiating the objectives and constraints of the parametric optimization  problem.
 
-![DPP_abstract.](/examples/parametric_programming/figs/imitationVSdpp1.jpg)  
+![DPP_abstract.](/figs/imitationVSdpp1.jpg)  
 *Imitation learning VS end-to-end learning using Differentiable Parametric Programming. *
 
 ## DPP Problem Formulation
 A generic formulation of the DPP is given
 in the form of a parametric constrained optimization problem:
-![DPC_problem_form.](/examples/parametric_programming/figs/DPP_problem_form.PNG)  
-*DPP problem formulation.*
+![DPC_problem_form.](/figs/DPP_problem_form.PNG)
 
 
 ## Differentiable Loss Functions of Parametric Constrained Optimization Problems
@@ -41,11 +40,16 @@ in the form of a parametric constrained optimization problem:
 There are several ways in which we can enforce the constraints satisfaction
 while learning the solution π_Θ(ξ) of the differentiable constrained optimization problem (1). 
 The simplest approach is to penalize the constraints violations by augmenting 
-the loss function L (1a) with the penalty functions given as:
-![DPP_penalty_loss.](/examples/parametric_programming/figs/DPP_penalty_loss.PNG)  
-*DPP penalty loss function.*
+the loss function L (1a) with the 
+[penalty loss function](https://github.com/pnnl/neuromancer/blob/master/neuromancer/loss.py#L102) 
+given as:
+![DPP_penalty_loss.](/figs/DPP_penalty_loss.PNG)  
 
-Other approaches include barrier functions, or Augmented Lagrangian type methods.
+Other approaches supported in the library include 
+[barrier loss functions](https://github.com/pnnl/neuromancer/blob/master/neuromancer/loss.py#L129), or 
+[augmented Lagrangian](https://github.com/pnnl/neuromancer/blob/master/neuromancer/loss.py#L203) 
+type methods.
+
 
 ## DPP Problem Solution
 
@@ -54,15 +58,12 @@ in the DPP problem formulation (1) is that it allows us to use automatic differe
 the gradients of the parametric solution map π_Θ(ξ). In particular, by representing the problem (1) as a
 computational graph and leveraging the chain rule, we can directly compute the gradients of the loss function
 L w.r.t. the solution map weights Θ as follows:
-![DPP_gradients.](/examples/parametric_programming/figs/DPP_gradients.PNG)  
-*DPP penalty loss gradients.*
+![DPP_gradients.](/figs/DPP_gradients.PNG)
 
 
 ## DPP Optimization Algorithm
 The gradient-based solution of the DPP problem is summarized in the following Algorithm:
-![DPP_algorithm.](/examples/parametric_programming/figs/DPP_algorithm.PNG)  
-*DPP gradient-based solution algorithm.*
-
+![DPP_algorithm.](/figs/DPP_algorithm.PNG)
 
 
 ## DPC Syntax and Usage
@@ -169,7 +170,7 @@ List of Neuromancer classes required to build DPC:
 **dataset** - classes for instantiating Pytorch dataloaders with training evaluation and testing samples:
 https://github.com/pnnl/neuromancer/blob/master/neuromancer/dataset.py
 
-**constraints** - classes for defining constraints and custom physics-informed loss function terms: 
+**constraints** - classes for defining symbolic variables, constraints, and custom physics-informed loss function terms: 
 https://github.com/pnnl/neuromancer/blob/master/neuromancer/constraint.py
 
 **solvers**  -  implementation of iterative solvers for hard constraints such as gradient projection method: 
@@ -204,6 +205,15 @@ Scripts for various types of differentiable constrained optimization of parametr
         - ![](../figs/mpNLP_Rosenbrock_nm.png)   
     + mpQCQP_nm_1.py: Multi-parametric quadratically constrained quadratic program (mpQCQP) problem using Neuromancer
         - ![](../figs/MpQCQP_nm_1.png)
+
+
+## Related publications
+
+- A. Agrawal, et al., Differentiable Convex Optimization Layers, 2019
+- P. Donti, et al., DC3: A learning method for optimization with hard constraints, 2021
+- S. Gould, et al., Deep Declarative Networks: A New Hope, 2020
+- J. Kotary, et al., End-to-End Constrained Optimization Learning: A Survey, 2021
+
 
 ## Cite as
 

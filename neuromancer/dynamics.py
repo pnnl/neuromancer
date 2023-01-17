@@ -16,6 +16,14 @@ Block-structured dynamical models:
     + :math:`x_{t+1} = f_x(x_t) \odot f_u(u_t) \odot f_d(d_t) \odot f_e(x_t)`
     + :math:`y_t =  f_y(x_t)`
 
+Autonomous ordinary differential equation model:
+    + :math:`x_{t+1} = ODESolve(f_x(x_t))`
+    + :math:`y_t =  f_y(x_t)`
+
+Non-autonomous ordinary differential equation model:
+    + :math:`x_{t+1} = ODESolve(f_x(x_t, u_t, Time))`
+    + :math:`y_t =  f_y(x_t)`
+
 Block components:
     + :math:`f_e` is an error model
     + :math:`f_{xudy}` is a nominal model
@@ -24,6 +32,7 @@ Block components:
     + :math:`f_u` are input dynamics
     + :math:`f_d` are disturbance dynamics
     + :math:`f_{yu}` models more direct effects of input on observations
+    + :math:`ODESolve(f_x(x_t))` integrates the ODE system via solver, e.g. RK
 """
 
 import torch
@@ -36,28 +45,29 @@ from neuromancer.component import Component
 class SSM(Component):
     DEFAULT_INPUT_KEYS: List[str]
     DEFAULT_OUTPUT_KEYS: List[str]
+    """
+    Base State Space Model (SSM) class
+
+    This class is used to manage naming of component input and output variables as they flow
+    through the computational graph, as well as handle potential remapping of input and output keys
+    to different names. It additionally provides a useful reference for users to see how components
+    can be connected together in the overall computational graph.
+
+    Components that inherit from this class should specify the class attributes DEFAULT_INPUT_KEYS
+    and DEFAULT_OUTPUT_KEYS; these are used as the "canonical" names for input and output variables,
+    respectively. These can be used to compare different components' output and input keys to see
+    whether one component can accept another's output by default.
+
+    By default, components have a `name` argument which is used to tag the output variables they
+    generate; for instance, for a component called "estim", the canonical output "x0" is renamed to
+    "x0_estim".
+
+    >>> estim = LinearEstimator(..., name="estim")  # output "x0" remapped to "x0_estim"
+    >>> ssm = BlockSSM(..., input_key_map={f"x0_{estim.name}": "x0"})  # input_keys used to remap to canonical name
+    """
 
     def __init__(self, input_key_map={}, name=None):
         """
-        Base State Space Model (SSM) class
-
-        This class is used to manage naming of component input and output variables as they flow
-        through the computational graph, as well as handle potential remapping of input and output keys
-        to different names. It additionally provides a useful reference for users to see how components
-        can be connected together in the overall computational graph.
-
-        Components that inherit from this class should specify the class attributes DEFAULT_INPUT_KEYS
-        and DEFAULT_OUTPUT_KEYS; these are used as the "canonical" names for input and output variables,
-        respectively. These can be used to compare different components' output and input keys to see
-        whether one component can accept another's output by default.
-
-        By default, components have a `name` argument which is used to tag the output variables they
-        generate; for instance, for a component called "estim", the canonical output "x0" is renamed to
-        "x0_estim".
-
-        >>> estim = LinearEstimator(..., name="estim")  # output "x0" remapped to "x0_estim"
-        >>> ssm = BlockSSM(..., input_key_map={f"x0_{estim.name}": "x0"})  # input_keys used to remap to canonical name
-
         :param input_key_map: (dict {str: str}) For renaming canonical input keys to state space model
         :param name: (str) Name will be appended to output keys.
         """
@@ -76,16 +86,17 @@ class SSM(Component):
 
 
 class BlockSSM(SSM):
-
     DEFAULT_INPUT_KEYS = ["x0", "Yf"]
     DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
-
+    """
+    Block-structured system dynamical models:
+        :math:`x_{t+1} = f_x(x_t) \odot f_u(u_t) \odot f_d(d_t) \odot f_e(x_t)`
+        :math:`y_t =  f_y(x_t)`
+    """
     def __init__(self, fx, fy, fu=None, fd=None, fe=None, fyu=None,
                  xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add,
                  residual=False, name='block_ssm', input_key_map={}):
         """
-        Block structured system dynamics:
-
         :param fx: (nn.Module) State transition function
         :param fy: (nn.Module) Observation function
         :param fu: (nn.Module) Input function
@@ -183,12 +194,24 @@ class BlockSSM(SSM):
 
 
 class LinearSSM(BlockSSM):
+    """
+    Implementation of discrete-time Linear State Space Model (LSSM).
+        x_{t+1} = A x_t + B u_t + E d_t
+        y_{t+1} = C x_{t+1}
+    Where:
+        x - state variables
+        y - measurement variables
+        y - control input variables
+        d - disturbance variables
+
+    LinearSSM is implemented as a specific instance of BlockSSM.
+
+    for more information about LSSMs see:
+        https://en.wikipedia.org/wiki/State-space_representation
+        https://www.mathworks.com/help/ident/ug/what-are-state-space-models.html
+    """
     def __init__(self, A, B, C, E=None, input_key_map={}, name=None):
         """
-        Implementation of Linear State Space Model (LSSM) in discrete time
-            https://en.wikipedia.org/wiki/State-space_representation
-            https://www.mathworks.com/help/ident/ug/what-are-state-space-models.html
-
         :param A: (torch.tensor) state/system matrix
         :param B: (torch.tensor) input matrix
         :param C: (torch.tensor) output matrix
@@ -237,12 +260,16 @@ class LinearSSM(BlockSSM):
 class BlackSSM(SSM):
     DEFAULT_INPUT_KEYS = ["x0", "Yf"]
     DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
+    """
+    Black box state space model with unstructured system dynamics:
+        :math:`x_{t+1} = f(x_t,u_t,d_t) \odot f_e(x_t)`
+        :math:`y_{t} =  f_y(x_t)`
+        :math:`\odot` is some operator acting on elements, e.g. + or *
+    """
 
     def __init__(self, fx, fy, fe=None, fyu=None, xoe=torch.add, xoyu=torch.add, name='black_ssm',
                  input_key_map={}, extra_inputs=[]):
         """
-        Black box state space model with unstructured system dynamics:
-
         :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
         :param fy: (nn.Module) Observation function
         :param fyu: (nn.Module) Input-Observation function
@@ -311,11 +338,16 @@ class BlackSSM(SSM):
 class ODEAuto(SSM):
     DEFAULT_INPUT_KEYS = ["x0", "Yf"]
     DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
+    """
+    State space model for solving autonomous ODEs w/ single-step integrators:
+        :math:`x_{t+1} = ODESolve(f_x(x_t))`
+        :math:`y_t =  f_y(x_t)`
+        :math:`dx_t/dt = f_x(x_t)` - defined ODE system
+        :math:`ODESolve(f_x(x_t))` - ODE solver that integrates the ODE system, e.g. RK
+    """
 
     def __init__(self, fx, fy, name='dynamics', input_key_map={}):
         """
-        State space model for solving autonomous ODEs w/ single-step integrators:
-
         :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
         :param fy: (nn.Module) Observation function
         :param name: (str) Name for tracking output
@@ -358,11 +390,15 @@ class ODEAuto(SSM):
 class ODENonAuto(SSM):
     DEFAULT_INPUT_KEYS = ["x0", "Yf"]
     DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
-
+    """
+    State space model for non-autonomous ODEs w/ single-step integrators:
+        :math:`x_{t+1} = ODESolve(f_x(x_t, u_t, Time))`
+        :math:`y_t =  f_y(x_t)`
+        :math:`dx_t/dt = f_x(x_t, u_t, Time)` - defined ODE system with inputs u_t and Time
+        :math:`ODESolve(f_x(x_t, u_t, Time))` - ODE solver that integrates the ODE system, e.g. RK
+    """
     def __init__(self, fx, fy, name='dynamics', input_key_map={}, extra_inputs=[], online_flag=False):
         """
-        State space model for non-autonomous ODEs w/ single-step integrators:
-
         :param fx: (nn.Module) State transition function depending on previous state, inputs and disturbances
         :param fy: (nn.Module) Observation function
         :param name: (str) Name for tracking output
@@ -432,7 +468,7 @@ def block_model(kind, datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fy
               activation=nn.GELU, residual=False, linargs=dict(),
               xou=torch.add, xod=torch.add, xoe=torch.add, xoyu=torch.add, name='blockmodel', input_key_map={}):
     """
-    Generate a block-structured SSM with the same structure used across fx, fy, fu, and fd.
+    Helper function that generates a block-structured SSM with the same structure used across fx, fy, fu, and fd.
     """
     assert kind in _bssm_kinds, \
         f"Unrecognized model kind {kind}; supported models are {_bssm_kinds}"
@@ -495,7 +531,7 @@ def blackbox_model(datadims, linmap, nonlinmap, bias, n_layers=2, fe=None, fyu=N
              activation=nn.GELU, linargs=dict(),
              xoyu=torch.add, xoe=torch.add, input_key_map={}, name='blackbox_model', extra_inputs=[]):
     """
-    Black box state space model.
+    Helper function that generates a black box state space model.
     """
     nx, ny, nu, nd = _extract_dims(datadims)
     hsizes = [nx] * n_layers

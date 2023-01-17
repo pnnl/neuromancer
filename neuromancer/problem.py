@@ -17,19 +17,20 @@ import torch.nn as nn
 
 
 class Problem(nn.Module):
+    """
+    This class is similar in spirit to a nn.Sequential module. However,
+    by concatenating input and output dictionaries for each component
+    module we can represent arbitrary directed acyclic computation graphs.
+    In addition the Problem module takes care of calculating loss functions
+    via given instantiated weighted multi-objective PenaltyLoss object which
+    calculate objective and constraints terms from aggregated input and set
+    of outputs from the component modules.
+    """
 
     def __init__(self, components: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]],
                  loss: Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]],
                  grad_inference=False):
         """
-        This is similar in spirit to a nn.Sequential module. However,
-        by concatenating input and output dictionaries for each component
-        module we can represent arbitrary directed acyclic computation graphs.
-        In addition the Problem module takes care of calculating loss functions
-        via given instantiated weighted multi-objective PenaltyLoss object which
-        calculate objective and constraints terms from aggregated input and set
-        of outputs from the component modules.
-
         :param components: (List[Component]) list of objects which implement the component interface (e.g. Function, Policy, Estimator)
         :param loss: (PenaltyLoss) instantiated loss class
         :param update: (Callable) problem will update the output dictionary and return new dictionary with the same keys

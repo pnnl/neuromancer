@@ -40,14 +40,14 @@ def jacobian(y, x):
 
 
 class Gradient(Component):
-
     DEFAULT_INPUT_KEYS = ["y", "x"]
     DEFAULT_OUTPUT_KEYS = ["dy/dx"]
-
+    """
+    Gradient component class for computing gradients of neuromancer objects given the
+    generated dictionary dataset with keys corresponding to variables to be differentiated.
+    """
     def __init__(self, input_key_map={}, name=None):
         """
-        Gradient component class for computing gradients of neuromancer objects given the
-        generated dictionary dataset with keys corresponding to variables to be differentiated
         :param input_key_map:
         :param name:
         """

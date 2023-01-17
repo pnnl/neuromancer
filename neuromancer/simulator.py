@@ -1,4 +1,10 @@
-from typing import Dict, List, Callable
+"""
+Classes for construction of open-loop and closed-loop Simulators.
+    + SystemSimulator: aggregator class creating directed (possibly cyclic) computational graph
+    + SystemComponent: base abstract class for simulation components
+"""
+
+from typing import Dict, List
 from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
@@ -16,7 +22,10 @@ class SystemComponent(ABC):
     DEFAULT_OUTPUT_KEYS: List[str]
 
     """
-    Base class of the Closed loop system
+    Base abstract class representing component of the Simulator system.
+    The behavior of each component is defined in the _forward_step() method.
+    Each component has atributes .input_keys and .output_keys given as list of strings
+    that define input and ouptut variables of the component, respectively.
     """
 
     def __init__(self, name=None):
@@ -59,11 +68,14 @@ class SystemComponent(ABC):
 
 
 class SystemSimulator():
+    """
+    SystemSimulator aggregates connected SystemComponent classes to form a simulation loop
+    and performs simulation via .simulate() method.
+    SystemSimulator supports simulation of directed cyclic computational graphs
+    connecting SystemComponent via their input_keys and output_keys.
+    """
     def __init__(self, components: List[SystemComponent]):
         """
-        SystemSimulator aggregates connected SystemComponent to form a simulation loop
-        and performs simulation via simulate() method.
-
         :param components: (List[SystemComponent]) list of objects which implement the SystemComponent interface (e.g. Dynamics, Policy, Estimator)
         """
         self.components = components
@@ -185,8 +197,23 @@ class SystemDynamics(SystemComponent):
     DEFAULT_INPUT_KEYS = ["x"]
     OPTIONAL_INPUT_KEYS = ["u", "d", "w", "Time"]
     DEFAULT_OUTPUT_KEYS = ["x", "y"]
+
     """
-    Base class of closed loop dynamics models
+    Base SystemComponent class for the dynamics models.
+    
+    Default input keys: 
+        "x" - state variables
+    Optional input keys:
+        "u" - control input variables
+        "d" - observable disturbance variables
+        "w" - unobservable disturbance variables
+        "Time" - time variable
+    Default output keys:
+        "x" - state variables
+        "y" - observable state variables
+        
+    The forward step behavior of the model is defined via .eval_model() method.
+    Forward step updates output key variables variables based on input key variables.
     """
 
     def __init__(self, input_key_map={}, name=None):
@@ -287,8 +314,8 @@ class DynamicsLinSSM(SystemDynamics):
 
 class DynamicsPSL(SystemDynamics):
     """
-    Wrapper for PSL system model
-        x_{t+1}, y_{t+1} = pslODE(x_t, u_t, d_t)
+    Wrapper for PSL system model simulating ordinary differential equation models:
+        x_{t+1}, y_{t+1} = ODE(x_t, u_t, d_t)
     """
 
     def __init__(self, model, input_key_map={}, name=None):
@@ -301,7 +328,6 @@ class DynamicsPSL(SystemDynamics):
         super().__init__(input_key_map=input_key_map, name=name)
         self.model = model
         self.nx = model.nx
-        # self.nu = model.nu
 
     def eval_model(self, data: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
         x0 = data[self.input_key_map['x']]
@@ -331,7 +357,9 @@ class DynamicsPSL(SystemDynamics):
 
 class DynamicsNeuromancer(SystemDynamics):
     """
-    Wrapper for Neuromancer SSM class
+    Wrapper for Neuromancer state space model (SSM) classes defined in neuromancer.dynamics.py
+    For complete documentaton of Neuromancer's SSM classes see:
+        https://pnnl.github.io/neuromancer/dynamics.html
     """
 
     def __init__(self, model, input_key_map={}, name=None):
@@ -388,11 +416,13 @@ class MovingHorizon(SystemComponent):
     DEFAULT_INPUT_KEYS = []
     OPTIONAL_INPUT_KEYS = []
     DEFAULT_OUTPUT_KEYS = []
+    """
+    Moving horizon class is creating sliding window of input time series data 
+    with nstep horizon length.
 
+    """
     def __init__(self, input_keys, output_keys=[], nsteps=1, name=None):
         """
-        Moving horizon class creating time series data with nstep horizon length.
-
         :param input_keys: (list (str)) input keys
         :param output_keys: (list (str)) output keys
         :param nsteps: (int) steps in the moving horizon window
@@ -427,12 +457,20 @@ class SystemEstimator(SystemComponent):
     DEFAULT_INPUT_KEYS = []
     OPTIONAL_INPUT_KEYS = []
     DEFAULT_OUTPUT_KEYS = ["x"]
+    """
+    SystemEstimator is a class that wraps state estimator callables.
+    Estimators compute state variable estimates based on measurement data 
+    given by variables defined in the input_keys.
+    Estimator is defined as:
+        x = estimator(m)
+    where:
+        estimator - state estimator callable
+        x - estimated state variable
+        m - measurement variables defined via input_keys
+    """
 
     def __init__(self, estimator, input_keys=[], name=None):
         """
-        Direct system state estimator
-            x = estimator(measurements)
-
         :param estimator: (callable) system estimator
         :param input_keys: (list (str)) input keys as features to the estimator
         :param name: (str) Name for tracking output
@@ -475,10 +513,16 @@ class SystemEstimator(SystemComponent):
 
 
 class EstimatorLinear(SystemEstimator):
+    """
+    Linear state estimator K.
+        x = K*m
+    where:
+        K - state estimator gain
+        x - estimated state variable
+        m - measurement variables defined via input_keys
+    """
     def __init__(self, estimator, input_keys=[], name=None):
         """
-        Linear system estimator
-
         :param estimator: (np.ndarray) linear matrix system estimator
         :param input_keys: (list (str)) input keys as features to the estimator
         :param name: (str) Name for tracking output
@@ -496,10 +540,11 @@ class EstimatorLinear(SystemEstimator):
 
 
 class EstimatorCallable(SystemEstimator):
+    """
+    System estimator given as a generic python callable.
+    """
     def __init__(self, estimator, input_keys=[], name=None):
         """
-        System estimator via generic python callable
-
         :param estimator: (callable) system estimator
         :param input_keys: (list (str)) input keys as features to the estimator
         :param name: (str) Name for tracking output
@@ -514,10 +559,11 @@ class EstimatorCallable(SystemEstimator):
 
 
 class EstimatorPytorch(SystemEstimator):
+    """
+    System estimator via generic Pytorch nn.Module
+    """
     def __init__(self, estimator, input_keys=[], device="cpu", name=None):
         """
-        System estimator via generic Pytorch nn.Module
-
         :param estimator: (nn.Module) Pytorch system estimator
         :param input_keys: (list (str)) input keys as features to the estimator
         :param name: (str) Name for tracking output
@@ -537,12 +583,19 @@ class SystemController(SystemComponent):
     DEFAULT_INPUT_KEYS = []
     OPTIONAL_INPUT_KEYS = []
     DEFAULT_OUTPUT_KEYS = ["u"]
+    """
+    Base control policy class mapping feature variables defined via input_keys
+    onto control action variables u.
+    Control policy is given as:
+        u = policy(features)
+    where:
+        policy - control policy callable
+        u - control action variables
+        features - feature variables defined via input_keys
+    """
 
     def __init__(self, policy, input_keys=[], name=None):
         """
-        Control policy class
-            u = policy(features)
-
         :param policy: (callable) system policy
         :param input_keys: (list (str)) input keys as features to the estimator
         :param name: (str) Name for tracking output
@@ -591,11 +644,16 @@ class SystemController(SystemComponent):
 
 
 class ControllerLinear(SystemController):
+    """
+    Linear control policy class:
+        u = K*features
+    where:
+        K - control gain matrix
+        u - control action variables
+        features - feature variables defined via input_keys
+    """
     def __init__(self, policy, input_keys=[], name=None):
         """
-        Linear control policy class
-            u = K*features
-
         :param policy: (np.array) linear system policy
         :param input_keys: (list (str)) input keys as features to the estimator
         :param name: (str) Name for tracking output
@@ -613,11 +671,12 @@ class ControllerLinear(SystemController):
 
 
 class ControllerCallable(SystemController):
+    """
+    Control policy class via generic python callable
+        u = policy(features)
+    """
     def __init__(self, policy, input_keys=[], name=None):
         """
-        Control policy class via generic python callable
-            u = policy(features)
-
         :param policy: (callable) callable system policy
         :param input_keys: (list (str)) input keys as features to the estimator
         :param name: (str) Name for tracking output
@@ -632,11 +691,12 @@ class ControllerCallable(SystemController):
 
 
 class ControllerPytorch(SystemController):
+    """
+    Control policy class via generic Pytorch nn.Module
+        u = policy(features)
+    """
     def __init__(self, policy, input_keys=[], nsteps=1, device="cpu", name=None):
         """
-        Control policy class via generic Pytorch nn.Module
-            u = policy(features)
-
         :param policy: (nn.Module) Pytorch system policy
         :param input_keys: (list (str)) input keys as features to the estimator
         :param name: (str) Name for tracking output
@@ -658,11 +718,14 @@ class SystemConstraints(SystemComponent):
     DEFAULT_INPUT_KEYS = []
     OPTIONAL_INPUT_KEYS = []
     DEFAULT_OUTPUT_KEYS = []
+    """
+    Weapper class to evaluate Neuromancer constraints in the SystemSimulator.
+    For a complete documentation of Neuromancer's constraints see:
+        https://pnnl.github.io/neuromancer/constraint.html      
+    """
 
     def __init__(self, constraints, name=None):
         """
-        Class to evaluate Neuromancer constraints
-
         :param constraints: (list (Constraint)) list of neuromancer constraint classes
         :param name: (str) Name for tracking output
         """
@@ -704,7 +767,7 @@ class SystemConstraints(SystemComponent):
 
 if __name__ == "__main__":
     from neuromancer import dynamics, estimators, integrators, blocks
-    from psl import plot, systems
+    from psl import systems
 
     """
     Test SystemLinSSM class

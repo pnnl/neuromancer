@@ -88,18 +88,18 @@ class GradientProjection(Component):
 class IterativeSolver(Component):
     """
     Class for a family of iterative solvers for root-finding solutions to the problem:
-        g(x) = 0
+        :math:`g(x) = 0`
 
     general iterative solver update rules:
-    x_k+1 = phi(x_k)
-    x_k+1 = x_k + phi(x_k)
+    :math:`x_k+1 = phi(x_k)`
+    :math:`x_k+1 = x_k + phi(x_k)`
 
     https://en.wikipedia.org/wiki/Iterative_method
     https://en.wikipedia.org/wiki/Root-finding_algorithms
 
     Newton's method:
-    x_k+1 = x_k - J_g(x_k)^-1 g(x_k)
-    J_g(x_k): Jacobian of g(x_k) w.r.t. x_k
+    :math:`x_k+1 = x_k - J_g(x_k)^-1 g(x_k)`
+    :math:`J_g(x_k)`: Jacobian of :math:`g(x_k)` w.r.t. :math:`x_k'
 
 
     """

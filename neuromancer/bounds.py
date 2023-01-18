@@ -53,19 +53,21 @@ class Bounds(Component):
 
 class HardMinMaxScale(Bounds):
     DEFAULT_INPUT_KEYS = ["x", "xmin", "xmax"]
+    """
+    HardMinMaxScale imposes hard bound constraints on input variable of interest:
+        xmin <= x_new <= xmax
+        x_new = HardMinMaxScale(x)
+    HardMinMaxScale cretes new variable x_new using sigmoid scaling of the original variable x
+    thus the original values of x are not preserved
+    use in situations where you care about the output variable x_new with smooth gradients
+    """
 
     def __init__(self, input_key_map={}, output_keys=[], scaling=1., name=None):
         """
-        HardMinMaxScale imposes hard bound constraints on input variable of interest:
-        xmin <= x_new <= xmax
-        x_new = f(x)
-        cretes new variable x_new using sigmoid scaling of the original variable x
-        thus the original values of x are not preserved
-        use in situations where you care about the output variable x_new with smooth gradients
         :param input_key_map: (dict {str: str}) Mapping canonical expected input keys
-        ["x", "xmin", "xmax"] to alternate keys, e.g., ["y", "ymin", "ymax"]
+            ["x", "xmin", "xmax"] to alternate keys, e.g., ["y", "ymin", "ymax"]
         :param output_keys: [str] optional string to define new variable key at the output,
-        by default input string "x" is being used
+            by default input string "x" is being used
         :param name:
         """
 
@@ -82,15 +84,18 @@ class HardMinMaxScale(Bounds):
 
 class HardMinMaxBound(Bounds):
     DEFAULT_INPUT_KEYS = ["x", "xmin", "xmax"]
+    """
+    HardMinMaxBounds imposes hard bound constraints on input variable of interest: 
+        xmin <= x <= xmax
+    by using projection onto feasible set, thus preserving the original values of x
+    """
 
     def __init__(self, input_key_map={}, output_keys=[], name=None):
         """
-        HardMinMaxBounds imposes hard bound constraints on input variable of interest: xmin <= x <= xmax
-        by using projection onto feasible set, thus preserving the original values of x
         :param input_key_map: (dict {str: str}) Mapping canonical expected input keys
-        ["x", "xmin", "xmax"] to alternate keys, e.g., ["y", "ymin", "ymax"]
+            ["x", "xmin", "xmax"] to alternate keys, e.g., ["y", "ymin", "ymax"]
         :param output_keys: [str] optional string to define new variable key at the output,
-        by default input string "x" is being used
+            by default input string "x" is being used
         :param name:
         """
         super().__init__(input_key_map=input_key_map, output_keys=output_keys, name=name)
@@ -106,12 +111,14 @@ class HardMinMaxBound(Bounds):
 
 class HardMinBound(Bounds):
     DEFAULT_INPUT_KEYS = ["x", "xmin"]
+    """
+    HardMinBounds imposes hard minimum bound constraints on input variable of interest:
+        xmin <= x
+    by using projection onto feasible set, thus preserving the original values of x
+    """
 
     def __init__(self, input_key_map={}, output_keys=[], name=None):
         """
-        HardMinBounds imposes hard minimum bound constraints on input variable of interest:
-        xmin <= x
-        by using projection onto feasible set, thus preserving the original values of x
         :param input_key_map: (dict {str: str}) Mapping canonical expected input keys
         ["x", "xmin"] to alternate keys, e.g., ["y", "ymin"]
         :param output_keys: [str] optional string to define new variable key at the output,
@@ -129,12 +136,14 @@ class HardMinBound(Bounds):
 
 class HardMaxBound(Bounds):
     DEFAULT_INPUT_KEYS = ["x", "xmax"]
+    """
+    HardMaxBounds imposes hard maximum bound constraints on input variable of interest:
+        x <= xmax
+    by using projection onto feasible set, thus preserving the original values of x
+    """
 
     def __init__(self, input_key_map={}, output_keys=[], scale=1., name=None):
         """
-        HardMaxBounds imposes hard maximum bound constraints on input variable of interest:
-        x <= xmax
-        by using projection onto feasible set, thus preserving the original values of x
         :param input_key_map: (dict {str: str}) Mapping canonical expected input keys
         ["x", "xmax"] to alternate names, e.g., ["y", "ymax"]
         :param output_keys: [str] optional string to define new variable key at the output,

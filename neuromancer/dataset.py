@@ -625,7 +625,8 @@ def split_sequence_data(data, nsteps, moving_horizon=False, split_ratio=None):
     """
     multisequence = _is_multisequence_data(data)
     assert _is_sequence_data(data) or multisequence, \
-        "data must be provided as a dictionary or list of dictionaries"
+        "data must be provided as a dictionary or list of dictionaries with " \
+        "first dimension representing length of the time series being equal among all values"
 
     nsim = len(data) if multisequence else min(v.shape[0] for v in data.values())
     split_mod = nsteps if not multisequence else 1
@@ -818,10 +819,10 @@ def get_static_dataloaders(data, norm_type=None, split_ratio=None, num_workers=0
 
 
 def get_sequence_dataloaders(
-
     data, nsteps, moving_horizon=False, norm_type=None, split_ratio=None,
         num_workers=0, batch_size=None):
-    """This will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
+    """
+    This function will generate dataloaders and open-loop sequence dictionaries for a given dictionary of
     data. Dataloaders are hard-coded for full-batch training to match NeuroMANCER's original
     training setup.
 

@@ -75,7 +75,9 @@ class ControlODE(ODESystem):
 
 class GeneralNetworkedODE(ODESystem):
     """
-    Coupled nonlinear dynamical system with heterogeneous agents.
+    Coupled nonlinear dynamical system with heterogeneous agents. This class acts as an
+    aggregator for multiple interacting physics that contribute to the dynamics of one
+    or more agents. 
     """
 
     def __init__(self, map = None, 
@@ -86,10 +88,12 @@ class GeneralNetworkedODE(ODESystem):
                 inductive_bias = "additive"
                 ):
         """
+        :param map: mapping between state index and agent state name(s)
         :param agents: list of ordered dicts, one per agent.
-        :param intrinsics: list of blocks. agent's intrinisic physics.
         :param couplings: list of blocks. one per interaction type.
-        :param connections: list of list of pairwise interactions, one list per coupling.
+        :param insize: dimensionality of input, including disturbances and control
+        :param outsize: dimensionality of output, just for agent evolution
+        :param inductive_bias: selection of inductive bias for ODE. additive or compositional
         """
         super().__init__(insize=insize, outsize=outsize)
         
@@ -123,6 +127,9 @@ class GeneralNetworkedODE(ODESystem):
         return dx[:,:self.outsize]
 
     def intrinsic_physics(self,x):
+        """
+        Calculate and return the contribution from all agents' intrinsic physics
+        """
         dx = torch.tensor([]) # initialize empty to avoid indexing tedium
         # loop over agents and calculate contribution from intrinsic physics
         for idx,agent_dict in enumerate(self.map):
@@ -131,8 +138,9 @@ class GeneralNetworkedODE(ODESystem):
 
     def coupling_physics(self,x):
         """
-        This version of the coupling physics assumes that each coupling physics nn.Module contains the
-        connection information, including what agents are connected and if the connection is symmetric.
+        This coupling physics assumes that each coupling physics nn.Module contains the
+        connection information, including what agents are connected and if the connection 
+        is symmetric.
         """
         dx = torch.zeros_like(x)
         # first loop over coupling physics listed in self.couplings

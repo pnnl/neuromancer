@@ -63,7 +63,7 @@ class DiffEqIntegrator(Integrator):
     """
 
     """
-    def __init__(self, block, interp_u=None, h=1.0, method='euler'):#dopri5'):
+    def __init__(self, block, interp_u=None, h=1.0, method='euler'):
         """
 
         :param block:(nn.Module) A state transition model.

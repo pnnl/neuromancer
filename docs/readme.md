@@ -7,6 +7,7 @@ and then clone the gh-pages branch of the repo at github.com/pnnl/neuromancer
 
 $ mkdir docs; cd docs
 $ git clone https://github.com/pnnl/neuromancer.git -b gh-pages --single-branch
+$ mv neuromancer html
 
 ```
 
@@ -29,14 +30,13 @@ $ make html
 
 ```
 
-Now navigate to the gh-pages branch you cloned and replace old html with newly generated html files. 
+Now navigate to the gh-pages branch you cloned (now called html instead of neuromancer).  
 Take a look at the generated documentation by loading index.html in your browser. 
 If everything looks good then add, commit, and push to the repo. 
 
 ```bash
 
 $ cd ../../docs/neuromancer/html
-$ mv *.html ../; cd ../; rm -rf html
 $ git add *.html; git add objects.inv; git add search_index.js
 $ git commit -m 'Added new documentation for NM version x.xx'
 $ git push origin gh-pages

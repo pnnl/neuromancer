@@ -18,10 +18,10 @@ import psl
 from scipy.signal import cont2discrete, lti, dlti, dstep
 
 from neuromancer.activations import activations
-from neuromancer import blocks, estimators, dynamics
+from neuromancer import estimators, dynamics
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
-from neuromancer.constraint import variable, Loss
+from neuromancer.constraint import variable
 from neuromancer import policies
 import neuromancer.arg as arg
 from neuromancer.dataset import get_sequence_dataloaders

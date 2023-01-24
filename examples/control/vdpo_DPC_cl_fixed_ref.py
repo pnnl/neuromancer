@@ -18,11 +18,10 @@ import matplotlib.pyplot as plt
 import psl
 
 from neuromancer.activations import activations
-from neuromancer import blocks, estimators, dynamics, ode, integrators, interpolation
+from neuromancer import blocks, estimators, dynamics, ode, integrators
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
 from neuromancer.constraint import variable, Loss
-from neuromancer import policies
 import neuromancer.arg as arg
 from neuromancer.dataset import get_sequence_dataloaders
 from neuromancer.loss import get_loss

@@ -6,10 +6,8 @@ Functions for obtaining local affine maps of fully connected neural networks
 
 
 import numpy as np
-import scipy as sp
 import torch
 from torch import nn
-import matplotlib.pyplot as plt
 
 import slim
 from neuromancer import blocks

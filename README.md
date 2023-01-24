@@ -1,14 +1,41 @@
-# NeuroMANCER v1.2
+# NeuroMANCER v1.3
 Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations.
-
 
 Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
 Christian Møldrup Legaard, Draguna Vrabie
 
+## Version 1.3 release notes
+
++ Tutorial [YouTube videos](https://www.youtube.com/channel/UC5oWRFxzUwWrDNzkdWLIb7A) to accompany tutorial scripts in examples folder:
+  + [examples/system_identification/duffing_parameter.py](https://www.youtube.com/watch?v=HLuqneSnoC8)
+  + [examples/system_identification/two_tank_neural_ssm.py](https://www.youtube.com/watch?v=HLuqneSnoC8)
++ Closed loop control policy learning examples with Neural Ordinary Differential Equations
+  + examples/control/
+      + two_tank_sysID_DPC_cl_var_ref.py
+      + two_tank_DPC_cl_var_ref.py
+      + two_tank_DPC_cl_fixed_ref.py
++ Closed loop control policy learning example with Linear State Space Models. 
+  + examples/control/
+      + vdpo_DPC_cl_fixed_ref.py
++ Linear State Space Models
+    - dynamics.py
++ Refactored closed loop control policy simulations
+  + simulator.py
++ Interfaces for closed loop control policy learning for several classes 
+    + Constraint
+    + Estimator
+    + Policy
+    + PSL Emulator classes
++ Added support for modeling and policy learning of autonomous ODE systems
+  + ControlODE class in ode.py
+  + Torchdiffeq integration with fast adjoint method for NODE optimization
+
 
 ## Documentation
 The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/)
-and in the [pdf form](https://github.com/pnnl/neuromancer/blob/master/Documentation.pdf).
+and in the [pdf form](https://github.com/pnnl/neuromancer/blob/master/Documentation.pdf). 
+There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 
+core features of the library. 
 
 
 ```python 
@@ -63,6 +90,14 @@ user@machine:~$ git clone -b master https://github.com/pnnl/psl.git --single-bra
 user@machine:~$ git clone -b master https://github.com/pnnl/slim.git --single-branch
 
 ```
+
+## Install neuromancer ecosystem
+``` bash
+(neuromancer) $ cd psl; python setup.py develop
+(neuromancer) $ cd ../slim; python setup.py develop
+(neuromancer) $ cd ../neuromancer; python setup.py develop
+``` 
+
 ## Install dependencies
 
 ### Ubuntu
@@ -92,17 +127,13 @@ $ conda activate neuromancer
 (neuromancer) $ conda install -c anaconda pytest hypothesis
 (neuromancer) $ conda install cvxpy cvxopt casadi seaborn
 (neuromancer) $ conda install tqdm
-(neuromancer) $ conda install -c anaconda sphinx
-(neuromancer) $ conda install -c conda-forge sphinx_rtd_theme
-
+(neuromancer) $ conda install torchdiffeq
 ```
 
-## Install neuromancer ecosystem
-``` bash
-(neuromancer) $ cd psl; python setup.py develop
-(neuromancer) $ cd ../slim; python setup.py develop
-(neuromancer) $ cd ../neuromancer; python setup.py develop
-``` 
+## Test NeuroMANCER install
+Run pytest on the test folder. It should take about 2 minutes to run the tests on CPU. 
+There will be a lot of warnings that you can safely ignore. These warnings will be cleaned 
+up in a future release.
 
 ## Examples
 
@@ -110,16 +141,41 @@ For detailed examples of NeuroMANCER usage
 for control, system identification, and parametric programming as well as tutorials for basic usage, see the scripts
 in the examples folder. 
 
-The parametric programming examples have additional package dependencies for benchmarking
-against traditional constrained optimization solvers, e.g., cvxpy (these should also have been installed using env.yml)
+## Community
 
-```console
-(neuromancer) user@machine:~$ conda install cvxpy cvxopt seaborn
-(neuromancer) user@machine:~$ pip install casadi 
-```
-## For developers
-All test code is developed using pytest and hypothesis. Please refer to 
-the test folder and create unit tests for any new modules introduced to the library. 
+### Contributing examples
+If you have an example of using NeuroMANCER to solve an interesting problem, or of using 
+NeuroMANCER in a unique way, we would love to see it incorporated into our current library of examples. 
+To submit an example, create a folder for your example/s in the example folder if there isn't 
+currently and applicable folder and place either your executable python file or notebook file there. 
+Push your code back to github and then submit a pull request. Please make sure to note in a comment at 
+the top of your code if there are additional dependencies to run your example and how to install 
+those dependencies. 
+
+### Contributing code
+
+We welcome contributions to NeuroMANCER. Please accompany contributions with some lightweight unit tests
+via pytest (see test/ folder for some examples of easy to compose unit tests using pytest). In addition to unit tests
+a script utilizing introduced new classes or modules should be placed in the examples folder. 
+To contribute a new feature please submit a pull request. 
+
+### Reporting issues or bugs
+If you find a bug in the code or want to request a new feature, please open an issue.
+
+### NeuroMANCER development plan
+Here are some upcoming features we plan to develop. Please let us know if you would like to get involved and 
+contribute so we may be able to coordinate on development. If there is a feature that you think would
+be highly valuable but not included below, please open an issue and let us know your thoughts. 
+
++ Faster dynamics modeling via Torchscript
++ Control and modelling for networked systems
++ Easy to implement modeling and control with uncertainty quantification
++ Online learning examples
++ Benchmark examples of DPC compared to deep RL
++ Conda and pip package distribution
++ CVXPY-like interface for optimization via Problem.solve method
++ More versatile and simplified time series dataloading
++ Pytorch Lightning trainer compatibility
 
 ## Publications
 + [James Koch, Zhao Chen, Aaron Tuor, Jan Drgona, Draguna Vrabie, Structural Inference of Networked Dynamical Systems with Universal Differential Equations, arXiv:2207.04962, (2022)](https://aps.arxiv.org/abs/2207.04962)
@@ -135,6 +191,7 @@ the test folder and create unit tests for any new modules introduced to the libr
 + [Drgona, Jan, et al. "Differentiable Predictive Control: An MPC Alternative for Unknown Nonlinear Systems using Constrained Deep Learning." Journal of Process Control Volume 116, August 2022, Pages 80-92](https://www.sciencedirect.com/science/article/pii/S0959152422000981)
 + [Drgona, J., Skomski, E., Vasisht, S., Tuor, A., & Vrabie, D. (2020). Dissipative Deep Neural Dynamical Systems, in IEEE Open Journal of Control Systems, vol. 1, pp. 100-112, 2022](https://ieeexplore.ieee.org/document/9809789)
 + [Drgona, J., Tuor, A., & Vrabie, D., Learning Constrained Adaptive Differentiable Predictive Control Policies With Guarantees, arXiv preprint arXiv:2004.11184, (2020)](https://arxiv.org/abs/2004.11184)
+
 
 ## Cite as
 ```yaml

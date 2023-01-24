@@ -5,7 +5,6 @@ from neuromancer import ode
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from neuromancer.interpolation import LinInterp_Offline, LinInterp_Online
 
 #%% autonomous system
 # PSL simulation

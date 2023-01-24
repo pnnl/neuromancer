@@ -3,9 +3,10 @@ Loss function aggregators that create physics-informed loss functions
 from the list of defined objective terms and constraints.
 
 Currently supported loss functions:
-    + PenaltyLoss: https://en.wikipedia.org/wiki/Penalty_method
-    + BarrierLoss: https://en.wikipedia.org/wiki/Barrier_function
-    + AugmentedLagrangeLoss: https://en.wikipedia.org/wiki/Augmented_Lagrangian_method
+
+* `PenaltyLoss <https://en.wikipedia.org/wiki/Penalty_method>`_
+* `BarrierLoss <https://en.wikipedia.org/wiki/Barrier_function>`_
+* `AugmentedLagrangeLoss <https://en.wikipedia.org/wiki/Augmented_Lagrangian_method>`_
 
 """
 
@@ -142,12 +143,12 @@ class PenaltyLoss(AggregateLoss):
 class BarrierLoss(PenaltyLoss):
     """
     Barrier loss function.
-        https://en.wikipedia.org/wiki/Barrier_function
+    * https://en.wikipedia.org/wiki/Barrier_function
     Available barrier functions are defined in the self.barriers dictionary.
     References for relaxed barrier functions:
-        https://arxiv.org/abs/1602.01321
-        https://arxiv.org/abs/1904.04205v2
-        https://ieeexplore.ieee.org/document/7493643/
+    * https://arxiv.org/abs/1602.01321
+    * https://arxiv.org/abs/1904.04205v2
+    * https://ieeexplore.ieee.org/document/7493643/
     """
 
     def __init__(self, objectives, constraints, barrier='log10', upper_bound=1.,

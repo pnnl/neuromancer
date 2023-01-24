@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from neuromancer.estimators import MLPEstimator
-from neuromancer.dynamics import block_model, BlockSSM
+from neuromancer.dynamics import block_model
 from neuromancer.problem import Problem
 from neuromancer import blocks
 from neuromancer.activations import activations

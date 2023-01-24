@@ -9,7 +9,7 @@ import slim
 import psl
 import matplotlib.pyplot as plt
 
-from neuromancer import blocks, estimators, dynamics, arg, integrators, ode
+from neuromancer import blocks, estimators, dynamics, integrators, ode
 from neuromancer.activations import activations
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
@@ -17,7 +17,6 @@ from neuromancer.dataset import get_sequence_dataloaders
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
 import neuromancer.simulator as sim
-from neuromancer.loss import get_loss
 
 """
 # # #  System Identification via NODE

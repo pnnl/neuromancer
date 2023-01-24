@@ -14,7 +14,7 @@ This high-level abstraction allows for intuitive formulation of constrained opti
 
 import neuromancer as nm
 import torch
-from neuromancer.constraint import variable, Constraint, Objective, Loss
+from neuromancer.constraint import variable, Objective, Loss
 
 # Let's make a variable to use in defining a constraint
 x = variable('x')

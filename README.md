@@ -8,26 +8,29 @@ Christian Møldrup Legaard, Draguna Vrabie
 
 + Tutorial [YouTube videos](https://www.youtube.com/channel/UC5oWRFxzUwWrDNzkdWLIb7A) to accompany tutorial scripts in examples folder:
   + [examples/system_identification/duffing_parameter.py](https://www.youtube.com/watch?v=HLuqneSnoC8)
-  + [examples/system_identification/two_tank_neural_ssm.py](https://www.youtube.com/watch?v=HLuqneSnoC8)
 + Closed loop control policy learning examples with Neural Ordinary Differential Equations
   + examples/control/
+      + vdpo_DPC_cl_fixed_ref.py
       + two_tank_sysID_DPC_cl_var_ref.py
       + two_tank_DPC_cl_var_ref.py
       + two_tank_DPC_cl_fixed_ref.py
 + Closed loop control policy learning example with Linear State Space Models. 
   + examples/control/
-      + vdpo_DPC_cl_fixed_ref.py
-+ Linear State Space Models
-    - dynamics.py
+      + double_integrator_dpc_ol_fixed_ref.py
+      + vtol_dpc_ol_fixed_ref.py
++ New class for Linear State Space Models (LSSM)
+    + LinearSSM in dynamics.py
 + Refactored closed loop control policy simulations
   + simulator.py
-+ Interfaces for closed loop control policy learning for several classes 
-    + Constraint
++ Interfaces for open and closed loop simulation (evaluation after training) for several classes 
+    + Dynamics
     + Estimator
     + Policy
+    + Constraint
     + PSL Emulator classes
-+ Added support for modeling and policy learning of autonomous ODE systems
++ New class for closed-loop policy learning of non-autonomous ODE systems
   + ControlODE class in ode.py
++ Added support for NODE systems
   + Torchdiffeq integration with fast adjoint method for NODE optimization
 
 

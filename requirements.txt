@@ -1,0 +1,13 @@
+scipy
+numpy
+matplotlib
+scikit-learn
+pandas
+dill
+mlflow
+pydot==1.4.2
+pyts
+numba
+networkx plum-dispatch
+tqdm
+torchdiffeq

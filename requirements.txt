@@ -8,6 +8,9 @@ mlflow
 pydot==1.4.2
 pyts
 numba
-networkx plum-dispatch
+networkx
+plum-dispatch
 tqdm
 torchdiffeq
+git+https://github.com/pnnl/slim.git@master#egg=slim
+git+https://github.com/pnnl/psl.git@master#egg=psl

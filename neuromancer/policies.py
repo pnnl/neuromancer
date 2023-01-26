@@ -25,6 +25,7 @@ from neuromancer.component import Component
 
 
 
+
 class Policy(Component):
 
     def __init__(self, data_dims, nsteps=1,forecast = False, input_keys=["x0"], name="policy"):
@@ -72,34 +73,25 @@ class Policy(Component):
         :return: (torch.Tensor)
         """
         featlist = []
-        if self.forecast == False :
-            for k in self.input_keys:
-                assert self.data_dims[k][-1] == data[k].shape[-1], \
-                    f"Input feature {k} expected {self.data_dims[k][-1]} but got {data[k].shape[-1]}"
-                if len(data[k].shape) == 2:
-                    featlist.append(data[k])
-                elif len(data[k].shape) == 3:
-                    assert data[k].shape[1] >= self.nsteps, \
-                        f"Sequence too short for policy calculation. Should be at least {self.nsteps}"
-                    featlist.append(data[k][:, :self.nsteps, :].reshape(data[k].shape[0], -1))
-                else:
-                    raise ValueError(f"Input {k} has {len(data[k].shape)} dimensions. Should have 2 or 3 dimensions")
-            feat_tensor = torch.cat(featlist, dim=1)
-        else:
-            for k in self.input_keys:
-                assert self.data_dims[k][-1] == data[k].shape[-1], \
-                    f"Input feature {k} expected {self.data_dims[k][-1]} but got {data[k].shape[-1]}"
-                if len(data[k].shape) == 2:
-                    featlist.append(torch.tile(torch.unsqueeze(data[k],1),(1,self.nsteps,1)))
-                elif len(data[k].shape) == 3:
-                    assert data[k].shape[1] >= self.nsteps, \
-                        f"Sequence too short for policy calculation. Should be at least {self.nsteps}"
-                    featlist.append(data[k][:, :self.nsteps, :])
-                else:
-                    raise ValueError(f"Input {k} has {len(data[k].shape)} dimensions. Should have 2 or 3 dimensions")
-            feat_tensor = torch.cat(featlist,dim = 2)
-        
+    
+        for k in self.input_keys:
+            assert self.data_dims[k][-1] == data[k].shape[-1], \
+                f"Input feature {k} expected {self.data_dims[k][-1]} but got {data[k].shape[-1]}"
+            if len(data[k].shape) == 2:
+                if self.forecast == False: featlist.append(data[k])
+                else: featlist.append(torch.tile(torch.unsqueeze(data[k],1),(1,self.nsteps,1)))
+            elif len(data[k].shape) == 3:
+                assert data[k].shape[1] >= self.nsteps, \
+                    f"Sequence too short for policy calculation. Should be at least {self.nsteps}"
+                if self.forecast == False: featlist.append(data[k][:, :self.nsteps, :].reshape(data[k].shape[0], -1))
+                else: featlist.append(data[k][:, :self.nsteps, :])
+            else:
+                raise ValueError(f"Input {k} has {len(data[k].shape)} dimensions. Should have 2 or 3 dimensions")
+            
+            if self.forecast == False: feat_tensor = torch.cat(featlist, dim=1)
+            else: feat_tensor = torch.cat(featlist, dim=2)
         return feat_tensor
+
     def forward(self, data):
         """
 
@@ -112,6 +104,7 @@ class Policy(Component):
         output = {name: tensor for tensor, name
                   in zip([Uf, self.reg_error()], self.output_keys)}
         return output
+
 
 
 

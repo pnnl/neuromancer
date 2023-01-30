@@ -93,14 +93,6 @@ user@machine:~$ git clone -b master https://github.com/pnnl/psl.git --single-bra
 user@machine:~$ git clone -b master https://github.com/pnnl/slim.git --single-branch
 
 ```
-
-## Install neuromancer ecosystem
-``` bash
-(neuromancer) $ cd psl; python setup.py develop
-(neuromancer) $ cd ../slim; python setup.py develop
-(neuromancer) $ cd ../neuromancer; python setup.py develop
-``` 
-
 ## Install dependencies
 
 ### Ubuntu
@@ -133,6 +125,12 @@ $ conda activate neuromancer
 (neuromancer) $ conda install torchdiffeq
 ```
 
+## Install neuromancer ecosystem
+``` bash
+(neuromancer) $ cd psl; python setup.py develop
+(neuromancer) $ cd ../slim; python setup.py develop
+(neuromancer) $ cd ../neuromancer; python setup.py develop
+``` 
 ## Test NeuroMANCER install
 Run pytest on the test folder. It should take about 2 minutes to run the tests on CPU. 
 There will be a lot of warnings that you can safely ignore. These warnings will be cleaned 

@@ -34,7 +34,7 @@ class ControlODE(ODESystem):
         :param ode: (ODESystem or nn.Module) RHS of an ODE system
         :param nx: (int) number of state variables
         :param nu: (int) number of control input variables
-        :param np: (int) number of control parameters
+        :param np: (int) number of inputs given to the control policy
         :param u_con:
         """
         insize = nx + np
@@ -65,6 +65,7 @@ class ControlODE(ODESystem):
             f'got {xi.shape[1]}'
         u = self.policy(xi)
         self.u = u
+        # xi is x +
         x = xi[:, :self.nx]
         xu = torch.cat([x, u], dim=-1)
         if isinstance(self.ode, ODESystem):
@@ -72,6 +73,7 @@ class ControlODE(ODESystem):
         else:
             dx = self.ode(xu)
         return dx
+
 
 class GeneralNetworkedODE(ODESystem):
     """

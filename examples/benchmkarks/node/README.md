@@ -1,6 +1,3 @@
-# koopman_neuromancer_integration
-
-Repository for integration of koopman operator modeling and control into core neuromancer. 
 ## Benchmark non-autonomous system examples NODE
 | System                     | MAE   | MSE   | $r^2$ |
 |----------------------------|-------|-------|-------|

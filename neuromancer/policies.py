@@ -24,13 +24,16 @@ import neuromancer.blocks as blocks
 from neuromancer.component import Component
 
 
+
+
 class Policy(Component):
 
-    def __init__(self, data_dims, nsteps=1, input_keys=["x0"], name="policy"):
+    def __init__(self, data_dims, nsteps=1,forecast = False, input_keys=["x0"], name="policy"):
         """
 
         :param data_dims: dict {str: tuple of ints) Data structure describing dimensions of input variables
         :param nsteps: (int) Prediction horizon
+        :param forecast: (bool) Should time dimensions of inputs be preserved, (e.g. a forecast of disturbances to inform the control policy)
         :param input_keys: (List of str) List of input variable names
         :param name: (str) Name for tracking output of module.
         """
@@ -39,12 +42,18 @@ class Policy(Component):
 
         self.name, self.data_dims = name, data_dims
         self.nsteps = nsteps
+        self.forecast = forecast
         self.nu = data_dims["U"][-1]
         data_dims_in = {k: v for k, v in data_dims.items() if k in input_keys}
         self.sequence_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 2)
         self.static_dims_sum = sum(v[-1] for k, v in data_dims_in.items() if len(v) == 1)
-        self.in_features = self.static_dims_sum + nsteps * self.sequence_dims_sum
-        self.out_features = nsteps * self.nu
+        if self.forecast ==False:
+            self.in_features = self.static_dims_sum + nsteps * self.sequence_dims_sum
+            self.out_features = nsteps * self.nu
+        else:
+            self.in_features = self.static_dims_sum + self.sequence_dims_sum
+            self.out_features = self.nu
+
 
     def reg_error(self):
         """
@@ -64,18 +73,24 @@ class Policy(Component):
         :return: (torch.Tensor)
         """
         featlist = []
+    
         for k in self.input_keys:
             assert self.data_dims[k][-1] == data[k].shape[-1], \
                 f"Input feature {k} expected {self.data_dims[k][-1]} but got {data[k].shape[-1]}"
             if len(data[k].shape) == 2:
-                featlist.append(data[k])
+                if self.forecast == False: featlist.append(data[k])
+                else: featlist.append(torch.tile(torch.unsqueeze(data[k],1),(1,self.nsteps,1)))
             elif len(data[k].shape) == 3:
                 assert data[k].shape[1] >= self.nsteps, \
                     f"Sequence too short for policy calculation. Should be at least {self.nsteps}"
-                featlist.append(data[k][:, :self.nsteps, :].reshape(data[k].shape[0], -1))
+                if self.forecast == False: featlist.append(data[k][:, :self.nsteps, :].reshape(data[k].shape[0], -1))
+                else: featlist.append(data[k][:, :self.nsteps, :])
             else:
                 raise ValueError(f"Input {k} has {len(data[k].shape)} dimensions. Should have 2 or 3 dimensions")
-        return torch.cat(featlist, dim=1)
+            
+            if self.forecast == False: feat_tensor = torch.cat(featlist, dim=1)
+            else: feat_tensor = torch.cat(featlist, dim=2)
+        return feat_tensor
 
     def forward(self, data):
         """
@@ -89,6 +104,12 @@ class Policy(Component):
         output = {name: tensor for tensor, name
                   in zip([Uf, self.reg_error()], self.output_keys)}
         return output
+
+
+
+
+
+
 
 
 class Compensator(Policy):
@@ -218,4 +239,64 @@ class RNNPolicy(Policy):
         return output
 
 
+
+
+
+
+
+
+
+class ConvolutionalForecastPolicy(Policy):
+    def __init__(self, data_dims, nsteps=1,hsizes= [20],linear_map=slim.Linear,nonlin = nn.Tanh,linargs=dict(),forecast = True,kernel_size = 1,
+                input_keys=["x0","Df"], name="CNV_policy"):
+        """
+        :param nsteps: (int) Prediction horizon and horizon over which forecast data is available
+        :param kernel_size: (int) Number of time-steps to include in the convolution kernel.
+
+        """
+        super().__init__(data_dims, nsteps=nsteps,forecast = forecast, input_keys=input_keys, name=name)
+        
+        self.h_dim = self.in_features
+        self.kernel_size = kernel_size
+        self.Conv_Tanh_stack = nn.Sequential(
+            nn.Conv1d(self.in_features,self.h_dim,self.kernel_size,stride = 1,padding='same'),
+            nn.Tanh(),
+            nn.Conv1d(self.h_dim,self.h_dim,self.kernel_size,stride =1, padding = 'same'),
+            nn.Tanh(), 
+            nn.Conv1d(self.h_dim,self.h_dim,self.kernel_size,stride=1, padding = 'same')
+        )
+       
+        self.output_block = blocks.MLP(insize=self.h_dim, outsize=self.out_features, bias=True,
+                              linear_map=linear_map, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
+
+
+        def net(features):
+            feats = torch.transpose(features,1,2)
+            output = self.Conv_Tanh_stack(feats)
+            output = torch.transpose(output,1,2)
+            output = self.output_block(output)
+            return output
+
+        self.net = net
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 policies = [LinearPolicy, MLPPolicy, RNNPolicy]
+
+
+
+
+

@@ -1,7 +1,6 @@
 import torch
 from hypothesis import given, settings, strategies as st
-
-from neuromancer.policies import policies
+from neuromancer.policies import policies, ConvolutionalForecastPolicy
 from slim.linear import square_maps, maps, TrivialNullSpaceLinear
 from neuromancer.activations import activations
 
@@ -41,12 +40,6 @@ def test_policies_shape(samples, nsteps, nx, ny, nu, nd,
     assert upred.shape[0] == samples, 'Steps not equal'
     assert upred.shape[2] == nu, 'Dimension not equal'
 
-
-
-
-
-
-from neuromancer.policies import ConvolutionalForecastPolicy
 
 @given(st.integers(1, 10),
        st.integers(6, 15),

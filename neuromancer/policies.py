@@ -15,14 +15,11 @@ generic mapping:
 # machine learning/data science imports
 import torch
 import torch.nn as nn
-
 # ecosystem imports
 import slim
-
 # local imports
 import neuromancer.blocks as blocks
 from neuromancer.component import Component
-
 
 
 
@@ -104,12 +101,6 @@ class Policy(Component):
         output = {name: tensor for tensor, name
                   in zip([Uf, self.reg_error()], self.output_keys)}
         return output
-
-
-
-
-
-
 
 
 class Compensator(Policy):
@@ -239,41 +230,38 @@ class RNNPolicy(Policy):
         return output
 
 
-
-
-
-
-
-
-
 class ConvolutionalForecastPolicy(Policy):
-    def __init__(self, data_dims, nsteps=1,hsizes= [20],linear_map=slim.Linear,nonlin = nn.Tanh,linargs=dict(),forecast = True,kernel_size = 1,
-                input_keys=["x0","Df"], name="CNV_policy"):
+    def __init__(self, data_dims, nsteps=1, hsizes=[20], linear_map=slim.Linear,
+                 nonlin=nn.Tanh, linargs=dict(), forecast=True, kernel_size=1,
+                 input_keys=["x0", "Df"], name="CNV_policy"):
         """
         :param nsteps: (int) Prediction horizon and horizon over which forecast data is available
         :param kernel_size: (int) Number of time-steps to include in the convolution kernel.
 
         """
-        super().__init__(data_dims, nsteps=nsteps,forecast = forecast, input_keys=input_keys, name=name)
+        super().__init__(data_dims, nsteps=nsteps, forecast=forecast,
+                         input_keys=input_keys, name=name)
         
         self.h_dim = self.in_features
         self.kernel_size = kernel_size
         self.Conv_Tanh_stack = nn.Sequential(
-            nn.Conv1d(self.in_features,self.h_dim,self.kernel_size,stride = 1,padding='same'),
+            nn.Conv1d(self.in_features, self.h_dim,
+                      self.kernel_size, stride=1, padding='same'),
             nn.Tanh(),
-            nn.Conv1d(self.h_dim,self.h_dim,self.kernel_size,stride =1, padding = 'same'),
+            nn.Conv1d(self.h_dim, self.h_dim,
+                      self.kernel_size, stride=1, padding='same'),
             nn.Tanh(), 
-            nn.Conv1d(self.h_dim,self.h_dim,self.kernel_size,stride=1, padding = 'same')
+            nn.Conv1d(self.h_dim, self.h_dim,
+                      self.kernel_size, stride=1, padding='same')
         )
-       
-        self.output_block = blocks.MLP(insize=self.h_dim, outsize=self.out_features, bias=True,
-                              linear_map=linear_map, nonlin=nonlin, hsizes=hsizes, linargs=linargs)
-
-
+        self.output_block = blocks.MLP(insize=self.h_dim,
+                                       outsize=self.out_features, bias=True,
+                                       linear_map=linear_map, nonlin=nonlin,
+                                       hsizes=hsizes, linargs=linargs)
         def net(features):
-            feats = torch.transpose(features,1,2)
+            feats = torch.transpose(features, 1, 2)
             output = self.Conv_Tanh_stack(feats)
-            output = torch.transpose(output,1,2)
+            output = torch.transpose(output, 1, 2)
             output = self.output_block(output)
             return output
 
@@ -281,22 +269,5 @@ class ConvolutionalForecastPolicy(Policy):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 policies = [LinearPolicy, MLPPolicy, RNNPolicy]
-
-
-
-
 

@@ -53,12 +53,12 @@ sol_map = nm.maps.Map(func,
         name='primal_map')
 
 # problem primal variables
-x = nm.constraints.variable("x")[:, [0]]
-y = nm.constraints.variable("x")[:, [1]]
+x = nm.constraint.variable("x")[:, [0]]
+y = nm.constraint.variable("x")[:, [1]]
 
 # sampled problem parameters
-p = nm.constraints.variable('p')
-a = nm.constraints.variable('a')
+p = nm.constraint.variable('p')
+a = nm.constraint.variable('a')
 
 # nonlinear objective function
 f = (1-x)**2 + a*(y-x**2)**2

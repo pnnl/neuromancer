@@ -1,12 +1,9 @@
 import torch
 import torch.nn as nn
-import slim
 
 from neuromancer.integrators import Euler
 from neuromancer.component import Component
-from neuromancer.activations import SoftExponential
-from neuromancer.blocks import MLP, Linear
-from koopman import Autoencoder, NonautoKoopmanSSM, INN, StateInclusive, Fxud
+from neuromancer.blocks import MLP
 
 
 class SSMIntegrator(Component):
@@ -52,14 +49,6 @@ class SSMIntegrator(Component):
         return output
 
 
-def get_linear(ny, nu, args):
-    inn = Autoencoder(ny, ny, bias=True, map=Linear)
-    fxud = Fxud(slim.Linear(nu, ny, bias=True), input_keys=['U'])
-    koopman = slim.Linear(ny, ny, bias=False)
-    ssm = NonautoKoopmanSSM(inn, koopman, fxud, name='ssm')
-    return ssm
-
-
 def get_node(ny, nu, args):
     fx = MLP(ny + nu, ny, bias=False, linear_map=nn.Linear, nonlin=nn.ELU,#SoftExponential,#
              hsizes=[args.hsize for h in range(args.nlayers)])
@@ -67,26 +56,3 @@ def get_node(ny, nu, args):
     integrator = Euler(fx, h=args.ts, interp_u=interp_u)
     ssm = SSMIntegrator(integrator)
     return ssm
-
-
-def get_koopman(ny, nu, args):
-    inn = {'auto_encoder': Autoencoder, 'state_inclusive': StateInclusive, 'inn': INN}[args.inn]
-    inn = inn(ny, args.nz, bias=True, linear_map=slim.Linear,
-              nonlin=nn.ELU, hsizes=[args.hsize for l in range(args.nlayers)])
-    fxud = Fxud(slim.Linear(nu, inn.nz, bias=True), input_keys=['U'])
-    koopman = slim.Linear(inn.nz, inn.nz, bias=False)
-    ssm = NonautoKoopmanSSM(inn, koopman, fxud, name='ssm')
-    return ssm
-
-
-def get_ssm(ny, nu, args):
-    inn = Autoencoder(ny, args.nz, bias=True, linear_map=slim.Linear,
-                      nonlin=nn.ELU, hsizes=[args.hsize for l in range(args.nlayers)])
-    fxud = Fxud(slim.Linear(nu, inn.nz, bias=True), input_keys=['U'])
-    koopman = MLP(args.nz, args.nz, bias=True, linear_map=nn.Linear, nonlin=nn.ELU,
-                  hsizes=[args.hsize for h in range(args.nlayers)])
-    ssm = NonautoKoopmanSSM(inn, koopman, fxud, name='ssm', disturbance=False)
-    return ssm
-
-
-get_model = {'node': get_node, 'koopman': get_koopman, 'linear': get_linear, 'ssm': get_ssm}

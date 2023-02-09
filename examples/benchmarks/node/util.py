@@ -5,7 +5,6 @@ import numpy as np
 
 def plot_traj(true_traj, pred_traj, figname='open_loop.png'):
     true_traj, pred_traj = true_traj.transpose(1, 0), pred_traj.transpose(1, 0)
-    # plt.style.use('dark_background')
     fig, ax = plt.subplots(len(true_traj), 1)
     labels = [f'$x_{k}$' for k in range(len(true_traj))]
     for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, labels)):

@@ -23,11 +23,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch
 
-from models import get_model
+from models import get_node
 from psl.nonautonomous import systems
-from psl.ssm import systems as building_systems
-from psl.ssm import BuildingEnvelope
-from neuromancer.integrators import integrators
 from neuromancer.problem import Problem
 from neuromancer.loggers import MLFlowLogger
 from neuromancer.trainer import Trainer
@@ -143,17 +140,6 @@ def get_data(nsteps, sys, nsim, bs, stats=None, normalize=False):
     return nx, nu, train_loader, dev_loader, test_loader, stats
 
 
-def partialclass(system, linear):
-
-    class NewCls(BuildingEnvelope):
-        __init__ = functools.partialmethod(BuildingEnvelope.__init__, linear=linear, system=system)
-
-    return NewCls
-
-building_systems_linear = {k+'_lin': functools.partial(v, system=k, linear=True) for k, v in building_systems.items()}
-building_systems_nonlinear = {k+'_nonlin': functools.partial(v, system=k, linear=False) for k, v in building_systems.items()}
-systems = {**systems, **building_systems_linear, **building_systems_nonlinear}
-
 if __name__ == "__main__":
     import argparse
 
@@ -169,8 +155,6 @@ if __name__ == "__main__":
                         help='Learning rate for gradient descent.')
     parser.add_argument('-nsteps', type=int, default=4,
                         help='Prediction horizon for optimization objective. During training will roll out for nsteps from and initial condition')
-    # parser.add_argument('-stepper', default='Euler', choices=[k for k in integrators],
-    #                     help='You can use any of the integrators from neuromancer.integrators which only need a single initial condition to integrate')
     parser.add_argument('-batch_size', type=int, default=100)
     parser.add_argument('-nsim', type=int, default=1000,
                         help="The script will generate an nsim long time series for training and testing and 10 nsim long time series for validation")
@@ -194,16 +178,11 @@ if __name__ == "__main__":
                         help="Some name to tell what the experiment run was about.")
     parser.add_argument('-hsize', type=int, default=128, help='Size of hiddens states')
     parser.add_argument('-nlayers', type=int, default=4, help='Number of hidden layers for MLP')
-    parser.add_argument('-nz', type=int, default=128, help='dimension of lifted z space')
-    parser.add_argument('-model', type=str, choices=[k for k in get_model.keys()], default='node',
-                        help='See models.py for available models.')
     parser.add_argument('-scaled_loss', action='store_true',
                         help='Whether to scale the statewise prediction MSEs by variance of the state in the training set.')
     parser.add_argument('-iterations', type=int, default=3,
                         help='How many episodes of curriculum learning by doubling the prediction horizon and halving the learn rate each episode')
     parser.add_argument('-eval_metric', type=str, default='eval_mse')
-    parser.add_argument('-stepper', default=None,
-                        help='Integration method.', choices=['dopri8', 'dopri5', 'bosh3', 'fehlberg2', 'adaptive_heun', 'euler', 'midpoint', 'rk4', 'explicit_adams', 'implicit_adams'])
     args = parser.parse_args()
     device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
     os.makedirs(args.logdir, exist_ok=True)
@@ -212,7 +191,7 @@ if __name__ == "__main__":
     args.ts = sys.ts
     nx, nu, train_data, dev_data, test_data, stats = get_data(args.nsteps, sys, args.nsim, args.batch_size, normalize=args.normalize)
 
-    ssm = get_model[args.model](nx, nu, args)
+    ssm = get_node(nx, nu, args)
     ssm.nsteps = args.nsteps
     opt = optim.Adam(ssm.parameters(), args.lr, betas=(0.0, 0.9))
     validator = Validator(ssm, sys, args, stats=stats, normalize=args.normalize, scaled=args.scaled_loss)

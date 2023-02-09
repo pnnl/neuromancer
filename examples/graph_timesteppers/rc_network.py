@@ -181,6 +181,6 @@ if __name__ == "__main__":
                     'Uf':torch.tensor(test['U'][None], dtype=torch.float)}
     out=model(rollout_pack)
     y_true = test['Y']
-    y_pred=out['Y_pred_graph_timestepper'][0].detach().numpy()
+    y_pred=out[f'Y_pred_{model.name}'][0].detach().numpy()
     psl.plot.pltOL(Y=y_true[:1000], Ytrain=y_pred[:1000])
     plt.show()

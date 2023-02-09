@@ -6,7 +6,10 @@ Here we list the file tree and plots of expected results from the default parame
 
 + **control**/ 
     + double_integrator_dpc.py: Stabilizing control for a double integrator system. 
-+ **figs**/ Plots of expected results displayed below for the respective scripts that generated them. 
++ **figs**/ Plots of expected results displayed below for the respective scripts that generated them.
++ **graph_timesteppers**/ Scripts for various graph timestepper models used for system identification
+    + rcnet_tutorial.py: Resister-Capacitor Network simulation for 5 room house.
+        - ![](figs/rcnetwork.png)
 + **parametric_programming**/ Scripts for various types of differentiable constrained optimization of parametric programs
     + mpNLP_Himmelblau_nm.py: Solve the Himmelblau problem, formulated as the NLP using Neuromancer
         - ![](figs/mpNLP_Himmelblau_nm.png)
@@ -43,7 +46,6 @@ Here we list the file tree and plots of expected results from the default parame
 + **tutorials**/
     - component_tutorial.py: Example code of working with the Neuromancer Component class          
     - constraints_tutorial.py: Example code for easy formulation of objectives and constraints usint the Neuromancer Variable and Constraint classes.  
-    - graph_timestepper_tutorial.py: Example code of system identification using the Neuromancer graph timestepper.   
     - linear_regression.py: Example code using new Neuromancer Variable class to solve a simple linear regression problem
     - component_tutorial_interactive.py: Example code of working with the Neuromancer Component class 
     - dataset_tutorial.py: Example code of using Neuromancer built in data loading code using pytorch Datasets and Dataloaders

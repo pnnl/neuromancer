@@ -1,11 +1,5 @@
 """
-This is a training script for system id of any nonautonomous psl models.
-
-Models supported:
-    Koopman (three different types of invertible-ish lifting functions)
-    State space models
-    Linear state space models
-    NODEs
+This is a training script for system id using NODEs with Euler integration for any nonautonomous psl models.
 
 A few things that are included:
     + Multiple objectives for finite difference, one step ahead, nstep ahead, latent and observed state MSE
@@ -32,7 +26,6 @@ from neuromancer.constraint import Loss, variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer.dataset import DictDataset
 from util import TSCallback, truncated_mse
-import functools
 
 
 class Validator:
@@ -144,8 +137,6 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-inn', default='state_inclusive', choices=['inn', 'state_inclusive', 'auto_encoder'],
-                        help='This argument applies only to Koopman models. It defines the strategy for an invertible lifting function. state_inclusive and auto_encoder are both designed to be invertible')
     parser.add_argument('-system', default='IverSimple', choices=[k for k in systems],
                         help='You can use any of the systems from psl.nonautonomous with this script')
     parser.add_argument('-epochs', type=int, default=100,

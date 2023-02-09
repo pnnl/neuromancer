@@ -50,7 +50,7 @@ class SSMIntegrator(Component):
 
 
 def get_node(ny, nu, args):
-    fx = MLP(ny + nu, ny, bias=False, linear_map=nn.Linear, nonlin=nn.ELU,#SoftExponential,#
+    fx = MLP(ny + nu, ny, bias=False, linear_map=nn.Linear, nonlin=nn.ELU,
              hsizes=[args.hsize for h in range(args.nlayers)])
     interp_u = lambda tq, t, u: u
     integrator = Euler(fx, h=args.ts, interp_u=interp_u)

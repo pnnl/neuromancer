@@ -7,6 +7,9 @@ Here we list the file tree and plots of expected results from the default parame
 + **control**/ 
     + double_integrator_dpc.py: Stabilizing control for a double integrator system. 
 + **figs**/ Plots of expected results displayed below for the respective scripts that generated them. 
++ **graph_timesteppers**/ Scripts for various graph timestepper models used for system identification
+    + rc_network.py: Resistor-Capacitor Network simulation for heat flow in a 5 room house.
+        - ![](figs/rcnetwork.png)
 + **parametric_programming**/ Scripts for various types of differentiable constrained optimization of parametric programs
     + mpNLP_Himmelblau_nm.py: Solve the Himmelblau problem, formulated as the NLP using Neuromancer
         - ![](figs/mpNLP_Himmelblau_nm.png)

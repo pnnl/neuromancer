@@ -12,7 +12,7 @@ from neuromancer.dynamics import GraphTimestepper
 model = GraphTimestepper(num_nodes)
 ```
 
-The class is composed of 4 optional neural network modules that operate in sequence: preprocessor, encoder, processor, and decoder. The preprocessor is equivalent to including a previous component, the encoder is a one-time call that transforms the data from the preprocessor into the latent space in which the processor operates on it. Output data from the processor can loop back into the processor for multi-step temporal predictions. Finally the decoder transforms each output of the processor into the output space.
+The class is composed of 4 optional neural network modules that operate in sequence: preprocessor, encoder, processor, and decoder. The preprocessor is equivalent to including a previous component, the encoder is a one-time call that transforms the data from the preprocessor into the latent space in which the processor operates on it. Output data from the processor can loop back into the processor for multi-step temporal predictions (determined by the number of timesteps in input Yf). Finally the decoder transforms each output of the processor into the output space.
 
 ### Optional init parameters:
 - preprocessor: Module that acts on input before everything else.
@@ -21,7 +21,7 @@ The class is composed of 4 optional neural network modules that operate in seque
 - decoder: Module to transform from latent space to output space
 - fu: Module to process input variables.
 - fd: Module to process disturbance variables
-- add_batch_norm: Will optionally batch normalize node and edge features at each step.
+- add_batch_norm: Will apply batch normalization to both node and edge features at each step.
 - latent_dim: Number of features per node in the processor.
 - input_key_map: Dictionary mapping input keys to nondefault names.
 - name: Name of the module.
@@ -34,8 +34,8 @@ The class is composed of 4 optional neural network modules that operate in seque
 - (opt) Df: Tensor of external disturbances with shape (batch, time, |D|)
 
 ## Output Keys:
-- X_pred: Predicted X values with shape: (batch, time, latent_dim)
-- Y_pred: Predicted Y values with shape: (batch, time, output_dim)
+- X_pred: Predicted X values (output of processor) with shape: (batch, time, latent_dim)
+- Y_pred: Predicted Y values (output of decoder) with shape: (batch, time, output_dim)
 
 ## MLPGraphTimestepper
 The **MLPGraphTimestepper** is a black box model that is instantiated with the following mandatory arguments:
@@ -47,8 +47,8 @@ model = MLPGraphTimestepper(num_nodes, num_features, num_edge_features, out_size
 The MLPGraphTimestepper uses a default encoder and decoder that transform node and edge features to and from the latent space using multi-layer perceptrons (MLP). The processor for this timestepper follows these equations:
 
 $$
-\frac{d}{dt}e_{ij}(t) = MLP(|e_ij(t) x_i(t) x_j(t)|)\\
-\frac{d}{dt}x_i(t) = MLP(|x_i(t) \sum_{j}e_{ij}(t)|)
+\frac{d}{dt}e_{ij}(t) = MLP(|e_{ij}(t)\ x_i(t)\ x_j(t)|)\\
+\frac{d}{dt}x_i(t) = MLP(|x_i(t)\ \sum_{j}e_{ij}(t)|)
 $$
 
 such that at each timestep, the change in the edge features is determined by the output of an MLP of the last timestep's edge features concatenated with the incident node features. The change in the node features is the output of a separate MLP of the previous timestep's node features and the sum of all the incident edge features.
@@ -77,7 +77,7 @@ from neuromancer.dynamics import RCTimestepper
 model = RCTimestepper(edge_index)
 ```
 
-Resistor-capacitor networks (RC Networks) are physical models for both electrical networks and heat-flow. For example in the latter case, the resistance corresponds to the heat-resistance of walls in a house, and the capacitance to the heat capacity of each room. Networks are formed by physical adjacencies of one room to the next. Heat flow in RC networks is modeled via the following equation: 
+Resistor-capacitor networks (RC Networks) are physical models for both electrical networks and heat-flow. In the latter case, the resistance corresponds to the heat-resistance of walls in a house, and the capacitance to the heat capacity of each room and networks can be formed by physical adjacencies from room to room. Heat flow in RC networks is modeled via the following equation: 
 
 $$
 \frac{d}{dt}x_i(t) = \sum_{j \in N(i)}\frac{1}{R_{ij}C_{i}}(x_j(t)-x_i(t)) \\

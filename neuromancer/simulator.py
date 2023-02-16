@@ -91,8 +91,8 @@ class SystemSimulator():
             keys |= set(component.input_keys)
             new_keys = set(component.output_keys)
             same = new_keys & keys
-            if len(same) != 0:
-                warnings.warn(f'Keys {same} are being overwritten by the component {component}.')
+            # if len(same) != 0:
+            #     warnings.warn(f'Keys {same} are being overwritten by the component {component}.')
             keys |= new_keys
 
     def _check_components(self):

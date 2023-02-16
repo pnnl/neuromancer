@@ -28,7 +28,7 @@ class Problem(nn.Module):
 
     def __init__(self, components: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]],
                  loss: Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]],
-                 grad_inference=False):
+                 grad_inference=False, check_overwrite=True):
         """
         :param components: (List[Component]) list of objects which implement the component interface (e.g. Function, Policy, Estimator)
         :param loss: (PenaltyLoss) instantiated loss class
@@ -40,6 +40,7 @@ class Problem(nn.Module):
         self.components = nn.ModuleList(components)
         self.loss = loss
         self.grad_inference = grad_inference
+        self.check_overwrite = check_overwrite
         self._check_keys()
         self.problem_graph = self.graph()
 
@@ -49,8 +50,9 @@ class Problem(nn.Module):
             keys |= set(component.input_keys)
             new_keys = set(component.output_keys)
             same = new_keys & keys
-            if len(same) != 0:
-                warnings.warn(f'Keys {same} are being overwritten by the component {component}.')
+            if self.check_overwrite:
+                if len(same) != 0:
+                    warnings.warn(f'Keys {same} are being overwritten by the component {component}.')
             keys |= new_keys
 
     def _check_unique_names(self):

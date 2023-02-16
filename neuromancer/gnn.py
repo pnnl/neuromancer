@@ -196,7 +196,7 @@ class NodeDeltaPreprocessor(nn.Module):
 class RCUpdate(nn.Module):
     def __init__(self, edge_index):
         super().__init__()
-        
+        edge_index = edge_index.long()
         self.src, self.dst = edge_index[0], edge_index[1]
 
         self.edges = edge_index.shape[1]

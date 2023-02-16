@@ -73,7 +73,7 @@ class DiffEqIntegrator(Integrator):
                          See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
                          more sophisticated interpolation schemes.
         :param h: (float) integration step size
-        :param method: (str) Can be dopri8, dopri5, bosh3, fehlberg2, adaptive_heun, euler, midpoint,
+        :param method: (str) Can be dopri8, dopri5, bosh3, fehlberg2, adaptive_heun, euler, midpoint, rk4, explicit_adams, implicit_adams
         rk4, explicit_adams, implicit_adams, fixed_adams
         """
         super().__init__(block, interp_u=interp_u, h=h)

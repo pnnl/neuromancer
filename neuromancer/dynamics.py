@@ -24,6 +24,10 @@ Non-autonomous ordinary differential equation model:
     + :math:`x_{t+1} = ODESolve(f_x(x_t, u_t, Time))`
     + :math:`y_t =  f_y(x_t)`
 
+Graph-timestepper models:
+    + :math: 'x_{t+1} = ODESolve(f_x(x_t, G, u_t, Time))
+    + :math:`y_t =  f_y(x_t)`
+
 Block components:
     + :math:`f_e` is an error model
     + :math:`f_{xudy}` is a nominal model
@@ -40,7 +44,9 @@ import torch.nn as nn
 from typing import List
 import slim
 from neuromancer.component import Component
-
+from neuromancer import gnn
+from neuromancer.blocks import MLP
+from neuromancer import integrators
 
 class SSM(Component):
     DEFAULT_INPUT_KEYS: List[str]
@@ -452,6 +458,343 @@ class ODENonAuto(SSM):
         :return: 0-dimensional torch.Tensor
         """
         return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
+
+
+class GraphTimestepper(SSM):
+    DEFAULT_INPUT_KEYS = ["x0", "Yf"]
+    DEFAULT_OUTPUT_KEYS = ["reg_error", "X_pred", "Y_pred"]
+
+    def __init__(self,
+                 num_nodes,
+                 preprocessor=None,
+                 graph_encoder=None,
+                 processor=None,
+                 decoder=None,
+                 fu=None,
+                 fd=None,
+                 add_batch_norm = False,
+                 latent_dim = None,
+                 input_key_map={},
+                 name="graph_timestepper",
+                 device='cpu',):
+        """Graph Neural Timestepper composed of a preprocessor, a encoder, processor, and decoder block.
+        :param num_nodes: [int] Number of nodes in the input graph
+        :param preprocessor: [nn.Module] Accepts a dictionary and returns a dictionary of tensors with keys [edge_index, node_attr, edge_attr, (opt) batch]. Other key/values will be added to output dict.
+        :param graph_encoder: [nn.Module] Input Tensor: (nodes, num_node_features). Output Tensor: (nodes, latent_dim). Defaults to a linear layer.
+        :param processor: [nn.ModuleList] Module to process the graph at each timestep
+        :param decoder: [nn.Module] Input Tensor: (nodes, latent_dim). Output Tensor: (nodes, out_size)
+        :param fu: (nn.Module) Input function
+        :param fd: (nn.Module) Disturbance function
+        :param add_batch_norm: [bool] If true, batch normalize node and edge features at each message passing step
+        :param latent_dim: [int] Latent feature dimension requried if add_batch_norm is True
+        :param input_key_map: [dict] Remaps the name of the inputs
+        :param name: [string] Name of module. Prepended to all outputs.
+        :param device: [torch.device], Device to run the model on, defaults to 'cpu'
+        """
+        if fu is not None:
+            self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + ['Uf']
+            self.DEFAULT_OUTPUT_KEYS = self.DEFAULT_OUTPUT_KEYS + ['fU']
+        if fd is not None:
+            self.DEFAULT_INPUT_KEYS = self.DEFAULT_INPUT_KEYS + ['Df']
+            self.DEFAULT_OUTPUT_KEYS = self.DEFAULT_OUTPUT_KEYS + ['fD']
+        super().__init__(input_key_map, name)
+
+        self.nodes = num_nodes
+        self.preprocessor = preprocessor if preprocessor is not None else nn.Identity()
+        self.encoder = graph_encoder if graph_encoder is not None else nn.Identity()
+        self.processor = processor if processor is not None else nn.ModuleList()
+        self.decoder = decoder if decoder is not None else nn.Identity()
+        self.latent_dim = latent_dim
+        
+        self.nx = self.nodes * self.latent_dim
+        self.ny = self.nodes * (self.latent_dim if decoder is None else decoder.out_features)
+        self.fu, self.fd = fu, fd
+        self.nu = self.fu.in_features if fu is not None else 0
+        self.nd = self.fd.in_features if fd is not None else 0
+                
+        self.batch_norm_processor = add_batch_norm
+        if self.batch_norm_processor:
+            assert self.latent_dim is not None
+            self.batch_norms = nn.ModuleList()
+            for i in range(len(self.processor)):
+                self.batch_norms.append(gnn.GraphFeatureBatchNorm(latent_dim))
+        
+        self.device = device
+        self.to(self.device)
+
+    def forward(self, data):
+        """Forward pass of the module
+
+        :param data: {"x0": Tensor, "Yf": Tensor}]
+        :return: {"reg_error": Tensor, "X_pred": Tensor, "Y_pred": Tensor}
+        """
+        nsteps = data[self.input_key_map['Yf']].shape[1]
+        Uf = data.get(self.input_key_map.get('Uf','Uf'))
+        Df = data.get(self.input_key_map.get('Df','Df'))
+
+        X = self.preprocessor(data)
+        edge_index = X.pop('edge_index')
+        node_attr = X.pop('node_attr')
+        edge_attr = X.pop('edge_attr')
+        edges = edge_index.shape[1]
+        if node_attr.ndim==2:
+            # (batch, nodes*states) --> (batch, nodes, states)
+            batch_size, nodestates = node_attr.shape
+            nodes = self.nodes if self.nodes is not None else nodestates//self.latent_dim
+            latent_dim = self.latent_dim if self.latent_dim is not None else nodestates//self.nodes
+            node_attr = node_attr.reshape(batch_size, nodes, latent_dim)
+            edge_attr = edge_attr.reshape(batch_size, edges, latent_dim)
+        else:
+            batch_size, nodes, latent_dim = node_attr.shape
+        
+        #Encode
+        G = gnn.GraphFeatures(node_attr, edge_attr)
+        G = self.encode(G)
+
+        #Process
+        X = [G]
+        FU, FD = [], []
+        for h in range(nsteps):
+            G, fu, fd = self.process(G, edge_index, h, Uf, Df)
+            X.append(G)
+            if fu is not None: FU.append(fu)
+            if fd is not None: FD.append(fd)
+
+        #Decode
+        Y=[]
+        for x in X[1:]:
+            y = self.decode(x)
+            Y.append(y.reshape(batch_size, -1))
+
+        #Y=torch.stack(Y, dim=1)
+        X=[x['node_attr'].reshape(batch_size, -1) for x in X]
+        #X=X.reshape(X.shape[0],X.shape[1],-1)
+
+        tensor_lists = [X, Y, FU, FD]
+        tensor_lists = [t for t in tensor_lists if t]
+        out = {name: torch.stack(tensor_list, dim=1) for tensor_list, name
+            in zip(tensor_lists, self.output_keys[1:])
+            if tensor_list}
+        out[self.output_keys[0]] = self.reg_error()
+        return out
+
+    def encode(self, G):
+        """Encodes graph features into the latent space
+
+        :param G: [Graph_Features]
+        :return: [Graph_Features]
+        """
+        return self.encoder(G)
+
+    def process(self, G, edge_index, t, U=None, D=None):
+        """Processes a series of message passing steps on the graph.
+
+        :param G: [Graph_Features]
+        :param edge_index: [Tensor] Shape: (2, edges)
+        :param t: [int] Current time
+        :param U: [Tensor] Inputs
+        :param D: [Tensor] Disturbances
+        :return: [Graph_Features]
+        """
+        for mps in range(len(self.processor)):
+            u = {'node_attr':G['node_attr'], 'edge_attr':G['edge_attr'], 'edge_index':edge_index}
+            if self.batch_norm_processor:
+                G_next = self.processor[mps](self.batch_norms[mps](G), u)
+            else:
+                G_next = self.processor[mps](G, u)  
+        fu, fd = None, None
+        if self.fu:
+            fu = self.fu(G, U[:,t]).view(G.node_attr.shape)
+            G_next.node_attr = G.node_attr + fu
+        if self.fd:
+            fd = self.fd(G, D[:,t]).view(G.node_attr.shape)
+            G_next.node_attr = G.node_attr + fd
+        return G_next, fu, fd
+
+    def decode(self, G):
+        """Transforms the graph features from the latent space to the output space. Drops edge features.
+
+        :param G: [Graph_Features]
+        :return: [Graph_Features]
+        """
+        return self.decoder(G['node_attr'])
+
+    def reg_error(self):
+        return sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
+
+
+class MLPGraphTimestepper(GraphTimestepper):
+    def __init__(self,
+                 num_nodes,
+                 num_node_features,
+                 num_edge_features,
+                 out_size,
+                 latent_dim=128,
+                 hidden_sizes=[128, 128],
+                 message_passing_steps=2,
+                 preprocessor=None,
+                 graph_encoder=None,
+                 integrator=None,
+                 decoder=None,
+                 fu=None, 
+                 fd=None, 
+                 add_batch_norm = True,
+                 input_key_map={},
+                 name="mlpg_timestepper",
+                 device='cpu',
+                 **kwargs):
+        """Graph Neural Timestepper using MLP message passing layers.
+        :param num_nodes: [int] Number of nodes in the graph
+        :param num_node_features: [int] Number of node features after preprocesser
+        :param num_edge_features: [int] Number of edge features after preprocesser
+        :param out_size: [int] Dimension of output
+        :param latent_dim: [int], Dimension of latent dim per node/edge, defaults to 128
+        :param hidden_sizes: [list int], Dimensions of hidden sizes of nodes/edges, defaults to [128]
+        :param message_passing_steps: [int], Number of message passing layers, defaults to 10
+        :param preprocessor: [nn.Module] Accepts a dictionary and returns a dictionary of tensors with keys [edge_index, node_attr, edge_attr, (opt) batch]. Other key/values will be added to output dict.
+        :param graph_encoder: [nn.Module] Input Tensor: (nodes, num_node_features). Output Tensor: (nodes, latent_dim). Defaults to a linear layer.
+        :param integrator: [neuromancer.integrator] Integration scheme.
+        :param decoder: [nn.Module] Input Tensor: (nodes, latent_dim). Output Tensor: (nodes, out_size)
+        :param fu: (nn.Module) Input function
+        :param fd: (nn.Module) Disturbance function
+        :param separate_batch_dim: [bool] True when data should be handled with separate batch and node dimensions
+        :param add_batch_norm: [bool] If true, performs batch normalization on node and edge features each step message passing step.
+        :param input_key_map: [dict] Remaps the name of the inputs
+        :param name: [string] Name of module. Prepended to all outputs.
+        :param device: [torch.device], Device to run the model on, defaults to 'cpu'
+        """
+        self.node_features = num_node_features
+        self.edge_features = num_edge_features
+        self.latent_dim = latent_dim
+        self.hidden_sizes = hidden_sizes
+        self.message_passing_steps = message_passing_steps
+        self.out_size = out_size
+        #Build default graph_encoder consisting of MLPs on node and edge features
+        if graph_encoder is None:
+            node_encoder = nn.Sequential(
+                MLP(
+                    insize=self.node_features,
+                    outsize=self.latent_dim,
+                    nonlin=nn.ReLU,
+                    hsizes=self.hidden_sizes),
+                nn.LayerNorm(self.latent_dim))
+            edge_encoder = nn.Sequential(
+                MLP(
+                    insize=self.edge_features,
+                    outsize=self.latent_dim,
+                    nonlin=nn.ReLU,
+                    hsizes=self.hidden_sizes),
+                nn.LayerNorm(self.latent_dim))
+            graph_encoder = gnn.GraphFeatureUpdate(node_encoder, edge_encoder)
+        
+        #Build Message Passing Processor composed of MLP layers
+        processor = nn.ModuleList()
+        integrator = integrators.integrators.get(integrator, gnn.Replace)
+        for _ in range(self.message_passing_steps):
+            node_process = nn.Sequential(
+                MLP(
+                    insize = self.latent_dim * 2,
+                    outsize = self.latent_dim,
+                    nonlin = nn.ReLU,
+                    hsizes = self.hidden_sizes,
+                ),
+                nn.LayerNorm(self.latent_dim)
+            )
+            edge_process = nn.Sequential(
+                MLP(
+                    insize = self.latent_dim * 3,
+                    outsize = self.latent_dim,
+                    nonlin = nn.ReLU,
+                    hsizes = self.hidden_sizes
+                ),
+                nn.LayerNorm(self.latent_dim)
+            )
+            block = integrator(
+                        gnn.GraphFeatureUpdate(node_process, edge_process),
+                        interp_u=gnn.graph_interp_u,
+                        h=0.1)
+            block.state = lambda x, tq, t, u: gnn.GraphFeatures.cat([x, block.interp_u(tq, t, u)], dim=-1)               
+            processor.append(block)
+    
+        #Build the decoder
+        decoder = decoder if decoder is not None else\
+                        MLP(
+                            insize=self.latent_dim,
+                            outsize=self.out_size,
+                            nonlin=nn.ReLU,
+                            hsizes=self.hidden_sizes)
+        super().__init__(
+            num_nodes = num_nodes,
+            preprocessor = preprocessor,
+            graph_encoder = graph_encoder,
+            processor = processor,
+            decoder = decoder,
+            fu = fu,
+            fd = fd,
+            add_batch_norm = add_batch_norm,
+            latent_dim = latent_dim,
+            input_key_map = input_key_map,
+            name = name,
+            device = device,
+            **kwargs)
+   
+
+class RCTimestepper(GraphTimestepper):
+    def __init__(self,
+                 edge_index,
+                 node_dim = 1,
+                 nodes = None,
+                 message_passing_steps=1,
+                 preprocessor='default',
+                 graph_encoder=None,
+                 decoder=None,
+                 integrator='Euler',
+                 fu=None,
+                 fd=None,
+                 input_key_map={},
+                 name="rc_timestepper",
+                 device='cpu',):
+        """
+        Graph Timestepper using RCNetwork message passing layers.
+        :param edge_index: [Tensor] graph adjacencies (2, num_edges)
+        :param node_dim: [int] Number of features per node
+        :param nodes: [int] Number of nodes in the graph
+        :param message_passing_steps: [int] Number of iterations of message passing
+        :param preprocessor: [nn.Module] Module to preprocess inputs
+        :param graph_encoder: [nn.Module] Encode graph features from input space to latent space
+        :param decoder: [nn.Module] Module to translate from latent space to output space
+        :param integrator: [neuromancer.integrator] Integration scheme.
+        :param fu: (nn.Module) Input function
+        :param fd: (nn.Module) Disturbance function
+        :param input_key_map: [dict] Dictionary remapping input_keys
+        :param name: [str] Module name
+        :param device: [torch.device] cpu/cuda:0/etc.
+        """
+        self.edge_index = edge_index
+        nodes = nodes if nodes is not None else torch.max(self.edge_index).item() + 1
+        
+        #Build Default PreProcessor
+        if preprocessor == 'default':
+            preprocessor = gnn.RCPreprocessor(self.edge_index, input_key_map=input_key_map)
+            
+        #Build Processor
+        processor = nn.ModuleList()
+        integrator = integrators.integrators.get(integrator, gnn.Replace)
+        for mp in range(message_passing_steps):
+            processor.append(gnn.RCUpdate(self.edge_index))
+            
+        super().__init__(num_nodes = nodes,
+                 preprocessor = preprocessor,
+                 graph_encoder = graph_encoder,
+                 processor = processor,
+                 decoder = decoder,
+                 latent_dim=node_dim,
+                 fu = fu,
+                 fd = fd,
+                 input_key_map = input_key_map,
+                 name = name,
+                 device = device)
+        
 
 
 def _extract_dims(datadims):

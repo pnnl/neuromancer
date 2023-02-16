@@ -87,7 +87,7 @@ class GraphFeatureUpdate(nn.Module):
         self.node_f = node_f if node_f is not None else lambda x : x
         self.edge_f = edge_f if edge_f is not None else lambda x : x
         self.in_features=["node_attr", "edge_attr"]
-        self.out_features = ["node_attr","edge_attr"]
+        self.out_features = ["node_attr", "edge_attr"]
     
     def forward(self, g):
         """Calls node_f and edge_f on the node and edge attributes of a graph.
@@ -102,24 +102,21 @@ class GraphFeatureUpdate(nn.Module):
     def reg_error(self):
         return sum([k.reg_error() for k in [self.node_f, self.edge_f] if hasattr(k, "reg_error")])
 
-
-class ArgSequential(nn.Sequential):
-    def __init__(self, *args):
-        """A version of a Sequential Module that shares additional args across modules.
-        Used exactly like nn.Sequential but the forward function accepts additional arguments.
-        Each module in the sequence must be able to accept the additional arguments as well.
-        """
-        super(ArgSequential, self).__init__(*args)
+class GraphFeatureBatchNorm(nn.Module):
+    def __init__(self, size) -> None:
+        super().__init__()
+        self.size = size
+        self.NodeNorm = nn.BatchNorm1d(size)
+        self.EdgeNorm = nn.BatchNorm1d(size)
+        
+    def forward(self, G : GraphFeatures):
+        #TODO Figure out how we actually want to do this
+        node_shape = G.node_attr.shape
+        edge_shape = G.edge_attr.shape
+        G.node_attr = self.NodeNorm(G.node_attr.view(-1, self.size)).view(node_shape)
+        G.edge_attr = self.EdgeNorm(G.edge_attr.view(-1, self.size)).view(edge_shape)
+        return G
     
-    def forward(self, X, *args, **kwargs):
-        for module in self:
-            X = module(X, *args, **kwargs)
-        return X
-    
-    def reg_error(self):
-        return sum([k.reg_error() for k in self if hasattr(k, "reg_error")])
-
-
 class Replace(integrators.Integrator):
     def __init__(self, block, interp_u=None, h=1.0):
         """An Integrator style module for x_t+1 = f(x_t)
@@ -148,6 +145,113 @@ class nnLambda(nn.Module):
         return self.lam(*args)
     
 
+class NodeDeltaPreprocessor(nn.Module):
+    def __init__(self, attr_key, in_features, transform=None, symmetric=False) -> None:
+        """
+        Class to initialize edge attributes in a graph as 
+        the difference between node features
+        
+        :param attr_key: Name of node attributes in the input dict
+        :param transform: nn.Module to transform node attributes
+        :param symmetric: If true, will take the absolute value of the difference
+        """
+        super().__init__()
+        self.key=attr_key
+        self.in_features=in_features
+        self.transform = transform
+        self.symmetric = symmetric
+
+        
+    def forward(self, data):
+        """
+        :param data: dict containing "key" corresponding to node attr, opt: edge_index, batch
+        :returns: {'node_attr':tensor, 'edge_attr':tensor, 'edge_index':tensor}
+        """
+        node_attr = data[self.key] #(batch, ?, nodestates)
+        if node_attr.ndim==3:
+            node_attr = node_attr[:,0]
+        batch, nodestates = node_attr.shape
+        nodes = nodestates // self.in_features
+        node_attr = node_attr.reshape(batch, nodes, self.in_features)
+            
+        if self.transform:
+            node_attr = self.transform(node_attr)
+        
+        edge_index = data.get('edge_index',
+                              self.make_edge_index(nodes).to(node_attr.device))
+        src, dst = edge_index[0], edge_index[1]
+        edge_attr = node_attr[:,dst,:] - node_attr[:,src,:]
+        if self.symmetric:
+            edge_attr = torch.abs(edge_attr)
+        return {'node_attr': node_attr,
+                'edge_attr': edge_attr,
+                'edge_index': edge_index}
+    
+    def make_edge_index(self, nodes):
+        src = torch.arange(nodes,dtype=torch.long).repeat_interleave(nodes)
+        dst = torch.arange(nodes,dtype=torch.long).repeat(nodes)          
+        edge_index = torch.vstack([src,dst])
+        return edge_index
+        
+class RCUpdate(nn.Module):
+    def __init__(self, edge_index):
+        super().__init__()
+        
+        self.src, self.dst = edge_index[0], edge_index[1]
+
+        self.edges = edge_index.shape[1]
+        self.nodes = torch.max(edge_index).item()+1
+        
+        self.R = nn.Parameter(
+            torch.Tensor(size=(1, self.edges, 1)).uniform_(4,10)
+        )
+        self.C = nn.Parameter(
+            torch.Tensor(size=(1, self.nodes, 1)).uniform_(0.0001,0.002)
+        )
+        
+        #To symmeterize R we need to find the locations of every pair of flipped edges
+        edge_map = {(i.item(),j.item()) : idx for idx, (i,j) in enumerate(zip(self.src,self.dst))}
+        self.edge_map = torch.tensor(
+            [edge_map[(d.item(), s.item())] for (s,d) in zip(self.src,self.dst)],
+            dtype=torch.long)
+        self.in_features, self.out_features = 1, 1
+        
+    def forward(self, G, *args):
+        T = G.node_attr
+        #Temperature Delta
+        # (1/Ci*R_ij) * (Ti-Tj)
+        edge_attr = (self.R + self.R[:, self.edge_map]) * self.C[:, self.src] * (T[:, self.dst] - T[:, self.src])
+        
+        #Node Update sums deltas
+        idx= self.dst.reshape(1, -1, 1)
+        idx = idx.repeat(edge_attr.shape[0], 1, edge_attr.shape[-1])
+        node_delta = torch.zeros_like(T)
+        node_delta.scatter_reduce_(dim=1, index=idx, src=edge_attr, reduce='sum')
+        return GraphFeatures(node_delta, edge_attr) + G
+
+class RCPreprocessor(nn.Module):
+    def __init__(self, edge_index, nodes=None, input_key_map={}) -> None:
+        super().__init__()
+        self.edge_index=edge_index.long()
+        self.nodes = nodes if nodes is not None else torch.max(edge_index).item()+1
+        self.input_key_map=input_key_map
+
+        
+    def forward(self, data):
+        #(batch, time, node*states) --> (batch, time, nodes, states)
+        node_attr = data[self.input_key_map['x0']]
+        if node_attr.ndim==3:
+            node_attr = node_attr[:, 0]
+        batch, nodestates = node_attr.shape
+        states = nodestates//self.nodes
+        node_attr = node_attr.reshape(batch, self.nodes, states)
+        
+        edge_attr = node_attr[:, self.edge_index[0], :] - node_attr[:, self.edge_index[1], :]
+        out = {"node_attr": node_attr, 
+               "edge_attr": edge_attr, 
+               "edge_index": self.edge_index}
+        return out
+        
 def graph_interp_u(tq, t, u):
     """Provides the interpetration to use integrators with graph features.
     Sums the edge attributes incident to a node and returns them as the node_attr.
@@ -159,10 +263,11 @@ def graph_interp_u(tq, t, u):
     :return: [GraphFeatuers] 
     """
     row, col = u['edge_index'][0], u['edge_index'][1]
-    edge_attr = torch.cat([u['node_attr'][row], u['node_attr'][col]], dim=-1)
-
-    col = col.to(u['edge_attr'].device).unsqueeze(1).repeat(1,u['edge_attr'].shape[1])
+    edge_attr = torch.cat([u['node_attr'][...,row,:], u['node_attr'][...,col,:]], dim=-1)
+    
+    col = col.to(u['edge_attr'].device).reshape(1,-1,1)
+    col = col.repeat(u['edge_attr'].shape[0], 1, u['edge_attr'].shape[-1])
     node_attr = torch.zeros_like(u['node_attr'])
-    node_attr.scatter_reduce_(dim=0, index=col, src=u['edge_attr'], reduce='sum')
+    node_attr.scatter_reduce_(dim=1, index=col, src=u['edge_attr'], reduce='sum')
 
     return GraphFeatures(node_attr, edge_attr)

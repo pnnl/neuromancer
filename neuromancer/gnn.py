@@ -232,7 +232,7 @@ class RCUpdate(nn.Module):
 class RCPreprocessor(nn.Module):
     def __init__(self, edge_index, nodes=None, input_key_map={}) -> None:
         super().__init__()
-        self.edge_index=edge_index
+        self.edge_index=edge_index.long()
         self.nodes = nodes if nodes is not None else torch.max(edge_index).item()+1
         self.input_key_map=input_key_map
 

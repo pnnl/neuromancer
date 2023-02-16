@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torch_scatter import scatter_sum
 from neuromancer import integrators
 import types
 
@@ -222,11 +221,12 @@ class RCUpdate(nn.Module):
         #Temperature Delta
         # (1/Ci*R_ij) * (Ti-Tj)
         edge_attr = (self.R + self.R[:, self.edge_map]) * self.C[:, self.src] * (T[:, self.dst] - T[:, self.src])
+        
         #Node Update sums deltas
-        node_delta = scatter_sum(
-            edge_attr,
-            dim=-2,
-            index=self.src)
+        idx = self.dst.unsqueeze(1).repeat(1, edge_attr.shape[-1])
+        idx = idx.unsqueeze(0)
+        node_delta = torch.zeros_like(T)
+        node_delta.scatter_reduce_(dim=-2, index=idx, src=edge_attr, reduce='sum')
         return GraphFeatures(node_delta, edge_attr) + G
 
 class RCPreprocessor(nn.Module):
@@ -263,6 +263,10 @@ def graph_interp_u(tq, t, u):
     :return: [GraphFeatuers] 
     """
     row, col = u['edge_index'][0], u['edge_index'][1]
-    node_attr = scatter_sum(u['edge_attr'], col.to(u['edge_attr'].device), dim=1)
     edge_attr = torch.cat([u['node_attr'][...,row,:], u['node_attr'][...,col,:]], dim=-1)
+    
+    col = col.to(u['edge_attr'].device).repeat(u['edge_attr'].shape[0],u['edge_attr'].shape[1],1)
+    node_attr = torch.zeros_like(u['node_attr'])
+    node_attr.scatter_reduce_(dim=1, index=col, src=u['edge_attr'], reduce='sum')
+
     return GraphFeatures(node_attr, edge_attr)

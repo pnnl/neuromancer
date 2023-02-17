@@ -78,6 +78,10 @@ data = [
     simulator.simulate(x0=np.random.rand(2))
     for _ in range(15)
 ]
+
+for d in data:
+    d['X'] = d['X'][:-1]
+    d['Y'] = d['Y'][:-1]
 # split sequence data with specified prediction horizon (nsteps)
 train, val, test = dataset.split_sequence_data(data, nsteps=16)
 # normalize

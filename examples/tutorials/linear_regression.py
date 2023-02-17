@@ -2,9 +2,14 @@ from neuromancer.constraint import variable
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
+import argparse
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-epochs', type=int, default=10000)
+    args = parser.parse_args()
+
     torch.manual_seed(0)
     t_x_true = torch.arange(0.0, 1.0 + 0.1, 0.1)
     t_w_true = torch.tensor(0.5)
@@ -24,7 +29,7 @@ if __name__ == "__main__":
 
     losses = []
 
-    for i in range(10000):
+    for i in range(args.epochs):
         opt.zero_grad()
         t_y = t_x_true * t_w_1 + t_b_1
         loss = F.mse_loss(t_y, t_y_true)

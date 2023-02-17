@@ -49,9 +49,7 @@ box NODE should perform on these benchmarks please refer to the plots and r^2 va
 | HindmarshRose              | 0.785 | 0.982 | 0.614 |
 
 ## Files
-+ models.py: NODE implementation
-+ train.py: Training script for all psl non-autonomous systems
-+ util.py: Contains a few helper functions for a Callback, plotting, and trunctated mse (useful for chaotic systems)
++ train.py: Training script for all psl non-autonomous systems for NODE implementation
 
 
 ## Reproducing benchmark examples

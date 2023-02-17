@@ -198,7 +198,11 @@ We welcome contributions to NeuroMANCER. Please accompany contributions
 with some lightweight unit tests via pytest (see test/ folder for some
 examples of easy to compose unit tests using pytest). In addition to
 unit tests a script utilizing introduced new classes or modules should
-be placed in the examples folder. To contribute a new feature please
+be placed in the examples folder. If your example involves training please
+use the argparse module to give a command line argument "-epochs" which is an
+integer. The default should be the number of epochs required to obtain good results.
+Our testing suite runs all the example code in the examples folder with "-epochs 1" to validate no ones examples
+break from continued development. To contribute a new feature please
 submit a pull request.
 
 Reporting issues or bugs

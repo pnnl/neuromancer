@@ -227,7 +227,7 @@ class RCUpdate(nn.Module):
         idx = idx.repeat(edge_attr.shape[0], 1, edge_attr.shape[-1])
         node_delta = torch.zeros_like(T)
         node_delta.scatter_reduce_(dim=1, index=idx, src=edge_attr, reduce='sum')
-        return GraphFeatures(node_delta, edge_attr) + G
+        return GraphFeatures(node_delta, edge_attr)
 
 class RCPreprocessor(nn.Module):
     def __init__(self, edge_index, nodes=None, input_key_map={}) -> None:

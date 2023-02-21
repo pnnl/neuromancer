@@ -596,19 +596,20 @@ class GraphTimestepper(SSM):
         :param D: [Tensor] Disturbances
         :return: [Graph_Features]
         """
+        fu, fd = None, None
         for mps in range(len(self.processor)):
             u = {'node_attr':G['node_attr'], 'edge_attr':G['edge_attr'], 'edge_index':edge_index}
             if self.batch_norm_processor:
                 G_next = self.processor[mps](self.batch_norms[mps](G), u)
             else:
                 G_next = self.processor[mps](G, u)  
-        fu, fd = None, None
         if self.fu:
             fu = self.fu(G, U[:,t]).view(G.node_attr.shape)
-            G_next.node_attr = G.node_attr + fu
+            G_next.node_attr += fu
         if self.fd:
             fd = self.fd(G, D[:,t]).view(G.node_attr.shape)
-            G_next.node_attr = G.node_attr + fd
+            G_next.node_attr += fd
+
         return G_next, fu, fd
 
     def decode(self, G):
@@ -781,7 +782,7 @@ class RCTimestepper(GraphTimestepper):
         processor = nn.ModuleList()
         integrator = integrators.integrators.get(integrator, gnn.Replace)
         for mp in range(message_passing_steps):
-            processor.append(gnn.RCUpdate(self.edge_index))
+            processor.append(integrator(gnn.RCUpdate(self.edge_index)))
             
         super().__init__(num_nodes = nodes,
                  preprocessor = preprocessor,

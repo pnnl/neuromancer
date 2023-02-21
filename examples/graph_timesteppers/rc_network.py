@@ -9,7 +9,7 @@ heat flow within a 5 room house.
 | 2 | 3 | 4 |
 |___|___|___|
 """
-
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -25,8 +25,6 @@ from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer.problem import Problem
 from neuromancer.trainer import Trainer
-from neuromancer.loggers import BasicLogger, MLFlowLogger
-import neuromancer.simulator as sim
 import psl
 
 def arg_rc(prefix=''):
@@ -52,8 +50,8 @@ def arg_rc(prefix=''):
                 "None will use a default nsim from the selected dataset or emulator")
     
     #Training Values
-    gp.add("-nsteps", type=int, default=32)
-    gp.add("-epochs", type=int, default=200)
+    gp.add("-nsteps", type=int, default=1)
+    gp.add("-epochs", type=int, default=100)
     gp.add("-patience", type=int, default=100)
     gp.add("-warmup", type=int, default=0)
     
@@ -61,14 +59,8 @@ def arg_rc(prefix=''):
     gp.add("-message_passing_steps", type=int, default=1)
     
     #LOG
-    gp.add("-logger", type=str, choices=["mlflow", "stdout"], default="stdout",
-           help="Logging setup to use")
-    gp.add("-savedir", type=str, default="test_system_id_v1",
+    gp.add("-savedir", type=str, default="rc_network",
            help="Where should your trained model and plots be saved (temp)")
-    gp.add("-verbosity", type=int, default=1,
-           help="How many epochs in between status updates")
-    gp.add("-metrics", nargs="+", default=["nstep_dev_loss", "best_nstep_dev_loss"],
-           help="Metrics to be logged")
     return parser
 
 def get_datasets(args):
@@ -131,15 +123,13 @@ if __name__ == "__main__":
     train_loader = get_dataloader(train, args.nsteps, 'train')
     dev_loader= get_dataloader(dev, args.nsteps, 'dev')
     test_loader = get_dataloader(test, args.nsteps, 'test')
-    log_constructor = MLFlowLogger if args.logger == 'mlflow' else BasicLogger
-    logger = log_constructor(args=args, savedir=args.savedir,
-                             verbosity=args.verbosity, stdout=args.metrics)
     
     #Set up RC Graph Timestepper Model
     model = RCTimestepper(torch.from_numpy(adj), 
                         node_dim = 1,
                         message_passing_steps = args.message_passing_steps,
                         fu = fu(nx),
+                        integrator='Euler',
                         input_key_map = {'x0' : 'Xp'})
     components = [model]
 
@@ -159,7 +149,6 @@ if __name__ == "__main__":
         dev_loader,
         test_loader,
         optimizer,
-        logger,
         epochs=args.epochs,
         patience=args.patience,
         warmup=args.warmup,
@@ -171,7 +160,6 @@ if __name__ == "__main__":
     )
     best_model = trainer.train()
     best_output = trainer.test(best_model)
-    logger.clean_up()
     
     """
     Rollout
@@ -183,4 +171,7 @@ if __name__ == "__main__":
     y_true = test['Y']
     y_pred=out[f'Y_pred_{model.name}'][0].detach().numpy()
     psl.plot.pltOL(Y=y_true[:1000], Ytrain=y_pred[:1000])
+    if not os.path.exists(args.savedir):
+        os.makedirs(args.savedir)
+    plt.savefig(os.path.join(args.savedir,"rollout.png"))
     plt.show()

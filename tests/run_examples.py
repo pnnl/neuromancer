@@ -28,3 +28,7 @@ def test_examples():
     failed_examples = []
     failed_examples = set(run(base, failed_examples=failed_examples))
     assert len(failed_examples) == 0, f'Failed examples: {failed_examples}'
+
+
+if __name__ == "__main__":
+    test_examples()

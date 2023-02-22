@@ -87,7 +87,6 @@ problem = nm.problem.Problem(components, loss)
 First clone the neuromancer, [slim](https://github.com/pnnl/slim), and [psl](https://github.com/pnnl/psl) libraries.
 
 ```bash
-
 user@machine:~$ git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
 user@machine:~$ git clone -b master https://github.com/pnnl/psl.git --single-branch
 user@machine:~$ git clone -b master https://github.com/pnnl/slim.git --single-branch
@@ -110,17 +109,25 @@ $ conda activate neuromancer
 (neuromancer) $ conda install -c defaults intel-openmp -f
 ```
 
+### MacOS (Apple M1)
+
+``` bash
+$ conda env create -f osxarm64_env.yml
+$ conda activate neuromancer
+```
+
 ### Other operating system
 
 ``` bash
 $ conda create -n neuromancer python=3.10.4
 $ conda activate neuromancer
-(neuromancer) $ conda config --add channels conda-forge
+(neuromancer) $ conda config --append channels conda-forge
 (neuromancer) $ conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
+## OR (for Mac): conda install pytorch -c pytorch
 (neuromancer) $ conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba
-(neuromancer) $ conda install networkx plum-dispatch 
+(neuromancer) $ conda install networkx=3.0 plum-dispatch 
 (neuromancer) $ conda install -c anaconda pytest hypothesis
-(neuromancer) $ conda install cvxpy cvxopt casadi seaborn
+(neuromancer) $ conda install cvxpy cvxopt casadi seaborn imageio
 (neuromancer) $ conda install tqdm
 (neuromancer) $ conda install torchdiffeq
 ```

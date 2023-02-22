@@ -189,7 +189,7 @@ https://github.com/pnnl/neuromancer/blob/master/neuromancer/problem.py
 ## DPP Examples
 
 Scripts for various types of differentiable constrained optimization of parametric programs.
-    + mpNLP_Himmelblau_nm.py: Solve the Himmelblau problem, formulated as the NLP using Neuromancer
+    + mpNLP_Himmelblau_nm.py: Solve the Himmelblau problem, formulated as the NLP using Neuromancer <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
         - ![](../figs/mpNLP_Himmelblau_nm.png)
     + mpQP_nm_2.py: Multi-parametric Quadratic Programming (mpQP) problem using Neuromancer.
         - ![](../figs/mpQP_nm_2.png)

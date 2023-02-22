@@ -5,13 +5,13 @@
 Here we list the file tree and plots of expected results from the default parameters of the example scripts
 
 + **control**/ 
-    + double_integrator_dpc.py: Stabilizing control for a double integrator system. 
+    + double_integrator_dpc.py: Stabilizing control for a double integrator system. <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/double_integrator_DPC_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 + **figs**/ Plots of expected results displayed below for the respective scripts that generated them. 
 + **graph_timesteppers**/ Scripts for various graph timestepper models used for system identification
     + rc_network.py: Resistor-Capacitor Network simulation for heat flow in a 5 room house.
         - ![](figs/rcnetwork.png)
 + **parametric_programming**/ Scripts for various types of differentiable constrained optimization of parametric programs
-    + mpNLP_Himmelblau_nm.py: Solve the Himmelblau problem, formulated as the NLP using Neuromancer
+    + mpNLP_Himmelblau_nm.py: Solve the Himmelblau problem, formulated as the NLP using Neuromancer <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
         - ![](figs/mpNLP_Himmelblau_nm.png)
     + mpQP_nm_2.py: Multi-parametric Quadratic Programming (mpQP) problem using Neuromancer.
         - ![](figs/mpQP_nm_2.png)
@@ -37,7 +37,7 @@ Here we list the file tree and plots of expected results from the default parame
     - **lorenz_node_curriculum.py**: Modeling Lorenz system 
        using neural ODEs and curriculum learning. 
        + ![](figs/lorenz_node_curriculum.png)
-    - **duffing_parameter.py**: Parameter estimation of Duffing ODE system.
+    - **duffing_parameter.py**: Parameter estimation of Duffing ODE system. <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/system_identification/duffing_parameter_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
         + ![duffing](figs/duffing_parameter.png)
     - **two_tank_node.py**: Modeling a Two Tank system with neural ODEs
         + ![two_tank](figs/two_tank_neural_ode.png)

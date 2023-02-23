@@ -221,7 +221,7 @@ https://github.com/pnnl/neuromancer/blob/master/neuromancer/dynamics.py
 **estimators** - classes parametrizing estimation of the initial conditions for dynamics models: 
 https://github.com/pnnl/neuromancer/blob/master/neuromancer/estimators.py
 
-**constraints** - classes for defining constraints and custom physics-informed loss function terms: 
+**constraint** - classes for defining constraints and custom physics-informed loss function terms: 
 https://github.com/pnnl/neuromancer/blob/master/neuromancer/constraint.py
 
 **loss** - class aggregating all instantiated constraints and loss terms 

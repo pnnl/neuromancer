@@ -71,15 +71,6 @@ and `psl <https://github.com/pnnl/psl>`__ libraries.
    user@machine:~$ git clone -b master https://github.com/pnnl/psl.git --single-branch
    user@machine:~$ git clone -b master https://github.com/pnnl/slim.git --single-branch
 
-Install neuromancer ecosystem
------------------------------
-
-.. code:: bash
-
-   (neuromancer) $ cd psl; python setup.py develop
-   (neuromancer) $ cd ../slim; python setup.py develop
-   (neuromancer) $ cd ../neuromancer; python setup.py develop
-
 Install dependencies
 --------------------
 
@@ -88,7 +79,7 @@ Ubuntu
 
 .. code:: bash
 
-   $ conda env create -f env.yml
+   $ conda env create -f linux_env.yml
    $ conda activate neuromancer
 
 Windows
@@ -100,6 +91,14 @@ Windows
    $ conda activate neuromancer
    (neuromancer) $ conda install -c defaults intel-openmp -f
 
+MacOS (Apple M1)
+~~~~~~~~~~~~~~~~
+
+.. code:: bash
+
+   $ conda env create -f osxarm64_env.yml
+   $ conda activate neuromancer
+
 Other operating system
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -107,14 +106,24 @@ Other operating system
 
    $ conda create -n neuromancer python=3.10.4
    $ conda activate neuromancer
-   (neuromancer) $ conda config --add channels conda-forge
    (neuromancer) $ conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
+   ## OR (for Mac): conda install pytorch -c pytorch
+   (neuromancer) $ conda config --append channels conda-forge
    (neuromancer) $ conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba
-   (neuromancer) $ conda install networkx plum-dispatch
+   (neuromancer) $ conda install networkx=3.0 plum-dispatch
    (neuromancer) $ conda install -c anaconda pytest hypothesis
-   (neuromancer) $ conda install cvxpy cvxopt casadi seaborn
-   (neuromancer) $ conda install tqdm
-   (neuromancer) $ conda install torchdiffeq
+   (neuromancer) $ conda install cvxpy cvxopt casadi seaborn imageio
+   (neuromancer) $ conda install tqdm torchdiffeq
+   ## (for Windows): conda install -c defaults intel-openmp -f
+
+Install neuromancer ecosystem
+-----------------------------
+
+.. code:: bash
+
+   (neuromancer) $ cd psl; python setup.py develop
+   (neuromancer) $ cd ../slim; python setup.py develop
+   (neuromancer) $ cd ../neuromancer; python setup.py develop
 
 Test NeuroMANCER install
 ------------------------
@@ -253,7 +262,12 @@ Cite as
 
 
 Authors: Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
-Christian Møldrup Legaard, Draguna Vrabie
+Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro
+
+Acknowledgements
+-----------------
+This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research's “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects.
+PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.
 
 Documentation
 ------------------------
@@ -283,7 +297,6 @@ Documentation
    gradients.rst
    bounds.rst
    gnn.rst
-   graph_dynamics.rst
    integrators.rst
    interpolation.rst
    loss.rst

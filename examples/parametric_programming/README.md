@@ -107,8 +107,8 @@ sol_map = nm.maps.Map(func,
 x = nm.variable("x")[:, [0]]
 y = nm.variable("x")[:, [1]]
 # sampled parameters
-p = nm.constraint.variable('p')
-a = nm.constraint.variable('a')
+p = nm.constraints.variable('p')
+a = nm.constraints.variable('a')
 
 # weight factors
 Q_con = 100.
@@ -170,7 +170,7 @@ List of Neuromancer classes required to build DPC:
 **dataset** - classes for instantiating Pytorch dataloaders with training evaluation and testing samples:
 https://github.com/pnnl/neuromancer/blob/master/neuromancer/dataset.py
 
-**constraint** - classes for defining symbolic variables, constraints, and custom physics-informed loss function terms: 
+**constraints** - classes for defining symbolic variables, constraints, and custom physics-informed loss function terms: 
 https://github.com/pnnl/neuromancer/blob/master/neuromancer/constraint.py
 
 **solvers**  -  implementation of iterative solvers for hard constraints such as gradient projection method: 

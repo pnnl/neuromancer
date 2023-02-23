@@ -36,7 +36,7 @@ If everything looks good then add, commit, and push to the repo.
 
 ```bash
 
-$ cd ../../docs/neuromancer/html
+$ cd ../../docs/html
 $ git add *.html; git add objects.inv; git add search_index.js
 $ git commit -m 'Added new documentation for NM version x.xx'
 $ git push origin gh-pages

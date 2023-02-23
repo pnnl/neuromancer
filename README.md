@@ -109,9 +109,9 @@ $ conda activate neuromancer
 ``` bash
 $ conda create -n neuromancer python=3.10.4
 $ conda activate neuromancer
-(neuromancer) $ conda config --append channels conda-forge
 (neuromancer) $ conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
 ## OR (for Mac): conda install pytorch -c pytorch
+(neuromancer) $ conda config --append channels conda-forge
 (neuromancer) $ conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba
 (neuromancer) $ conda install networkx=3.0 plum-dispatch 
 (neuromancer) $ conda install -c anaconda pytest hypothesis

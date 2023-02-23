@@ -1,38 +1,22 @@
-# NeuroMANCER v1.3
+# NeuroMANCER v1.3.1 
 Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations.
 
 Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
-Christian Møldrup Legaard, Draguna Vrabie
+Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro
 
-## Version 1.3 release notes
-
-+ Tutorial [YouTube videos](https://www.youtube.com/channel/UC5oWRFxzUwWrDNzkdWLIb7A) to accompany tutorial scripts in examples folder:
-  + [examples/system_identification/duffing_parameter.py](https://www.youtube.com/watch?v=HLuqneSnoC8)
-+ Closed loop control policy learning examples with Neural Ordinary Differential Equations
-  + examples/control/
-      + vdpo_DPC_cl_fixed_ref.py
-      + two_tank_sysID_DPC_cl_var_ref.py
-      + two_tank_DPC_cl_var_ref.py
-      + two_tank_DPC_cl_fixed_ref.py
-+ Closed loop control policy learning example with Linear State Space Models. 
-  + examples/control/
-      + double_integrator_dpc_ol_fixed_ref.py
-      + vtol_dpc_ol_fixed_ref.py
-+ New class for Linear State Space Models (LSSM)
-    + LinearSSM in dynamics.py
-+ Refactored closed loop control policy simulations
-  + simulator.py
-+ Interfaces for open and closed loop simulation (evaluation after training) for several classes 
-    + Dynamics
-    + Estimator
-    + Policy
-    + Constraint
-    + PSL Emulator classes
-+ New class for closed-loop policy learning of non-autonomous ODE systems
-  + ControlODE class in ode.py
-+ Added support for NODE systems
-  + Torchdiffeq integration with fast adjoint method for NODE optimization
-
+## Version 1.3.1 release notes
++ New example scripts and notebooks
+  + Interactive colab notebooks for testing Neuromancer functionality without setting up an environment 
+    + See neuromancer/examples/Readme.md for links to Colab
+  + RC-Network modeling using Graph Neural Time-steppers example:
+    + See neuromancer/examples/graph_timesteppers/
+  + Baseline NODE dynamics modeling results for all nonautonomous systems in Python Systems Library
+    + See neuromancer/examples/benchmarks/node/
+  + Updated install instructions for Linux, Windows, and MAC operating systems
+    + New linux_env.yml, windows_env.yml, osxarm64_env.yml files for installation of dependencies across OS
++ Corresponding releases of SLiM and PSL packages
+  + Make sure to update these packages if updating Neuromancer
+  + Release 1.4 will roll SLiM and PSL into core Neuromancer for ease of installation and development
 
 ## Documentation
 The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/)
@@ -94,10 +78,12 @@ user@machine:~$ git clone -b master https://github.com/pnnl/slim.git --single-br
 ```
 ## Install dependencies
 
+In many cases the following simple install should work for the specified OS
+
 ### Ubuntu
 
 ``` bash
-$ conda env create -f env.yml
+$ conda env create -f linux_env.yml
 $ conda activate neuromancer
 ```
 
@@ -118,6 +104,8 @@ $ conda activate neuromancer
 
 ### Other operating system
 
+!!! Pay attention to comments for non-Linux OS !!!
+
 ``` bash
 $ conda create -n neuromancer python=3.10.4
 $ conda activate neuromancer
@@ -128,8 +116,8 @@ $ conda activate neuromancer
 (neuromancer) $ conda install networkx=3.0 plum-dispatch 
 (neuromancer) $ conda install -c anaconda pytest hypothesis
 (neuromancer) $ conda install cvxpy cvxopt casadi seaborn imageio
-(neuromancer) $ conda install tqdm
-(neuromancer) $ conda install torchdiffeq
+(neuromancer) $ conda install tqdm torchdiffeq
+## (for Windows): conda install -c defaults intel-openmp -f
 ```
 
 ## Install neuromancer ecosystem
@@ -184,6 +172,7 @@ be highly valuable but not included below, please open an issue and let us know 
 + CVXPY-like interface for optimization via Problem.solve method
 + More versatile and simplified time series dataloading
 + Pytorch Lightning trainer compatibility
++ Discovery of governing equations from learned RHS via NODEs and SINDy
 
 ## Publications
 + [James Koch, Zhao Chen, Aaron Tuor, Jan Drgona, Draguna Vrabie, Structural Inference of Networked Dynamical Systems with Universal Differential Equations, arXiv:2207.04962, (2022)](https://aps.arxiv.org/abs/2207.04962)
@@ -214,3 +203,34 @@ be highly valuable but not included below, please open an issue and let us know 
 ## Acknowledgments
 This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research's “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects. 
 PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.
+
+# Prior release notes
+## Version 1.3 release notes
+
++ Tutorial [YouTube videos](https://www.youtube.com/channel/UC5oWRFxzUwWrDNzkdWLIb7A) to accompany tutorial scripts in examples folder:
+  + [examples/system_identification/duffing_parameter.py](https://www.youtube.com/watch?v=HLuqneSnoC8)
++ Closed loop control policy learning examples with Neural Ordinary Differential Equations
+  + examples/control/
+      + vdpo_DPC_cl_fixed_ref.py
+      + two_tank_sysID_DPC_cl_var_ref.py
+      + two_tank_DPC_cl_var_ref.py
+      + two_tank_DPC_cl_fixed_ref.py
++ Closed loop control policy learning example with Linear State Space Models. 
+  + examples/control/
+      + double_integrator_dpc_ol_fixed_ref.py
+      + vtol_dpc_ol_fixed_ref.py
++ New class for Linear State Space Models (LSSM)
+    + LinearSSM in dynamics.py
++ Refactored closed loop control policy simulations
+  + simulator.py
++ Interfaces for open and closed loop simulation (evaluation after training) for several classes 
+    + Dynamics
+    + Estimator
+    + Policy
+    + Constraint
+    + PSL Emulator classes
++ New class for closed-loop policy learning of non-autonomous ODE systems
+  + ControlODE class in ode.py
++ Added support for NODE systems
+  + Torchdiffeq integration with fast adjoint method for NODE optimization
+

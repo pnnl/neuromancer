@@ -63,7 +63,7 @@ class DiffEqIntegrator(Integrator):
     """
 
     """
-    def __init__(self, block, interp_u=None, h=1.0, method='euler'):
+    def __init__(self, block, interp_u=None, h=0.001, method='euler'):
         """
 
         :param block:(nn.Module) A state transition model.
@@ -81,7 +81,7 @@ class DiffEqIntegrator(Integrator):
         self.adjoint_params = torchdiffeq._impl.adjoint.find_parameters(self.block)
 
     def integrate(self, x, u, t):
-        timepoints = torch.tensor([t[0]-self.h, t[0]])
+        timepoints = torch.tensor([t[0], t[0] + self.h])
         rhs_fun = lambda t, x: self.block(self.state(x, t, t, u))
         solution = odeint(rhs_fun, x, timepoints, method=self.method,
                           adjoint_params=self.adjoint_params,

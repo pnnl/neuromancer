@@ -26,8 +26,8 @@ import psl
 import slim
 
 # now
-import neuromancer.psl
-import neuromancer.slim
+from neuromancer import psl
+from neuromancer import slim
 ```
 
 ## Documentation

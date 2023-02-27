@@ -9,7 +9,7 @@ import torch.optim as optim
 import torch
 import torch.nn as nn
 
-import psl
+import neuromancer.psl as psl
 
 from neuromancer.integrators import integrators
 from neuromancer.problem import Problem

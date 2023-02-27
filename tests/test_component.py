@@ -1,7 +1,7 @@
 from hypothesis import given, settings, strategies as st
 
 import torch
-import slim
+import neuromancer.slim as slim
 from neuromancer.component import Component
 from neuromancer import (
     estimators,

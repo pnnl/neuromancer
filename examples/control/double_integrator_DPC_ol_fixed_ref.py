@@ -5,11 +5,10 @@ Learning to stabilize unstable linear double integrator system with given system
 """
 
 import torch
-import slim
+import neuromancer.slim as slim
 import numpy as np
 import matplotlib.pyplot as plt
-import psl
-
+import neuromancer.psl as psl
 from neuromancer.activations import activations
 from neuromancer import estimators, dynamics
 from neuromancer.trainer import Trainer

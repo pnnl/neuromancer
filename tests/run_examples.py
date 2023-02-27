@@ -14,12 +14,12 @@ def run(path, failed_examples=failed_examples):
         if status !=0:
             failed_examples += [f]
             for f in os.listdir(os.path.dirname(os.path.abspath(__file__))):
-                if (not f.endswith('.py')) and (not f.endswith('.pkl')):
+                if (not f.endswith('.py')) and (not f.endswith('.pkl') and not f.startswith('psl') and not f.startswith('slim')):
                     os.system(f'rm -rf {f}')
     for d in dirs:
         failed_examples += run(d, failed_examples)
         for f in os.listdir(os.path.dirname(os.path.abspath(__file__))):
-            if (not f.endswith('.py')) and (not f.endswith('.pkl')):
+            if not f.endswith('.py') and not f.endswith('.pkl') and not f.startswith('psl') and not f.startswith('slim'):
                 os.system(f'rm -rf {f}')
     return failed_examples
 

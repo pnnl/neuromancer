@@ -8,7 +8,7 @@ from neuromancer.activations import activations
 from neuromancer.loss import PenaltyLoss
 from neuromancer.constraint import variable
 
-import slim
+import neuromancer.slim as slim
 
 
 estim = MLPEstimator(

@@ -1,7 +1,7 @@
 GNN
 ======
 
-.. automodule:: gnn
+.. automodule:: neuromancer.gnn
    :members:
    :undoc-members:
    :special-members: __call__

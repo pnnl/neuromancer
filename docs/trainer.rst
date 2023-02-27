@@ -1,7 +1,7 @@
 Trainer
 =======
 
-.. automodule:: trainer
+.. automodule:: neuromancer.trainer
    :members:
    :undoc-members:
    :special-members: __call__

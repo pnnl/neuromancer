@@ -12,7 +12,7 @@ https://en.wikipedia.org/wiki/Test_functions_for_optimization
 
 
 import torch
-import slim
+import neuromancer.slim as slim
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
 import numpy as np

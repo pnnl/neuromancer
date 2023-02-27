@@ -1,7 +1,7 @@
 Constraint
 ==========
 
-.. automodule:: constraint
+.. automodule:: neuromancer.constraint
    :members:
    :undoc-members:
    :special-members: __call__

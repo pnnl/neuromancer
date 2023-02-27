@@ -1,12 +1,11 @@
 from hypothesis import given, settings, strategies as st
-import torch
 import torch.nn as nn
-import slim
+import neuromancer.slim as slim
 import numpy as np
 from neuromancer import dynamics, estimators, integrators, blocks
 from neuromancer.constraint import variable
 import neuromancer.simulator as sim
-import psl
+import neuromancer.psl as psl
 psl_nonauto_systems = [psl.nonautonomous.systems['TwoTank'],
                        psl.nonautonomous.systems['CSTR'],
                        psl.nonautonomous.systems['HindmarshRose'],
@@ -19,9 +18,6 @@ psl_auto_systems = [psl.autonomous.systems['ThomasAttractor'],
                      psl.autonomous.systems['LorenzSystem'],
                      psl.autonomous.systems['VanDerPol']]
 
-psl_ssm_systems_names = ['Reno_full',
-                         'HollandschHuys_full',
-                         'SimpleSingleZone']
 
 """
 Test functions for neuromancer simulator classes 
@@ -49,21 +45,6 @@ def test_DynamicsLinSSM_shapes_types(nx, nu, ny):
     assert output_dict['x'].shape == (nx,)
     assert output_dict['y'].shape == (ny,)
 
-
-@given(
-    st.sampled_from(psl_ssm_systems_names),
-)
-@settings(max_examples=5, deadline=None)
-def test_DynamicsPSL_ssm_shapes_types(system_name):
-    psl_model = psl.ssm.systems[system_name](system=system_name)
-    sys = sim.DynamicsPSL(psl_model, input_key_map={'u': 'u'})
-    input_dict = {'x': abs(np.random.randn(psl_model.nx)),
-                  'u': abs(np.random.randn(psl_model.nu))}
-    output_dict = sys.step(input_dict)
-    assert isinstance(output_dict['x'], np.ndarray)
-    assert isinstance(output_dict['y'], np.ndarray)
-    assert output_dict['x'].shape == (psl_model.nx,)
-    assert output_dict['y'].shape == (psl_model.ny,)
 
 
 @given(

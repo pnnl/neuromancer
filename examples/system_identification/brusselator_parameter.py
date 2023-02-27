@@ -2,8 +2,8 @@
 Parameter estimation for a 1D Brusselator system.
 """
 import torch
-import slim
-import psl
+import neuromancer.slim as slim
+import neuromancer.psl as psl
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse

@@ -58,18 +58,18 @@ Below is a Neuromancer syntax example for differentiable parametric programming
    components = [sol_map]
    problem = nm.problem.Problem(components, loss)
 
-Installation
-------------
+Conda install
+-------------
 
-First clone the neuromancer, `slim <https://github.com/pnnl/slim>`__,
-and `psl <https://github.com/pnnl/psl>`__ libraries.
+First clone the neuromancer library.
+Conda install is recommended for GPU acceleration.
+In many cases the following simple install should work for the specified OS
+
 
 .. code:: bash
 
 
    user@machine:~$ git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
-   user@machine:~$ git clone -b master https://github.com/pnnl/psl.git --single-branch
-   user@machine:~$ git clone -b master https://github.com/pnnl/slim.git --single-branch
 
 Install dependencies
 --------------------
@@ -113,7 +113,7 @@ Other operating system
    (neuromancer) $ conda install networkx=3.0 plum-dispatch
    (neuromancer) $ conda install -c anaconda pytest hypothesis
    (neuromancer) $ conda install cvxpy cvxopt casadi seaborn imageio
-   (neuromancer) $ conda install tqdm torchdiffeq
+   (neuromancer) $ conda install tqdm torchdiffeq toml
    ## (for Windows): conda install -c defaults intel-openmp -f
 
 Install neuromancer ecosystem
@@ -121,9 +121,22 @@ Install neuromancer ecosystem
 
 .. code:: bash
 
-   (neuromancer) $ cd psl; python setup.py develop
-   (neuromancer) $ cd ../slim; python setup.py develop
-   (neuromancer) $ cd ../neuromancer; python setup.py develop
+   (neuromancer) $ pip install -e . --no-deps
+
+Pip install
+-----------
+
+.. code :: bash
+
+   python3 -m pip install -e.[docs,tests,examples]
+
+See the `pyproject.toml` file for reference.
+
+.. code::
+   [project.optional-dependencies]
+   tests = ["pytest", "hypothesis"]
+   examples = ["casadi", "cvxpy", "imageio"]
+   docs = ["sphinx", "sphinx-rtd-theme"]
 
 Test NeuroMANCER install
 ------------------------
@@ -251,7 +264,7 @@ Publications
 Cite as
 -------
 
-.. code:: yaml
+.. code:: bib
 
    @article{Neuromancer2022,
      title={{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}},
@@ -306,6 +319,9 @@ Documentation
    solvers.rst
    simulator.rst
    physics.rst
+
+   psl/index.rst
+   slim/index.rst
 
 
 

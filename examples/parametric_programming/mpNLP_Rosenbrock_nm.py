@@ -12,7 +12,7 @@ https://en.wikipedia.org/wiki/Rosenbrock_function
 
 
 import torch
-import slim
+import neuromancer.slim as slim
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
 from matplotlib import cm

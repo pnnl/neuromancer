@@ -1,7 +1,7 @@
 Loss
 ======
 
-.. automodule:: loss
+.. automodule:: neuromancer.loss
    :members:
    :undoc-members:
    :special-members: __call__

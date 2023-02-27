@@ -4,7 +4,7 @@ from neuromancer import integrators
 from neuromancer import interpolation
 from hypothesis import given, settings, strategies as st
 from neuromancer.blocks import MLP
-import slim
+import neuromancer.slim as slim
 
 
 integrators_generic = [v for v in integrators.integrators.values()]

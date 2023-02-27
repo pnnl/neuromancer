@@ -6,7 +6,7 @@ from neuromancer import interpolation
 from hypothesis import given, settings, strategies as st
 import inspect
 from neuromancer.blocks import MLP
-import slim
+import neuromancer.slim as slim
 
 
 blks = [v for k, v in blocks.blocks.items() if 'hsizes' in inspect.signature(v).parameters]

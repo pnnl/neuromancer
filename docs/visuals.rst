@@ -1,7 +1,7 @@
 Visuals
 =======
 
-.. automodule:: visuals
+.. automodule:: neuromancer.visuals
    :members:
    :undoc-members:
    :special-members: __call__

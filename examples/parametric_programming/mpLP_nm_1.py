@@ -9,7 +9,7 @@ problem parameters:            a1, a2, p1, p2, p3
 problem decision variables:    x, y
 """
 import torch
-import slim
+import neuromancer.slim as slim
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
 import cvxpy as cp

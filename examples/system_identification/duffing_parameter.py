@@ -4,8 +4,8 @@ Parameter estimation of Duffing ODE system using SGD
 
 import torch
 import numpy as np
-import slim
-import psl
+import neuromancer.slim as slim
+import neuromancer.psl as psl
 import matplotlib.pyplot as plt
 
 from neuromancer import blocks, estimators, dynamics, integrators, ode

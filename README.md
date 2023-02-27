@@ -1,22 +1,34 @@
-# NeuroMANCER v1.3.1 
+# NeuroMANCER v1.3.2 
+
+[![Tests](https://github.com/clegaard/neuromancer/actions/workflows/test.yml/badge.svg)](https://github.com/clegaard/neuromancer/actions/workflows/test.yml)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/neuromancer)](
+https://pypi.org/project/neuromancer/)
+[![Documentation](https://github.com/clegaard/neuromancer/actions/workflows/docs.yml/badge.svg)](https://github.com/clegaard/neuromancer/actions/workflows/docs.yml)
+
+
 Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations.
 
 Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
 Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro
 
-## Version 1.3.1 release notes
-+ New example scripts and notebooks
-  + Interactive colab notebooks for testing Neuromancer functionality without setting up an environment 
-    + See neuromancer/examples/Readme.md for links to Colab
-  + RC-Network modeling using Graph Neural Time-steppers example:
-    + See neuromancer/examples/graph_timesteppers/
-  + Baseline NODE dynamics modeling results for all nonautonomous systems in Python Systems Library
-    + See neuromancer/examples/benchmarks/node/
-  + Updated install instructions for Linux, Windows, and MAC operating systems
-    + New linux_env.yml, windows_env.yml, osxarm64_env.yml files for installation of dependencies across OS
-+ Corresponding releases of SLiM and PSL packages
-  + Make sure to update these packages if updating Neuromancer
-  + Release 1.4 will roll SLiM and PSL into core Neuromancer for ease of installation and development
+## Version 1.3.2 Release Notes
++ Merged Structured Linear Maps and Pyton Systems Library into Neuromancer
+  + The code in neuromancer was closely tied to psl and slim.
+  A decision was made to integrate the packages as submodules of neuromancer.
+  This also solves the issue of the package names "psl" and "slim" already being taken on PyPI.
+
+
+### Import changes for psl and slim
+
+```python
+# before
+import psl
+import slim
+
+# now
+import neuromancer.psl
+import neuromancer.slim
+```
 
 ## Documentation
 The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/)
@@ -66,18 +78,19 @@ problem = nm.problem.Problem(components, loss)
 *UML diagram of NeuroMANCER classes.*
 
 
-## Installation
+# Installation
 
-First clone the neuromancer, [slim](https://github.com/pnnl/slim), and [psl](https://github.com/pnnl/psl) libraries.
+For either pip or conda installation, first clone the neuromancer package.
+A dedicated virtual environment (conda or otherwise) is recommended. 
+
+Note: If you have a previous neuromancer env it would be best at this point to create a new environment given the following instructions.
 
 ```bash
 user@machine:~$ git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
-user@machine:~$ git clone -b master https://github.com/pnnl/psl.git --single-branch
-user@machine:~$ git clone -b master https://github.com/pnnl/slim.git --single-branch
 
 ```
-## Install dependencies
-
+## Conda install
+Conda install is recommended for GPU acceleration. 
 In many cases the following simple install should work for the specified OS
 
 ### Ubuntu
@@ -116,16 +129,33 @@ $ conda activate neuromancer
 (neuromancer) $ conda install networkx=3.0 plum-dispatch 
 (neuromancer) $ conda install -c anaconda pytest hypothesis
 (neuromancer) $ conda install cvxpy cvxopt casadi seaborn imageio
-(neuromancer) $ conda install tqdm torchdiffeq
+(neuromancer) $ conda install tqdm torchdiffeq toml
 ## (for Windows): conda install -c defaults intel-openmp -f
 ```
 
-## Install neuromancer ecosystem
+### Install neuromancer
 ``` bash
-(neuromancer) $ cd psl; python setup.py develop
-(neuromancer) $ cd ../slim; python setup.py develop
-(neuromancer) $ cd ../neuromancer; python setup.py develop
-``` 
+(neuromancer) $ pip install -e . --no-deps
+```
+
+## PIP Install
+Pip installation is broken up into required dependencies for core Neuromancer
+and dependencies associated with the examples, tests, and generating the documentation.
+
+### Install neuromancer and all dependencies.
+From top level directory of cloned neuromancer run: 
+
+`python3 -m pip install -e.[docs,tests,examples]`
+
+See the `pyproject.toml` file for reference.
+
+``` toml
+[project.optional-dependencies]
+tests = ["pytest", "hypothesis"]
+examples = ["casadi", "cvxpy", "imageio"]
+docs = ["sphinx", "sphinx-rtd-theme"]
+```
+
 ## Test NeuroMANCER install
 Run pytest on the test folder. It should take about 2 minutes to run the tests on CPU. 
 There will be a lot of warnings that you can safely ignore. These warnings will be cleaned 
@@ -205,6 +235,21 @@ This research was partially supported by the Mathematics for Artificial Reasonin
 PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.
 
 # Prior release notes
+
+## Version 1.3.1 release notes
++ New example scripts and notebooks
+  + Interactive colab notebooks for testing Neuromancer functionality without setting up an environment 
+    + See neuromancer/examples/Readme.md for links to Colab
+  + RC-Network modeling using Graph Neural Time-steppers example:
+    + See neuromancer/examples/graph_timesteppers/
+  + Baseline NODE dynamics modeling results for all nonautonomous systems in Python Systems Library
+    + See neuromancer/examples/benchmarks/node/
+  + Updated install instructions for Linux, Windows, and MAC operating systems
+    + New linux_env.yml, windows_env.yml, osxarm64_env.yml files for installation of dependencies across OS
++ Corresponding releases of SLiM and PSL packages
+  + Make sure to update these packages if updating Neuromancer
+  + Release 1.4 will roll SLiM and PSL into core Neuromancer for ease of installation and development
+
 ## Version 1.3 release notes
 
 + Tutorial [YouTube videos](https://www.youtube.com/channel/UC5oWRFxzUwWrDNzkdWLIb7A) to accompany tutorial scripts in examples folder:

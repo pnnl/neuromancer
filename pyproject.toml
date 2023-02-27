@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neuromancer"
+authors = [
+    { name = "Aaron Tuor", email = "aaron.tuor@pnnl.gov" },
+    { name = "Jan Drgona", email = "jan.drgona@pnnl.gov" },
+    { name = "Mia Skomski", email = "mia.skomski@pnnl.gov" },
+    { name = "Stefan Dernbach", email = "stefan.dernbach@pnnl.gov" },
+    { name = "James Koch", email = "james.koch@pnnl.gov" },
+    { name = "Zhao Chen", email = "zhao.chen@pnnl.gov" },
+    { name = "Christian Møldrup Legaard", email = "cml@ece.au.dk" },
+    { name = "Draguna Vrabie", email = "draguna.vrabie@pnnl.gov" },
+    { name = "Elliot Skomski", email = "elliot.skomski@pnnl.gov" },
+    { name = "Soumya Vasisht", email = "soumya.vasisht@pnnl.gov" },
+    { name = "Madelyn Shapiro", email = "madelyn.shapiro@pnnl.gov"}
+]
+description = "Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularization"
+readme = "README.md"
+requires-python = ">=3.9, <3.11"
+keywords = [
+    "Deep Learning",
+    "Pytorch",
+    "Linear Models",
+    "Dynamical Systems",
+    "Data-driven control",
+]
+
+
+
+license = { text = "BSD-2-Clause" }
+classifiers = [
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Physics",
+    "License :: OSI Approved :: BSD License"
+]
+dependencies = [
+    "dill",
+    "matplotlib",
+    "mlflow",
+    "networkx",
+    "numpy",
+    "pandas",
+    "plum_dispatch",
+    "scikit_learn",
+    "scipy",
+    "six",
+    "pydot",
+    "pyts",
+    "scipy",
+    "torch",
+    "torchdiffeq",
+    "toml"
+]
+
+version = "1.3.2"
+
+[project.urls]
+homepage = "https://github.com/pnnl/neuromancer/"
+documentation = "https://github.com/pnnl/neuromancer/"
+repository = "https://github.com/pnnl/neuromancer/"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.optional-dependencies]
+tests = ["pytest", "hypothesis"]
+examples = ["casadi", "cvxpy", "imageio"]
+docs = ["sphinx", "sphinx-rtd-theme"]

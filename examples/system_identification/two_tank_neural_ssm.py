@@ -26,8 +26,9 @@ More detailed description of options in the `get_base_parser()` function in comm
 """
 
 import torch
-import slim
-import psl
+import neuromancer.slim as slim
+from neuromancer.psl import plot
+from neuromancer import psl
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -272,8 +273,8 @@ if __name__ == "__main__":
     raw = modelSystem.simulate(ts=ts)
     raw['Y'] = raw['Y'][:-1, :]
     raw['X'] = raw['X'][:-1, :]
-    psl.plot.pltOL(Y=raw['Y'], U=raw['U'])
-    psl.plot.pltPhase(X=raw['Y'])
+    plot.pltOL(Y=raw['Y'], U=raw['U'])
+    plot.pltPhase(X=raw['Y'])
     plt.show(block=True)
     plt.interactive(True)
 

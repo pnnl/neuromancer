@@ -12,17 +12,17 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../neuromancer/'))
+sys.path.insert(0, os.path.abspath('../neuromancer'))
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'NeuroMANCER'
-copyright = '2022, Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen, Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro'
+copyright = '2023, Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen, Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro'
 author = 'Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen, Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro'
 
 # The full version, including alpha/beta/rc tags
-release = '1.3.1'
+release = '1.3.3'
 
 
 # -- General configuration ---------------------------------------------------

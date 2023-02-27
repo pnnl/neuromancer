@@ -3,7 +3,7 @@ from hypothesis import given, settings, strategies as st
 import math
 
 from neuromancer.estimators import estimators
-from slim.linear import square_maps, maps, TrivialNullSpaceLinear
+from neuromancer.slim.linear import square_maps, maps, TrivialNullSpaceLinear
 from neuromancer.activations import activations
 import neuromancer.estimators as estim
 

@@ -12,10 +12,10 @@ objective: stabilize towards origin
 import torch
 import torch.nn as nn
 
-import slim
+import neuromancer.slim as slim
 import numpy as np
 import matplotlib.pyplot as plt
-import psl
+import neuromancer.psl as psl
 
 from neuromancer.activations import activations
 from neuromancer import blocks, estimators, dynamics, ode, integrators

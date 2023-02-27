@@ -14,8 +14,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
-import psl
-from psl.coupled_systems import RC_Network
+import neuromancer.psl as psl
+from neuromancer.psl.coupled_systems import RC_Network
 
 from neuromancer import arg
 from neuromancer.dynamics import RCTimestepper
@@ -25,7 +25,7 @@ from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer.problem import Problem
 from neuromancer.trainer import Trainer
-import psl
+import neuromancer.psl as psl
 
 def arg_rc(prefix=''):
     """

@@ -4,8 +4,8 @@ Modeling a Two Tank system with neural ODEs
 
 import torch
 import numpy as np
-import slim
-import psl
+import neuromancer.slim as slim
+import neuromancer.psl as psl
 import matplotlib.pyplot as plt
 
 from neuromancer import blocks, estimators, dynamics, arg, integrators, ode

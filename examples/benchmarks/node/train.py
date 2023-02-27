@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import torch.optim as optim
 
-from psl.nonautonomous import systems
+from neuromancer.psl.nonautonomous import systems
 from neuromancer.problem import Problem
 from neuromancer.loggers import MLFlowLogger
 from neuromancer.trainer import Trainer
@@ -233,7 +233,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-system', default='IverSimple', choices=[k for k in systems],
-                        help='You can use any of the systems from psl.nonautonomous with this script')
+                        help='You can use any of the systems neuromancer.psl.nonautonomous with this script')
     parser.add_argument('-epochs', type=int, default=100,
                         help='Number of epochs of training.')
     parser.add_argument('-normalize', action='store_true', help='Whether to normalize data')

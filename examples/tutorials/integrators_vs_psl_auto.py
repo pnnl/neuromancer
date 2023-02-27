@@ -1,5 +1,5 @@
 #%%
-import psl
+import neuromancer.psl as psl
 from neuromancer import integrators
 from neuromancer import ode
 import torch

@@ -1,7 +1,7 @@
 Simulator
 =========
 
-.. automodule:: simulator
+.. automodule:: neuromancer.simulator
    :members:
    :undoc-members:
    :special-members: __call__

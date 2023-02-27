@@ -1,7 +1,7 @@
 Loggers
 =======
 
-.. automodule:: loggers
+.. automodule:: neuromancer.loggers
    :members:
    :undoc-members:
    :special-members: __call__

@@ -11,10 +11,10 @@ https://python-control.readthedocs.io/en/0.8.3/pvtol-lqr.html
 """
 
 import torch
-import slim
+import neuromancer.slim as slim
 import numpy as np
 import matplotlib.pyplot as plt
-import psl
+import neuromancer.psl as psl
 from scipy.signal import cont2discrete, lti, dlti, dstep
 
 from neuromancer.activations import activations

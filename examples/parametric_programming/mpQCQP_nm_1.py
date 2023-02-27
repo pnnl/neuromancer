@@ -14,7 +14,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import torch
-import slim
+import neuromancer.slim as slim
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
 import cvxpy as cp

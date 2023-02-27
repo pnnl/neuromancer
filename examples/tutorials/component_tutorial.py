@@ -16,7 +16,7 @@ from neuromancer.problem import Problem
 from neuromancer.constraint import Loss, variable
 from neuromancer.blocks import MLP
 from neuromancer.loss import PenaltyLoss
-import slim
+import neuromancer.slim as slim
 
 """
 We begin constructing our neural SSM by creating a latent state estimator to predict initial conditions 

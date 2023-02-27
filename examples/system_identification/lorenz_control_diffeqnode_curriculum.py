@@ -8,7 +8,7 @@ import torch.optim as optim
 import torch
 import torch.nn as nn
 
-import psl
+from neuromancer import psl
 
 from neuromancer import integrators
 from neuromancer.loggers import MLFlowLogger

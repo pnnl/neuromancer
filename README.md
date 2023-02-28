@@ -150,7 +150,7 @@ conda activate neuromancer
 From top level directory of cloned neuromancer run: 
 
 ```bash
-pip install -e.[docs,tests,examples]`
+pip install -e.[docs,tests,examples]
 ```
 
 See the `pyproject.toml` file for reference.

@@ -104,11 +104,11 @@ sol_map = nm.maps.Map(func,
 # # #  mpNLP objective and constraints formulation in Neuromancer
 """
 # variables
-x = nm.variable("x")[:, [0]]
-y = nm.variable("x")[:, [1]]
+x = nm.constraint.variable("x")[:, [0]]
+y = nm.constraint.variable("x")[:, [1]]
 # sampled parameters
-p = nm.constraints.variable('p')
-a = nm.constraints.variable('a')
+p = nm.constraint.variable('p')
+a = nm.constraint.variable('a')
 
 # weight factors
 Q_con = 100.

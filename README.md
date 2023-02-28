@@ -86,7 +86,7 @@ A dedicated virtual environment (conda or otherwise) is recommended.
 Note: If you have a previous neuromancer env it would be best at this point to create a new environment given the following instructions.
 
 ```bash
-user@machine:~$ git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
+git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
 
 ```
 ## Conda install
@@ -96,23 +96,23 @@ In many cases the following simple install should work for the specified OS
 ### Ubuntu
 
 ``` bash
-$ conda env create -f linux_env.yml
-$ conda activate neuromancer
+conda env create -f linux_env.yml
+conda activate neuromancer
 ```
 
 ### Windows
 
 ``` bash
-$ conda env create -f windows_env.yml
-$ conda activate neuromancer
-(neuromancer) $ conda install -c defaults intel-openmp -f
+conda env create -f windows_env.yml
+conda activate neuromancer
+conda install -c defaults intel-openmp -f
 ```
 
 ### MacOS (Apple M1)
 
 ``` bash
-$ conda env create -f osxarm64_env.yml
-$ conda activate neuromancer
+conda env create -f osxarm64_env.yml
+conda activate neuromancer
 ```
 
 ### Other operating system
@@ -120,32 +120,38 @@ $ conda activate neuromancer
 !!! Pay attention to comments for non-Linux OS !!!
 
 ``` bash
-$ conda create -n neuromancer python=3.10.4
-$ conda activate neuromancer
-(neuromancer) $ conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
+conda create -n neuromancer python=3.10.4
+conda activate neuromancer
+conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
 ## OR (for Mac): conda install pytorch -c pytorch
-(neuromancer) $ conda config --append channels conda-forge
-(neuromancer) $ conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba
-(neuromancer) $ conda install networkx=3.0 plum-dispatch 
-(neuromancer) $ conda install -c anaconda pytest hypothesis
-(neuromancer) $ conda install cvxpy cvxopt casadi seaborn imageio
-(neuromancer) $ conda install tqdm torchdiffeq toml
+conda config --append channels conda-forge
+conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba
+conda install networkx=3.0 plum-dispatch 
+conda install -c anaconda pytest hypothesis
+conda install cvxpy cvxopt casadi seaborn imageio
+conda install tqdm torchdiffeq toml
 ## (for Windows): conda install -c defaults intel-openmp -f
-```
-
-### Install neuromancer
-``` bash
-(neuromancer) $ pip install -e . --no-deps
 ```
 
 ## PIP Install
 Pip installation is broken up into required dependencies for core Neuromancer
 and dependencies associated with the examples, tests, and generating the documentation.
+Below we give instructions to install all dependencies in a conda virtual enviroment via pip. 
+
+### Create and activate virtual environment
+
+``` bash
+conda create -n neuromancer python=3.10.4
+conda activate neuromancer
+```
+
 
 ### Install neuromancer and all dependencies.
 From top level directory of cloned neuromancer run: 
 
-`python3 -m pip install -e.[docs,tests,examples]`
+```bash
+pip install -e.[docs,tests,examples]`
+```
 
 See the `pyproject.toml` file for reference.
 

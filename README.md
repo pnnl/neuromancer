@@ -163,9 +163,23 @@ up in a future release.
 
 ## Examples
 
-For detailed examples of NeuroMANCER usage
-for control, system identification, and parametric programming as well as tutorials for basic usage, see the scripts
-in the examples folder. 
+For detailed examples of NeuroMANCER usage for control, system identification, and
+parametric programming as well as tutorials for basic usage, see the scripts in the
+examples folder. 
+
+**New in 1.3.1:** Interactive notebook versions of examples are available on Google Colab!
+Test out NeuroMANCER functionality before cloning the repository and setting up an
+environment. We currently have three interactive notebook examples:
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/double_integrator_DPC_interactive.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+  examples/control/double_integrator_DPC_interactive.ipynb
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+  examples/parametric_programming/Himmelblau_interactive.ipynb 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/system_identification/duffing_parameter_interactive.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+  examples/duffing_parameter_interactive.ipynb 
+
 
 ## Community
 
@@ -173,7 +187,7 @@ in the examples folder.
 If you have an example of using NeuroMANCER to solve an interesting problem, or of using 
 NeuroMANCER in a unique way, we would love to see it incorporated into our current library of examples. 
 To submit an example, create a folder for your example/s in the example folder if there isn't 
-currently and applicable folder and place either your executable python file or notebook file there. 
+currently an applicable folder and place either your executable python file or notebook file there. 
 Push your code back to github and then submit a pull request. Please make sure to note in a comment at 
 the top of your code if there are additional dependencies to run your example and how to install 
 those dependencies. 
@@ -238,8 +252,8 @@ PNNL is a multi-program national laboratory operated for the U.S. Department of 
 
 ## Version 1.3.1 release notes
 + New example scripts and notebooks
-  + Interactive colab notebooks for testing Neuromancer functionality without setting up an environment 
-    + See neuromancer/examples/Readme.md for links to Colab
+  + Interactive Colab notebooks for testing Neuromancer functionality without setting up an environment 
+    + See [Examples](#examples) for links to Colab
   + RC-Network modeling using Graph Neural Time-steppers example:
     + See neuromancer/examples/graph_timesteppers/
   + Baseline NODE dynamics modeling results for all nonautonomous systems in Python Systems Library

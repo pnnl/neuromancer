@@ -239,7 +239,7 @@ class RCPreprocessor(nn.Module):
         
     def forward(self, data):
         #(batch, time, node*states) --> (batch, time, nodes, states)
-        node_attr = data[self.input_key_map['x0']]
+        node_attr = data[self.input_key_map.get('x0','x0')]
         if node_attr.ndim==3:
             node_attr = node_attr[:, 0]
         batch, nodestates = node_attr.shape

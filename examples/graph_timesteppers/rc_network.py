@@ -25,7 +25,6 @@ from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer.problem import Problem
 from neuromancer.trainer import Trainer
-import neuromancer.psl as psl
 
 def arg_rc(prefix=''):
     """

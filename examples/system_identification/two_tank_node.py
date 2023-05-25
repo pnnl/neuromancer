@@ -32,8 +32,6 @@ if __name__ == '__main__':
     modelSystem = system(ts=ts, nsim=nsim)
     modelSystem.ts = ts
     raw = modelSystem.simulate(ts=ts)
-    raw['Y'] = raw['Y'][:-1, :]
-    raw['X'] = raw['X'][:-1, :]
     # psl.plot.pltOL(Y=raw['Y'], U=raw['U'])
     # psl.plot.pltPhase(X=raw['Y'])
 

@@ -120,13 +120,13 @@ class TSCallback(Callback):
 
 def get_data(nsteps):
     train_set = np.stack([
-        modelSystem.simulate(ts=args.ts, nsim=nsteps, x0=get_x0(args.system))['X'][:-1, :]
+        modelSystem.simulate(ts=args.ts, nsim=nsteps, x0=get_x0(args.system))['X']
         for _ in range(args.nsim)
     ], axis=0)
     nx = train_set[0].shape[-1]
 
     train_set_long = modelSystem.simulate(ts=args.ts, nsim=args.nsim * nsteps,
-                                          x0=get_x0(args.system))['X'][:-1, :]
+                                          x0=get_x0(args.system))['X']
     train_set_long = train_set_long.reshape(args.nsim, nsteps, nx)
     train_set = np.concatenate([train_set, train_set_long])
 

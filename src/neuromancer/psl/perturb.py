@@ -1,5 +1,10 @@
 """
 Base Control Profiles for System excitation
+# TODO: All signals should be nsim X nx np.arrays of type np.float64.
+# TODO: Any signals bounded by xmin and xmax should be tested to ensure this.
+# TODO: No camel case functions
+# TODO: No random seed setting
+# TODO: Only variables with upper case should be arrays which are matrices (this is discouraged but acceptable)
 """
 
 import numpy as np
@@ -41,6 +46,30 @@ def RandomWalk(nx=1, nsim=100, xmax=1, xmin=0, sigma=0.05, rseed=1):
     return np.asarray(Signals).T
 
 
+def random_walk(nsim, d, min=0., max=1., sigma=0.05):
+    """
+    Gaussian random walk for arbitrary number of dimensions scaled between min/max bounds
+    TODO: Test within min and max. Test nsim, d, edge case d = 1.
+    :param nsim: (int) Number of simulation steps
+    :param d: (int) Number of dimensions for the random walk
+    :param min: (float or 1-d array) Lower bound on values
+    :param max: (float or 1-d array) Upper bound on values
+    :param sigma: (float or 1-d array) Variance of normal distribution
+    :return: (np.array shape=(nsim, d)) Random walk time series of dimension nx and length nsim
+    """
+    max = max if isinstance(max, np.ndarray) else np.full((d,), max, dtype=np.float64)
+    min = min if isinstance(min, np.ndarray) else np.full((d,), min, dtype=np.float64)
+    sigma = sigma if isinstance(sigma, np.ndarray) else np.full((d,), sigma, dtype=np.float64)
+    assert len(sigma) == d and len(sigma.shape) == 1, "sigma should be a float or 1d array of length d"
+    assert len(max) == d and len(max.shape) == 1, "max should be a float or 1d array of length d"
+    assert len(min) == d and len(min.shape) == 1, "min should be a float or 1d array of length d"
+
+    origin = np.full((1, d), 0.)
+    steps = np.random.normal(scale=sigma, size=(nsim-1, d))
+    signal = np.concatenate([origin, steps], axis=0).cumsum(axis=0)
+    return min + (max - min)*signal
+
+
 def WhiteNoise(nx=1, nsim=100, xmax=1, xmin=0, rseed=1):
     """
     White Noise
@@ -62,6 +91,20 @@ def WhiteNoise(nx=1, nsim=100, xmax=1, xmin=0, rseed=1):
         signal = xmin[k] + (xmax[k] - xmin[k])*np.random.rand(nsim)
         Signal.append(signal)
     return np.asarray(Signal).T
+
+
+def white_noise(nsim, d, min=0., max=1., sigma=0.05):
+    """
+    Gaussian random walk for arbitrary number of dimensions scaled between min/max bounds
+    :param nsim: (int) Number of simulation steps
+    :param d: (int) Number of dimensions for the random walk
+    :param min: (float or 1-d array) Lower bound on values
+    :param max: (float or 1-d array) Upper bound on values
+    :param sigma: (float or 1-d array) Variance of normal distribution
+    :return: (np.array shape=(nsim, d)) Random walk time series of dimension nx and length nsim
+    """
+    signal = np.random.normal(scale=sigma, size=(nsim, d))
+    return min + (max - min) * signal
 
 
 def Step(nx=1, nsim=100, tstep=50, xmax=1, xmin=0, rseed=1):

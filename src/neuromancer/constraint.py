@@ -468,23 +468,26 @@ class Variable(nn.Module):
     def __rmod__(self, modulo):
         return Variable(input_variables=[modulo, self], func=lambda x, y: x % y, display_name="mod")
 
-    def show(self):
-        """
-        Plot and display computational graph
-        """
-        nx.draw(self._g, with_labels=True)
-        plt.show()
+    # def show(self):
+    #     """
+    #     Plot and display computational graph
+    #     """
+    #     nx.draw(self._g, with_labels=True)
+    #     plt.show()
 
-    def draw(self, figname=None):
+    def show(self, figname=None):
         """
         Plot and save computational graph
 
         :param figname: (str) Name to save figure to.
         """
-        figname = f'{self.key}.png' if figname is None else figname
         nx.draw(self._g, with_labels=True)
-        plt.savefig(figname)
-        plt.close()
+        if figname is not None:
+            plt.savefig(figname)
+            plt.close()
+        else:
+            plt.show()
+
 
     @property
     def T(self):

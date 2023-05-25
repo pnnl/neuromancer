@@ -128,6 +128,8 @@ class Problem(nn.Module):
         fig.axes.get_yaxis().set_visible(False)
         plt.show()
 
+
+
     def __repr__(self):
         s = "### MODEL SUMMARY ###\n\nCOMPONENTS:"
         if len(self.components) > 0:

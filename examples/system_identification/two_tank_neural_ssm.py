@@ -271,8 +271,6 @@ if __name__ == "__main__":
     ts = 2.0
     modelSystem = system(ts=ts, nsim=args.nsim)
     raw = modelSystem.simulate(ts=ts)
-    raw['Y'] = raw['Y'][:-1, :]
-    raw['X'] = raw['X'][:-1, :]
     plot.pltOL(Y=raw['Y'], U=raw['U'])
     plot.pltPhase(X=raw['Y'])
     plt.show(block=True)

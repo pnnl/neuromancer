@@ -56,9 +56,9 @@ def pltPhase(X, Xtrain=None, figname=None):
         plt.xlabel('$x_1$')
         plt.ylabel('$x_2$')
     plt.tight_layout()
-    plt.show()
     if figname is not None:
         plt.savefig(figname)
+    plt.show()
 
 
 def pltCorrelate(X, figname=None):

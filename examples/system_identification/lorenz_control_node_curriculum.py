@@ -91,14 +91,14 @@ def get_data(nsteps, box, sys):
         sim = sys.simulate(ts=args.ts, nsim=nsteps, x0=get_x0(box), U=sys.get_U(nsteps))
         # this will have the same starting point as the last state in sim but will be 1 timestep longer and you
         # throw away the first state.
-        X.append(sim['X'][:-1, :])
+        X.append(sim['X'])
         U.append(sim['U'])
                 
     X, U = np.stack(X), np.stack(U)
     sim = sys.simulate(ts=args.ts, nsim=args.nsim*nsteps, x0=get_x0(box), U=sys.get_U(args.nsim*nsteps))
 
-    sim['Y'] = sim['Y'][:-1, :]
-    sim['X'] = sim['X'][:-1, :]
+    sim['Y'] = sim['Y']
+    sim['X'] = sim['X']
 
     nx, nu = X.shape[-1], U.shape[-1]
     x, u  = sim['X'].reshape(args.nsim, nsteps, nx), sim['U'].reshape(args.nsim, nsteps, nu)

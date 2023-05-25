@@ -10,11 +10,12 @@ A few things that are included:
 """
 import os
 import sklearn
+from sklearn import metrics
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import torch.optim as optim
 
-from nonautonomous import systems
+from neuromancer.psl.nonautonomous import systems
 from neuromancer.problem import Problem
 from neuromancer.loggers import MLFlowLogger
 from neuromancer.trainer import Trainer
@@ -253,7 +254,7 @@ if __name__ == "__main__":
     parser.add_argument('-nlayers', type=int, default=4, help='Number of hidden layers for MLP')
     parser.add_argument('-scaled_loss', action='store_true',
                         help='Whether to scale the statewise prediction MSEs by variance of the state in the training set.')
-    parser.add_argument('-iterations', type=int, default=3,
+    parser.add_argument('-iterations', type=int, default=1,
                         help='How many episodes of curriculum learning by doubling the prediction horizon and halving the learn rate each episode')
     parser.add_argument('-eval_metric', type=str, default='eval_mse')
     args = parser.parse_args()
@@ -325,7 +326,7 @@ if __name__ == "__main__":
     # Test set results
     x0 = sys.get_x0()
     sim = sys.simulate(ts=args.ts, nsim=1000, x0=x0)
-    X = torch.tensor(sim['X'][:-1, :], dtype=torch.float32)
+    X = torch.tensor(sim['X'], dtype=torch.float32)
     X = X.view(1, *X.shape)
     U = torch.tensor(sim['U'], dtype=torch.float32)
     U = U.view(1, *U.shape)
@@ -343,9 +344,9 @@ if __name__ == "__main__":
     pred_traj = pred_traj.detach().numpy().reshape(-1, nx)
     true_traj = true_traj.detach().numpy().reshape(-1, nx)
 
-    mae = sklearn.metrics.mean_absolute_error(true_traj, pred_traj)
-    mse = sklearn.metrics.mean_squared_error(true_traj, pred_traj, squared=False)
-    r2 = sklearn.metrics.r2_score(true_traj, pred_traj)
+    mae = metrics.mean_absolute_error(true_traj, pred_traj)
+    mse = metrics.mean_squared_error(true_traj, pred_traj, squared=False)
+    r2 = metrics.r2_score(true_traj, pred_traj)
     print(f'mae: {mae}\tmse: {mse}\tr2: {r2}')
     logger.log_metrics({f'mse_test': mse,
                         f'mae_test': mae,

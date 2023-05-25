@@ -2,10 +2,10 @@ from hypothesis import given, settings, strategies as st
 import pytest
 from itertools import product
 import torch, numpy as np
-from pkg.base import Backend
-from pkg.autonomous import systems as autosys
-from pkg.nonautonomous import systems as nonautosys
-from pkg.building_envelope import systems as buildsys
+from neuromancer.psl.base import Backend
+from neuromancer.psl.autonomous import systems as autosys
+from neuromancer.psl.nonautonomous import systems as nonautosys
+from neuromancer.psl.building_envelope import systems as buildsys
 
 
 SEED = 0

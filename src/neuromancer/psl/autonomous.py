@@ -10,7 +10,7 @@ References:
     * https://en.wikipedia.org/wiki/List_of_dynamical_systems_and_differential_equations_topics
 """
 import inspect, sys
-from pkg.base import ODE_Autonomous, cast_backend
+from neuromancer.psl.base import ODE_Autonomous, cast_backend
 
 
 class UniversalOscillator(ODE_Autonomous):

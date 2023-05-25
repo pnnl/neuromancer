@@ -1,6 +1,6 @@
 from hypothesis import given, settings, strategies as st
 import pytest
-from pkg.signals import signals as sig
+from neuromancer.psl.signals import signals as sig
 import numpy as np
 
 signals = [v for k, v in sig.items()]

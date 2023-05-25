@@ -1,4 +1,4 @@
-from pkg import nonautonomous, autonomous, building_envelope
+from neuromancer.psl import nonautonomous, autonomous, building_envelope
 import numpy as np
 import pytest
 

@@ -1,9 +1,9 @@
-from pkg.norms import StandardScaler, normalize, denormalize
+from neuromancer.psl.norms import StandardScaler, normalize, denormalize
 import torch
 import numpy as np
 from hypothesis import given, settings, strategies as st
-from pkg.nonautonomous import systems
-import pkg
+from neuromancer.psl.nonautonomous import systems
+import neuromancer.psl as pkg
 import pytest
 
 rand = [lambda shape: torch.rand(*shape), lambda shape: np.random.uniform(size=shape)]

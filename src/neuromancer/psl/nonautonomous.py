@@ -539,7 +539,7 @@ class ThomasAttractorControl(ODE):
     @cast_backend
     def get_U(self, nsim):
         return step(nsim=nsim, d=1, values=[0.208186, 0.3289, 0.5, 1.0], min=0., max=1.,
-                    randsteps=int(np.ceil(nsim / 48)), xmax=1.0, xmin=0.) + noise(nsim=nsim, d=1, min=-.01, max=.01)
+                    randsteps=int(np.ceil(nsim / 48))) + noise(nsim=nsim, d=1, min=-.01, max=.01)
 
     @cast_backend
     def equations(self, t, x, u):

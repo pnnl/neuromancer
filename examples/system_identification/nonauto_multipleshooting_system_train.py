@@ -9,11 +9,11 @@ A few things that are included:
     + Training data with many sampled initial conditions for independent n-step simulations as well as a single long trajectory
 """
 import os
-import sklearn
+from sklearn import metrics
 from torch.utils.data import DataLoader
 import torch.optim as optim
 
-from neuromancer.psl.nonautonomous import systems
+from neuromancer.psl.at import systems
 from neuromancer.problem import Problem
 from neuromancer.loggers import MLFlowLogger
 from neuromancer.trainer import Trainer
@@ -75,7 +75,7 @@ class Validator:
         :param normalize: (bool) Whether to normalized data. Will denorm before plotting and loss calculation if True
         """
         self.figname = ''
-        self.x0s = [sys.get_x0() for i in range(10)]
+        self.x0s = [sys.get_x0() for i in range(1)]
         self.normalize = normalize
         self.sys = sys
         X, U = [], []
@@ -126,16 +126,18 @@ def get_data(nsteps, sys, nsim, bs, normalize=False):
 
     """
     X, T, U = [], [], []
-    for _ in range(nsim):
+    nsim = (nsim//nsteps)*nsteps
+    nbatches = nsim//nsteps
+    for _ in range(nbatches):
         sim = sys.simulate(nsim=nsteps, x0=sys.get_x0())
         X.append(sim['X'])
         U.append(sim['U'])
 
     X, U = np.stack(X), np.stack(U)
-    sim = sys.simulate(nsim=nsim * nsteps, x0=sys.get_x0())
+    sim = sys.simulate(nsim=nsim, x0=sys.get_x0())
 
     nx, nu = X.shape[-1], U.shape[-1]
-    x, u = sim['X'].reshape(nsim, nsteps, nx), sim['U'].reshape(nsim, nsteps, nu)
+    x, u = sim['X'].reshape(nbatches, nsteps, nx), sim['U'].reshape(nbatches, nsteps, nu)
     X, U = np.concatenate([X, x], axis=0), np.concatenate([U, u], axis=0)
 
     X = torch.tensor(X, dtype=torch.float32)
@@ -260,9 +262,9 @@ if __name__ == "__main__":
 
     pred_traj = pred_traj.detach().numpy().reshape(-1, nx)
     true_traj = true_traj.detach().numpy().reshape(-1, nx)
-    mae = sklearn.metrics.mean_absolute_error(true_traj, pred_traj)
-    mse = sklearn.metrics.mean_squared_error(true_traj, pred_traj, squared=False)
-    r2 = sklearn.metrics.r2_score(true_traj, pred_traj)
+    mae = metrics.mean_absolute_error(true_traj, pred_traj)
+    mse = metrics.mean_squared_error(true_traj, pred_traj, squared=False)
+    r2 = metrics.r2_score(true_traj, pred_traj)
     print(f'mae: {mae}\tmse: {mse}\tr2: {r2}')
     logger.log_metrics({f'mse_test': mse,
                         f'mae_test': mae,

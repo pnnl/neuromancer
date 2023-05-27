@@ -468,13 +468,6 @@ class Variable(nn.Module):
     def __rmod__(self, modulo):
         return Variable(input_variables=[modulo, self], func=lambda x, y: x % y, display_name="mod")
 
-    # def show(self):
-    #     """
-    #     Plot and display computational graph
-    #     """
-    #     nx.draw(self._g, with_labels=True)
-    #     plt.show()
-
     def show(self, figname=None):
         """
         Plot and save computational graph

@@ -28,7 +28,7 @@ class Problem(nn.Module):
 
     def __init__(self, components: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]],
                  loss: Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]],
-                 grad_inference=False, check_overwrite=True):
+                 grad_inference=False, check_overwrite=False):
         """
         :param components: (List[Component]) list of objects which implement the component interface (e.g. Function, Policy, Estimator)
         :param loss: (PenaltyLoss) instantiated loss class

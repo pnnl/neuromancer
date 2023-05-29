@@ -101,7 +101,7 @@ def cast_backend(method):
     return _impl
 
 
-class EmulatorBase(ABC):
+class EmulatorBase(ABC, torch.nn.Module):
     def __init__(self, seed=59, exclude_norms=['Time'], backend='numpy', requires_grad=False,
                  set_stats=True):
         """
@@ -319,7 +319,7 @@ class ODE_NonAutonomous(EmulatorBase):
         pass
 
     @cast_backend
-    def forward(self, x, t, u):
+    def forward(self, x, u):
         """
         For compatibility with the System class for open/closed loop simulations
 
@@ -328,10 +328,13 @@ class ODE_NonAutonomous(EmulatorBase):
         :param u: (1, nu)
         :return: x_next (1, nx)
         """
-        x, t, u = x.flatten(), t.flatten(), u
-        eq = EquationWrapper(t, u, self.equations, self.B)
-        dT = self.B.cast([t[0], t[0] + self.ts])
-        xdot = self.B.odeint(eq, x, dT)
+        U = self.B.cat([u, u], axis=0)
+        Time = self.B.core.arange(0, 2) * self.ts
+        equation = EquationWrapper(Time, U, self.equations, self.B)
+        if self.B.core is torch:
+            xdot = self.B.odeint(equation, x.flatten(), Time, options={"grid_points": Time, "eps": 1e-6})
+        else:
+            xdot = self.B.odeint(equation, x.flatten(), Time)
         return xdot[-1].reshape(1, -1)
 
     @cast_backend

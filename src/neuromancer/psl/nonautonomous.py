@@ -398,7 +398,7 @@ class Actuator(ODE):
 
     @cast_backend
     def get_U(self, nsim):
-        delta = step(nsim=nsim, d=3, min=[0.0, -1.0, -1.0], max=[1.0, 1., 1.], randsteps=100)
+        delta = sines(nsim=nsim, d=3, min=[0.0, -1.0, -1.0], max=[1.0, 1., 1.], periods=100)
         return delta
 
     @cast_backend

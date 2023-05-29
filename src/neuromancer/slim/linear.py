@@ -691,7 +691,7 @@ class SymmetricSpectralLinear(SpectralLinear):
         self.U = self.V
 
 
-class SymplecticLinear(SquareLinear):
+class SymplecticLinear(LinearBase):
     """
     + https://en.wikipedia.org/wiki/Symplectic_matrix
     + https://arxiv.org/abs/1705.03341

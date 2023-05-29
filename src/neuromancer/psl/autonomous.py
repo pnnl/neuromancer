@@ -106,6 +106,7 @@ class LorenzSystem(ODE_Autonomous):
         meta = {}
         return variables, constants, parameters, meta
 
+
     @cast_backend
     def equations(self, t, x):
         dx1 = self.sigma*(x[1] - x[0])

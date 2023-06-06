@@ -5,7 +5,7 @@ from neuromancer.gradients import gradient, jacobian
 from neuromancer.component import Component
 
 
-class GradientProjection(Component):
+class GradientProjection(nn.Module):
     """
     Implementation of projected gradient method for gradient-based corrections of constraints violations
     Abstract steps of the gradient projection method:
@@ -27,19 +27,17 @@ class GradientProjection(Component):
         :param batch_second:
         :param name:
         """
-        input_keys = input_keys if isinstance(input_keys, list) else [input_keys]
-        output_keys = output_keys if output_keys else input_keys
-        assert len(input_keys) == len(output_keys), \
-            f'Length of input_keys {input_keys} must equal length of output_keys {output_keys}'
-
-        super().__init__(input_keys=input_keys, output_keys=output_keys, name=name)
+        self.input_keys = input_keys if isinstance(input_keys, list) else [input_keys]
+        self.output_keys = output_keys if output_keys else input_keys
+        assert len(self.input_keys) == len(self.output_keys), \
+            f'Length of input_keys {self.input_keys} must equal length of output_keys {self.output_keys}'
+        self.name = name
         self.constraints = nn.ModuleList(constraints)
         self._num_steps = num_steps
         self.step_size = step_size
         self.input_keys = input_keys
         self.batch_second = batch_second
         self.decay = decay
-        # self._constraints_check()
 
     def _constraints_check(self):
         """
@@ -85,7 +83,7 @@ class GradientProjection(Component):
         return output_dict
 
 
-class IterativeSolver(Component):
+class IterativeSolver(nn.Module):
     """
     Class for a family of iterative solvers for root-finding solutions to the problem:
         :math:`g(x) = 0`
@@ -115,11 +113,11 @@ class IterativeSolver(Component):
         :param batch_second:
         :param name:
         """
-        input_keys = input_keys if isinstance(input_keys, list) else [input_keys]
-        output_keys = output_keys if output_keys else input_keys
-        assert len(input_keys) == len(output_keys), \
-            f'Length of input_keys {input_keys} must equal length of output_keys {output_keys}'
-        super().__init__(input_keys=input_keys, output_keys=output_keys, name=name)
+        self.input_keys = input_keys if isinstance(input_keys, list) else [input_keys]
+        self.output_keys = output_keys if output_keys else input_keys
+        assert len(self.input_keys) == len(self.output_keys), \
+            f'Length of input_keys {self.input_keys} must equal length of output_keys {self.output_keys}'
+        self.name = name
         self.constraints = nn.ModuleList(constraints)
         self._num_steps = num_steps
         self.input_keys = input_keys

@@ -27,7 +27,7 @@ from neuromancer.dataset import DictDataset
 import matplotlib.pyplot as plt
 from neuromancer.callbacks import Callback
 import numpy as np
-from neuromancer.system import Node, EulerIntegrator, System
+from neuromancer.system import Node, System
 import torch
 
 

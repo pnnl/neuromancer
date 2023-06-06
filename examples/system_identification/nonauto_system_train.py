@@ -24,8 +24,30 @@ from neuromancer.dataset import DictDataset
 import matplotlib.pyplot as plt
 from neuromancer.callbacks import Callback
 import numpy as np
-from neuromancer.system import Node, EulerIntegrator, System
+from neuromancer.integrators import Euler
+from neuromancer.system import Node, System
 import torch
+
+
+class EulerIntegrator(nn.Module):
+    """
+    Simple black-box NODE
+    """
+    def __init__(self, nx, nu, hsize, nlayers, ts):
+        super().__init__()
+        self.dx = MLP(nx + nu, nx, bias=True, linear_map=nn.Linear, nonlin=nn.ELU,
+                      hsizes=[hsize for h in range(nlayers)])
+        interp_u = lambda tq, t, u: u
+        self.integrator = Euler(self.dx, h=torch.tensor(ts), interp_u=interp_u)
+
+    def forward(self, xn, u):
+        """
+
+        :param xn: (Tensor, shape=(batchsize, nx)) State
+        :param u: (Tensor, shape=(batchsize, nu)) Control action
+        :return: (Tensor, shape=(batchsize, nx)) xn+1
+        """
+        return self.integrator(xn, u=u)
 
 
 def plot_traj(true_traj, pred_traj, figname='open_loop.png'):

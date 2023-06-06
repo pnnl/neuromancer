@@ -31,6 +31,7 @@ class Loss(nn.Module):
         :param weight: (float) Weight of loss for calculating multi-term loss function
         :param name: (str) Name for tracking output
         """
+        super().__init__()
         self.name, self.input_keys, self.output_keys = name, input_keys, [name]
         self.weight = weight
         self.loss = loss
@@ -166,6 +167,7 @@ class Objective(nn.Module):
         :param weight: (float, int, or zero-D torch.Tensor) For scaling calculated Constraint violation loss
         :param name: (str) Optional intuitive name for storing in Problem's output dictionary.
         """
+        super().__init__()
         assert type(var) is Variable, f'{var} must be Variable type'
         if name is None:
             name = f'{var.display_name}_{metric}'
@@ -217,6 +219,7 @@ class Constraint(nn.Module):
         :param weight: (float, int, or zero-D torch.Tensor) For scaling calculated Constraint violation loss
         :param name: (str) Optional intuitive name for storing in Problem's output dictionary.
         """
+        super().__init__()
         if not type(left) is Variable:
             if isinstance(left, (int, float, complex, bool)):
                 display_name = str(left)

@@ -1,4 +1,3 @@
-#%%
 import torch
 from neuromancer import interpolation
 from hypothesis import given, settings, strategies as st

@@ -7,10 +7,9 @@ xmin <= x <= xmax
 from typing import List
 from abc import abstractmethod
 import torch
-from neuromancer.component import Component
 
 
-class Bounds(Component):
+class Bounds(torch.nn.Module):
     DEFAULT_INPUT_KEYS: List[str]
 
     def __init__(self, input_key_map={}, output_keys=[], name=None):
@@ -20,10 +19,10 @@ class Bounds(Component):
         :param output_keys: [str] optional string to define new variable key at the output
         :param name:
         """
-
+        super().__init__()
         self._update_input_keys(input_key_map=input_key_map)
         self._update_output_keys(output_keys=output_keys)
-        super().__init__(input_keys=self.input_keys, output_keys=self.output_keys, name=name)
+        self.name = name
 
     def _update_input_keys(self, input_key_map={}):
         assert isinstance(input_key_map, dict), \

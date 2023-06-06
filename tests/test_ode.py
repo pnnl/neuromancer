@@ -1,8 +1,8 @@
 import torch
-from neuromancer import ode, physics
+from neuromancer.modules import ode, physics
 from hypothesis import given, settings, strategies as st
 import random
-from neuromancer.blocks import MLP
+from neuromancer.modules.blocks import MLP
 
 ode_param_systems_auto = [v for v in ode.ode_param_systems_auto.values()]
 ode_param_systems_nonauto = [v for v in ode.ode_param_systems_nonauto.values()]

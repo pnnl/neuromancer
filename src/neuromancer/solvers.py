@@ -27,6 +27,7 @@ class GradientProjection(nn.Module):
         :param batch_second:
         :param name:
         """
+        super().__init__()
         self.input_keys = input_keys if isinstance(input_keys, list) else [input_keys]
         self.output_keys = output_keys if output_keys else input_keys
         assert len(self.input_keys) == len(self.output_keys), \
@@ -113,6 +114,7 @@ class IterativeSolver(nn.Module):
         :param batch_second:
         :param name:
         """
+        super().__init__()
         self.input_keys = input_keys if isinstance(input_keys, list) else [input_keys]
         self.output_keys = output_keys if output_keys else input_keys
         assert len(self.input_keys) == len(self.output_keys), \

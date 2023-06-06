@@ -8,8 +8,8 @@ import torch
 import torch.nn as nn
 import neuromancer.slim as slim
 
-import neuromancer.rnn as rnn
-from neuromancer.activations import soft_exp, SoftExponential, SmoothedReLU
+import neuromancer.modules.rnn as rnn
+from neuromancer.modules.activations import soft_exp, SoftExponential, SmoothedReLU
 
 
 class Linear(nn.Module):

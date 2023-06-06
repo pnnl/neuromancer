@@ -77,6 +77,7 @@ class MovingHorizon(nn.Module):
                         buffer from previous measurements. There should be a key for each of
                         the input_keys in module and the values should be lists of 2-d tensors
         """
+        super().__init__()
         self.input_keys, self.output_keys = module.input_keys, module.output_keys
         self.history = {k: [] for k in self.input_keys} if history is None else history
         self.ndelay, self.module = ndelay, module

@@ -10,7 +10,7 @@ import torch
 from torch import nn
 
 import neuromancer.slim as slim
-from neuromancer import blocks
+from neuromancer.modules import blocks
 
 
 def pwa_batched(fx, x, use_bias=True):

@@ -1,5 +1,5 @@
 import torch
-from neuromancer.modules import ode, physics
+from neuromancer.dynamics import ode, physics
 from hypothesis import given, settings, strategies as st
 import random
 from neuromancer.modules.blocks import MLP

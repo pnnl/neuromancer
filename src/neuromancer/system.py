@@ -21,8 +21,8 @@ import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
-from neuromancer.integrators import Euler
-from neuromancer.blocks import MLP
+from neuromancer.dynamics.integrators import Euler
+from neuromancer.modules import MLP
 from neuromancer.loss import PenaltyLoss
 from neuromancer.problem import Problem
 from neuromancer.constraint import variable
@@ -232,9 +232,6 @@ class System(nn.Module):
                 outdata = node(indata)  # compute
                 data = self.cat(data, outdata)  # feed the data nodes
         return data  # return recorded system measurements
-
-
-
 
 
 if __name__ == "__main__":

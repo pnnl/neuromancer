@@ -5,12 +5,13 @@ Test PWA map representations of feedforward neural nets from pwa_maps.py
 
 from torch import nn
 from neuromancer import modules
-from neuromancer.modules.pwa_maps import pwa_batched
+from neuromancer.analysis.pwa_maps import pwa_batched
 import torch
 from hypothesis import given, settings, strategies as st
 
 activations = [nn.LeakyReLU, nn.ReLU, nn.PReLU, nn.GELU, nn.CELU, nn.ELU,
                 nn.LogSigmoid, nn.Sigmoid, nn.Tanh]
+
 
 @given(st.integers(1, 5),
        st.lists(st.integers(1, 20), min_size=1, max_size=4),

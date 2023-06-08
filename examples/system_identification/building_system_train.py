@@ -13,11 +13,17 @@ python building_system_train.py -model node -normalize -epochs 100 -nsteps 128 -
 """
 import dill
 import os
+
 import sklearn
+import matplotlib.pyplot as plt
+import numpy as np
+
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from neuromancer.activations import SoftExponential
+import torch
+import torch.nn as nn
 
+from neuromancer.modules.activations import SoftExponential
 from neuromancer.psl.building_envelope import systems
 from neuromancer.problem import Problem
 from neuromancer.loggers import MLFlowLogger
@@ -25,15 +31,10 @@ from neuromancer.trainer import Trainer
 from neuromancer.constraint import Loss, variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer.dataset import DictDataset
-
-import matplotlib.pyplot as plt
-from neuromancer.callbacks import Callback
-import numpy as np
+from neuromancer.modules.blocks import MLP
+from neuromancer.dynamics.integrators import Euler
 from neuromancer.system import Node, System
-import torch
-import torch.nn as nn
-from neuromancer.blocks import MLP
-from neuromancer.integrators import Euler
+from neuromancer.callbacks import Callback
 
 
 def plot_traj(true_traj, pred_traj, figname='open_loop.png'):

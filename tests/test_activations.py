@@ -1,6 +1,6 @@
 import torch
 from hypothesis import given, settings, strategies as st
-from neuromancer.activations import activations
+from neuromancer.modules.activations import activations
 
 activations = [v for k, v in activations.items()]
 

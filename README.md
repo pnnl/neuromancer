@@ -8,6 +8,7 @@ https://pypi.org/project/neuromancer/)
 
 Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations.
 
+
 Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
 Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro
 

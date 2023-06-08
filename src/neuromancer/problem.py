@@ -18,26 +18,28 @@ import torch.nn as nn
 class Problem(nn.Module):
     """
     This class is similar in spirit to a nn.Sequential module. However,
-    by concatenating input and output dictionaries for each component
+    by concatenating input and output dictionaries for each node
     module we can represent arbitrary directed acyclic computation graphs.
     In addition the Problem module takes care of calculating loss functions
     via given instantiated weighted multi-objective PenaltyLoss object which
     calculate objective and constraints terms from aggregated input and set
-    of outputs from the component modules.
+    of outputs from the node modules.
     """
 
-    def __init__(self, components: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]],
+    def __init__(self, nodes: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]],
                  loss: Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]],
                  grad_inference=False, check_overwrite=False):
         """
-        :param components: (List[Component]) list of objects which implement the component interface (e.g. Function, Policy, Estimator)
+        :param nodes: (List[Node]) list of objects which implement the Node interface
+                                   (i.e. input and output are dicts of Tensors and
+                                   object has input_keys, output_keys, and name attributes)
         :param loss: (PenaltyLoss) instantiated loss class
         :param update: (Callable) problem will update the output dictionary and return new dictionary with the same keys
                                 but updated values. Example includes projected gradient method.
         :param grad_inference: (boolean) flag for enabling computation of grdients during inference time, useful for techniques like projected gradient
         """
         super().__init__()
-        self.components = nn.ModuleList(components)
+        self.nodes = nn.ModuleList(nodes)
         self.loss = loss
         self.grad_inference = grad_inference
         self.check_overwrite = check_overwrite
@@ -46,21 +48,21 @@ class Problem(nn.Module):
 
     def _check_keys(self):
         keys = set()
-        for component in list(self.components)+[self.loss]:
-            keys |= set(component.input_keys)
-            new_keys = set(component.output_keys)
+        for node in list(self.nodes)+[self.loss]:
+            keys |= set(node.input_keys)
+            new_keys = set(node.output_keys)
             same = new_keys & keys
             if self.check_overwrite:
                 if len(same) != 0:
-                    warnings.warn(f'Keys {same} are being overwritten by the component {component}.')
+                    warnings.warn(f'Keys {same} are being overwritten by the node {node}.')
             keys |= new_keys
 
     def _check_unique_names(self):
         num_unique = len(set([o.name for o in self.loss.objectives] + [c.name for c in self.loss.constraints]
-                             + [comp.name for comp in self.components]))
-        num_obj = len(self.loss.objectives) + len(self.loss.constraints) + len(self.components)
+                             + [comp.name for comp in self.nodes]))
+        num_obj = len(self.loss.objectives) + len(self.loss.constraints) + len(self.nodes)
         assert num_unique == num_obj, \
-            "All components, objectives and constraints must have unique names to construct a computational graph."
+            "All nodes, objectives and constraints must have unique names to construct a computational graph."
 
     def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         output_dict = self.step(data)
@@ -70,10 +72,10 @@ class Problem(nn.Module):
         return {f'{data["name"]}_{k}': v for k, v in output_dict.items()}
 
     def step(self, input_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        for component in self.components:
-            output_dict = component(input_dict)
+        for node in self.nodes:
+            output_dict = node(input_dict)
             if isinstance(output_dict, torch.Tensor):
-                output_dict = {component.name: output_dict}
+                output_dict = {node.name: output_dict}
             input_dict = {**input_dict, **output_dict}
         return input_dict
 
@@ -86,29 +88,29 @@ class Problem(nn.Module):
         input_keys = []
         output_keys = []
         all_common_keys = []
-        for idx, component in enumerate(self.components):
-            input_keys += component.input_keys
-            output_keys += component.output_keys
-            if component.name is None:
-                component.name = '?'
-            graph.add_node(pydot.Node(component.name, label=component.name, shape="box"))
-        for src, dst in combinations(self.components, 2):
+        for idx, node in enumerate(self.nodes):
+            input_keys += node.input_keys
+            output_keys += node.output_keys
+            if node.name is None:
+                node.name = '?'
+            graph.add_node(pydot.Node(node.name, label=node.name, shape="box"))
+        for src, dst in combinations(self.nodes, 2):
             common_keys = set(src.output_keys) & set(dst.input_keys)
             all_common_keys += common_keys
             for key in common_keys:
                 graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
         data_keys = list(set(input_keys) - set(all_common_keys))
-        for component in self.components:
-            for key in set(component.input_keys) & set(data_keys):
-                graph.add_edge(pydot.Edge("in", component.name, label=key))
+        for node in self.nodes:
+            for key in set(node.input_keys) & set(data_keys):
+                graph.add_edge(pydot.Edge("in", node.name, label=key))
 
         if include_objectives:
-            _add_obj_components(graph, self.loss.objectives, self.components, data_keys)
-            _add_obj_components(graph, self.loss.constraints, self.components, data_keys, style="dashed")
+            _add_obj_nodes(graph, self.loss.objectives, self.nodes, data_keys)
+            _add_obj_nodes(graph, self.loss.constraints, self.nodes, data_keys, style="dashed")
         else:
-            for component in self.components:
-                for key in set(component.output_keys) & set(self.loss.input_keys):
-                    graph.add_edge(pydot.Edge("out", component.name, label=key))
+            for node in self.nodes:
+                for key in set(node.output_keys) & set(self.loss.input_keys):
+                    graph.add_edge(pydot.Edge("out", node.name, label=key))
                 for key in set(data_keys) & set(self.loss.input_keys):
                     graph.add_edge(pydot.Edge("in", "out", label=key))
 
@@ -128,12 +130,10 @@ class Problem(nn.Module):
         fig.axes.get_yaxis().set_visible(False)
         plt.show()
 
-
-
     def __repr__(self):
-        s = "### MODEL SUMMARY ###\n\nCOMPONENTS:"
-        if len(self.components) > 0:
-            for c in self.components:
+        s = "### MODEL SUMMARY ###\n\nnodeS:"
+        if len(self.nodes) > 0:
+            for c in self.nodes:
                 s += f"\n  {repr(c)}"
             s += "\n"
         else:
@@ -158,11 +158,11 @@ class Problem(nn.Module):
         return s
 
 
-def _add_obj_components(graph, objs, components, data_keys, style="solid"):
+def _add_obj_nodes(graph, objs, nodes, data_keys, style="solid"):
     for obj in objs:
         graph.add_node(pydot.Node(obj.name, label=obj.name, shape="box", color="red", style=style))
         common_keys = [
-            (c.name, k) for c in components for k in c.output_keys
+            (c.name, k) for c in nodes for k in c.output_keys
             if k in obj.input_keys
         ] + [
             ("in", k) for k in data_keys

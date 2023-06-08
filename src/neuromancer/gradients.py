@@ -5,7 +5,6 @@ Computing gradients, jacobians, and PWA forms for components, variables, and con
 """
 
 import torch
-from neuromancer.component import Component
 
 
 def gradient(y, x, grad_outputs=None, create_graph=True):
@@ -37,30 +36,3 @@ def jacobian(y, x):
         grad_outputs[i] = 1
         jac[i] = gradient(y, x, grad_outputs=grad_outputs, create_graph=True)
     return jac
-
-
-class Gradient(Component):
-    DEFAULT_INPUT_KEYS = ["y", "x"]
-    DEFAULT_OUTPUT_KEYS = ["dy/dx"]
-    """
-    Gradient component class for computing gradients of neuromancer objects given the
-    generated dictionary dataset with keys corresponding to variables to be differentiated.
-    """
-    def __init__(self, input_key_map={}, name=None):
-        """
-        :param input_key_map:
-        :param name:
-        """
-        super().__init__(input_key_map, name)
-
-    def forward(self, data):
-        """
-
-        :param data: (dict: {str: Tensor})
-        :return: output (dict: {str: Tensor})
-        """
-
-        output = {}
-        output[self.DEFAULT_OUTPUT_KEYS[0]] = gradient(data[self.input_keys[0]], data[self.input_keys[1]])
-        return output
-

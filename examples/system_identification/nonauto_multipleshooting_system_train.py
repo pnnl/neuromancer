@@ -24,8 +24,33 @@ from neuromancer.dataset import DictDataset
 import matplotlib.pyplot as plt
 from neuromancer.callbacks import Callback
 import numpy as np
-from neuromancer.system import MultipleShootingEuler, Node, System
+from neuromancer.integrators import Euler
+
+from neuromancer.system import Node, System
 import torch
+
+
+class MultipleShootingEuler(nn.Module):
+    """
+    Simple multiple shooting setup.
+    """
+    def __init__(self, nx, nu, hsize, nlayers, ts):
+        super().__init__()
+        self.dx = MLP(nx + nu, nx, bias=True, linear_map=nn.Linear, nonlin=nn.ELU,
+                      hsizes=[hsize for h in range(nlayers)])
+        interp_u = lambda tq, t, u: u
+        self.integrator = Euler(self.dx, h=torch.tensor(ts), interp_u=interp_u)
+
+    def forward(self, x1, xn, u):
+        """
+
+        :param x1: (Tensor, shape=(batchsize, nx))
+        :param xn: (Tensor, shape=(batchsize, nx))
+        :param u: (Tensor, shape=(batchsize, nu))
+        :return: (tuple of Tensors, shapes=(batchsize, nx)) x2, xn+1
+        """
+        return self.integrator(x1, u=u), self.integrator(xn, u=u)
+
 
 
 def plot_traj(true_traj, pred_traj, figname='open_loop.png'):

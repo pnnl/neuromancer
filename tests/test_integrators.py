@@ -1,9 +1,7 @@
 import torch
-from neuromancer import ode
-from neuromancer import integrators
-from neuromancer import interpolation
+from neuromancer.dynamics import ode, integrators, interpolation
 from hypothesis import given, settings, strategies as st
-from neuromancer.blocks import MLP
+from neuromancer.modules.blocks import MLP
 import neuromancer.slim as slim
 
 

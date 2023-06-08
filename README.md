@@ -12,15 +12,28 @@ Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations
 Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
 Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro
 
-## Colab tutorials
-+ Parametric programming
-  + Rosenbrook
+Interactive notebook versions of examples are available on Google Colab!
+Test out NeuroMANCER functionality before cloning the repository and setting up an
+environment.
+
++ Parametric programming Rosenbrook
 <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Rosenbrock_interactive.ipynb">
 <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
-  + Himmelblau
+
++ Parametric programming Himmelblau
 <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb">
 <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
+
++ PSL signals
+<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/psl/signals.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
+
++ PSL systems
+<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/psl/systems.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
 
 + System Identification
@@ -38,12 +51,13 @@ Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
 
-## Version 1.3.2 Release Notes
-+ Merged Structured Linear Maps and Pyton Systems Library into Neuromancer
-  + The code in neuromancer was closely tied to psl and slim.
-  A decision was made to integrate the packages as submodules of neuromancer.
-  This also solves the issue of the package names "psl" and "slim" already being taken on PyPI.
-
+## Version 1.4 Release Notes
++ Refactored PSL
+  + Better PSL unit testing coverage
+  + Consistent interfaces across system types
+  + Consistent perturbation signal interface in signals.py
++ Refactored Control and System ID learning using Node and System class (system.py)
+  + Classes used for system ID can now be easily interchanged to accommodate downstream control policy learning
 
 ### Import changes for psl and slim
 
@@ -198,20 +212,7 @@ up in a future release.
 
 For detailed examples of NeuroMANCER usage for control, system identification, and
 parametric programming as well as tutorials for basic usage, see the scripts in the
-examples folder. 
-
-**New in 1.3.1:** Interactive notebook versions of examples are available on Google Colab!
-Test out NeuroMANCER functionality before cloning the repository and setting up an
-environment. We currently have three interactive notebook examples:
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/double_integrator_DPC_interactive.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-  examples/control/double_integrator_DPC_interactive.ipynb
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-  examples/parametric_programming/Himmelblau_interactive.ipynb 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/system_identification/duffing_parameter_interactive.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-  examples/duffing_parameter_interactive.ipynb 
+examples folder.
 
 
 ## Community
@@ -282,6 +283,12 @@ This research was partially supported by the Mathematics for Artificial Reasonin
 PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.
 
 # Prior release notes
+
+## Version 1.3.2 Release Notes
++ Merged Structured Linear Maps and Pyton Systems Library into Neuromancer
+  + The code in neuromancer was closely tied to psl and slim.
+  A decision was made to integrate the packages as submodules of neuromancer.
+  This also solves the issue of the package names "psl" and "slim" already being taken on PyPI.
 
 ## Version 1.3.1 release notes
 + New example scripts and notebooks

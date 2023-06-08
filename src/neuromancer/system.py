@@ -21,8 +21,8 @@ import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
-from neuromancer.integrators import Euler
-from neuromancer.blocks import MLP
+from neuromancer.dynamics.integrators import Euler
+from neuromancer.modules import MLP
 from neuromancer.loss import PenaltyLoss
 from neuromancer.problem import Problem
 from neuromancer.constraint import variable
@@ -59,6 +59,9 @@ class Node(nn.Module):
             output = [output]
         return {k: v for k, v in zip(self.output_keys, output)}
 
+    def __repr__(self):
+        return f"{self.name}({', '.join(self.input_keys)}) -> {', '.join(self.output_keys)}"
+
 
 class MovingHorizon(nn.Module):
     """
@@ -74,6 +77,7 @@ class MovingHorizon(nn.Module):
                         buffer from previous measurements. There should be a key for each of
                         the input_keys in module and the values should be lists of 2-d tensors
         """
+        super().__init__()
         self.input_keys, self.output_keys = module.input_keys, module.output_keys
         self.history = {k: [] for k in self.input_keys} if history is None else history
         self.ndelay, self.module = ndelay, module
@@ -97,7 +101,6 @@ class MovingHorizon(nn.Module):
 
 class System(nn.Module):
     """
-    TODO: Remove init_func from system
     Simple implementation for arbitrary cyclic computation
     """
     def __init__(self, nodes, name='', nstep_key='X', init_func=None, nsteps=None):
@@ -147,6 +150,10 @@ class System(nn.Module):
             all_common_keys += common_keys
             for key in common_keys:
                 graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
+            reverse_common_keys = set(dst.output_keys) & set(src.input_keys)
+            for key in reverse_common_keys:
+                graph.add_edge(pydot.Edge(dst.name, src.name, label=key))
+
         data_keys = list(set(input_keys) - set(all_common_keys))
         for node in self.nodes:
             loop_keys = list(set(node.input_keys) & set(node.output_keys))
@@ -227,54 +234,36 @@ class System(nn.Module):
         return data  # return recorded system measurements
 
 
-class EulerIntegrator(nn.Module):
-    """
-    Simple black-box NODE
-    """
-    def __init__(self, nx, nu, hsize, nlayers, ts):
-        super().__init__()
-        self.dx = MLP(nx + nu, nx, bias=True, linear_map=nn.Linear, nonlin=nn.ELU,
-                      hsizes=[hsize for h in range(nlayers)])
-        interp_u = lambda tq, t, u: u
-        self.integrator = Euler(self.dx, h=torch.tensor(ts), interp_u=interp_u)
-
-    def forward(self, xn, u):
-        """
-
-        :param xn: (Tensor, shape=(batchsize, nx)) State
-        :param u: (Tensor, shape=(batchsize, nu)) Control action
-        :return: (Tensor, shape=(batchsize, nx)) xn+1
-        """
-        return self.integrator(xn, u=u)
-
-
-class MultipleShootingEuler(nn.Module):
-    """
-    Simple multiple shooting setup.
-    """
-    def __init__(self, nx, nu, hsize, nlayers, ts):
-        super().__init__()
-        self.dx = MLP(nx + nu, nx, bias=True, linear_map=nn.Linear, nonlin=nn.ELU,
-                      hsizes=[hsize for h in range(nlayers)])
-        interp_u = lambda tq, t, u: u
-        self.integrator = Euler(self.dx, h=torch.tensor(ts), interp_u=interp_u)
-
-    def forward(self, x1, xn, u):
-        """
-
-        :param x1: (Tensor, shape=(batchsize, nx))
-        :param xn: (Tensor, shape=(batchsize, nx))
-        :param u: (Tensor, shape=(batchsize, nu))
-        :return: (tuple of Tensors, shapes=(batchsize, nx)) x2, xn+1
-        """
-        return self.integrator(x1, u=u), self.integrator(xn, u=u)
-
-
 if __name__ == "__main__":
     """
     Here is an example of a System that implements a standard n-step prediction rollout.
     This is the example illustrated in the slides.  
     """
+
+
+    class MultipleShootingEuler(nn.Module):
+        """
+        Simple multiple shooting setup.
+        """
+
+        def __init__(self, nx, nu, hsize, nlayers, ts):
+            super().__init__()
+            self.dx = MLP(nx + nu, nx, bias=True, linear_map=nn.Linear, nonlin=nn.ELU,
+                          hsizes=[hsize for h in range(nlayers)])
+            interp_u = lambda tq, t, u: u
+            self.integrator = Euler(self.dx, h=torch.tensor(ts), interp_u=interp_u)
+
+        def forward(self, x1, xn, u):
+            """
+
+            :param x1: (Tensor, shape=(batchsize, nx))
+            :param xn: (Tensor, shape=(batchsize, nx))
+            :param u: (Tensor, shape=(batchsize, nu))
+            :return: (tuple of Tensors, shapes=(batchsize, nx)) x2, xn+1
+            """
+            return self.integrator(x1, u=u), self.integrator(xn, u=u)
+
+
     m3 = EulerIntegrator(3, 2, 5, 2, 0.1)
     m4 = Node(m3, ['xn', 'U'], ['xn'])
     s2 = System([m4])

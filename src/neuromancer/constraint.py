@@ -15,10 +15,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from neuromancer.gradients import gradient
-from neuromancer.component import Component
 
 
-class Loss(Component):
+class Loss(nn.Module):
     """
     Drop in replacement for a Constraint object but relies on a list of dictionary keys and a callable function
     to instantiate.
@@ -32,7 +31,8 @@ class Loss(Component):
         :param weight: (float) Weight of loss for calculating multi-term loss function
         :param name: (str) Name for tracking output
         """
-        super().__init__(input_keys=input_keys, output_keys=[name], name=name)
+        super().__init__()
+        self.name, self.input_keys, self.output_keys = name, input_keys, [name]
         self.weight = weight
         self.loss = loss
 
@@ -154,7 +154,7 @@ class Eq(nn.Module):
         return loss, value, penalty
 
 
-class Objective(Component):
+class Objective(nn.Module):
     """
     Drop in replacement for a Loss object constructed via neuromancer Variable object
     in the forward pass evaluates metric as torch function on Variable values
@@ -167,11 +167,12 @@ class Objective(Component):
         :param weight: (float, int, or zero-D torch.Tensor) For scaling calculated Constraint violation loss
         :param name: (str) Optional intuitive name for storing in Problem's output dictionary.
         """
+        super().__init__()
         assert type(var) is Variable, f'{var} must be Variable type'
         if name is None:
             name = f'{var.display_name}_{metric}'
         key = f'{var.key}_{metric}'
-        super().__init__(input_keys=var.keys, output_keys=[key], name=name)
+        self.input_keys, self.output_keys, self.name = var.keys, [key], name
         self.var = var
         self.metric = metric
         self.weight = weight
@@ -202,7 +203,7 @@ class Objective(Component):
         return f"Objective: {self.name}({', '.join(self.input_keys)}) = {self.weight} * {self.metric}({', '.join(self.input_keys)})"
 
 
-class Constraint(Component):
+class Constraint(nn.Module):
     """
     Drop in replacement for a Loss object but constructed by a composition of Variable objects
     using comparative infix operators, '<', '>', '==', '<=', '>=' and '*' to weight loss component and '^' to
@@ -218,6 +219,7 @@ class Constraint(Component):
         :param weight: (float, int, or zero-D torch.Tensor) For scaling calculated Constraint violation loss
         :param name: (str) Optional intuitive name for storing in Problem's output dictionary.
         """
+        super().__init__()
         if not type(left) is Variable:
             if isinstance(left, (int, float, complex, bool)):
                 display_name = str(left)
@@ -239,7 +241,7 @@ class Constraint(Component):
         self.key = f'{left.key}_{comparator}_{right.key}'
         input_keys = left.keys + right.keys
         output_keys = [self.key, f'{self.key}_value', f'{self.key}_violation']
-        super().__init__(input_keys=input_keys, output_keys=output_keys, name=name)
+        self.input_keys, self.output_keys, self.name = input_keys, output_keys, name
         self.left = left
         self.right = right
         self.comparator = comparator

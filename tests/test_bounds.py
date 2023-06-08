@@ -1,9 +1,5 @@
-from hypothesis import given, settings, strategies as st
-
 import torch
-from neuromancer.maps import Map, ManyToMany, OneToOne
-from neuromancer.bounds import HardMinMaxScale, HardMinMaxBound, HardMinBound, HardMaxBound
-from neuromancer import blocks
+from neuromancer.modules.bounds import HardMinMaxScale, HardMinMaxBound, HardMinBound, HardMaxBound
 
 _ = torch.set_grad_enabled(False)
 

@@ -9,13 +9,18 @@ A few things that are included:
     + Training data with many sampled initial conditions for independent n-step simulations as well as a single long trajectory
 """
 import os
+
 import sklearn
+import numpy as np
+import matplotlib.pyplot as plt
+
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch.nn as nn
+import torch
 
-from neuromancer.blocks import MLP
-from neuromancer.integrators import Euler
+from neuromancer.modules.blocks import MLP
+from neuromancer.dynamics.integrators import Euler
 from neuromancer.psl.autonomous import systems
 from neuromancer.problem import Problem
 from neuromancer.loggers import MLFlowLogger
@@ -23,12 +28,8 @@ from neuromancer.trainer import Trainer
 from neuromancer.constraint import Loss, variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer.dataset import DictDataset
-
-import matplotlib.pyplot as plt
 from neuromancer.callbacks import Callback
-import numpy as np
 from neuromancer.system import Node, System
-import torch
 
 
 def plot_traj(true_traj, pred_traj, figname='open_loop.png'):

@@ -22,10 +22,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from neuromancer.dynamics.integrators import Euler
-from neuromancer.modules import MLP
-from neuromancer.loss import PenaltyLoss
-from neuromancer.problem import Problem
-from neuromancer.constraint import variable
+from neuromancer.modules.blocks import MLP
 
 
 class Node(nn.Module):

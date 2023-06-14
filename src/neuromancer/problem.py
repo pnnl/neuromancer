@@ -121,6 +121,7 @@ class Problem(nn.Module):
 
         return graph
 
+    # TODO: to fix
     def plot_graph(self, fname='problem_graph.png'):
         graph = self.problem_graph
         graph.write_png(fname)

@@ -4,7 +4,7 @@ Test PWA map representations of feedforward neural nets from pwa_maps.py
 """
 
 from torch import nn
-from neuromancer import modules
+from neuromancer.modules import blocks
 from neuromancer.analysis.pwa_maps import pwa_batched
 import torch
 from hypothesis import given, settings, strategies as st
@@ -21,7 +21,7 @@ def test_pwa_maps_sample_bias(nx, hsizes, nonlin):
     # random feature point
     x_z = torch.randn(1, nx)
     # define square neural net
-    fx = modules.MLP(nx, nx, nonlin=nonlin, hsizes=hsizes, bias=True)
+    fx = blocks.MLP(nx, nx, nonlin=nonlin, hsizes=hsizes, bias=True)
     Astar, bstar, *_ = pwa_batched(fx, x_z)
 
     mlp_out = fx(x_z)
@@ -43,7 +43,7 @@ def test_pwa_maps_sample_nobias(nx, hsizes, nonlin):
     # random feature point
     x_z = torch.randn(1, nx)
     # define square neural net
-    fx = modules.MLP(nx, nx, nonlin=nonlin, hsizes=hsizes, bias=False)
+    fx = blocks.MLP(nx, nx, nonlin=nonlin, hsizes=hsizes, bias=False)
     Astar, bstar, *_ = pwa_batched(fx, x_z)
 
     mlp_out = fx(x_z)
@@ -65,7 +65,7 @@ def test_pwa_maps_sample_nobias_batched(nx, hsizes, nonlin):
     # random feature point
     x_z = torch.randn(5, nx)
     # define square neural net
-    fx = modules.MLP(nx, nx, nonlin=nonlin, hsizes=hsizes, bias=False)
+    fx = blocks.MLP(nx, nx, nonlin=nonlin, hsizes=hsizes, bias=False)
     Astar, bstar, *_ = pwa_batched(fx, x_z)
 
     mlp_out = fx(x_z)
@@ -87,7 +87,7 @@ def test_pwa_maps_sample_bias_batched(nx, hsizes, nonlin):
     # random feature point
     x_z = torch.randn(5, nx)
     # define square neural net
-    fx = modules.MLP(nx, nx, nonlin=nonlin, hsizes=hsizes, bias=True)
+    fx = blocks.MLP(nx, nx, nonlin=nonlin, hsizes=hsizes, bias=True)
     Astar, bstar, *_ = pwa_batched(fx, x_z)
 
     mlp_out = fx(x_z)

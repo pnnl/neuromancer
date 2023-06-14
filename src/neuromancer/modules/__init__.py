@@ -1,1 +1,1 @@
-from neuromancer.modules.blocks import *
+from neuromancer.modules import *

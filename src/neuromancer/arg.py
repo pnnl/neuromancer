@@ -8,7 +8,7 @@ command line arguments to functions and to abbreviate argparse's verbose method 
 import argparse
 from argparse import ArgumentParser
 
-from neuromancer.activations import activations
+from neuromancer.modules.activations import activations
 
 
 def add(self, argname, **kwargs):

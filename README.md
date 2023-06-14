@@ -3,8 +3,8 @@
 Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations.
 
 
-Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
-Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro
+Active developers: Aaron Tuor, Jan Drgona, James Koch, Madelyn Shapiro, Draguna Vrabie  
+Past contributors: Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 
 Interactive notebook versions of examples are available on Google Colab!
 Test out NeuroMANCER functionality before cloning the repository and setting up an
@@ -122,20 +122,21 @@ Note: If you have a previous neuromancer env it would be best at this point to c
 
 ```bash
 git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
-
 ```
+
 ## Conda install
 Conda install is recommended for GPU acceleration. 
 In many cases the following simple install should work for the specified OS
 
-### Ubuntu
+### Create environment & install dependencies
+#### Ubuntu
 
 ``` bash
 conda env create -f linux_env.yml
 conda activate neuromancer
 ```
 
-### Windows
+#### Windows
 
 ``` bash
 conda env create -f windows_env.yml
@@ -143,14 +144,14 @@ conda activate neuromancer
 conda install -c defaults intel-openmp -f
 ```
 
-### MacOS (Apple M1)
+#### MacOS (Apple M1)
 
 ``` bash
 conda env create -f osxarm64_env.yml
 conda activate neuromancer
 ```
 
-### Other operating system
+#### Other (manually install all dependencies)
 
 !!! Pay attention to comments for non-Linux OS !!!
 
@@ -160,18 +161,27 @@ conda activate neuromancer
 conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
 ## OR (for Mac): conda install pytorch -c pytorch
 conda config --append channels conda-forge
-conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba
-conda install networkx=3.0 plum-dispatch 
+conda install scipy numpy"<1.24.0" matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba
+conda install networkx=3.0 plum-dispatch=1.7.3 
 conda install -c anaconda pytest hypothesis
 conda install cvxpy cvxopt casadi seaborn imageio
 conda install tqdm torchdiffeq toml
 ## (for Windows): conda install -c defaults intel-openmp -f
 ```
 
+### Install NeuroMANCER package
+From the top level directory of cloned neuromancer
+(in the activated environment where the dependencies have been installed):
+
+```bash
+pip install -e . --no-deps
+```
+
 ## PIP Install
 Pip installation is broken up into required dependencies for core Neuromancer
 and dependencies associated with the examples, tests, and generating the documentation.
 Below we give instructions to install all dependencies in a conda virtual enviroment via pip. 
+You need at least pip version >= 21.3.
 
 ### Create and activate virtual environment
 
@@ -182,10 +192,15 @@ conda activate neuromancer
 
 
 ### Install neuromancer and all dependencies.
-From top level directory of cloned neuromancer run: 
+From top level directory of cloned neuromancer run:
 
 ```bash
 pip install -e.[docs,tests,examples]
+```
+
+OR, for zsh users:
+```zsh
+pip install -e.'[docs,tests,examples]'
 ```
 
 See the `pyproject.toml` file for reference.
@@ -196,6 +211,15 @@ tests = ["pytest", "hypothesis"]
 examples = ["casadi", "cvxpy", "imageio"]
 docs = ["sphinx", "sphinx-rtd-theme"]
 ```
+
+### Note on pip install with `examples` on MacOS (Apple M1)
+Before CVXPY can be installed on Apple M1, you must install `cmake` via Homebrew:
+
+```zsh
+brew install cmake
+```
+
+See [CVXPY installation instructions](https://www.cvxpy.org/install/index.html) for more details.
 
 ## Test NeuroMANCER install
 Run pytest on the test folder. It should take about 2 minutes to run the tests on CPU. 
@@ -264,11 +288,11 @@ be highly valuable but not included below, please open an issue and let us know 
 
 ## Cite as
 ```yaml
-@article{Neuromancer2022,
+@article{Neuromancer2023,
   title={{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}},
-  author={Tuor, Aaron and Drgona, Jan and Skomski, Mia and Koch, James and Chen, Zhao and Dernbach, Stefan and Legaard, Christian Møldrup and Vrabie, Draguna},
+  author={Tuor, Aaron and Drgona, Jan and Koch, James and Shapiro, Madelyn and Vrabie, Draguna},
   Url= {https://github.com/pnnl/neuromancer}, 
-  year={2022}
+  year={2023}
 }
 ```
 

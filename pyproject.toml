@@ -42,14 +42,14 @@ dependencies = [
     "dill",
     "matplotlib",
     "mlflow",
-    "networkx",
-    "numpy",
+    "networkx==3.0.0",
+    "numpy<1.24.0",
     "pandas",
-    "plum_dispatch",
+    "plum_dispatch==1.7.3",
     "scikit_learn",
     "scipy",
     "six",
-    "pydot",
+    "pydot==1.4.2",
     "pyts",
     "scipy",
     "torch",
@@ -57,7 +57,7 @@ dependencies = [
     "toml"
 ]
 
-version = "1.3.3"
+version = "1.4.0"
 
 [project.urls]
 homepage = "https://github.com/pnnl/neuromancer/"

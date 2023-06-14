@@ -11,20 +11,19 @@ https://en.wikipedia.org/wiki/Rosenbrock_function
 """
 
 import torch
+import torch.nn as nn
 import neuromancer.slim as slim
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
-import numpy as np
 from casadi import *
 import casadi
 
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
 from neuromancer.constraint import variable
-from neuromancer.activations import activations
 from neuromancer.dataset import DictDataset
 from neuromancer.loss import PenaltyLoss
-from neuromancer import blocks
+from neuromancer.modules import blocks
 from neuromancer.system import Node
 
 
@@ -82,7 +81,7 @@ if __name__ == "__main__":
     func = blocks.MLP(insize=2, outsize=2,
                     bias=True,
                     linear_map=slim.maps['linear'],
-                    nonlin=activations['relu'],
+                    nonlin=nn.ReLU,
                     hsizes=[80] * 4)
     # define symbolic solution map with concatenated features (problem parameters)
     xi = lambda a, p: torch.cat([a, p], dim=-1)
@@ -122,8 +121,8 @@ if __name__ == "__main__":
     # construct constrained optimization problem
     problem = Problem(components, loss)
     # plot computational graph
-    problem.plot_graph()
-    plt.show(block=True)
+    # problem.plot_graph()
+    # plt.show(block=True)
 
     """
     # # #  mpNLP problem solution in Neuromancer

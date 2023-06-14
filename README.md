@@ -3,8 +3,8 @@
 Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations.
 
 
-Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
-Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro
+Active developers: Aaron Tuor, Jan Drgona, James Koch, Madelyn Shapiro, Draguna Vrabie  
+Past contributors: Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 
 Interactive notebook versions of examples are available on Google Colab!
 Test out NeuroMANCER functionality before cloning the repository and setting up an
@@ -122,8 +122,8 @@ Note: If you have a previous neuromancer env it would be best at this point to c
 
 ```bash
 git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
-
 ```
+
 ## Conda install
 Conda install is recommended for GPU acceleration. 
 In many cases the following simple install should work for the specified OS
@@ -181,6 +181,7 @@ pip install -e . --no-deps
 Pip installation is broken up into required dependencies for core Neuromancer
 and dependencies associated with the examples, tests, and generating the documentation.
 Below we give instructions to install all dependencies in a conda virtual enviroment via pip. 
+You need at least pip version >= 21.3.
 
 ### Create and activate virtual environment
 
@@ -287,11 +288,11 @@ be highly valuable but not included below, please open an issue and let us know 
 
 ## Cite as
 ```yaml
-@article{Neuromancer2022,
+@article{Neuromancer2023,
   title={{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}},
-  author={Tuor, Aaron and Drgona, Jan and Skomski, Mia and Koch, James and Chen, Zhao and Dernbach, Stefan and Legaard, Christian Møldrup and Vrabie, Draguna},
+  author={Tuor, Aaron and Drgona, Jan and Koch, James and Shapiro, Madelyn and Vrabie, Draguna},
   Url= {https://github.com/pnnl/neuromancer}, 
-  year={2022}
+  year={2023}
 }
 ```
 

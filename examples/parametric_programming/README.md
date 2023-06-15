@@ -206,25 +206,31 @@ https://github.com/pnnl/neuromancer/blob/master/src/neuromancer/problem.py
 https://github.com/pnnl/neuromancer/blob/master/src/neuromancer/trainer.py
 
 
-## DPP Examples - TODO
+## Examples 
 
-Scripts for various types of differentiable constrained optimization of parametric programs.
-    + mpNLP_Himmelblau_nm.py: Solve the Himmelblau problem, formulated as the NLP using Neuromancer <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-        - ![](../figs/mpNLP_Himmelblau_nm.png)
-    + mpQP_nm_2.py: Multi-parametric Quadratic Programming (mpQP) problem using Neuromancer.
-        - ![](../figs/mpQP_nm_2.png)
-    + mpLP_nm_1.py: Solve Linear Programming (LP) problem using Neuromancer.
-        - ![](../figs/mpLP_nm_1.png)
-    + mpNLP_GomezLevy_nm.py: Solve the Gomez and Levy function problem, formulated as the NLP using Neuromancer.
-        - ![](../figs/mpNLP_GomezLevy_nm.png)
-    + mpNLP_StyblinskiTang_nm.py: Solve the Styblinski–Tang problem, formulated as the NLP using Neuromancer.
-        - ![](../figs/mpNLP_StyblinskiTang_nm.png)   
-    + mpQP_nm_1.py: Multi-parametric Quadratic Programming (mpQP) problem using Neuromancer
-        - ![](../figs/mpQP_nm_1.png)
-    + mpNLP_Rosenbrock_nm.py: Solve the Rosenbrock problem, formulated as the NLP using Neuromancer
-        - ![](../figs/mpNLP_Rosenbrock_nm.png)   
-    + mpQCQP_nm_1.py: Multi-parametric quadratically constrained quadratic program (mpQCQP) problem using Neuromancer
-        - ![](../figs/MpQCQP_nm_1.png)
+Step-by step tutorial examples for differentiable parametric programming.
+Visualisations in 2D domain provide intuitive assessment of the algorithm performance.
+Red stars represent solutions obtained using DPP implemented in Neuromancer 
+and green stars represent solutions obtained from iterative solver (IPOPT).  
++ [Part 1](./Part_1_LearnToOptimize_tutorial.py):
+Tutorial example for formulating and solving parametric nonlinear programming (pNLP) problem.  
+<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
+  ![](../figs/Part_1_pNLP.png)
++ [Part 2](./Part_2_LearnToOptimize_pQP.py): Tutorial example for formulating and solving a parametric quadratic programming (pQP) and quadratically constrained QP (pQCQP) problems.    
+<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
+  ![](../figs/pQP_nm_2.png) 
+  ![](../figs/pQCQP_nm_1.png)
++ [Part 3](./Part_3_LearnToOptimize_pNLP.py): Tutorial example for formulating and solving a set of parametric nonlinear programming (pNLP) problems.  
+<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
+  ![](../figs/pNLP_GomezLevy_nm.png) 
+  ![](../figs/pNLP_Himmelblau_nm.png)
+  ![](../figs/pNLP_McCormick_nm.png)
+  ![](../figs/pNLP_Rosenbrock_nm.png)
+  ![](../figs/pNLP_Simionescu_nm.png)
+  ![](../figs/pNLP_StyblinskiTang_nm.png)
+  ![](../figs/pNLP_Three-hump-camel_nm.png)
+  ![](../figs/pNLP_Beale_nm.png)
+
 
 
 ## Related publications
@@ -234,6 +240,6 @@ Scripts for various types of differentiable constrained optimization of parametr
 - [S. Gould, et al., Deep Declarative Networks: A New Hope, 2020](https://arxiv.org/abs/1909.04866)
 - [J. Kotary, et al., End-to-End Constrained Optimization Learning: A Survey, 2021](https://arxiv.org/abs/2103.16378)
 - [M. Li, et al., Learning to Solve Optimization Problems with Hard Linear Constraints](https://arxiv.org/abs/2208.10611)
-- [F. Fioretto , et al., Predicting AC Optimal Power Flows: Combining Deep Learning and Lagrangian Dual Methods](https://arxiv.org/abs/1909.10461)
-
+- [F. Fioretto, et al., Predicting AC Optimal Power Flows: Combining Deep Learning and Lagrangian Dual Methods](https://arxiv.org/abs/1909.10461)
+- [R. Sambharya, et al., End-to-End Learning to Warm-Start for Real-Time Quadratic Optimization](https://arxiv.org/abs/2212.08260)
 

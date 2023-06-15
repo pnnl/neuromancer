@@ -4,30 +4,26 @@
 
 Here we list the file tree and plots of expected results from the default parameters of the example scripts
 
-+ **control**/ 
-    + double_integrator_dpc.py: Stabilizing control for a double integrator system. <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/double_integrator_DPC_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-+ **figs**/ Plots of expected results displayed below for the respective scripts that generated them. 
-+ **graph_timesteppers**/ Scripts for various graph timestepper models used for system identification
-    + rc_network.py: Resistor-Capacitor Network simulation for heat flow in a 5 room house.
-        - ![](figs/rcnetwork.png)
-+ **parametric_programming**/ Scripts for various types of differentiable constrained optimization of parametric programs
-    + mpNLP_Himmelblau_nm.py: Solve the Himmelblau problem, formulated as the NLP using Neuromancer <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-        - ![](figs/mpNLP_Himmelblau_nm.png)
-    + mpQP_nm_2.py: Multi-parametric Quadratic Programming (mpQP) problem using Neuromancer.
-        - ![](figs/mpQP_nm_2.png)
-    + mpLP_nm_1.py: Solve Linear Programming (LP) problem using Neuromancer.
-        - ![](figs/mpLP_nm_1.png)
-    + mpNLP_GomezLevy_nm.py: Solve the Gomez and Levy function problem, formulated as the NLP using Neuromancer.
-        - ![](figs/mpNLP_GomezLevy_nm.png)
-    + mpNLP_StyblinskiTang_nm.py: Solve the Styblinski–Tang problem, formulated as the NLP using Neuromancer.
-        - ![](figs/mpNLP_StyblinskiTang_nm.png)   
-    + mpQP_nm_1.py: Multi-parametric Quadratic Programming (mpQP) problem using Neuromancer
-        - ![](figs/mpQP_nm_1.png)
-    + mpNLP_Rosenbrock_nm.py: Solve the Rosenbrock problem, formulated as the NLP using Neuromancer
-        - ![](figs/mpNLP_Rosenbrock_nm.png)   
-    + mpQCQP_nm_1.py: Multi-parametric quadratically constrained quadratic program (mpQCQP) problem using Neuromancer
-        - ![](figs/MpQCQP_nm_1.png)
-+ **system_identification/** This folder has scripts system identification of autonomous and nonautonomous systems
++ **Neuromancer tutorials**/ Introducing basic functionality of the library.
+    - component_tutorial.py: Example code of working with the Neuromancer Component class          
+    - constraints_tutorial.py: Example code for easy formulation of objectives and constraints usint the Neuromancer Variable and Constraint classes.  
+    - graph_timestepper_tutorial.py: Example code of system identification using the Neuromancer graph timestepper.   
+    - linear_regression.py: Example code using new Neuromancer Variable class to solve a simple linear regression problem
+    - component_tutorial_interactive.py: Example code of working with the Neuromancer Component class 
+    - dataset_tutorial.py: Example code of using Neuromancer built in data loading code using pytorch Datasets and Dataloaders
+    - integrators_vs_psl_auto.py: Comparison of neuromancer numerical integration implementation with PSL simulations using scipy's odeint solver
+    - toy_interpolation.py: Use of control action interpolation with neuromancer neural ODEs
+
++ **parametric_programming**/ Examples for solving a set of parametric programming problems.
+  + [Part 1](./Part_1_LearnToOptimize_tutorial.py):
+Tutorial example for formulating and solving parametric nonlinear programming (pNLP) problem.  
+<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
+  + [Part 2](./Part_2_LearnToOptimize_pQP.py): Tutorial example for formulating and solving a parametric quadratic programming (pQP) and quadratically constrained QP (pQCQP) problems.    
+  <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+  + [Part 3](./Part_3_LearnToOptimize_pNLP.py): Tutorial example for formulating and solving a set of parametric nonlinear programming (pNLP) problems.  
+  <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
+
++ **system_identification/** This folder has examples for system identification of autonomous and nonautonomous dynamical systems.
     - **boxes.pkl**: Pickle file with reasonable bounds for initial conditions for the chaotic systems. 
     - **brusselator_parameter.py**: Parameter estimation for a 1D Brusselator system.
         + ![brusselator](figs/brusselator_parameter.png)
@@ -41,15 +37,14 @@ Here we list the file tree and plots of expected results from the default parame
         + ![duffing](figs/duffing_parameter.png)
     - **two_tank_node.py**: Modeling a Two Tank system with neural ODEs
         + ![two_tank](figs/two_tank_neural_ode.png)
-    - **two_tank_neural_ssm.py**: Modeling a two tank system with a neural state space model. 
+    - **two_tank_neural_ssm.py**: Modeling a two tank system with a neural state space model.
         + ![cstr](figs/two_tank_neural_ssm.png)
-+ **tutorials**/
-    - component_tutorial.py: Example code of working with the Neuromancer Component class          
-    - constraints_tutorial.py: Example code for easy formulation of objectives and constraints usint the Neuromancer Variable and Constraint classes.  
-    - graph_timestepper_tutorial.py: Example code of system identification using the Neuromancer graph timestepper.   
-    - linear_regression.py: Example code using new Neuromancer Variable class to solve a simple linear regression problem
-    - component_tutorial_interactive.py: Example code of working with the Neuromancer Component class 
-    - dataset_tutorial.py: Example code of using Neuromancer built in data loading code using pytorch Datasets and Dataloaders
-    - integrators_vs_psl_auto.py: Comparison of neuromancer numerical integration implementation with PSL simulations using scipy's odeint solver
-    - toy_interpolation.py: Use of control action interpolation with neuromancer neural ODEs
 
++ **control**/ Examples for solving a set of model-based optimal control problems.
+    + double_integrator_dpc.py: Stabilizing control for a double integrator system. <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/double_integrator_DPC_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+
++ **graph_timesteppers**/ Scripts for various graph timestepper models used for system identification.
+    + rc_network.py: Resistor-Capacitor Network simulation for heat flow in a 5 room house.
+        - ![](figs/rcnetwork.png)
+
++ **figs**/ Plots of expected results for the respective scripts that generated them.

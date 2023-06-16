@@ -123,10 +123,10 @@ if __name__ == "__main__":
 
     # constraints
     Q_con = 100.
+    g1 = -x - y + p1
+    con_1 = Q_con * (g1 <= 0)
+    con_1.name = 'c1'
     if problem_type == 'pQP':  # constraints for QP
-        g1 = -x - y + p1
-        con_1 = Q_con*(g1 <= 0)
-        con_1.name = 'c1'
         g2 = x + y - p1 - 5
         con_2 = Q_con*(g2 <= 0)
         con_2.name = 'c2'
@@ -138,11 +138,8 @@ if __name__ == "__main__":
         con_4.name = 'c4'
         constraints = [con_1, con_2, con_3, con_4]
     elif problem_type == 'pQCQP':  # constraints for QCQP
-        g1 = -x - y + p1
-        con_1 = Q_con*(g1 <= 0)
         g2 = x**2+y**2 - p2**2
         con_2 = Q_con*(g2 <= 0)
-        con_1.name = 'c1'
         con_2.name = 'c2'
         constraints = [con_1, con_2]
 

@@ -6,7 +6,7 @@ Problem formulation:
     subject to   (p/2)^2 <= x^2 + y^2 <= p^2
                  x>=y
 
-problem parameters:             a, p
+problem parameters:             p
 problem decition variables:     x, y
 Search domain:                  -5.0 <= x, y <= 5.0
 
@@ -54,7 +54,7 @@ def arg_pNLP_problem(prefix=''):
     """
     parser = arg.ArgParser(prefix=prefix, add_help=False)
     gp = parser.group("pNLP")
-    gp.add("-obj_fun", type=str, default='Beale',
+    gp.add("-obj_fun", type=str, default='Himelblau',
            choices=['Rosenbrock', 'GomezLevy', 'Himelblau', 'Styblinski-Tang',
                     'Simionescu', 'McCormick', 'Three-hump-camel', 'Beale'],
            help="select objective function to be optimized.")

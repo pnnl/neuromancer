@@ -236,10 +236,10 @@ Tutorial example for formulating and solving parametric nonlinear programming (p
 ## Related publications
 
 - [A. Agrawal, et al., Differentiable Convex Optimization Layers, 2019](https://arxiv.org/abs/1910.12430)
-- [P. Donti, et al., DC3: A learning method for optimization with hard constraints, 2021](https://arxiv.org/abs/2104.12225)
+- [F. Fioretto, et al., Predicting AC Optimal Power Flows: Combining Deep Learning and Lagrangian Dual Methods, 2019](https://arxiv.org/abs/1909.10461)
 - [S. Gould, et al., Deep Declarative Networks: A New Hope, 2020](https://arxiv.org/abs/1909.04866)
+- [P. Donti, et al., DC3: A learning method for optimization with hard constraints, 2021](https://arxiv.org/abs/2104.12225)
 - [J. Kotary, et al., End-to-End Constrained Optimization Learning: A Survey, 2021](https://arxiv.org/abs/2103.16378)
-- [M. Li, et al., Learning to Solve Optimization Problems with Hard Linear Constraints](https://arxiv.org/abs/2208.10611)
-- [F. Fioretto, et al., Predicting AC Optimal Power Flows: Combining Deep Learning and Lagrangian Dual Methods](https://arxiv.org/abs/1909.10461)
-- [R. Sambharya, et al., End-to-End Learning to Warm-Start for Real-Time Quadratic Optimization](https://arxiv.org/abs/2212.08260)
+- [M. Li, et al., Learning to Solve Optimization Problems with Hard Linear Constraints, 2022](https://arxiv.org/abs/2208.10611)
+- [R. Sambharya, et al., End-to-End Learning to Warm-Start for Real-Time Quadratic Optimization, 2022](https://arxiv.org/abs/2212.08260)
 

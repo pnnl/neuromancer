@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
 from casadi import *
 import casadi
+import time
 
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
@@ -101,7 +102,7 @@ if __name__ == "__main__":
     """
     # # #  pNLP variables, objective, and constraints formulation in Neuromancer
     
-    variable is basic symbolic abstraction in Neuromancer
+    variable is a basic symbolic abstraction in Neuromancer
        x = variable("variable_name")                      (instantiates new variable)  
     variable construction supports:
        algebraic expressions:     x**2 + x**3 + 5     (instantiates new variable)  
@@ -175,7 +176,7 @@ if __name__ == "__main__":
     CasADi benchmark
     """
     # instantiate casadi optimizaiton problem class
-    def NLP_param(a, p):
+    def NLP_param(a, p, opti_silent=False):
         opti = casadi.Opti()
         # define variables
         x = opti.variable()
@@ -188,7 +189,11 @@ if __name__ == "__main__":
         opti.subject_to((p_opti / 2) ** 2 <= x ** 2 + y ** 2)
         opti.subject_to(x ** 2 + y ** 2 <= p_opti ** 2)
         # select IPOPT solver and solve the NLP
-        opti.solver('ipopt')
+        if opti_silent:
+            opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
+        else:
+            opts = {}
+        opti.solver('ipopt', opts)
         # set parametric values
         opti.set_value(p_opti, p)
         opti.set_value(a_opti, a)
@@ -243,7 +248,80 @@ if __name__ == "__main__":
     print(y_nm)
 
     # plot optimal solutions CasADi vs Neuromancer
-    ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10)
-    ax.plot(x_nm, y_nm, 'r*', markersize=10)
+    ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10, label='CasADi')
+    ax.plot(x_nm, y_nm, 'r*', fillstyle='none', markersize=10, label='NeuroMANCER')
+    plt.legend(bbox_to_anchor=(1.0, 0.15))
     plt.show(block=True)
 
+    def eval_constraints(x, y, p):
+        """
+        evaluate mean constraints violations
+        """
+        con_1_viol = np.maximum(0, y - x)
+        con_2_viol = np.maximum(0, (p/2)**2 - (x**2+y**2))
+        con_3_viol = np.maximum(0, x**2+y**2 - p**2)
+        con_viol = con_1_viol + con_2_viol + con_3_viol
+        con_viol_mean = np.mean(con_viol)
+        return con_viol_mean
+
+    def eval_objective(x, y):
+        obj_value_mean = np.mean((1 - x) ** 2 + a * (y - x ** 2) ** 2)
+        return obj_value_mean
+
+    # select n number of random samples to evaluate
+    n_samples = 1000
+    idx = np.random.randint(0, nsim, n_samples)
+    p_samples = samples_test['p'][idx]
+    a_samples = samples_test['a'][idx]
+
+    # create named dictionary for neuromancer
+    datapoint = {'a': a_samples, 'p': p_samples, 'name': 'test'}
+
+    # Solve via neuromancer
+    t = time.time()
+    model_out = problem(datapoint)
+    nm_time = time.time() - t
+    x_nm = model_out['test_' + "x"][:, [0]].detach().numpy()
+    y_nm = model_out['test_' + "x"][:, [1]].detach().numpy()
+
+    # Solve via solver
+    t = time.time()
+    x_solver, y_solver = [], []
+    for i in range(0, n_samples):
+        prob, x, y = NLP_param(p_samples[i].numpy(), a_samples[i].numpy(), opti_silent=True)
+        sol = prob.solve()
+        x_solver.append(sol.value(x))
+        y_solver.append(sol.value(y))
+    solver_time = time.time() - t
+    x_solver = np.asarray(x_solver)
+    y_solver = np.asarray(y_solver)
+
+    # Evaluate neuromancer solution
+    print(f'Solution for {n_samples} problems via Neuromancer obtained in {nm_time:.4f} seconds')
+    nm_con_viol_mean = eval_constraints(x_nm, y_nm, p)
+    print(f'Neuromancer mean constraints violation {nm_con_viol_mean:.4f}')
+    nm_obj_mean = eval_objective(x_nm, y_nm)
+    print(f'Neuromancer mean objective value {nm_obj_mean:.4f}\n')
+
+    # Evaluate solver solution
+    print(f'Solution for {n_samples} problems via solver obtained in {solver_time:.4f} seconds')
+    solver_con_viol_mean = eval_constraints(x_solver, y_solver, p)
+    print(f'Solver mean constraints violation {solver_con_viol_mean:.4f}')
+    solver_obj_mean = eval_objective(x_solver, y_solver)
+    print(f'Solver mean objective value {solver_obj_mean:.4f}\n')
+
+    # neuromancer solver comparison
+    speedup_factor = solver_time / nm_time
+    print(f'Solution speedup factor {speedup_factor:.4f}')
+
+    # Difference in primal optimizers
+    dx = (x_solver - x_nm)[:, 0]
+    dy = (y_solver - y_nm)[:, 0]
+    err_x = np.mean(dx ** 2)
+    err_y = np.mean(dy ** 2)
+    err_primal = err_x + err_y
+    print('MSE primal optimizers:', err_primal)
+
+    # Difference in objective
+    err_obj = np.abs(solver_obj_mean - nm_obj_mean) / solver_obj_mean * 100
+    print(f'mean objective value discrepancy: {err_obj:.2f} %')

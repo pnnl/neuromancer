@@ -315,7 +315,7 @@ if __name__ == "__main__":
         p1 = samples_test['p1'][i].detach().numpy()
         p2 = samples_test['p2'][i].detach().numpy()
         prob, x, y = QP_param(p1, p2)
-        prob.solve(solver='ECOS_BB', verbose=True)
+        prob.solve(solver='ECOS_BB', verbose=False)
         prob.solve()
         x_solver.append(x.value)
         y_solver.append(y.value)

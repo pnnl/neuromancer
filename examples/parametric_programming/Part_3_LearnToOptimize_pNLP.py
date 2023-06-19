@@ -92,8 +92,6 @@ def arg_pNLP_problem(prefix=''):
            help="mu_max in augmented lagrangian.")
     gp.add("-inner_loop", type=int, default=1,
            help="inner loop in augmented lagrangian")
-    gp.add("-proj_grad", default=False, choices=[True, False],
-           help="Whether to use projected gradient update or not.")
     return parser
 
 
@@ -135,7 +133,6 @@ if __name__ == "__main__":
     """
     # define neural architecture for the solution map
     func = blocks.MLP(insize=1, outsize=2,
-                    bias=True,
                     linear_map=slim.maps['linear'],
                     nonlin=nn.ReLU,
                     hsizes=[args.n_hidden] * args.n_layers )
@@ -151,7 +148,7 @@ if __name__ == "__main__":
     # sampled parameters
     p = variable('p')
 
-    # list of available nonlinear objective functions
+    # list of nonlinear objective functions defined using Neuromancer variable
     obj_opt = {'Rosenbrock': (1 - x)**2 + (y - x**2)**2,
                'GomezLevy': 4 * x ** 2 - 2.1 * x ** 4 + 1 / 3 * x ** 6 + x * y - 4 * y ** 2 + 4 * y ** 4,
                'Himelblau': (x**2 + y - 11)**2 + (x + y**2 - 7)**2,
@@ -181,13 +178,13 @@ if __name__ == "__main__":
     if args.loss == 'penalty':
         loss = PenaltyLoss(objectives, constraints)
     elif args.loss == 'barrier':
-        loss = BarrierLoss(objectives, constraints,
-                           barrier=args.barrier_type)
+        loss = BarrierLoss(objectives, constraints, barrier=args.barrier_type)
     elif args.loss == 'augmented_lagrange':
         optimizer_args = {'inner_loop': args.inner_loop, "eta": args.eta, 'sigma': args.sigma,
                           'mu_init': args.mu_init, "mu_max": args.mu_max}
         loss = AugmentedLagrangeLoss(objectives, constraints, train_data, **optimizer_args)
 
+    # construct constrained optimization problem
     # construct constrained optimization problem
     problem = Problem(components, loss)
 
@@ -244,7 +241,7 @@ if __name__ == "__main__":
     # select IPOPT solver and solve the NLP
     opti.solver('ipopt')
 
-    # set parametric value and solve a single instance  NLP problem
+    # set parametric value and solve a single instance NLP problem via CasADi
     p = 3.
     opti.set_value(p_opti, p)
     opti.solve()
@@ -298,7 +295,7 @@ if __name__ == "__main__":
              path_effects=[patheffects.withTickedStroke()], alpha=0.7)
 
     # plot optimal solutions CasADi vs Neuromancer
-    ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10)
-    ax.plot(x_nm, y_nm, 'r*', markersize=10)
+    ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10, label='CasADi')
+    ax.plot(x_nm, y_nm, 'r*', fillstyle='none', markersize=10, label='NeuroMANCER')
+    plt.legend(bbox_to_anchor=(1.0, 0.15))
     plt.show(block=True)
-

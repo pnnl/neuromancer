@@ -31,9 +31,7 @@ import matplotlib.patches as mpatches
 
 # local imports
 from neuromancer.dataset import unbatch_tensor
-import neuromancer.blocks as blocks
-
-
+from neuromancer.modules import blocks
 
 def _add_obj_components(graph, objs, components, data_keys, style="solid"):
     for obj in objs:

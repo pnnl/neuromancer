@@ -193,7 +193,7 @@ class System(nn.Module):
         Concatenates data2d contents to corresponding entries in data3d
         :param data3d: (dict {str: Tensor}) Input to a node
         :param data2d: (dict {str: Tensor}) Output of a node
-        :return:
+        :return: (dict: {str: Tensor})
         """
         for k in data2d:
             if k not in data3d:
@@ -204,6 +204,9 @@ class System(nn.Module):
 
     def init(self, data):
         """
+        :param data: (dict: {str: Tensor}) Tensor shapes in dictionary are asssumed to be (batch, time, dim)
+        :return: (dict: {str: Tensor})
+
         Any nodes in the graph that are start nodes will need some data initialized.
         Here is an example of initializing an x0 entry in the input_dict.
 

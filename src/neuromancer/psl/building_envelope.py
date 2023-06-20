@@ -89,11 +89,11 @@ class BuildingEnvelope(ODE_NonAutonomous):
 
     def __init__(self, seed=59, exclude_norms=['Time'],
                  backend='numpy', requires_grad=False, system='Reno_full', set_stats=True):
+        self.nsim = 6000
         self.system = system
         download(self.url, self.path)
         super().__init__(seed=seed, exclude_norms=exclude_norms,
                          backend=backend, requires_grad=requires_grad, set_stats=set_stats)
-        self.nsim = 6000
 
     def get_xy(self):
         x0 = self.x0

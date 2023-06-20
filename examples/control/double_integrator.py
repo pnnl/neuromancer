@@ -1,6 +1,6 @@
 import torch
 from neuromancer.system import Node, System
-from neuromancer import blocks
+from neuromancer.modules import blocks
 from neuromancer.dataset import DictDataset
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     xnext = lambda x, u: x @ A.T + u @ B.T
     double_integrator = Node(xnext, ['X', 'U'], ['X'])
     cl_system = System([policy, double_integrator], init_func=lambda x: x)
-    cl_system.show()
+    # cl_system.show()
 
     # Training dataset generation
     train_data = DictDataset({'X': 3.*torch.randn(3333, 1, nx)}, name='train')  # Split conditions into train and dev

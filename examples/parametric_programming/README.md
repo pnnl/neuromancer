@@ -1,15 +1,28 @@
-# Differentiable Parametric Programming in Neuromancer
+# Differentiable Programming Programming (DPP) in Neuromancer
 
+Learning Solutions to Constrained Optimization Problems
+is a set of methods that use machine learning to learn the  
+solutions (explicit solvers) to optimization problems. 
 Constrained optimization problems where the solution x depends on the varying problem parameters ξ are
-called parametric programming problems. Differentiable Parametric Programming (DPP) is a set of methods
-that use automatic differentiation (AD) to compute sensitivities of constrained optimization problems w.r.t.
-to the problem parameters for obtaining parametric solutions of the problem
+called [parametric programming problems](https://en.wikipedia.org/wiki/Parametric_programming).
+Neuromancer allows you to formulate and solve a broad class of parametric optimization problems 
+via the [Differentiable Programming (DP)](https://en.wikipedia.org/wiki/Differentiable_programming) paradigm.
+Hence, we call the approach Differentiable Programming Programming (DPP).
+Specifically, Neuromancer allows you to use 
+automatic differentiation (AD) in PyTorch to compute the sensitivities of 
+such constrained optimization problems w.r.t. their parameters. 
+This allows you to leverage gradient-based optimizers (e.g., stochastic gradient descent)
+to obtain approximate solutions to constrained parametric programming problems via for semi-supervised offline learning. 
+The main advantage of this offline DPP-based solution compared to classical optimization solvers (e.g., IPOPT) 
+is faster online evaluation, often obtaining orders of magnitude speedups.
 
 ![Rosenbrock_sensitivity.](../parametric_programming/figs/Rosenbrock_sensitivity.gif)  
-*Parametric sensitivity visualisation of nonlinear Rosenbrock problem 
-whose solution changes with varying objective and constraints parameters. 
-Green star represents solution obtained via online solver (IPOPT), 
-where red star shows orders of magnitude faster solution obtained from offline DPP algorith.*
+*Visualisation of parametric sensitivity of nonlinear programming problem (NLP)
+ solution of which changes with varying objective and constraints parameters. 
+Green star represents solution obtained via classical online solver (IPOPT), 
+where red star shows solution obtained via offline learning using DPP approach (Neuromancer).*
+
+##  Imitation Learning vs Differentiable Parametric Programming
 
 Recent years have seen a rich literature
 of deep learning (DL) models for solving the constrained optimization problems on real-world tasks such
@@ -19,8 +32,9 @@ labeled data of pre-computed solutions using iterative solvers (i.e. IPOPT). Unf
 hardly perform well on unseen data as the outputs are not trained to satisfy physical constraints, leading to
 infeasible solutions.
 To address the feasibility issues, existing methods have been imposing constraints on the output space
-of deep learning models for a subsequent differentiation using AD tools. These differentiable programming-
-based methods, also called end-to-end learning, directly consider the original objectives and constraints in
+of deep learning models for a subsequent differentiation using AD tools. These differentiable programming-based 
+methods, also called end-to-end learning with constraints or learning to optimize, 
+directly consider the original objectives and constraints in
 the DL training process without the need of expert labeled data. 
 The following figure conceptually demonstrated the difference between supervised imitation learning 
 and unsupervised Differentiable Parametric Programming (DPP) which solution is obtained by 
@@ -35,7 +49,7 @@ in the form of a parametric constrained optimization problem:
 ![DPC_problem_form.](../parametric_programming/figs/DPP_problem_form.PNG)
 
 
-## Differentiable Loss Functions of Parametric Constrained Optimization Problems
+## Differentiable Loss Functions of Parametric Optimization Problems
 
 There are several ways in which we can enforce the constraints satisfaction
 while learning the solution π_Θ(ξ) of the differentiable constrained optimization problem (1). 
@@ -70,159 +84,162 @@ The gradient-based solution of the DPP problem is summarized in the following Al
 The following code illustrates the implementation of Differentiable Parametric
 Programming in Neuromancer:
 ```python 
-# Tutorial example for Differentiable Parametric Programming  in Neuromancer
-
+# Tutorial example for Differentiable Parametric Programming (DPP) in Neuromancer
 import torch
-import neuromancer as nm
-import slim 
+import torch.nn as nn
 import numpy as np
+import neuromancer.slim as slim
+from neuromancer.trainer import Trainer
+from neuromancer.problem import Problem
+from neuromancer.constraint import variable
+from neuromancer.dataset import DictDataset
+from neuromancer.loss import PenaltyLoss
+from neuromancer.modules import blocks
+from neuromancer.system import Node
 
 """
-# # #  Dataset 
+# # #  Create dataloaders sampling of problem parameters
 """
-#  randomly sampled parameters theta generating superset of:
-#  theta_samples.min() <= theta <= theta_samples.max()
-nsim = 20000  # number of datapoints: increase sample density for more robust results
-samples = {"a": np.random.uniform(low=0.2, high=1.5, size=(nsim, 1)),
-           "p": np.random.uniform(low=0.5, high=2.0, size=(nsim, 1))}
-data, dims = nm.get_static_dataloaders(samples)
-train_data, dev_data, test_data = data
+nsim = 5000  # number of datapoints: increase sample density for more robust results
+# create dictionaries with sampled datapoints with uniform distribution
+a_low, a_high, p_low, p_high = 0.2, 1.2, 0.5, 2.0
+samples_train = {"a": torch.FloatTensor(nsim, 1).uniform_(a_low, a_high),
+                 "p": torch.FloatTensor(nsim, 1).uniform_(p_low, p_high)}
+samples_dev = {"a": torch.FloatTensor(nsim, 1).uniform_(a_low, a_high),
+               "p": torch.FloatTensor(nsim, 1).uniform_(p_low, p_high)}
+samples_test = {"a": torch.FloatTensor(nsim, 1).uniform_(a_low, a_high),
+               "p": torch.FloatTensor(nsim, 1).uniform_(p_low, p_high)}
+# create named dictionary datasets
+train_data = DictDataset(samples_train, name='train')
+dev_data = DictDataset(samples_dev, name='dev')
+test_data = DictDataset(samples_test, name='test')
+# create torch dataloaders for the Trainer
+train_loader = torch.utils.data.DataLoader(train_data, batch_size=32, num_workers=0,
+                                           collate_fn=train_data.collate_fn, shuffle=True)
+dev_loader = torch.utils.data.DataLoader(dev_data, batch_size=32, num_workers=0,
+                                         collate_fn=dev_data.collate_fn, shuffle=True)
+test_loader = torch.utils.data.DataLoader(test_data, batch_size=32, num_workers=0,
+                                         collate_fn=test_data.collate_fn, shuffle=True)
 
 """
-# # #  multi parametric nonlinear program (mpNLP) primal solution map 
+# # #  Symbolic solution map architecture 
 """
-func = nm.blocks.MLP(insize=2, outsize=2,
-                bias=True,
-                linear_map=slim.maps['linear'],
-                nonlin=nm.activations.activations['relu'],
-                hsizes=[80] * 4)
-sol_map = nm.maps.Map(func,
-        input_keys=["a", "p"],
-        output_keys=["x"],
-        name='primal_map')
+# pytorch callable concatenating problem parameters 
+xi = lambda a, p: torch.cat([a, p], dim=-1)
+# wrap callable into symbolic representation via the Node class: features(a, p) -> xi
+features = Node(xi, ['a', 'p'], ['xi'], name='features')
+# define neural architecture for the trainable solution map
+func = blocks.MLP(insize=2, outsize=2, linear_map=slim.maps['linear'], nonlin=nn.ReLU, hsizes=[80] * 4)
+# wrap neural net into symbolic representation of the solution map via the Node class: sol_map(xi) -> x
+sol_map = Node(func, ['xi'], ['x'], name='map')
+    
 """
-# # #  mpNLP objective and constraints formulation in Neuromancer
+# # #  Objective and constraints formulation 
 """
-# variables
-x = nm.constraint.variable("x")[:, [0]]
-y = nm.constraint.variable("x")[:, [1]]
-# sampled parameters
-p = nm.constraint.variable('p')
-a = nm.constraint.variable('a')
-
-# weight factors
-Q_con = 100.
-Q = 1.
+# define decision variables
+x = variable("x")[:, [0]]
+y = variable("x")[:, [1]]
+# problem parameters sampled in the dataset
+p = variable('p')
+a = variable('a')
 
 # objective function
 f = (1-x)**2 + a*(y-x**2)**2
-obj = f.minimize(weight=Q, name='obj')
+obj = f.minimize(weight=1.0)
 
 # constraints
-con_1 = (x >= y)
-con_2 = ((p/2)**2 <= x**2+y**2)
-con_3 = (x**2+y**2 <= p**2)
-
-# constrained optimization problem construction
-objectives = [obj]
-constraints = [Q_con*con_1, Q_con*con_2, Q_con*con_3]
-components = [sol_map]
-
-# use projected gradient update
-projection = nm.solvers.GradientProjection(constraints, input_keys=["x"], num_steps=5, name='proj')
-components.append(projection)
-
-# create constrained optimization loss
-loss = nm.loss.PenaltyLoss(objectives, constraints, train_data)
-# construct constrained optimization problem
-problem = nm.problem.Problem(components, loss, grad_inference=True)
-# plot computational graph
-problem.plot_graph()
+Q_con = 100.  # constraint penalty weights
+con_1 = Q_con*(x >= y)
+con_2 = Q_con*((p/2)**2 <= x**2+y**2)
+con_3 = Q_con*(x**2+y**2 <= p**2)
 
 """
-# # #  mpNLP problem solution in Neuromancer
+# # #  Differentiable constrained optimization problem using penalty method
+"""
+objectives = [obj]
+constraints = [con_1, con_2, con_3]
+components = [features, sol_map]
+
+# create penalty method loss function
+loss = PenaltyLoss(objectives, constraints)
+# construct constrained optimization problem
+problem = Problem(components, loss)
+
+"""
+# # #  Problem solution with stochastic gradient descent
 """
 optimizer = torch.optim.AdamW(problem.parameters(), lr=0.001)
 # define trainer
-trainer = nm.trainer.Trainer(
-    problem,
-    train_data,
-    dev_data,
-    test_data,
-    optimizer,
-    epochs=1000,
-    train_metric="train_loss",
-    dev_metric="dev_loss",
-    test_metric="test_loss",
-    eval_metric="dev_loss",
-)
+trainer = Trainer(problem, train_loader, dev_loader, test_loader, optimizer, epochs=400)
 
-# Train mpNLP solution map
+# Train problem solution map
 best_model = trainer.train()
 best_outputs = trainer.test(best_model)
 # load best model dict
 problem.load_state_dict(best_model)
 ```
 
-
-List of Neuromancer classes required to build DPC:
+## List of Neuromancer classes required to build DPP:
 
 **dataset** - classes for instantiating Pytorch dataloaders with training evaluation and testing samples:
-https://github.com/pnnl/neuromancer/blob/master/neuromancer/dataset.py
+https://github.com/pnnl/neuromancer/blob/master/src/neuromancer/dataset.py
+
+**system** - classes for creating symbolic wrappers for Pytorch callables and nn.Modules 
+https://github.com/pnnl/neuromancer/blob/master/src/neuromancer/system.py
 
 **constraints** - classes for defining symbolic variables, constraints, and custom physics-informed loss function terms: 
-https://github.com/pnnl/neuromancer/blob/master/neuromancer/constraint.py
+https://github.com/pnnl/neuromancer/blob/master/src/neuromancer/constraint.py
 
 **solvers**  -  implementation of iterative solvers for hard constraints such as gradient projection method: 
-https://github.com/pnnl/neuromancer/blob/master/neuromancer/solvers.py
+https://github.com/pnnl/neuromancer/blob/master/src/neuromancer/modules/solvers.py
 
 **loss** - class aggregating all instantiated constraints and loss terms 
 in a scalar-valued function suitable for backpropagation-based training:
-https://github.com/pnnl/neuromancer/blob/master/neuromancer/loss.py
+https://github.com/pnnl/neuromancer/blob/master/src/neuromancer/loss.py
 
 **problem** - class agrregating trainable components (policies, dynamics, estimators)
 with loss functions in a differentiable computational graph representing 
 the underlying constrained optimization problem: 
-https://github.com/pnnl/neuromancer/blob/master/neuromancer/problem.py
+https://github.com/pnnl/neuromancer/blob/master/src/neuromancer/problem.py
+
+**trainer** - class optimizing instantiated problem with Pytorch optimizer 
+https://github.com/pnnl/neuromancer/blob/master/src/neuromancer/trainer.py
 
 
-## DPP Examples
+## Examples 
 
-Scripts for various types of differentiable constrained optimization of parametric programs.
-    + mpNLP_Himmelblau_nm.py: Solve the Himmelblau problem, formulated as the NLP using Neuromancer <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-        - ![](../figs/mpNLP_Himmelblau_nm.png)
-    + mpQP_nm_2.py: Multi-parametric Quadratic Programming (mpQP) problem using Neuromancer.
-        - ![](../figs/mpQP_nm_2.png)
-    + mpLP_nm_1.py: Solve Linear Programming (LP) problem using Neuromancer.
-        - ![](../figs/mpLP_nm_1.png)
-    + mpNLP_GomezLevy_nm.py: Solve the Gomez and Levy function problem, formulated as the NLP using Neuromancer.
-        - ![](../figs/mpNLP_GomezLevy_nm.png)
-    + mpNLP_StyblinskiTang_nm.py: Solve the Styblinski–Tang problem, formulated as the NLP using Neuromancer.
-        - ![](../figs/mpNLP_StyblinskiTang_nm.png)   
-    + mpQP_nm_1.py: Multi-parametric Quadratic Programming (mpQP) problem using Neuromancer
-        - ![](../figs/mpQP_nm_1.png)
-    + mpNLP_Rosenbrock_nm.py: Solve the Rosenbrock problem, formulated as the NLP using Neuromancer
-        - ![](../figs/mpNLP_Rosenbrock_nm.png)   
-    + mpQCQP_nm_1.py: Multi-parametric quadratically constrained quadratic program (mpQCQP) problem using Neuromancer
-        - ![](../figs/MpQCQP_nm_1.png)
+Step-by step tutorial examples for differentiable parametric programming.
+Visualisations in 2D domain provide intuitive assessment of the algorithm performance.
+Red stars represent solutions obtained using DPP implemented in Neuromancer 
+and green stars represent solutions obtained from iterative solver (IPOPT).  
++ [Part 1](./Part_1_LearnToOptimize_tutorial.py):
+Tutorial example for formulating and solving parametric nonlinear programming (pNLP) problem.  
+<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
+  ![](../figs/Part_1_pNLP.png)
++ [Part 2](./Part_2_LearnToOptimize_pQP.py): Tutorial example for formulating and solving a parametric quadratic programming (pQP) and quadratically constrained QP (pQCQP) problems.    
+<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
+  ![](../figs/pQP_nm_2.png) 
+  ![](../figs/pQCQP_nm_1.png)
++ [Part 3](./Part_3_LearnToOptimize_pNLP.py): Tutorial example for formulating and solving a set of parametric nonlinear programming (pNLP) problems.  
+<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
+  ![](../figs/pNLP_GomezLevy_nm.png) 
+  ![](../figs/pNLP_Himmelblau_nm.png)
+  ![](../figs/pNLP_McCormick_nm.png)
+  ![](../figs/pNLP_Rosenbrock_nm.png)
+  ![](../figs/pNLP_Simionescu_nm.png)
+  ![](../figs/pNLP_StyblinskiTang_nm.png)
+  ![](../figs/pNLP_Three-hump-camel_nm.png)
+  ![](../figs/pNLP_Beale_nm.png)
+
 
 
 ## Related publications
 
-- A. Agrawal, et al., Differentiable Convex Optimization Layers, 2019
-- P. Donti, et al., DC3: A learning method for optimization with hard constraints, 2021
-- S. Gould, et al., Deep Declarative Networks: A New Hope, 2020
-- J. Kotary, et al., End-to-End Constrained Optimization Learning: A Survey, 2021
-
-
-## Cite as
-
-```yaml
-@article{Neuromancer2022,
-  title={{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}},
-  author={Tuor, Aaron and Drgona, Jan and Skomski, Mia and Koch, James and Chen, Zhao and Dernbach, Stefan and Legaard, Christian Møldrup and Vrabie, Draguna},
-  Url= {https://github.com/pnnl/neuromancer}, 
-  year={2022}
-}
-```
+- [A. Agrawal, et al., Differentiable Convex Optimization Layers, 2019](https://arxiv.org/abs/1910.12430)
+- [F. Fioretto, et al., Predicting AC Optimal Power Flows: Combining Deep Learning and Lagrangian Dual Methods, 2019](https://arxiv.org/abs/1909.10461)
+- [S. Gould, et al., Deep Declarative Networks: A New Hope, 2020](https://arxiv.org/abs/1909.04866)
+- [P. Donti, et al., DC3: A learning method for optimization with hard constraints, 2021](https://arxiv.org/abs/2104.12225)
+- [J. Kotary, et al., End-to-End Constrained Optimization Learning: A Survey, 2021](https://arxiv.org/abs/2103.16378)
+- [M. Li, et al., Learning to Solve Optimization Problems with Hard Linear Constraints, 2022](https://arxiv.org/abs/2208.10611)
+- [R. Sambharya, et al., End-to-End Learning to Warm-Start for Real-Time Quadratic Optimization, 2022](https://arxiv.org/abs/2212.08260)
 

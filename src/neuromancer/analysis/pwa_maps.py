@@ -1,5 +1,5 @@
 """
-Functions for obtaining local affine maps of fully connected neural networks
+Functions for obtaining piecewise affine maps (PWA) of fully connected neural networks
 
 
 """
@@ -78,7 +78,15 @@ def pwa_batched(fx, x, use_bias=True):
     return Astar, bstar, Aprime_mats, bprimes, Lambdas
 
 
-def lpv_batched(fx, x, use_bias=False):
+def lpv_batched(fx, x, use_bias=True):
+    """
+    TODO Broken implementation
+
+    :param fx:
+    :param x:
+    :param use_bias:
+    :return:
+    """
     x_layer = x
 
     Aprime_mats = []
@@ -147,10 +155,15 @@ if __name__ == "__main__":
         print(f'pwa_batched: {x_pwa_batched}')
 
         difference = torch.norm(mlp_out - x_pwa_batched, p=2)
+        print(difference)
         print(difference < 1e-6)
 
         # lpv_batched is depreciated
         Astar, bstar, *_ = lpv_batched(fx_a, x_z)
         x_lpv_batched = torch.matmul(x_z, Astar) + bstar if test_bias else torch.matmul(x_z, Astar)
         print(f'lpv_batched: {x_lpv_batched}')
+
+        difference = torch.norm(mlp_out - x_lpv_batched, p=2)
+        print(difference)
+        print(difference < 1e-6)
 

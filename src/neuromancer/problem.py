@@ -2,13 +2,13 @@
 
 """
 # python base imports
-from typing import Dict, List, Callable
+import os
+import pydot
+from itertools import combinations
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
-import pydot
-
-from itertools import combinations
 import warnings
+from typing import Dict, List, Callable
 
 # machine learning/data science imports
 import torch
@@ -81,24 +81,27 @@ class Problem(nn.Module):
 
     def graph(self, include_objectives=True):
         self._check_unique_names()
-
         graph = pydot.Dot("problem", graph_type="digraph", splines="spline", rankdir="LR")
         graph.add_node(pydot.Node("in", label="dataset", shape="box"))
         graph.add_node(pydot.Node("out", label="loss", shape="box"))
         input_keys = []
         output_keys = []
         all_common_keys = []
+        nonames = 1
         for idx, node in enumerate(self.nodes):
             input_keys += node.input_keys
             output_keys += node.output_keys
             if node.name is None:
-                node.name = '?'
+                node.name = f'node_{nonames}'
+                nonames += 1
             graph.add_node(pydot.Node(node.name, label=node.name, shape="box"))
+
         for src, dst in combinations(self.nodes, 2):
             common_keys = set(src.output_keys) & set(dst.input_keys)
             all_common_keys += common_keys
             for key in common_keys:
                 graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
+
         data_keys = list(set(input_keys) - set(all_common_keys))
         for node in self.nodes:
             for key in set(node.input_keys) & set(data_keys):
@@ -118,18 +121,24 @@ class Problem(nn.Module):
         self.input_keys = list(set(input_keys))
         output_keys += self.loss.output_keys
         self.output_keys = list(set(output_keys))
-
         return graph
 
-    # TODO: to fix
-    def plot_graph(self, fname='problem_graph.png'):
+    def show(self, figname=None):
         graph = self.problem_graph
-        graph.write_png(fname)
-        img = mpimg.imread(fname)
-        fig = plt.imshow(img, aspect='equal')
-        fig.axes.get_xaxis().set_visible(False)
-        fig.axes.get_yaxis().set_visible(False)
-        plt.show()
+        if figname is not None:
+            plot_func = {'svg': graph.write_svg,
+                         'png': graph.write_png,
+                         'jpg': graph.write_jpg}
+            ext = figname.split('.')[-1]
+            plot_func[ext](figname)
+        else:
+            graph.write_png('problem_graph.png')
+            img = mpimg.imread('problem_graph.png')
+            os.remove('problem_graph.png')
+            fig = plt.imshow(img, aspect='equal')
+            fig.axes.get_xaxis().set_visible(False)
+            fig.axes.get_yaxis().set_visible(False)
+            plt.show()
 
     def __repr__(self):
         s = "### MODEL SUMMARY ###\n\nnodeS:"

@@ -1,112 +1,69 @@
 # NeuroMANCER v1.4
 
-Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations.
+**Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
+is an open-source differentiable programming (DL) library for solving parametric constrained optimization problems, 
+physics-informed system identification, and parametric model-based optimal control.
+NeuroMANCER is written in [PyTorch](https://pytorch.org/) and allows for systematic 
+integration of machine learning with scientific computing for creating end-to-end 
+differentiable models and algorithms embedded with prior knowledge and physics.
 
 
-Active developers: Aaron Tuor, Jan Drgona, James Koch, Madelyn Shapiro, Draguna Vrabie  
-Past contributors: Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
+## Features and Examples
 
+Extensive set of tutorials can be found in the 
+[examples](https://github.com/pnnl/neuromancer/tree/master/examples) folder.
 Interactive notebook versions of examples are available on Google Colab!
 Test out NeuroMANCER functionality before cloning the repository and setting up an
 environment.
 
-+ Parametric programming Rosenbrook
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Rosenbrock_interactive.ipynb">
-<img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+Learning to solve a constrained optimizaiton problem.
 
-+ Parametric programming Himmelblau
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb">
-<img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/system_id_tutorial.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to model a dynamical system with prior knowledge.
 
-+ PSL signals
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/psl/signals.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/control.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to control a dynamical system with constraints.
 
-+ PSL systems
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/psl/systems.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
 
-+ System Identification
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/system_id_tutorial.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
 
-+ Double Integrator
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/double_integrator.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
-
-+ Control
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/control.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
-
-## Version 1.4 Release Notes
-+ Refactored PSL
-  + Better PSL unit testing coverage
-  + Consistent interfaces across system types
-  + Consistent perturbation signal interface in signals.py
-+ Refactored Control and System ID learning using Node and System class (system.py)
-  + Classes used for system ID can now be easily interchanged to accommodate downstream control policy learning
-
-### Import changes for psl and slim
-
-```python
-# before
-import psl
-import slim
-
-# now
-from neuromancer import psl
-from neuromancer import slim
-```
 
 ## Documentation
-The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/)
-and in the [pdf form](https://github.com/pnnl/neuromancer/blob/master/Documentation.pdf). 
+The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/). 
 There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 
 core features of the library. 
 
 
 ```python 
-# Neuromancer syntax example for differentiable parametric programming
+# Neuromancer syntax example for constrained optimization
 import neuromancer as nm
+import torch 
 
-# primal solution map to be trained
-func = nm.blocks.MLP(insize=2, outsize=2, hsizes=[80] * 4)
-sol_map = nm.maps.Map(func,
-        input_keys=["a", "p"],
-        output_keys=["x"],
-        name='primal_map')
-
-# problem primal variables
+# define neural architecture 
+func = nm.modules.blocks.MLP(insize=1, outsize=2, 
+                             linear_map=nm.slim.maps['linear'], 
+                             nonlin=torch.nn.ReLU, hsizes=[80] * 4)
+# wrap neural net into symbolic representation via the Node class: map(p) -> x
+map = nm.system.Node(func, ['p'], ['x'], name='map')
+    
+# define decision variables
 x = nm.constraint.variable("x")[:, [0]]
 y = nm.constraint.variable("x")[:, [1]]
-
-# sampled problem parameters
+# problem parameters sampled in the dataset
 p = nm.constraint.variable('p')
-a = nm.constraint.variable('a')
 
-# nonlinear objective function
-f = (1-x)**2 + a*(y-x**2)**2
-obj = f.minimize(weight=1., name='obj')
+# define objective function
+f = (1-x)**2 + (y-x**2)**2
+obj = f.minimize(weight=1.0)
 
-# constraints
-con_1 = 100*(x >= y)
-con_2 = 100*((p/2)**2 <= x**2+y**2)
-con_3 = 100*(x**2+y**2 <= p**2)
+# define constraints
+con_1 = 100.*(x >= y)
+con_2 = 100.*(x**2+y**2 <= p**2)
 
-# create constrained optimization loss
-objectives = [obj]
-constraints = [con_1, con_2, con_3]
-loss = nm.loss.PenaltyLoss(objectives, constraints)
-# construct constrained optimization problem
-components = [sol_map]
-problem = nm.problem.Problem(components, loss)
+# create penalty method-based loss function
+loss = nm.loss.PenaltyLoss(objectives=[obj], constraints=[con_1, con_2])
+# construct differentiable constrained optimization problem
+problem = nm.problem.Problem(nodes=[map], loss=loss)
 ```
 
 ![UML diagram](figs/class_diagram.png)
@@ -222,18 +179,17 @@ brew install cmake
 See [CVXPY installation instructions](https://www.cvxpy.org/install/index.html) for more details.
 
 ## Test NeuroMANCER install
-Run pytest on the test folder. It should take about 2 minutes to run the tests on CPU. 
+Run pytest on the [tests folder](https://github.com/pnnl/neuromancer/tree/master/tests). 
+It should take about 2 minutes to run the tests on CPU. 
 There will be a lot of warnings that you can safely ignore. These warnings will be cleaned 
 up in a future release.
 
-## Examples
 
-For detailed examples of NeuroMANCER usage for control, system identification, and
-parametric programming as well as tutorials for basic usage, see the scripts in the
-examples folder.
-
+# Development
 
 ## Community
+
+We welcome contributions and feedback from the open-source community!
 
 ### Contributing examples
 If you have an example of using NeuroMANCER to solve an interesting problem, or of using 
@@ -254,7 +210,7 @@ To contribute a new feature please submit a pull request.
 ### Reporting issues or bugs
 If you find a bug in the code or want to request a new feature, please open an issue.
 
-### NeuroMANCER development plan
+## NeuroMANCER development plan
 Here are some upcoming features we plan to develop. Please let us know if you would like to get involved and 
 contribute so we may be able to coordinate on development. If there is a feature that you think would
 be highly valuable but not included below, please open an issue and let us know your thoughts. 
@@ -270,45 +226,36 @@ be highly valuable but not included below, please open an issue and let us know 
 + Pytorch Lightning trainer compatibility
 + Discovery of governing equations from learned RHS via NODEs and SINDy
 
-## Publications
-+ [James Koch, Zhao Chen, Aaron Tuor, Jan Drgona, Draguna Vrabie, Structural Inference of Networked Dynamical Systems with Universal Differential Equations, arXiv:2207.04962, (2022)](https://aps.arxiv.org/abs/2207.04962)
-+ [Ján Drgoňa, Sayak Mukherjee, Aaron Tuor, Mahantesh Halappanavar, Draguna Vrabie, Learning Stochastic Parametric Differentiable Predictive Control Policies, IFAC ROCOND conference (2022)](https://www.sciencedirect.com/science/article/pii/S2405896322015877)
-+ [Sayak Mukherjee, Ján Drgoňa, Aaron Tuor, Mahantesh Halappanavar, Draguna Vrabie, Neural Lyapunov Differentiable Predictive Control, IEEE Conference on Decision and Control Conference 2022](https://arxiv.org/abs/2205.10728)
-+ [Wenceslao Shaw Cortez, Jan Drgona, Aaron Tuor, Mahantesh Halappanavar, Draguna Vrabie, Differentiable Predictive Control with Safety Guarantees: A Control Barrier Function Approach, IEEE Conference on Decision and Control Conference 2022](https://arxiv.org/abs/2208.02319)
-+ [Ethan King, Jan Drgona, Aaron Tuor, Shrirang Abhyankar, Craig Bakker, Arnab Bhattacharya, Draguna Vrabie, Koopman-based Differentiable Predictive Control for the Dynamics-Aware Economic Dispatch Problem, 2022 American Control Conference (ACC)](https://ieeexplore.ieee.org/document/9867379)
-+ [Drgoňa, J., Tuor, A. R., Chandan, V., & Vrabie, D. L., Physics-constrained deep learning of multi-zone building thermal dynamics. Energy and Buildings, 243, 110992, (2021)](https://www.sciencedirect.com/science/article/pii/S0378778821002760)
-+ [E. Skomski, S. Vasisht, C. Wight, A. Tuor, J. Drgoňa and D. Vrabie, "Constrained Block Nonlinear Neural Dynamical Models," 2021 American Control Conference (ACC), 2021, pp. 3993-4000, doi: 10.23919/ACC50511.2021.9482930.](https://ieeexplore.ieee.org/document/9482930)
-+ [Skomski, E., Drgoňa, J., & Tuor, A. (2021, May). Automating Discovery of Physics-Informed Neural State Space Models via Learning and Evolution. In Learning for Dynamics and Control (pp. 980-991). PMLR.](https://proceedings.mlr.press/v144/skomski21a.html)
-+ [Drgoňa, J., Tuor, A., Skomski, E., Vasisht, S., & Vrabie, D. (2021). Deep Learning Explicit Differentiable Predictive Control Laws for Buildings. IFAC-PapersOnLine, 54(6), 14-19.](https://www.sciencedirect.com/science/article/pii/S2405896321012933)
-+ [Tuor, A., Drgona, J., & Vrabie, D. (2020). Constrained neural ordinary differential equations with stability guarantees. arXiv preprint arXiv:2004.10883.](https://arxiv.org/abs/2004.10883)
-+ [Drgona, Jan, et al. "Differentiable Predictive Control: An MPC Alternative for Unknown Nonlinear Systems using Constrained Deep Learning." Journal of Process Control Volume 116, August 2022, Pages 80-92](https://www.sciencedirect.com/science/article/pii/S0959152422000981)
-+ [Drgona, J., Skomski, E., Vasisht, S., Tuor, A., & Vrabie, D. (2020). Dissipative Deep Neural Dynamical Systems, in IEEE Open Journal of Control Systems, vol. 1, pp. 100-112, 2022](https://ieeexplore.ieee.org/document/9809789)
-+ [Drgona, J., Tuor, A., & Vrabie, D., Learning Constrained Adaptive Differentiable Predictive Control Policies With Guarantees, arXiv preprint arXiv:2004.11184, (2020)](https://arxiv.org/abs/2004.11184)
 
+##  Release notes
 
-## Cite as
-```yaml
-@article{Neuromancer2023,
-  title={{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}},
-  author={Tuor, Aaron and Drgona, Jan and Koch, James and Shapiro, Madelyn and Vrabie, Draguna},
-  Url= {https://github.com/pnnl/neuromancer}, 
-  year={2023}
-}
+###  Version 1.4 Release Notes
++ Refactored PSL
+  + Better PSL unit testing coverage
+  + Consistent interfaces across system types
+  + Consistent perturbation signal interface in signals.py
++ Refactored Control and System ID learning using Node and System class (system.py)
+  + Classes used for system ID can now be easily interchanged to accommodate downstream control policy learning
+
+#### Import changes for psl and slim
+
+```python
+# before
+import psl
+import slim
+
+# now
+from neuromancer import psl
+from neuromancer import slim
 ```
 
-## Acknowledgments
-This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research's “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects. 
-PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.
-
-# Prior release notes
-
-## Version 1.3.2 Release Notes
+###  Version 1.3.2 Release Notes
 + Merged Structured Linear Maps and Pyton Systems Library into Neuromancer
   + The code in neuromancer was closely tied to psl and slim.
   A decision was made to integrate the packages as submodules of neuromancer.
   This also solves the issue of the package names "psl" and "slim" already being taken on PyPI.
 
-## Version 1.3.1 release notes
+## # Version 1.3.1 release notes
 + New example scripts and notebooks
   + Interactive Colab notebooks for testing Neuromancer functionality without setting up an environment 
     + See [Examples](#examples) for links to Colab
@@ -322,8 +269,7 @@ PNNL is a multi-program national laboratory operated for the U.S. Department of 
   + Make sure to update these packages if updating Neuromancer
   + Release 1.4 will roll SLiM and PSL into core Neuromancer for ease of installation and development
 
-## Version 1.3 release notes
-
+###  Version 1.3 release notes
 + Tutorial [YouTube videos](https://www.youtube.com/channel/UC5oWRFxzUwWrDNzkdWLIb7A) to accompany tutorial scripts in examples folder:
   + [examples/system_identification/duffing_parameter.py](https://www.youtube.com/watch?v=HLuqneSnoC8)
 + Closed loop control policy learning examples with Neural Ordinary Differential Equations
@@ -350,4 +296,46 @@ PNNL is a multi-program national laboratory operated for the U.S. Department of 
   + ControlODE class in ode.py
 + Added support for NODE systems
   + Torchdiffeq integration with fast adjoint method for NODE optimization
+
+
+# Credits
+
+## Development team
+
+**Lead developers**: Aaron Tuor, Jan Drgona  
+**Active developers**: Aaron Tuor, Jan Drgona, James Koch, Madelyn Shapiro, Draguna Vrabie  
+**Past contributors**: Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
+
+
+## Publications
++ [James Koch, Zhao Chen, Aaron Tuor, Jan Drgona, Draguna Vrabie, Structural Inference of Networked Dynamical Systems with Universal Differential Equations, arXiv:2207.04962, (2022)](https://aps.arxiv.org/abs/2207.04962)
++ [Ján Drgoňa, Sayak Mukherjee, Aaron Tuor, Mahantesh Halappanavar, Draguna Vrabie, Learning Stochastic Parametric Differentiable Predictive Control Policies, IFAC ROCOND conference (2022)](https://www.sciencedirect.com/science/article/pii/S2405896322015877)
++ [Sayak Mukherjee, Ján Drgoňa, Aaron Tuor, Mahantesh Halappanavar, Draguna Vrabie, Neural Lyapunov Differentiable Predictive Control, IEEE Conference on Decision and Control Conference 2022](https://arxiv.org/abs/2205.10728)
++ [Wenceslao Shaw Cortez, Jan Drgona, Aaron Tuor, Mahantesh Halappanavar, Draguna Vrabie, Differentiable Predictive Control with Safety Guarantees: A Control Barrier Function Approach, IEEE Conference on Decision and Control Conference 2022](https://arxiv.org/abs/2208.02319)
++ [Ethan King, Jan Drgona, Aaron Tuor, Shrirang Abhyankar, Craig Bakker, Arnab Bhattacharya, Draguna Vrabie, Koopman-based Differentiable Predictive Control for the Dynamics-Aware Economic Dispatch Problem, 2022 American Control Conference (ACC)](https://ieeexplore.ieee.org/document/9867379)
++ [Drgoňa, J., Tuor, A. R., Chandan, V., & Vrabie, D. L., Physics-constrained deep learning of multi-zone building thermal dynamics. Energy and Buildings, 243, 110992, (2021)](https://www.sciencedirect.com/science/article/pii/S0378778821002760)
++ [E. Skomski, S. Vasisht, C. Wight, A. Tuor, J. Drgoňa and D. Vrabie, "Constrained Block Nonlinear Neural Dynamical Models," 2021 American Control Conference (ACC), 2021, pp. 3993-4000, doi: 10.23919/ACC50511.2021.9482930.](https://ieeexplore.ieee.org/document/9482930)
++ [Skomski, E., Drgoňa, J., & Tuor, A. (2021, May). Automating Discovery of Physics-Informed Neural State Space Models via Learning and Evolution. In Learning for Dynamics and Control (pp. 980-991). PMLR.](https://proceedings.mlr.press/v144/skomski21a.html)
++ [Drgoňa, J., Tuor, A., Skomski, E., Vasisht, S., & Vrabie, D. (2021). Deep Learning Explicit Differentiable Predictive Control Laws for Buildings. IFAC-PapersOnLine, 54(6), 14-19.](https://www.sciencedirect.com/science/article/pii/S2405896321012933)
++ [Tuor, A., Drgona, J., & Vrabie, D. (2020). Constrained neural ordinary differential equations with stability guarantees. arXiv preprint arXiv:2004.10883.](https://arxiv.org/abs/2004.10883)
++ [Drgona, Jan, et al. "Differentiable Predictive Control: An MPC Alternative for Unknown Nonlinear Systems using Constrained Deep Learning." Journal of Process Control Volume 116, August 2022, Pages 80-92](https://www.sciencedirect.com/science/article/pii/S0959152422000981)
++ [Drgona, J., Skomski, E., Vasisht, S., Tuor, A., & Vrabie, D. (2020). Dissipative Deep Neural Dynamical Systems, in IEEE Open Journal of Control Systems, vol. 1, pp. 100-112, 2022](https://ieeexplore.ieee.org/document/9809789)
++ [Drgona, J., Tuor, A., & Vrabie, D., Learning Constrained Adaptive Differentiable Predictive Control Policies With Guarantees, arXiv preprint arXiv:2004.11184, (2020)](https://arxiv.org/abs/2004.11184)
+
+
+
+
+## Cite as
+```yaml
+@article{Neuromancer2023,
+  title={{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}},
+  author={Tuor, Aaron and Drgona, Jan and Koch, James and Shapiro, Madelyn and Vrabie, Draguna},
+  Url= {https://github.com/pnnl/neuromancer}, 
+  year={2023}
+}
+```
+
+## Acknowledgments
+This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research's “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects. 
+PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.
 

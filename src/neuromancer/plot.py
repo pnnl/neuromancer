@@ -800,39 +800,6 @@ def plot_cl_train(X_list, U_list, nstep=50, save_path=None):
     animation.save(save_path + '/cl_animation_train.gif', writer='imagemagick')
 
 
-def lpv_batched(fx, x):
-    x_layer = x
-    Aprime_mats = []
-    activation_mats = []
-    bprimes = []
-
-    for nlin, lin in zip(fx.nonlin, fx.linear):
-        A = lin.effective_W()  # layer weight
-        b = lin.bias if lin.bias is not None else torch.zeros(A.shape[-1])
-        Ax = torch.matmul(x_layer, A) + b  # affine transform
-        zeros = Ax == 0
-        lambda_h = nlin(Ax) / Ax  # activation scaling
-        lambda_h[zeros] = 0.
-        lambda_h_mats = [torch.diag(v) for v in lambda_h]
-        activation_mats += lambda_h_mats
-        lambda_h_mats = torch.stack(lambda_h_mats)
-        x_layer = Ax * lambda_h
-        Aprime = torch.matmul(A, lambda_h_mats)
-        Aprime_mats += [Aprime]
-        bprime = lambda_h * b
-        bprimes += [bprime]
-
-    # network-wise parameter varying linear map:  A* = A'_L ... A'_1
-    Astar = Aprime_mats[0]
-    bstar = bprimes[0] # b x nx
-    for Aprime, bprime in zip(Aprime_mats[1:], bprimes[1:]):
-        Astar = torch.bmm(Astar, Aprime)
-        bstar = torch.bmm(bstar.unsqueeze(-2), Aprime).squeeze(-2) + bprime
-
-    return Astar, bstar, Aprime_mats, bprimes, activation_mats
-
-
-
 class Visualizer:
 
     def train_plot(self, outputs, epochs):

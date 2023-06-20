@@ -20,3 +20,5 @@ def test_bounds_scaling():
     out = bounds_scaling(x, xmin=xmin, xmax=xmax)
     assert torch.all(out <= xmax)
     assert torch.all(out >= xmin)
+
+

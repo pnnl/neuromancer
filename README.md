@@ -27,7 +27,6 @@ Learning to solve a constrained optimizaiton problem.
 
 
 
-
 ## Documentation
 The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/). 
 There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 
@@ -70,7 +69,7 @@ problem = nm.problem.Problem(nodes=[map], loss=loss)
 *UML diagram of NeuroMANCER classes.*
 
 
-# Installation
+## Installation
 
 For either pip or conda installation, first clone the neuromancer package.
 A dedicated virtual environment (conda or otherwise) is recommended. 
@@ -81,19 +80,19 @@ Note: If you have a previous neuromancer env it would be best at this point to c
 git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
 ```
 
-## Conda install
+### Conda install
 Conda install is recommended for GPU acceleration. 
 In many cases the following simple install should work for the specified OS
 
-### Create environment & install dependencies
-#### Ubuntu
+#### Create environment & install dependencies
+##### Ubuntu
 
 ``` bash
 conda env create -f linux_env.yml
 conda activate neuromancer
 ```
 
-#### Windows
+##### Windows
 
 ``` bash
 conda env create -f windows_env.yml
@@ -101,14 +100,14 @@ conda activate neuromancer
 conda install -c defaults intel-openmp -f
 ```
 
-#### MacOS (Apple M1)
+##### MacOS (Apple M1)
 
 ``` bash
 conda env create -f osxarm64_env.yml
 conda activate neuromancer
 ```
 
-#### Other (manually install all dependencies)
+##### Other (manually install all dependencies)
 
 !!! Pay attention to comments for non-Linux OS !!!
 
@@ -126,7 +125,7 @@ conda install tqdm torchdiffeq toml
 ## (for Windows): conda install -c defaults intel-openmp -f
 ```
 
-### Install NeuroMANCER package
+#### Install NeuroMANCER package
 From the top level directory of cloned neuromancer
 (in the activated environment where the dependencies have been installed):
 
@@ -134,13 +133,13 @@ From the top level directory of cloned neuromancer
 pip install -e . --no-deps
 ```
 
-## PIP Install
+### PIP Install
 Pip installation is broken up into required dependencies for core Neuromancer
 and dependencies associated with the examples, tests, and generating the documentation.
 Below we give instructions to install all dependencies in a conda virtual enviroment via pip. 
 You need at least pip version >= 21.3.
 
-### Create and activate virtual environment
+#### Create and activate virtual environment
 
 ``` bash
 conda create -n neuromancer python=3.10.4
@@ -148,7 +147,7 @@ conda activate neuromancer
 ```
 
 
-### Install neuromancer and all dependencies.
+#### Install neuromancer and all dependencies.
 From top level directory of cloned neuromancer run:
 
 ```bash
@@ -169,7 +168,7 @@ examples = ["casadi", "cvxpy", "imageio"]
 docs = ["sphinx", "sphinx-rtd-theme"]
 ```
 
-### Note on pip install with `examples` on MacOS (Apple M1)
+#### Note on pip install with `examples` on MacOS (Apple M1)
 Before CVXPY can be installed on Apple M1, you must install `cmake` via Homebrew:
 
 ```zsh
@@ -178,16 +177,14 @@ brew install cmake
 
 See [CVXPY installation instructions](https://www.cvxpy.org/install/index.html) for more details.
 
-## Test NeuroMANCER install
+### Test NeuroMANCER install
 Run pytest on the [tests folder](https://github.com/pnnl/neuromancer/tree/master/tests). 
 It should take about 2 minutes to run the tests on CPU. 
 There will be a lot of warnings that you can safely ignore. These warnings will be cleaned 
 up in a future release.
 
 
-# Development
-
-## Community
+## Community Development
 
 We welcome contributions and feedback from the open-source community!
 
@@ -237,7 +234,7 @@ be highly valuable but not included below, please open an issue and let us know 
 + Refactored Control and System ID learning using Node and System class (system.py)
   + Classes used for system ID can now be easily interchanged to accommodate downstream control policy learning
 
-#### Import changes for psl and slim
+*Import changes for psl and slim*
 
 ```python
 # before
@@ -255,7 +252,7 @@ from neuromancer import slim
   A decision was made to integrate the packages as submodules of neuromancer.
   This also solves the issue of the package names "psl" and "slim" already being taken on PyPI.
 
-## # Version 1.3.1 release notes
+### Version 1.3.1 release notes
 + New example scripts and notebooks
   + Interactive Colab notebooks for testing Neuromancer functionality without setting up an environment 
     + See [Examples](#examples) for links to Colab
@@ -282,7 +279,7 @@ from neuromancer import slim
   + examples/control/
       + double_integrator_dpc_ol_fixed_ref.py
       + vtol_dpc_ol_fixed_ref.py
-+ New class for Linear State Space Models (LSSM)
++ New class for L[toy_interpolation.py](examples%2Ftutorials%2Ftoy_interpolation.py)inear State Space Models (LSSM)
     + LinearSSM in dynamics.py
 + Refactored closed loop control policy simulations
   + simulator.py
@@ -298,12 +295,10 @@ from neuromancer import slim
   + Torchdiffeq integration with fast adjoint method for NODE optimization
 
 
-# Credits
-
 ## Development team
 
 **Lead developers**: Aaron Tuor, Jan Drgona  
-**Active developers**: Aaron Tuor, Jan Drgona, James Koch, Madelyn Shapiro, Draguna Vrabie  
+**Active contributors**: Aaron Tuor, Jan Drgona, James Koch, Madelyn Shapiro, Draguna Vrabie  
 **Past contributors**: Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 
 
@@ -321,8 +316,6 @@ from neuromancer import slim
 + [Drgona, Jan, et al. "Differentiable Predictive Control: An MPC Alternative for Unknown Nonlinear Systems using Constrained Deep Learning." Journal of Process Control Volume 116, August 2022, Pages 80-92](https://www.sciencedirect.com/science/article/pii/S0959152422000981)
 + [Drgona, J., Skomski, E., Vasisht, S., Tuor, A., & Vrabie, D. (2020). Dissipative Deep Neural Dynamical Systems, in IEEE Open Journal of Control Systems, vol. 1, pp. 100-112, 2022](https://ieeexplore.ieee.org/document/9809789)
 + [Drgona, J., Tuor, A., & Vrabie, D., Learning Constrained Adaptive Differentiable Predictive Control Policies With Guarantees, arXiv preprint arXiv:2004.11184, (2020)](https://arxiv.org/abs/2004.11184)
-
-
 
 
 ## Cite as

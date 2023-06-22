@@ -7,7 +7,7 @@ into symbolic representation that can be used in NeuroMANCER problem formulation
 """
 
 import torch
-from neuromancer.system import Node
+from neuromancer.system import Node, System
 
 """
 Node is a simple class to create symbolic modules out of arbitrary PyTorch callables.
@@ -39,14 +39,14 @@ print(node_2({'x2': torch.rand(2)}))
 
 # 3, wrap arbitrary callable into Node - allows for unwrapping the inputs
 fun_1 = lambda x1, x2: 2.*x1 - x2**2
-node_3 = Node(fun_1, ['x1', 'x2'], ['x3'], name='quadratic')
+node_3 = Node(fun_1, ['y1', 'y2'], ['y3'], name='quadratic')
 # evaluate forward pass of the node with dictionary input dataset
-print(node_3({'x1': torch.rand(2), 'x2': torch.rand(2)}))
+print(node_3({'y1': torch.rand(2), 'y2': torch.rand(2)}))
 
 # 4, wrap callable with multiple inputs and outputs
 def fun_2(x1, x2):
     return x1**2, x2**2
-node_4 = Node(fun_2, ['x1', 'x2'], ['x1^2', 'x1^2'], name='square')
+node_4 = Node(fun_2, ['x1', 'x2'], ['x1^2', 'x2^2'], name='square')
 # evaluate forward pass of the node with dictionary input dataset
 print(node_4({'x1': torch.rand(2), 'x2': torch.rand(2)}))
 
@@ -69,7 +69,7 @@ from neuromancer.modules import blocks
 from neuromancer.modules import activations
 from neuromancer import slim
 
-# 4, instantiate 4-layer multilayer perceptron with linear weight and ReLU activation
+# 1, instantiate 4-layer multilayer perceptron with linear weight and ReLU activation
 block_1 = blocks.MLP(insize=2, outsize=3,
                   bias=True,
                   linear_map=slim.maps['linear'],
@@ -82,7 +82,7 @@ data = {'x3': torch.rand(10, 2)}
 print(node_4(data).keys())
 print(node_4(data)['y3'].shape)
 
-# 5, instantiate recurrent neural net without bias, SVD linear map, and BLI activation
+# 2, instantiate recurrent neural net without bias, SVD linear map, and BLI activation
 block_2 = blocks.RNN(insize=2, outsize=2,
                   bias=False,
                   linear_map=slim.linear.SVDLinear,
@@ -101,8 +101,38 @@ print(blocks.blocks)
 print(activations.activations)
 
 """
-System is 
+System is a class that supports construction of cyclic computational graphs in NeuroMANCER.
+System's graph is defined by a list of Nodes. Instantiated System can be used to simulate
+dynamical systems in open or closed loop rollouts by specifying number of steps via nsteps.
 
 """
 
+# 1, create acyclic symbolic graph
+# list of nodes to construct the graph
+nodes = [node_1, node_2, node_3]
+# 10 steps rollout
+nsteps = 3
+# connecting nodes via System class
+system_1 = System(nodes, nsteps=nsteps)
+# print input and output keys
+print(system_1.input_keys)
+print(system_1.output_keys)
+# evaluate forward pass of the System with 3D input dataset
+batch = 2
+print(system_1({'x1': torch.rand(batch, nsteps, 1),
+                'x2': torch.rand(batch, nsteps, 2)}))
+# visualize symbolic computational graph
+# system_1.show()
 
+# 2, close the loop by creating recursion in one of the nodes
+nodes[2].output_keys = ['y1']
+# create new system with cyclic computational graph
+system_2 = System(nodes, nsteps=nsteps)
+# print input and output keys
+print(system_2.input_keys)
+print(system_2.output_keys)
+# evaluate forward pass of the System with 3D input dataset
+print(system_1({'x1': torch.rand(batch, nsteps, 1),
+                'x2': torch.rand(batch, nsteps, 2)}))
+# visualize symbolic computational graph
+# system_1.show()

@@ -12,6 +12,7 @@ import os
 import sklearn
 from torch.utils.data import DataLoader
 import torch.optim as optim
+import torch.nn as nn
 
 from neuromancer.psl.nonautonomous import systems
 from neuromancer.problem import Problem
@@ -24,9 +25,10 @@ from neuromancer.dataset import DictDataset
 import matplotlib.pyplot as plt
 from neuromancer.callbacks import Callback
 import numpy as np
-from neuromancer.integrators import Euler
+from neuromancer.dynamics.integrators import Euler
 from neuromancer.system import Node, System
 import torch
+from neuromancer.modules.blocks import MLP
 
 
 class EulerIntegrator(nn.Module):

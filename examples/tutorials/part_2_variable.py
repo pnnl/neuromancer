@@ -48,12 +48,15 @@ x5 = variable(torch.ones(3, 3, requires_grad=True))
 print(x5.value.requires_grad)
 
 # 5, composite Variable construction via algebraic expression on Variables
-a, b = variable('a'), variable('a')
-x6 = a/3. - 1.5*b**2 + 5
+x6 = x1 + 5
 # visualize computational graph of Variable
 x6.show()
+# more complex example
+a, b = variable('a'), variable('a')
+x6 = a/3. - 1.5*b**2 + 5
+x6.show()
 # evaluate forward pass of the variable with dictionary input data
-print(x6({'x': 5.00, 'y': 3.00}))
+print(x6({'a': 5.00, 'b': 3.00}))
 
 # 6, composite Variable construction via pytorch callables on Variables
 x7 = torch.add(variable('a'), variable('b'))
@@ -120,13 +123,13 @@ print(con_2({'x': torch.rand(3, 2), 'y': torch.rand(3, 2)}))
 
 # 4, Evaluate constraint on algebraic expression of variables
 # dataset dictionary with randomly sampled values for variables x and y
-data = {'x': torch.rand(3, 2), 'y': torch.rand(3, 2)}
+data = {'x': torch.rand(1), 'y': torch.rand(1)}
 # and define new variable with initial value
-a = variable(torch.tensor(1.5), display_name='a')
+a = variable(torch.tensor([1.5]), display_name='a')
 # now we create new constraint on algebraic expression
 con_4 = (3*x + 1 - 0.5 * a)**2 == 2.0
 # and evaluate its aggregate violations on dataset with random variable x
-con_4(data)
+print(con_4(data))
 
 
 """
@@ -139,7 +142,7 @@ with metric being callable such as torch.mean.
 # 1, create objective term by via minimize method of Variable
 obj_1 = variable('x').minimize()
 # Evaluate objective at a given value of variable
-print(obj_1({'x': torch.tensor(5)}))
+print(obj_1({'x': torch.tensor(5.)}))
 
 # 2, minimize composite variable
 x, y = variable('x'), variable('y')

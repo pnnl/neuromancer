@@ -212,15 +212,15 @@ Step-by step tutorial examples for differentiable parametric programming.
 Visualisations in 2D domain provide intuitive assessment of the algorithm performance.
 Red stars represent solutions obtained using DPP implemented in Neuromancer 
 and green stars represent solutions obtained from iterative solver (IPOPT).  
-  + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+  + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 [Part 1](./Part_1_basics.py):
 Formulating and solving parametric nonlinear programming (pNLP) problem.  
   ![](../figs/Part_1_pNLP.png)  
-  +   <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+  +   <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_2_pQP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 [Part 2](./Part_2_pQP.py): Formulating and solving two parametric quadratic programming (pQP) problems.    
   ![](../figs/pQP_nm_2.png) 
   ![](../figs/pQCQP_nm_1.png)    
-  + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+  + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_3_pNLP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 [Part 3](./Part_3_pNLP.py): Formulating and solving a set of parametric nonlinear programming (pNLP) problems.  
   ![](../figs/pNLP_GomezLevy_nm.png) 
   ![](../figs/pNLP_Himmelblau_nm.png)

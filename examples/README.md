@@ -14,14 +14,16 @@ Here we list the file tree and plots of expected results from the default parame
     - integrators_vs_psl_auto.py: Comparison of neuromancer numerical integration implementation with PSL simulations using scipy's odeint solver
     - toy_interpolation.py: Use of control action interpolation with neuromancer neural ODEs
 
+
 + **parametric_programming**/ Examples for solving a set of parametric programming problems.
-  + [Part 1](./Part_1_LearnToOptimize_tutorial.py):
-Tutorial example for formulating and solving parametric nonlinear programming (pNLP) problem.  
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
-  + [Part 2](./Part_2_LearnToOptimize_pQP.py): Tutorial example for formulating and solving a parametric quadratic programming (pQP) and quadratically constrained QP (pQCQP) problems.    
-  <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-  + [Part 3](./Part_3_LearnToOptimize_pNLP.py): Tutorial example for formulating and solving a set of parametric nonlinear programming (pNLP) problems.  
-  <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
+  + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+[Part 1](./Part_1_basics.py):
+Formulating and solving parametric nonlinear programming (pNLP) problem.  
+  +   <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+[Part 2](./Part_2_pQP.py): Formulating and solving two parametric quadratic programming (pQP) problems.    
+  +   <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+[Part 3](./Part_3_pNLP.py): Formulating and solving a set of parametric nonlinear programming (pNLP) problems.  
+
 
 + **system_identification/** This folder has examples for system identification of autonomous and nonautonomous dynamical systems.
     - **boxes.pkl**: Pickle file with reasonable bounds for initial conditions for the chaotic systems. 

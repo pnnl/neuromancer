@@ -12,23 +12,23 @@ import os
 from sklearn import metrics
 from torch.utils.data import DataLoader
 import torch.optim as optim
+import torch
 
-from neuromancer.psl.at import systems
+import numpy as np
+import matplotlib.pyplot as plt
+
+from neuromancer.psl.nonautonomous import systems
 from neuromancer.problem import Problem
 from neuromancer.loggers import MLFlowLogger
 from neuromancer.trainer import Trainer
 from neuromancer.constraint import Loss, variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer.dataset import DictDataset
-
-import matplotlib.pyplot as plt
 from neuromancer.callbacks import Callback
-import numpy as np
-from neuromancer.integrators import Euler
-
+from neuromancer.dynamics.integrators import Euler
 from neuromancer.system import Node, System
-import torch
-
+from neuromancer.modules.blocks import MLP
+import torch.nn as nn
 
 class MultipleShootingEuler(nn.Module):
     """
@@ -50,7 +50,6 @@ class MultipleShootingEuler(nn.Module):
         :return: (tuple of Tensors, shapes=(batchsize, nx)) x2, xn+1
         """
         return self.integrator(x1, u=u), self.integrator(xn, u=u)
-
 
 
 def plot_traj(true_traj, pred_traj, figname='open_loop.png'):

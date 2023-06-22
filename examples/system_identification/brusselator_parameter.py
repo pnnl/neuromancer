@@ -65,8 +65,8 @@ if __name__ == '__main__':
     ts = 0.05
     modelSystem = system()
     raw = modelSystem.simulate(nsim=1000, ts=ts)
-    psl.plot.pltOL(Y=raw['Y'])
-    psl.plot.pltPhase(X=raw['Y'])
+    plot.pltOL(Y=raw['Y'])
+    plot.pltPhase(X=raw['Y'])
 
     train_loader, dev_loader, test_data = get_data(modelSystem, 500, 2, 32)
 

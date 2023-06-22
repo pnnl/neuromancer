@@ -1,119 +1,87 @@
 # NeuroMANCER v1.4
 
-Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations.
+**Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
+is an open-source differentiable programming (DL) library for solving parametric constrained optimization problems, 
+physics-informed system identification, and parametric model-based optimal control.
+NeuroMANCER is written in [PyTorch](https://pytorch.org/) and allows for systematic 
+integration of machine learning with scientific computing for creating end-to-end 
+differentiable models and algorithms embedded with prior knowledge and physics.
 
 
-Active developers: Aaron Tuor, Jan Drgona, James Koch, Madelyn Shapiro, Draguna Vrabie  
-Past contributors: Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
+## Features and Examples
 
+Extensive set of tutorials can be found in the 
+[examples](https://github.com/pnnl/neuromancer/tree/master/examples) folder.
 Interactive notebook versions of examples are available on Google Colab!
 Test out NeuroMANCER functionality before cloning the repository and setting up an
 environment.
 
-+ Parametric programming Rosenbrook
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Rosenbrock_interactive.ipynb">
-<img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_1_linear_regression.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+Linear regression in PyTorch vs NeuroMANCER.  
 
-+ Parametric programming Himmelblau
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb">
-<img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_2_variable.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+NeuroMANCER syntax tutorial: variables, constraints, and objectives.  
 
-+ PSL signals
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/psl/signals.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_3_node.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+NeuroMANCER syntax tutorial: modules, Node and System class.
 
-+ PSL systems
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/psl/systems.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+Learning to solve a constrained optimization problem.
 
-+ System Identification
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/system_id_tutorial.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/system_identification/system_id_tutorial.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to model a dynamical system with prior knowledge.
 
-+ Double Integrator
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/double_integrator.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/double_integrator.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to stabilize a linear dynamical system.
 
-+ Control
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/control.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/control.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning model and control policy for a dynamical system with constraints.
 
-## Version 1.4 Release Notes
-+ Refactored PSL
-  + Better PSL unit testing coverage
-  + Consistent interfaces across system types
-  + Consistent perturbation signal interface in signals.py
-+ Refactored Control and System ID learning using Node and System class (system.py)
-  + Classes used for system ID can now be easily interchanged to accommodate downstream control policy learning
 
-### Import changes for psl and slim
-
-```python
-# before
-import psl
-import slim
-
-# now
-from neuromancer import psl
-from neuromancer import slim
-```
 
 ## Documentation
-The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/)
-and in the [pdf form](https://github.com/pnnl/neuromancer/blob/master/Documentation.pdf). 
+The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/). 
 There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 
 core features of the library. 
 
 
 ```python 
-# Neuromancer syntax example for differentiable parametric programming
+# Neuromancer syntax example for constrained optimization
 import neuromancer as nm
+import torch 
 
-# primal solution map to be trained
-func = nm.blocks.MLP(insize=2, outsize=2, hsizes=[80] * 4)
-sol_map = nm.maps.Map(func,
-        input_keys=["a", "p"],
-        output_keys=["x"],
-        name='primal_map')
-
-# problem primal variables
+# define neural architecture 
+func = nm.modules.blocks.MLP(insize=1, outsize=2, 
+                             linear_map=nm.slim.maps['linear'], 
+                             nonlin=torch.nn.ReLU, hsizes=[80] * 4)
+# wrap neural net into symbolic representation via the Node class: map(p) -> x
+map = nm.system.Node(func, ['p'], ['x'], name='map')
+    
+# define decision variables
 x = nm.constraint.variable("x")[:, [0]]
 y = nm.constraint.variable("x")[:, [1]]
-
-# sampled problem parameters
+# problem parameters sampled in the dataset
 p = nm.constraint.variable('p')
-a = nm.constraint.variable('a')
 
-# nonlinear objective function
-f = (1-x)**2 + a*(y-x**2)**2
-obj = f.minimize(weight=1., name='obj')
+# define objective function
+f = (1-x)**2 + (y-x**2)**2
+obj = f.minimize(weight=1.0)
 
-# constraints
-con_1 = 100*(x >= y)
-con_2 = 100*((p/2)**2 <= x**2+y**2)
-con_3 = 100*(x**2+y**2 <= p**2)
+# define constraints
+con_1 = 100.*(x >= y)
+con_2 = 100.*(x**2+y**2 <= p**2)
 
-# create constrained optimization loss
-objectives = [obj]
-constraints = [con_1, con_2, con_3]
-loss = nm.loss.PenaltyLoss(objectives, constraints)
-# construct constrained optimization problem
-components = [sol_map]
-problem = nm.problem.Problem(components, loss)
+# create penalty method-based loss function
+loss = nm.loss.PenaltyLoss(objectives=[obj], constraints=[con_1, con_2])
+# construct differentiable constrained optimization problem
+problem = nm.problem.Problem(nodes=[map], loss=loss)
 ```
 
 ![UML diagram](figs/class_diagram.png)
 *UML diagram of NeuroMANCER classes.*
 
 
-# Installation
+## Installation
 
 For either pip or conda installation, first clone the neuromancer package.
 A dedicated virtual environment (conda or otherwise) is recommended. 
@@ -124,19 +92,19 @@ Note: If you have a previous neuromancer env it would be best at this point to c
 git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
 ```
 
-## Conda install
+### Conda install
 Conda install is recommended for GPU acceleration. 
 In many cases the following simple install should work for the specified OS
 
-### Create environment & install dependencies
-#### Ubuntu
+#### Create environment & install dependencies
+##### Ubuntu
 
 ``` bash
 conda env create -f linux_env.yml
 conda activate neuromancer
 ```
 
-#### Windows
+##### Windows
 
 ``` bash
 conda env create -f windows_env.yml
@@ -144,14 +112,14 @@ conda activate neuromancer
 conda install -c defaults intel-openmp -f
 ```
 
-#### MacOS (Apple M1)
+##### MacOS (Apple M1)
 
 ``` bash
 conda env create -f osxarm64_env.yml
 conda activate neuromancer
 ```
 
-#### Other (manually install all dependencies)
+##### Other (manually install all dependencies)
 
 !!! Pay attention to comments for non-Linux OS !!!
 
@@ -169,7 +137,7 @@ conda install tqdm torchdiffeq toml
 ## (for Windows): conda install -c defaults intel-openmp -f
 ```
 
-### Install NeuroMANCER package
+#### Install NeuroMANCER package
 From the top level directory of cloned neuromancer
 (in the activated environment where the dependencies have been installed):
 
@@ -177,13 +145,13 @@ From the top level directory of cloned neuromancer
 pip install -e . --no-deps
 ```
 
-## PIP Install
+### PIP Install
 Pip installation is broken up into required dependencies for core Neuromancer
 and dependencies associated with the examples, tests, and generating the documentation.
 Below we give instructions to install all dependencies in a conda virtual enviroment via pip. 
 You need at least pip version >= 21.3.
 
-### Create and activate virtual environment
+#### Create and activate virtual environment
 
 ``` bash
 conda create -n neuromancer python=3.10.4
@@ -191,7 +159,7 @@ conda activate neuromancer
 ```
 
 
-### Install neuromancer and all dependencies.
+#### Install neuromancer and all dependencies.
 From top level directory of cloned neuromancer run:
 
 ```bash
@@ -212,7 +180,7 @@ examples = ["casadi", "cvxpy", "imageio"]
 docs = ["sphinx", "sphinx-rtd-theme"]
 ```
 
-### Note on pip install with `examples` on MacOS (Apple M1)
+#### Note on pip install with `examples` on MacOS (Apple M1)
 Before CVXPY can be installed on Apple M1, you must install `cmake` via Homebrew:
 
 ```zsh
@@ -221,19 +189,16 @@ brew install cmake
 
 See [CVXPY installation instructions](https://www.cvxpy.org/install/index.html) for more details.
 
-## Test NeuroMANCER install
-Run pytest on the test folder. It should take about 2 minutes to run the tests on CPU. 
+### Test NeuroMANCER install
+Run pytest on the [tests folder](https://github.com/pnnl/neuromancer/tree/master/tests). 
+It should take about 2 minutes to run the tests on CPU. 
 There will be a lot of warnings that you can safely ignore. These warnings will be cleaned 
 up in a future release.
 
-## Examples
 
-For detailed examples of NeuroMANCER usage for control, system identification, and
-parametric programming as well as tutorials for basic usage, see the scripts in the
-examples folder.
+## Community Development
 
-
-## Community
+We welcome contributions and feedback from the open-source community!
 
 ### Contributing examples
 If you have an example of using NeuroMANCER to solve an interesting problem, or of using 
@@ -254,7 +219,7 @@ To contribute a new feature please submit a pull request.
 ### Reporting issues or bugs
 If you find a bug in the code or want to request a new feature, please open an issue.
 
-### NeuroMANCER development plan
+## NeuroMANCER development plan
 Here are some upcoming features we plan to develop. Please let us know if you would like to get involved and 
 contribute so we may be able to coordinate on development. If there is a feature that you think would
 be highly valuable but not included below, please open an issue and let us know your thoughts. 
@@ -269,6 +234,85 @@ be highly valuable but not included below, please open an issue and let us know 
 + More versatile and simplified time series dataloading
 + Pytorch Lightning trainer compatibility
 + Discovery of governing equations from learned RHS via NODEs and SINDy
+
+
+##  Release notes
+
+###  Version 1.4 Release Notes
++ Refactored PSL
+  + Better PSL unit testing coverage
+  + Consistent interfaces across system types
+  + Consistent perturbation signal interface in signals.py
++ Refactored Control and System ID learning using Node and System class (system.py)
+  + Classes used for system ID can now be easily interchanged to accommodate downstream control policy learning
+
+*Import changes for psl and slim*
+
+```python
+# before
+import psl
+import slim
+
+# now
+from neuromancer import psl
+from neuromancer import slim
+```
+
+###  Version 1.3.2 Release Notes
++ Merged Structured Linear Maps and Pyton Systems Library into Neuromancer
+  + The code in neuromancer was closely tied to psl and slim.
+  A decision was made to integrate the packages as submodules of neuromancer.
+  This also solves the issue of the package names "psl" and "slim" already being taken on PyPI.
+
+### Version 1.3.1 release notes
++ New example scripts and notebooks
+  + Interactive Colab notebooks for testing Neuromancer functionality without setting up an environment 
+    + See [Examples](#examples) for links to Colab
+  + RC-Network modeling using Graph Neural Time-steppers example:
+    + See neuromancer/examples/graph_timesteppers/
+  + Baseline NODE dynamics modeling results for all nonautonomous systems in Python Systems Library
+    + See neuromancer/examples/benchmarks/node/
+  + Updated install instructions for Linux, Windows, and MAC operating systems
+    + New linux_env.yml, windows_env.yml, osxarm64_env.yml files for installation of dependencies across OS
++ Corresponding releases of SLiM and PSL packages
+  + Make sure to update these packages if updating Neuromancer
+  + Release 1.4 will roll SLiM and PSL into core Neuromancer for ease of installation and development
+
+###  Version 1.3 release notes
++ Tutorial [YouTube videos](https://www.youtube.com/channel/UC5oWRFxzUwWrDNzkdWLIb7A) to accompany tutorial scripts in examples folder:
+  + [examples/system_identification/duffing_parameter.py](https://www.youtube.com/watch?v=HLuqneSnoC8)
++ Closed loop control policy learning examples with Neural Ordinary Differential Equations
+  + examples/control/
+      + vdpo_DPC_cl_fixed_ref.py
+      + two_tank_sysID_DPC_cl_var_ref.py
+      + two_tank_DPC_cl_var_ref.py
+      + two_tank_DPC_cl_fixed_ref.py
++ Closed loop control policy learning example with Linear State Space Models. 
+  + examples/control/
+      + double_integrator_dpc_ol_fixed_ref.py
+      + vtol_dpc_ol_fixed_ref.py
++ New class for L[toy_interpolation.py](examples%2Ftutorials%2Ftoy_interpolation.py)inear State Space Models (LSSM)
+    + LinearSSM in dynamics.py
++ Refactored closed loop control policy simulations
+  + simulator.py
++ Interfaces for open and closed loop simulation (evaluation after training) for several classes 
+    + Dynamics
+    + Estimator
+    + Policy
+    + Constraint
+    + PSL Emulator classes
++ New class for closed-loop policy learning of non-autonomous ODE systems
+  + ControlODE class in ode.py
++ Added support for NODE systems
+  + Torchdiffeq integration with fast adjoint method for NODE optimization
+
+
+## Development team
+
+**Lead developers**: Aaron Tuor, Jan Drgona  
+**Active contributors**: Aaron Tuor, Jan Drgona, James Koch, Madelyn Shapiro, Draguna Vrabie  
+**Past contributors**: Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
+
 
 ## Publications
 + [James Koch, Zhao Chen, Aaron Tuor, Jan Drgona, Draguna Vrabie, Structural Inference of Networked Dynamical Systems with Universal Differential Equations, arXiv:2207.04962, (2022)](https://aps.arxiv.org/abs/2207.04962)
@@ -299,55 +343,4 @@ be highly valuable but not included below, please open an issue and let us know 
 ## Acknowledgments
 This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research's “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects. 
 PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.
-
-# Prior release notes
-
-## Version 1.3.2 Release Notes
-+ Merged Structured Linear Maps and Pyton Systems Library into Neuromancer
-  + The code in neuromancer was closely tied to psl and slim.
-  A decision was made to integrate the packages as submodules of neuromancer.
-  This also solves the issue of the package names "psl" and "slim" already being taken on PyPI.
-
-## Version 1.3.1 release notes
-+ New example scripts and notebooks
-  + Interactive Colab notebooks for testing Neuromancer functionality without setting up an environment 
-    + See [Examples](#examples) for links to Colab
-  + RC-Network modeling using Graph Neural Time-steppers example:
-    + See neuromancer/examples/graph_timesteppers/
-  + Baseline NODE dynamics modeling results for all nonautonomous systems in Python Systems Library
-    + See neuromancer/examples/benchmarks/node/
-  + Updated install instructions for Linux, Windows, and MAC operating systems
-    + New linux_env.yml, windows_env.yml, osxarm64_env.yml files for installation of dependencies across OS
-+ Corresponding releases of SLiM and PSL packages
-  + Make sure to update these packages if updating Neuromancer
-  + Release 1.4 will roll SLiM and PSL into core Neuromancer for ease of installation and development
-
-## Version 1.3 release notes
-
-+ Tutorial [YouTube videos](https://www.youtube.com/channel/UC5oWRFxzUwWrDNzkdWLIb7A) to accompany tutorial scripts in examples folder:
-  + [examples/system_identification/duffing_parameter.py](https://www.youtube.com/watch?v=HLuqneSnoC8)
-+ Closed loop control policy learning examples with Neural Ordinary Differential Equations
-  + examples/control/
-      + vdpo_DPC_cl_fixed_ref.py
-      + two_tank_sysID_DPC_cl_var_ref.py
-      + two_tank_DPC_cl_var_ref.py
-      + two_tank_DPC_cl_fixed_ref.py
-+ Closed loop control policy learning example with Linear State Space Models. 
-  + examples/control/
-      + double_integrator_dpc_ol_fixed_ref.py
-      + vtol_dpc_ol_fixed_ref.py
-+ New class for Linear State Space Models (LSSM)
-    + LinearSSM in dynamics.py
-+ Refactored closed loop control policy simulations
-  + simulator.py
-+ Interfaces for open and closed loop simulation (evaluation after training) for several classes 
-    + Dynamics
-    + Estimator
-    + Policy
-    + Constraint
-    + PSL Emulator classes
-+ New class for closed-loop policy learning of non-autonomous ODE systems
-  + ControlODE class in ode.py
-+ Added support for NODE systems
-  + Torchdiffeq integration with fast adjoint method for NODE optimization
 

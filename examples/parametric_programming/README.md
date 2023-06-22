@@ -1,4 +1,6 @@
-# Differentiable Programming Programming (DPP) in Neuromancer
+# Leatning to Solve Constrained Optimization
+    
+## Differentiable Parametric Programming (DPP) 
 
 Learning Solutions to Constrained Optimization Problems
 is a set of methods that use machine learning to learn the  
@@ -22,7 +24,7 @@ is faster online evaluation, often obtaining orders of magnitude speedups.
 Green star represents solution obtained via classical online solver (IPOPT), 
 where red star shows solution obtained via offline learning using DPP approach (Neuromancer).*
 
-##  Imitation Learning vs Differentiable Parametric Programming
+###  Imitation Learning vs DPP
 
 Recent years have seen a rich literature
 of deep learning (DL) models for solving the constrained optimization problems on real-world tasks such
@@ -43,13 +45,13 @@ differentiating the objectives and constraints of the parametric optimization  p
 ![DPP_abstract.](../parametric_programming/figs/imitationVSdpp1.jpg)  
 *Imitation learning VS end-to-end learning using Differentiable Parametric Programming.*
 
-## DPP Problem Formulation
+### DPP Problem Formulation
 A generic formulation of the DPP is given
 in the form of a parametric constrained optimization problem:
 ![DPC_problem_form.](../parametric_programming/figs/DPP_problem_form.PNG)
 
 
-## Differentiable Loss Functions of Parametric Optimization Problems
+### Differentiable Loss Functions of Parametric Optimization Problems
 
 There are several ways in which we can enforce the constraints satisfaction
 while learning the solution π_Θ(ξ) of the differentiable constrained optimization problem (1). 
@@ -65,7 +67,7 @@ Other approaches supported in the library include
 type methods.
 
 
-## DPP Problem Solution
+### DPP Problem Solution
 
 The main advantage of having a differentiable objective function and constraints
 in the DPP problem formulation (1) is that it allows us to use automatic differentiation to directly compute
@@ -75,12 +77,12 @@ L w.r.t. the solution map weights Θ as follows:
 ![DPP_gradients.](../parametric_programming/figs/DPP_gradients.PNG)
 
 
-## DPP Optimization Algorithm
+### DPP Optimization Algorithm
 The gradient-based solution of the DPP problem is summarized in the following Algorithm:
 ![DPP_algorithm.](../parametric_programming/figs/DPP_algorithm.PNG)
 
 
-## DPC Syntax and Usage
+### Formulating DPP problems using Neuromancer syntax 
 The following code illustrates the implementation of Differentiable Parametric
 Programming in Neuromancer:
 ```python 
@@ -179,7 +181,7 @@ best_outputs = trainer.test(best_model)
 problem.load_state_dict(best_model)
 ```
 
-## List of Neuromancer classes required to build DPP:
+### List of Neuromancer classes required to build DPP:
 
 **dataset** - classes for instantiating Pytorch dataloaders with training evaluation and testing samples:
 https://github.com/pnnl/neuromancer/blob/master/src/neuromancer/dataset.py
@@ -205,23 +207,21 @@ https://github.com/pnnl/neuromancer/blob/master/src/neuromancer/problem.py
 **trainer** - class optimizing instantiated problem with Pytorch optimizer 
 https://github.com/pnnl/neuromancer/blob/master/src/neuromancer/trainer.py
 
-
 ## Examples 
-
 Step-by step tutorial examples for differentiable parametric programming.
 Visualisations in 2D domain provide intuitive assessment of the algorithm performance.
 Red stars represent solutions obtained using DPP implemented in Neuromancer 
 and green stars represent solutions obtained from iterative solver (IPOPT).  
-+ [Part 1](./Part_1_LearnToOptimize_tutorial.py):
-Tutorial example for formulating and solving parametric nonlinear programming (pNLP) problem.  
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
-  ![](../figs/Part_1_pNLP.png)
-+ [Part 2](./Part_2_LearnToOptimize_pQP.py): Tutorial example for formulating and solving a parametric quadratic programming (pQP) and quadratically constrained QP (pQCQP) problems.    
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
+  + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+[Part 1](./Part_1_basics.py):
+Formulating and solving parametric nonlinear programming (pNLP) problem.  
+  ![](../figs/Part_1_pNLP.png)  
+  +   <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_2_pQP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+[Part 2](./Part_2_pQP.py): Formulating and solving two parametric quadratic programming (pQP) problems.    
   ![](../figs/pQP_nm_2.png) 
-  ![](../figs/pQCQP_nm_1.png)
-+ [Part 3](./Part_3_LearnToOptimize_pNLP.py): Tutorial example for formulating and solving a set of parametric nonlinear programming (pNLP) problems.  
-<a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Himmelblau_interactive.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  
+  ![](../figs/pQCQP_nm_1.png)    
+  + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_3_pNLP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+[Part 3](./Part_3_pNLP.py): Formulating and solving a set of parametric nonlinear programming (pNLP) problems.  
   ![](../figs/pNLP_GomezLevy_nm.png) 
   ![](../figs/pNLP_Himmelblau_nm.png)
   ![](../figs/pNLP_McCormick_nm.png)
@@ -230,7 +230,6 @@ Tutorial example for formulating and solving parametric nonlinear programming (p
   ![](../figs/pNLP_StyblinskiTang_nm.png)
   ![](../figs/pNLP_Three-hump-camel_nm.png)
   ![](../figs/pNLP_Beale_nm.png)
-
 
 
 ## Related publications

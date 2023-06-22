@@ -63,6 +63,12 @@ class LT(nn.Module):
     Less than constraint for upper bounding the left hand side by the right hand side.
     Used for defining infix operator for the Variable class and calculating constraint
     violation losses for the forward pass of Constraint objects.
+
+    constraint: g(x) <= b
+    forward pass returns:
+        value = g(x) - b
+        penalty = relu(g(x) - b)
+        loss = torch.mean(penalty)
     """
     def __init__(self, norm=1):
         super().__init__()
@@ -73,14 +79,10 @@ class LT(nn.Module):
 
     def forward(self, left, right):
         """
-        constraint: g(x) <= b
-        value = g(x) - b
-        penalty = relu(g(x) - b)
-        loss = metric(penalty)
 
         :param left: torch.Tensor
         :param right: torch.Tensor
-        :return: zero dimensional torch.Tensor
+        :return: zero dimensional torch.Tensor, torch.Tensor, torch.Tensor
         """
 
         value = left - right
@@ -96,6 +98,12 @@ class GT(nn.Module):
     Greater than constraint for lower bounding the left hand side by the right hand side.
     Used for defining infix operator for the Variable class and calculating constraint
     violation losses for the forward pass of Constraint objects.
+
+    constraint: g(x) >= b
+    forward pass returns:
+        value = b - g(x)
+        penalty = relu(b - g(x))
+        loss = torch.mean(penalty)
     """
 
     def __init__(self, norm=1):
@@ -110,7 +118,7 @@ class GT(nn.Module):
 
         :param left: torch.Tensor
         :param right: torch.Tensor
-        :return: zero dimensional torch.Tensor
+        :return: zero dimensional torch.Tensor, torch.Tensor, torch.Tensor
         """
         value = right - left
         penalty = F.relu(value)
@@ -125,6 +133,12 @@ class Eq(nn.Module):
     Equality constraint penalizing difference between left and right hand side.
     Used for defining infix operator for the Variable class and calculating constraint
     violation losses for the forward pass of Constraint objects.
+
+    constraint: g(x) == b
+    forward pass returns:
+        value = g(x) - b
+        penalty = g(x) - b
+        loss = torch.mean(penalty)
     """
     def __init__(self, norm=1):
         super().__init__()
@@ -135,14 +149,10 @@ class Eq(nn.Module):
 
     def forward(self, left, right):
         """
-        constraint: g(x) == b
-        value = g(x) - b
-        penalty = g(x) - b
-        loss = metric(penalty)
 
         :param left: torch.Tensor
         :param right: torch.Tensor
-        :return: zero dimensional torch.Tensor
+        :return: zero dimensional torch.Tensor, torch.Tensor, torch.Tensor
         """
         value = left - right
         if self.norm == 1:
@@ -306,7 +316,7 @@ class Variable(nn.Module):
     a Variable object is subjected to a comparison operator a Constraint is returned. Mathematical operators return
     Variables which will instantiate and perform the sequence of mathematical operations. PyTorch callables
     called with variables as inputs return variables.
-    Supported infix operators (variable * variable, variable * numeric): +, -, *, @, **, <, <=, >, >=, ==, ^
+    Supported infix operators (variable * variable, variable * numeric): +, -, *, @, **, /, <, <=, >, >=, ==, ^
     """
 
     def __init__(self, input_variables=[], func=None, key=None, display_name=None, value=None):

@@ -16,11 +16,12 @@ from neuromancer.constraint import variable, Objective
 
 """
 Variable is an abstraction that allows for the definition of constraints and objectives with some nice
-    syntactic sugar. When a Variable object is called given a dictionary a pytorch tensor is returned, and when
-    a Variable object is subjected to a comparison operator a Constraint is returned. Mathematical operators return
-    Variables which will instantiate and perform the sequence of mathematical operations. PyTorch callables
-    called with variables as inputs return variables. Variable supports binary infix operators (variable * variable, variable * numeric): +, -, *, @, **, <, <=, >, >=, ==, ^
-    There are several ways how to instantiate variable:
+syntactic sugar. When a Variable object is called given a dictionary a pytorch tensor is returned, and when
+a Variable object is subjected to a comparison operator a Constraint is returned. Mathematical operators return
+Variables which will instantiate and perform the sequence of mathematical operations. PyTorch callables
+called with variables as inputs return variables. Variable supports binary infix operators (variable * variable, variable * numeric): +, -, *, @, **, <, <=, >, >=, ==, ^
+
+There are several ways how to instantiate variable:
 """
 
 # 1, named Variable without trainable tensor value
@@ -80,23 +81,23 @@ print(x10({'x': 5.00, 'y': 5.00}))
 
 """
 Constraint is constructed by using comparative infix operators, '<', '>', '==', '<=', '>=' with Variable objects
-    while '*' is used to weight loss term and '^' to determine l-norm of constraint violation in the loss.       
-    
-    The forward pass of Constraint returns a dictionary with three elements: loss, value, penalty
-    Depending on the type of constraint the forward pass is evaluated as:
-        1, equality constraint: g(x) == b
-                value = g(x) - b
-                penalty = g(x) - b
-                loss = metric(penalty) 
-        2, less than constraint: g(x) <= b
-                value = g(x) - b
-                penalty = relu(g(x) - b)
-                loss = metric(penalty) 
-        3, greater than constraint: g(x) >= b
-                value = b - g(x) 
-                penalty = relu(b - g(x))
-                loss = metric(penalty)      
-        with metric() depending on the norm type: ^1 for L1 norm and ^2 for L2 norm 
+while '*' is used to weight loss term and '^' to determine l-norm of constraint violation in the loss.       
+
+The forward pass of Constraint returns a dictionary with three elements: loss, value, penalty
+Depending on the type of constraint the forward pass is evaluated as:
+    1, equality constraint: g(x) == b
+            value = g(x) - b
+            penalty = g(x) - b
+            loss = metric(penalty) 
+    2, less than constraint: g(x) <= b
+            value = g(x) - b
+            penalty = relu(g(x) - b)
+            loss = metric(penalty) 
+    3, greater than constraint: g(x) >= b
+            value = b - g(x) 
+            penalty = relu(b - g(x))
+            loss = metric(penalty)      
+    with metric() depending on the norm type: ^1 for L1 norm and ^2 for L2 norm 
 
 """
 
@@ -128,11 +129,10 @@ con_4 = (3*x + 1 - 0.5 * a)**2 == 2.0
 con_4(data)
 
 
-
 """
 Objective is constructed via .minimize() method on instantiated Variable object.
-    It could be also constructed as Objective(variable, metric) 
-    with metric being callable such as torch.mean.
+It could be also constructed as Objective(variable, metric) 
+with metric being callable such as torch.mean.
     
 """
 

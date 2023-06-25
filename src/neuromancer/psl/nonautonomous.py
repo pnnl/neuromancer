@@ -149,7 +149,9 @@ class TwoTank(ODE):
     @property
     def params(self):
         variables = {'x0': [0., 0.],}
-        constants = {'ts': 0.1,}
+        umin, umax = np.array((0,0)).ravel(), np.array((1,1)).ravel()
+        ymin, ymax = np.array((0,0)).ravel(), np.array((1,1)).ravel()
+        constants = {'ts': 0.1,'umin':umin, 'umax':umax, 'ymin':ymin, 'ymax':ymax}
         parameters = {'c1': 0.08,  # inlet valve coefficient
                       'c2': 0.04,  # tank outlet coefficient
                       }
@@ -168,10 +170,10 @@ class TwoTank(ODE):
     @cast_backend
     def equations(self, t, x, u):
 
-        h1 = x[0]  # States (2): level in the tanks
-        h2 = x[1]
-        pump = u[0]  # Inputs (2): pump and valve
-        valve = u[1]
+        h1 = self.B.core.clip(x[0], self.ymin[0], self.ymax[0])  # States (2): level in the tanks
+        h2 = self.B.core.clip(x[1], self.ymin[1], self.ymax[1])
+        pump = self.B.core.clip(u[0], self.umin[0], self.umax[0])  # Inputs (2): pump and valve
+        valve = self.B.core.clip(u[1], self.umin[1], self.umax[1])
         dhdt1 = self.c1 * (1.0 - valve) * pump - self.c2 * self.B.core.sqrt(h1)
         dhdt2 = self.c1 * valve * pump + self.c2 * self.B.core.sqrt(h1) - self.c2 * self.B.core.sqrt(h2)
         if h1 >= 1.0 and dhdt1 > 0.0:

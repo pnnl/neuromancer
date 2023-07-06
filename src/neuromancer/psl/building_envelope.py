@@ -185,10 +185,10 @@ class BuildingEnvelope(ODE_NonAutonomous):
         :param x0:
         :return:
         """
-        nsim, x0, U, D, Time = self.get_simulation_args(nsim, x0, U, D)
+        nsim, x, U, D, Time = self.get_simulation_args(nsim, x0, U, D)
         X, Y = [], []
         for k in range(nsim):
-            x, y = self.equations(x0, U[k, :], D[k, :])
+            x, y = self.equations(x, U[k, :], D[k, :])
             X.append(x)
             Y.append(y - self.y_ss)
         Dhidden = D[1:]

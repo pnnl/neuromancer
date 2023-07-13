@@ -2,7 +2,7 @@ import os
 from scipy.io import loadmat
 import numpy as np
 from neuromancer.psl.base import ODE_NonAutonomous, cast_backend, download
-from neuromancer.psl.signals import periodic, noise, step, signals
+from neuromancer.psl.signals import periodic, noise, step
 import functools
 
 
@@ -115,12 +115,12 @@ class BuildingEnvelope(ODE_NonAutonomous):
         return f'https://github.com/pnnl/psl/raw/master/psl/parameters/buildings/{self.system}.mat'
 
     @cast_backend
-    def get_U(self, nsim, type='default'):
-        if type == "default":
-            return periodic(nsim, self.umin.shape[-1], max=self.umax / 2., min=self.umin, periods=int(np.ceil(nsim / 48.)),
-                            form='sin') + noise(nsim, self.umin.shape[-1])
-        else:
-            return signals[type](nsim, self.umin.shape[-1], min=self.umin, max=self.umax)
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+
+        return periodic(nsim, self.umin.shape[-1], max=self.umax / 2., min=self.umin, periods=int(np.ceil(nsim / 48.)),
+                        form='sin', rng=self.rng) + noise(nsim, self.umin.shape[-1], rng=self.rng)
 
     @cast_backend
     def get_q(self, u):
@@ -131,18 +131,18 @@ class BuildingEnvelope(ODE_NonAutonomous):
 
     @cast_backend
     def get_D(self, nsim):
-        start_idx = np.random.randint(0, len(self._D)-1-nsim)
+        start_idx = self.rng.integers(0, len(self._D)-1-nsim)
         return self._D[start_idx:start_idx+nsim]
 
     @cast_backend
     def get_D_obs(self, nsim):
-        start_idx = np.random.randint(0, len(self._D) - 1 - nsim)
+        start_idx = self.rng.integers(0, len(self._D) - 1 - nsim)
         return self._D[start_idx:start_idx + nsim, self.d_idx]
 
     @cast_backend
     def get_R(self, nsim):
-        s = step(nsim, self.ny, randsteps=int(np.ceil(nsim / 24.)), min=self.stats['Y']['min'] + 1.,
-                 max=self.stats['Y']['max']) - 1.
+        s = step(nsim, self.ny, randsteps=int(np.ceil(nsim / 24.)), min=self.stats['Y']['min'],
+                 max=self.stats['Y']['max'], rng=self.rng)
         return s
 
     def __call__(self, x, u, d):
@@ -200,15 +200,16 @@ class BuildingEnvelope(ODE_NonAutonomous):
 class LinearBuildingEnvelope(BuildingEnvelope):
 
     @cast_backend
-    def get_U(self, nsim, type='default'):
-        if type == 'default':
-            return periodic(nsim,
-                            self.nq,
-                            max=self.umax / 2.,
-                            min=self.umin,
-                            periods=int(np.ceil(nsim / 48.))) + noise(nsim, self.nq)
-        else:
-            return signals[type](nsim, self.nq, min=self.umin, max=self.umax)
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+
+        return periodic(nsim,
+                        self.nq,
+                        max=self.umax / 2.,
+                        min=self.umin,
+                        periods=int(np.ceil(nsim / 48.)),
+                        rng=self.rng) + noise(nsim, self.nq, rng=self.rng)
 
     @property
     def umax(self):

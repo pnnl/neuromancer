@@ -36,7 +36,7 @@ def test_normalize(emulator, backend):
         eq = torch.allclose
     else:
         eq = np.allclose
-    system = emulator(backend=backend, set_stats=False)
+    system = emulator(backend=backend, set_stats=False, seed=SEED)
     if hasattr(system, 'U'):
         data = system.simulate(nsim=50, x0=system.x0, U=system.U[:51])
     else:
@@ -73,7 +73,7 @@ def test_get_x0_initial_value(emulator, backend):
     """
     torch.manual_seed(SEED)
     np.random.seed(SEED)
-    emulator_a = emulator(backend=backend, set_stats=False)
+    emulator_a = emulator(backend=backend, set_stats=False, seed=SEED)
     if hasattr(emulator_a, 'U'):
         data = emulator_a.simulate(nsim=5, U=emulator_a.U[:6], x0=emulator_a.x0)
     else:
@@ -83,7 +83,7 @@ def test_get_x0_initial_value(emulator, backend):
 
     torch.manual_seed(SEED)
     np.random.seed(SEED)
-    emulator_b = emulator(backend=backend, set_stats=False)
+    emulator_b = emulator(backend=backend, set_stats=False, seed=SEED)
     if hasattr(emulator_b, 'U'):
         data = emulator_b.simulate(nsim=5, U=emulator_b.U[:6], x0=emulator_b.x0)
     else:
@@ -138,14 +138,14 @@ def test_get_U_initial_value(emulator, backend, nsim):
     """
     torch.manual_seed(SEED)
     np.random.seed(SEED)
-    emulator_a = emulator(backend=backend, set_stats=False)
+    emulator_a = emulator(backend=backend, set_stats=False, seed=SEED)
     data = emulator_a.simulate(nsim=nsim, U=emulator_a.U[:nsim + 1], x0=emulator_a.x0)
     emulator_a.set_stats(sim=data)
     U_a = emulator_a.get_U(nsim)
 
     torch.manual_seed(SEED)
     np.random.seed(SEED)
-    emulator_b = emulator(backend=backend, set_stats=False)
+    emulator_b = emulator(backend=backend, set_stats=False, seed=SEED)
     data = emulator_b.simulate(nsim=nsim, U=emulator_b.U[:nsim + 1], x0=emulator_b.x0)
     emulator_b.set_stats(sim=data)
     U_b = emulator_b.get_U(nsim)
@@ -196,14 +196,14 @@ def test_get_R_initial_value(emulator, backend, nsim):
 
     torch.manual_seed(SEED)
     np.random.seed(SEED)
-    emulator_a = emulator(backend=backend, set_stats=False)
+    emulator_a = emulator(backend=backend, set_stats=False, seed=SEED)
     data = emulator_a.simulate(nsim=nsim, U=emulator_a.U[:nsim + 1], x0=emulator_a.x0)
     emulator_a.set_stats(sim=data)
     R_a = emulator_a.get_R(nsim)
 
     torch.manual_seed(SEED)
     np.random.seed(SEED)
-    emulator_b = emulator(backend=backend, set_stats=False)
+    emulator_b = emulator(backend=backend, set_stats=False, seed=SEED)
     data = emulator_b.simulate(nsim=nsim, U=emulator_b.U[:nsim + 1], x0=emulator_b.x0)
     emulator_b.set_stats(sim=data)
     R_b = emulator_b.get_R(nsim)
@@ -254,12 +254,12 @@ def test_get_D_initial_value(emulator, backend, nsim):
 
     torch.manual_seed(SEED)
     np.random.seed(SEED)
-    emulator_a = emulator(backend=backend, set_stats=False)
+    emulator_a = emulator(backend=backend, set_stats=False, seed=SEED)
     D_a = emulator_a.get_D(nsim)
 
     torch.manual_seed(SEED)
     np.random.seed(SEED)
-    emulator_b = emulator(backend=backend, set_stats=False)
+    emulator_b = emulator(backend=backend, set_stats=False, seed=SEED)
     D_b = emulator_b.get_D(nsim)
 
     core = Backend.backends[backend]["core"]
@@ -290,12 +290,12 @@ def test_get_D_obs_initial_value(emulator, backend, nsim):
 
     torch.manual_seed(SEED)
     np.random.seed(SEED)
-    emulator_a = emulator(backend=backend)
+    emulator_a = emulator(backend=backend, seed=SEED)
     D_obs_a = emulator_a.get_D_obs(nsim)
 
     torch.manual_seed(SEED)
     np.random.seed(SEED)
-    emulator_b = emulator(backend=backend)
+    emulator_b = emulator(backend=backend, seed=SEED)
     D_obs_b = emulator_b.get_D_obs(nsim)
 
     core = Backend.backends[backend]["core"]

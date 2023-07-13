@@ -22,8 +22,10 @@ class LorenzControl(ODE):
         return variables, constants, parameters, meta
 
     @cast_backend
-    def get_U(self, nsim):
-        t = np.random.uniform(low=0, high=np.pi)
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+        t = self.rng.uniform(low=0, high=np.pi)
         self.ninit = t
         T = self.B.core.arange(t, t + self.ts * nsim, self.ts)
         u = self.u_fun(T).T[:nsim]
@@ -74,8 +76,10 @@ class SEIR_population(ODE):
         return variables, constants, parameters, meta
 
     @cast_backend
-    def get_U(self, nsim):
-        return step(nsim=nsim, d=2, randsteps=int(np.ceil(nsim / 24)), min=0., max=1.)
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+        return step(nsim=nsim, d=2, randsteps=int(np.ceil(nsim / 24)), min=0., max=1., rng=self.rng)
 
     @cast_backend
     def equations(self, t, x, u):
@@ -119,12 +123,14 @@ class Tank(ODE):
 
     @cast_backend
     def get_x0(self):
-        return np.random.uniform(low=0.0, high=0.1, size=(1,))
+        return self.rng.uniform(low=0.0, high=0.1, size=(1,))
 
     @cast_backend
-    def get_U(self, nsim):
-        c = step(nsim=nsim, d=1, min=0.1, max=55., randsteps=int(np.ceil(nsim / 48)))
-        valve = periodic(nsim=nsim, d=1, min=0., max=10., periods=int(np.ceil(nsim / 48)), form='sin') + noise(nsim=nsim, d=1)
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+        c = step(nsim=nsim, d=1, min=0.1, max=55., randsteps=int(np.ceil(nsim / 48)), rng=self.rng)
+        valve = periodic(nsim=nsim, d=1, min=0., max=10., periods=int(np.ceil(nsim / 48)), form='sin', rng=self.rng) + noise(nsim=nsim, d=1, rng=self.rng)
         return np.concatenate([c, valve], axis=1)
 
     @cast_backend
@@ -149,7 +155,7 @@ class TwoTank(ODE):
     @property
     def params(self):
         variables = {'x0': [0., 0.],}
-        constants = {'ts': 0.1,}
+        constants = {'ts': 0.1}
         parameters = {'c1': 0.08,  # inlet valve coefficient
                       'c2': 0.04,  # tank outlet coefficient
                       }
@@ -158,20 +164,22 @@ class TwoTank(ODE):
 
     @cast_backend
     def get_x0(self):
-        return np.random.uniform(low=0.0, high=0.5, size=2)
+        return self.rng.uniform(low=0.0, high=0.5, size=2)
 
     @cast_backend
-    def get_U(self, nsim):
-        u = step(nsim=nsim, d=2, min=0., max=0.4, randsteps=int(np.ceil(self.ts*nsim/300)))
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+        u = step(nsim=nsim, d=2, min=0., max=0.4, randsteps=int(np.ceil(self.ts*nsim/30)), rng=self.rng)
         return u
 
     @cast_backend
     def equations(self, t, x, u):
 
-        h1 = x[0]  # States (2): level in the tanks
-        h2 = x[1]
-        pump = u[0]  # Inputs (2): pump and valve
-        valve = u[1]
+        h1 = self.B.core.clip(x[0], 0, 1)  # States (2): level in the tanks
+        h2 = self.B.core.clip(x[1], 0, 1)
+        pump = self.B.core.clip(u[0], 0, 1)  # Inputs (2): pump and valve
+        valve = self.B.core.clip(u[1], 0, 1)
         dhdt1 = self.c1 * (1.0 - valve) * pump - self.c2 * self.B.core.sqrt(h1)
         dhdt2 = self.c1 * valve * pump + self.c2 * self.B.core.sqrt(h1) - self.c2 * self.B.core.sqrt(h2)
         if h1 >= 1.0 and dhdt1 > 0.0:
@@ -211,15 +219,17 @@ class CSTR(ODE):
     @cast_backend
     def get_x0(self, rand=False):
         if rand:
-            x1 = np.random.normal(loc=self.Ca_ss)
-            x2 = np.random.normal(loc=self.T_ss, scale=0.01)
+            x1 = self.rng.normal(loc=self.Ca_ss)
+            x2 = self.rng.normal(loc=self.T_ss, scale=0.01)
             return [x1, x2]
         else:
             return [self.Ca_ss, self.T_ss]
 
     @cast_backend
-    def get_U(self, nsim):
-        U = 300. + step(nsim=nsim, d=1, min=-3., max=3., randsteps=int(np.ceil(nsim / 25)))
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+        U = 300. + step(nsim=nsim, d=1, min=-3., max=3., randsteps=int(np.ceil(nsim / 25)), rng=self.rng)
         return U
 
     @cast_backend
@@ -265,8 +275,10 @@ class InvPendulum(ODE):
         return variables, constants, parameters, meta
 
     @cast_backend
-    def get_U(self, nsim):
-        return 0.1*np.random.normal(size=(nsim, 1))
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+        return 0.1*self.rng.normal(size=(nsim, 1))
 
     @cast_backend
     def equations(self, t, x, u):
@@ -299,8 +311,10 @@ class HindmarshRose(ODE):
         return variables, constants, parameters, meta
 
     @cast_backend
-    def get_U(self, nsim):
-        return step(nsim=nsim, d=1, min=2.99, max=3.1, randsteps=int(max(1, nsim/48)))
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+        return step(nsim=nsim, d=1, min=2.99, max=3.1, randsteps=int(max(1, nsim/48)), rng=self.rng)
 
     @cast_backend
     def equations(self, t, x, u):
@@ -341,8 +355,10 @@ class IverSimple(ODE):
         return variables, constants, parameters, meta
 
     @cast_backend
-    def get_U(self, nsim):
-        delta = step(nsim=nsim, d=3, min=[0.0, -1.0, -1.0], max=[1.0, 1., 1.], randsteps=100)
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+        delta = step(nsim=nsim, d=3, min=[0.0, -1.0, -1.0], max=[1.0, 1., 1.], randsteps=100, rng=self.rng)
         return delta
 
     @cast_backend
@@ -397,8 +413,10 @@ class Actuator(ODE):
         return variables, constants, parameters, meta
 
     @cast_backend
-    def get_U(self, nsim):
-        delta = sines(nsim=nsim, d=3, min=[0.0, -1.0, -1.0], max=[1.0, 1., 1.], periods=100)
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+        delta = sines(nsim=nsim, d=3, min=[0.0, -1.0, -1.0], max=[1.0, 1., 1.], periods=100, rng=self.rng)
         return delta
 
     @cast_backend
@@ -452,11 +470,13 @@ class SwingEquation(ODE):
         return variables, constants, parameters, meta
 
     @cast_backend
-    def get_U(self, nsim):
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
         """
         Noisy mechanical power with constant Pmax)
         """
-        Pmech = walk(nsim=nsim, d=1, min=0.8 * 0.98, max=0.8 * 1.02, sigma=0.1)
+        Pmech = walk(nsim=nsim, d=1, min=0.8 * 0.98, max=0.8 * 1.02, sigma=0.1, rng=self.rng)
         return Pmech
 
     @cast_backend
@@ -507,7 +527,7 @@ class VanDerPolControl(ODE):
     """
     @property
     def params(self):
-        variables = {'x0': np.random.randn(2),
+        variables = {'x0': self.rng.standard_normal(2),
                      'U': 0.5*np.cos([np.arange(0., self.nsim+1) * 0.02]).T}
         constants = {'ts': 0.02}
         parameters = {'mu': 1.0}
@@ -537,9 +557,11 @@ class ThomasAttractorControl(ODE):
         return variables, constants, parameters, meta
 
     @cast_backend
-    def get_U(self, nsim):
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
         return step(nsim=nsim, d=1, values=[0.208186, 0.3289, 0.5, 1.0], min=0., max=1.,
-                    randsteps=int(np.ceil(nsim / 48))) + noise(nsim=nsim, d=1, min=-.01, max=.01)
+                    randsteps=int(np.ceil(nsim / 48)), rng=self.rng) + noise(nsim=nsim, d=1, min=-.01, max=.01, rng=self.rng)
 
     @cast_backend
     def equations(self, t, x, u):

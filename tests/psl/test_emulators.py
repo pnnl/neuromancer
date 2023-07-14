@@ -30,8 +30,6 @@ def test_normalize(emulator, backend):
     Denormalize should invert normalize
     Output should be same type as input regardless of backend
     """
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
     if backend == 'torch':
         eq = torch.allclose
     else:
@@ -71,8 +69,6 @@ def test_get_x0_initial_value(emulator, backend):
     """
     When an object is instantiated first call of getters should always give same value
     """
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
     emulator_a = emulator(backend=backend, set_stats=False, seed=SEED)
     if hasattr(emulator_a, 'U'):
         data = emulator_a.simulate(nsim=5, U=emulator_a.U[:6], x0=emulator_a.x0)
@@ -81,8 +77,6 @@ def test_get_x0_initial_value(emulator, backend):
     emulator_a.set_stats(sim=data)
     x0_a = emulator_a.get_x0()
 
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
     emulator_b = emulator(backend=backend, set_stats=False, seed=SEED)
     if hasattr(emulator_b, 'U'):
         data = emulator_b.simulate(nsim=5, U=emulator_b.U[:6], x0=emulator_b.x0)
@@ -136,15 +130,15 @@ def test_get_U_initial_value(emulator, backend, nsim):
     """
     When an object is instantiated first call of getters should always give same value
     """
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
+    # torch.manual_seed(SEED)
+    # np.random.seed(SEED)
     emulator_a = emulator(backend=backend, set_stats=False, seed=SEED)
     data = emulator_a.simulate(nsim=nsim, U=emulator_a.U[:nsim + 1], x0=emulator_a.x0)
     emulator_a.set_stats(sim=data)
     U_a = emulator_a.get_U(nsim)
 
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
+    # torch.manual_seed(SEED)
+    # np.random.seed(SEED)
     emulator_b = emulator(backend=backend, set_stats=False, seed=SEED)
     data = emulator_b.simulate(nsim=nsim, U=emulator_b.U[:nsim + 1], x0=emulator_b.x0)
     emulator_b.set_stats(sim=data)
@@ -152,6 +146,7 @@ def test_get_U_initial_value(emulator, backend, nsim):
 
     core = Backend.backends[backend]["core"]
     assert core.allclose(U_a, U_b)
+
 
 @pytest.mark.parametrize("emulator,backend", product(nonautosys + buildsys, backends))
 @given(nsim=st.integers(3, 5))
@@ -193,16 +188,11 @@ def test_get_R_initial_value(emulator, backend, nsim):
     """
     When an object is instantiated first call of getters should always give same value
     """
-
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
     emulator_a = emulator(backend=backend, set_stats=False, seed=SEED)
     data = emulator_a.simulate(nsim=nsim, U=emulator_a.U[:nsim + 1], x0=emulator_a.x0)
     emulator_a.set_stats(sim=data)
     R_a = emulator_a.get_R(nsim)
 
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
     emulator_b = emulator(backend=backend, set_stats=False, seed=SEED)
     data = emulator_b.simulate(nsim=nsim, U=emulator_b.U[:nsim + 1], x0=emulator_b.x0)
     emulator_b.set_stats(sim=data)
@@ -251,14 +241,9 @@ def test_get_D_initial_value(emulator, backend, nsim):
     """
     When an object is instantiated first call of getters should always give same value
     """
-
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
     emulator_a = emulator(backend=backend, set_stats=False, seed=SEED)
     D_a = emulator_a.get_D(nsim)
 
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
     emulator_b = emulator(backend=backend, set_stats=False, seed=SEED)
     D_b = emulator_b.get_D(nsim)
 
@@ -287,14 +272,9 @@ def test_get_D_obs_initial_value(emulator, backend, nsim):
     """
     When an object is instantiated first call of getters should always give same value
     """
-
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
     emulator_a = emulator(backend=backend, seed=SEED)
     D_obs_a = emulator_a.get_D_obs(nsim)
 
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
     emulator_b = emulator(backend=backend, seed=SEED)
     D_obs_b = emulator_b.get_D_obs(nsim)
 

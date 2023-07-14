@@ -6,9 +6,11 @@ Base classes for dynamic systems.
 import requests, random, functools, os
 from abc import ABC, abstractmethod
 import scipy, torch, torchdiffeq, numpy
+import numpy as np
 from neuromancer.psl.norms import StandardScaler, normalize, denormalize
 from neuromancer.psl.signals import sines
 import matplotlib.pyplot as plt
+from typing import Union
 
 
 def download(url, dst):
@@ -102,8 +104,8 @@ def cast_backend(method):
 
 
 class EmulatorBase(ABC, torch.nn.Module):
-    def __init__(self, seed=59, exclude_norms=['Time'], backend='numpy', requires_grad=False,
-                 set_stats=True):
+    def __init__(self, exclude_norms=['Time'], backend='numpy', requires_grad=False,
+                 seed: Union[int,np.random._generator.Generator]=59, set_stats=True):
         """
 
         :param ts: (float) Time step for numerical integration
@@ -114,10 +116,8 @@ class EmulatorBase(ABC, torch.nn.Module):
         """
         super().__init__()
         self.B = Backend(backend)
-        random.seed(seed)
-        numpy.random.seed(seed)
-        torch.manual_seed(seed)
-        self.seed, self.exclude_norms = seed, exclude_norms
+        self.rng = np.random.default_rng(seed=seed)
+        self.exclude_norms = exclude_norms
         if not hasattr(self, 'nsim'):
             self.nsim = 1001
         if not hasattr(self, 'ts'):
@@ -223,7 +223,7 @@ class EmulatorBase(ABC, torch.nn.Module):
                               'mean': v.mean(axis=0), 'var': v.var(axis=0),
                               'std': v.std(axis=0)} for k, v in sim.items() if k not in self.exclude_norms}
         elif self.B.core is torch:
-            self.stats = {k: {'min': v.min(axis=0)[1], 'max': v.max(axis=0)[1],
+            self.stats = {k: {'min': v.min(axis=0)[0], 'max': v.max(axis=0)[0],
                               'mean': v.mean(axis=0), 'var': v.var(axis=0),
                               'std': v.std(axis=0)} for k, v in sim.items() if k not in self.exclude_norms}
 
@@ -241,7 +241,7 @@ class EmulatorBase(ABC, torch.nn.Module):
 
         :param box: Dictionary with keys 'min' and 'max' and values np.arrays with shape=(nx,)
         """
-        return numpy.random.uniform(low=self.stats['X']['min'], high=self.stats['X']['max'])
+        return self.rng.uniform(low=self.stats['X']['min'], high=self.stats['X']['max'])
 
     def _plot(self, data=None):
         """
@@ -286,6 +286,15 @@ class EmulatorBase(ABC, torch.nn.Module):
             plt.close()
         else:
             plt.show()
+
+    def save_random_state(self):
+        """ Save random state for later use """
+        self.rng_state = self.rng.bit_generator.state
+
+    def restore_random_state(self, rng_state=None):
+        """ Load random state """
+        self.rng.bit_generator.state = self.rng_state if rng_state is None else \
+                                       rng_state
 
 
 class ODE_NonAutonomous(EmulatorBase):
@@ -355,14 +364,20 @@ class ODE_NonAutonomous(EmulatorBase):
         return {'Y': X[1:], 'X': X[1:], 'U': U[1:], 'Time': Time[1:]}
 
     @cast_backend
-    def get_U(self, nsim):
+    def get_U(self, nsim, signal=None, **signal_kwargs):
         """
         For sampling a sequence of control actions
         :param nsim: length of sequence
         :return: Matrix nsim X nU
+
         """
-        return numpy.random.normal(loc=self.stats['U']['mean'], scale=self.stats['U']['std'],
-                                   size=(nsim, self.nU))
+        if signal is None:
+            return self.rng.normal(loc=self.stats['U']['mean'], scale=self.stats['U']['std'],
+                                   size=(nsim, self.nu))
+        umin = self.stats['U']['min']
+        umax = self.stats['U']['max']
+        d = umin.ravel().shape[0]
+        return signal(nsim=nsim, d=d, min=umin, rng=self.rng, max=umax, **signal_kwargs)
 
     @cast_backend
     def get_R(self, nsim):
@@ -373,7 +388,7 @@ class ODE_NonAutonomous(EmulatorBase):
         :return: Matrix nsim X nx0
         """
         return sines(nsim, self.nx0,
-                     min=self.stats['X']['max'], max=self.stats['X']['min'])
+                     min=self.stats['X']['max'], max=self.stats['X']['min'], rng=self.rng)
 
 
 class ODE_Autonomous(EmulatorBase):

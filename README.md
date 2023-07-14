@@ -334,7 +334,7 @@ from neuromancer import slim
 ```yaml
 @article{Neuromancer2023,
   title={{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}},
-  author={Tuor, Aaron and Drgona, Jan and Koch, James and Shapiro, Madelyn and Vrabie, Draguna},
+  author={Tuor, Aaron and Drgona, Jan and Koch, James and Shapiro, Madelyn and Vrabie, Draguna and Briney, Seth},
   Url= {https://github.com/pnnl/neuromancer}, 
   year={2023}
 }

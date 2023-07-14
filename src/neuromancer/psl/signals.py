@@ -305,7 +305,7 @@ def _beta_max_step(x0, lb, ub, max_step, alpha, beta, rng)->np.ndarray:
 
 _float_or_npd = Union[float, np.ndarray]
 
-def beta_walk_max_step(nsim, d, min:_float_or_npd, max:_float_or_npd, max_step:_float_or_npd=None, x0:_float_or_npd=None,
+def beta_walk_max_step(nsim, d, min:_float_or_npd=0., max:_float_or_npd=1., max_step:_float_or_npd=None, x0:_float_or_npd=None,
               dtype: dtype=np.float32, alpha:float=2, beta:float=2, p:float=.3, \
               rng=np.random.default_rng())->np.ndarray:
     """
@@ -382,7 +382,7 @@ def _1d_walk(nsim, x0, lb, ub, max_step, p, avoid_edge, granularity, dtype, rng)
     return ts
 
 
-def nd_walk(nsim, d, min:_float_or_npd, max:_float_or_npd, x0:_float_or_npd=None, \
+def nd_walk(nsim, d, min:_float_or_npd=0., max:_float_or_npd=1., x0:_float_or_npd=None, \
               max_step:_float_or_npd=None, p: float=.3, avoid_edge: bool=True, granularity: int=0, \
               dtype: dtype=np.float32, rng=np.random.default_rng())->np.ndarray:
     '''

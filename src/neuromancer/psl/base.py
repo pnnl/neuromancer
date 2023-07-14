@@ -116,7 +116,7 @@ class EmulatorBase(ABC, torch.nn.Module):
         """
         super().__init__()
         self.B = Backend(backend)
-        self.set_rng(seed)
+        self.rng = np.random.default_rng(seed=seed)
         self.exclude_norms = exclude_norms
         if not hasattr(self, 'nsim'):
             self.nsim = 1001
@@ -241,7 +241,7 @@ class EmulatorBase(ABC, torch.nn.Module):
 
         :param box: Dictionary with keys 'min' and 'max' and values np.arrays with shape=(nx,)
         """
-        return numpy.random.uniform(low=self.stats['X']['min'], high=self.stats['X']['max'])
+        return self.rng.uniform(low=self.stats['X']['min'], high=self.stats['X']['max'])
 
     def _plot(self, data=None):
         """
@@ -286,9 +286,6 @@ class EmulatorBase(ABC, torch.nn.Module):
             plt.close()
         else:
             plt.show()
-
-    def set_rng(self, seed: Union[int,np.random._generator.Generator]):
-        self.rng = np.random.default_rng(seed=seed)
 
     def save_random_state(self):
         """ Save random state for later use """
@@ -376,7 +373,7 @@ class ODE_NonAutonomous(EmulatorBase):
         """
         if signal is None:
             return self.rng.normal(loc=self.stats['U']['mean'], scale=self.stats['U']['std'],
-                                   size=(nsim, self.nU))
+                                   size=(nsim, self.nu))
         umin = self.stats['U']['min']
         umax = self.stats['U']['max']
         d = umin.ravel().shape[0]

@@ -109,8 +109,8 @@ class PslGym(gymnasium.Env):
       self.psl_env = systems[psl_sys](seed=seed)
       self.is_building = psl_sys in building_systems.keys()
       self.has_d = 'D' in self.psl_env.stats
-      self.nsim = self.psl_env.nsim if psl_sys in building_systems else \
-         self.psl_env.nsim-1
+      self.nsim = self.psl_env.nsim
+
 
       self.t = 0 # timestep index
       self.episodes = 0 # track how many times self.reset() has been called
@@ -221,11 +221,11 @@ class PslGym(gymnasium.Env):
       if self.d: print(Fore.GREEN,f'pslgym set_refs, t={self.t}, episodes={self.episodes}',Style.RESET_ALL)
       if self.p: print(Fore.GREEN,'set_refs',Style.RESET_ALL)
       # print('self.nsim',self.nsim, 'self.refs.shape',self.refs.shape)
-      nsim = self.psl_env.nsim if self.is_building else self.nsim
-      U, signal_str = self.get_U(nsim=self.psl_env.nsim)
+      nsim = self.psl_env.nsim
+      U, signal_str = self.get_U(nsim=self.nsim+1)
       self.signal = signal_str
       x0  = self.psl_env.get_x0()
-      sim = self.psl_env.simulate(U=U, x0=x0)
+      sim = self.psl_env.simulate(nsim=self.nsim, U=U, x0=x0)
       if self.do_trace:
          self.u_refs[:,:] = U[:,:] if self.is_building else \
             U[:-1,:]
@@ -325,15 +325,15 @@ class PslGym(gymnasium.Env):
       """
       self.t = 0
 
-      if self.episodes % self.reset_freq==0:
+      if self.episodes % self.reset_freq == 0:
          self.x0 = self.set_refs(seed=seed)
 
       self.episodes = self.episodes + 1
 
-      if self.d: print(Fore.GREEN,f'pslgym reset, t={self.t}, episodes={self.episodes}',Style.RESET_ALL)
-      if self.p: print(Fore.GREEN,'reset',Style.RESET_ALL)
+      if self.d: print(Fore.GREEN, f'pslgym reset, t={self.t}, episodes={self.episodes}', Style.RESET_ALL)
+      if self.p: print(Fore.GREEN, 'reset', Style.RESET_ALL)
       U, _ = self.get_U(nsim=2)
-      sim = self.psl_env.simulate(U=U,x0=self.x0,nsim=1) # get initial obs
+      sim = self.psl_env.simulate(nsim=1, U=U, x0=self.x0,) # get initial obs
       self.set_y(sim)
 
       info = {'current_time':self.t, 'num_resets':self.episodes}
@@ -351,20 +351,19 @@ class PslGym(gymnasium.Env):
          sim = self.psl_env.simulate(U=self.U, x0=self.X, nsim=1)
          self.t = self.t + 1
       except Exception as e:
-         warnings.warn('simulaiton failed')
-         print(Fore.RED,e,Style.RESET_ALL)
+         warnings.warn('simulation failed')
+         print(Fore.RED, e, Style.RESET_ALL)
          truncated = True
-         info = { 'time':self.t, 'episodes':self.episodes }
+         info = {'time': self.t, 'episodes': self.episodes}
          return None, None, None, truncated, info
 
       self.set_y(sim)
       reward = self.get_reward()
-
-      terminated = (self.t==self.nsim-1)
+      terminated = (self.t == self.nsim)
 
       obs = self.get_obs()
 
-      info = { 'time':self.t, 'episodes':self.episodes }
+      info = {'time': self.t, 'episodes': self.episodes}
       return obs, reward, terminated, truncated, info
 
 

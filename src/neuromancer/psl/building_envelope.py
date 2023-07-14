@@ -119,7 +119,7 @@ class BuildingEnvelope(ODE_NonAutonomous):
         if signal is not None:
             return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
 
-        return periodic(nsim, self.umin.shape[-1], max=self.umax / 2., min=self.umin, periods=int(np.ceil(nsim / 48.)),
+        return periodic(nsim, self.umin.shape[-1], max=(self.umax+self.umin) / 2., min=self.umin, periods=int(np.ceil(nsim / 48.)),
                         form='sin', rng=self.rng) + noise(nsim, self.umin.shape[-1], rng=self.rng)
 
     @cast_backend
@@ -206,7 +206,7 @@ class LinearBuildingEnvelope(BuildingEnvelope):
 
         return periodic(nsim,
                         self.nq,
-                        max=self.umax / 2.,
+                        max=(self.umax+self.umin) / 2.,
                         min=self.umin,
                         periods=int(np.ceil(nsim / 48.)),
                         rng=self.rng) + noise(nsim, self.nq, rng=self.rng)

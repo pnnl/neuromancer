@@ -2,7 +2,6 @@
 import torch
 import torch.nn as nn
 from neuromancer.gradients import gradient, jacobian
-from neuromancer.component import Component
 
 
 class GradientProjection(nn.Module):

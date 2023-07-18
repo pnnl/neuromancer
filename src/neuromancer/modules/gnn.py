@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from neuromancer import integrators
+from neuromancer.dynamics import integrators
 import types
 
 

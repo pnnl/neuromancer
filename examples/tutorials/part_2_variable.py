@@ -81,6 +81,15 @@ print(x10.keys)
 # evaluate forward pass of the variable with dictionary input data
 print(x10({'x': 5.00, 'y': 5.00}))
 
+# 8, create new variables via slicing on existing variables
+# select column 0
+x10_column0 = x10[:, 0]
+print(x10_column0({'x': torch.randn(2, 2), 'y': torch.randn(2, 1)}))
+x10_column0.show()
+# select column 1
+x10_column1 = x10[:, 1]
+print(x10_column1({'x': torch.randn(2, 2), 'y': torch.randn(2, 1)}))
+x10_column1.show()
 
 """
 Constraint is constructed by using comparative infix operators, '<', '>', '==', '<=', '>=' with Variable objects

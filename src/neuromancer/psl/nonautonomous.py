@@ -162,6 +162,14 @@ class TwoTank(ODE):
         meta = {}
         return variables, constants, parameters, meta
 
+    @property
+    def umin(self):
+        return np.array([0,0])
+
+    @property
+    def umax(self):
+        return np.array([.5,.5])
+
     @cast_backend
     def get_x0(self):
         return self.rng.uniform(low=0.0, high=0.5, size=2)
@@ -170,7 +178,7 @@ class TwoTank(ODE):
     def get_U(self, nsim, signal=None, **signal_kwargs):
         if signal is not None:
             return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
-        u = step(nsim=nsim, d=2, min=0., max=0.4, randsteps=int(np.ceil(self.ts*nsim/30)), rng=self.rng)
+        u = step(nsim=nsim, d=2, min=0., max=0.4, randsteps=int(np.ceil(self.ts*nsim)), rng=self.rng)
         return u
 
     @cast_backend

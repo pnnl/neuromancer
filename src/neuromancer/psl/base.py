@@ -60,6 +60,7 @@ class Backend:
         """
         backend: can be torch or numpy
         """
+        self.backend = backend
         for k, v in Backend.backends[backend].items():
             setattr(self, k, v)
 
@@ -77,7 +78,10 @@ class EquationWrapper:
         :param U: (2-D array of control actions)
         :param equations: (Callable) Function with signature (t, x, u)
         """
-        self.ufunc = scipy.interpolate.interp1d(Time, U, kind='previous', axis=0, fill_value='extrapolate')
+        if backend.backend == 'numpy':
+            self.ufunc = scipy.interpolate.interp1d(Time, U, kind='previous', axis=0, fill_value='extrapolate')
+        elif backend.backend == 'torch':
+            self.ufunc = scipy.interpolate.interp1d(Time, numpy.array(U.numpy(force=True)), kind='previous', axis=0, fill_value='extrapolate')
         self.equations = equations
         self.B = backend
 

@@ -16,18 +16,6 @@ SEED=0
 
 def get_name(emulator):
     return str(emulator)
-    # if emulator in buildsys:
-    # return emulator.keywords['system']
-    # elif emulator in nonautosys:
-    #     return str(emulator).split('.')[-1].split('\'')[0]
-    # return None        
-
-# systems = list(nonautosys)+list(buildsys)
-# nonautosys = [v for v in nonautosys.values()]
-# buildsys = [v for v in buildsys.values()]
-
-# systems = nonautosys+buildsys
-# systems = nonautosys
 
 systems = { k:v for k,v in systems.items() if any((
            'TwoTank' in k,
@@ -35,9 +23,9 @@ systems = { k:v for k,v in systems.items() if any((
            'Reno_full' in k,
            'HollandschHuys_full' in k))}
 
-# @pytest.mark.parametrize("emulator", systems)
-# @given(nsim=st.integers(3, 5))
-# @settings(max_examples=1, deadline=None)
+@pytest.mark.parametrize("emulator", systems)
+@given(nsim=st.integers(3, 5))
+@settings(max_examples=1, deadline=None)
 def test_pslgym(emulator, nsim):
     backend='numpy'
     env = PslGym(psl_sys=get_name(emulator), reward_instance=pslgym.MSE(max_r=.1), do_trace=True, act_momentum=0, seed=SEED, render_mode=None)

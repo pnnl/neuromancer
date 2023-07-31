@@ -105,7 +105,7 @@ def periodic(nsim, d, min=0., max=1., periods=30, form='sin', phase_offset=False
     return min + (max - min) * _zero_one(signal)
 
 def np_softmax(x, dim):
-    return torch.nn.functional.softmax(torch.tensor(x)).numpy()
+    return torch.nn.functional.softmax(torch.tensor(x), dim=dim).numpy()
 
 def sines(nsim, d, min=0., max=1., periods=30, nwaves=20, form='sin', rng=np.random.default_rng()):
     """
@@ -119,6 +119,10 @@ def sines(nsim, d, min=0., max=1., periods=30, nwaves=20, form='sin', rng=np.ran
     :return: (np.array shape=(nsim, d)) Periodic time-series
     """
     min, max = _vectorize_and_check([min, max], d)
+    if periods<1:
+       signal = np.ones((nsim,d))*rng.uniform(min,max)
+       return signal
+
     f = _periodic_functions[form]
     t = np.linspace(0, 2. * np.pi, nsim).reshape(-1, 1) + rng.uniform(low=0., high=2.*np.pi, size=(1, d))
     amps = np_softmax(rng.standard_normal((nwaves, d)), dim=0)/2.
@@ -145,7 +149,7 @@ def spline(nsim, d, min=0., max=1., values=None, n_interpolants=30, rng=np.rando
     values = rng.triangular(min, mean, max, size=(n_interpolants, d)) if values is None else values
     cs = interpolate.CubicSpline(np.linspace(0, nsim, len(values)), values, extrapolate='periodic')
     time = np.linspace(0, nsim, nsim)
-    return cs(time)
+    return np.clip(cs(time), min, max)
 
 
 def arma(nsim, d, min=0., max=1.,  q=10, p=10, bound=True, rng=np.random.default_rng()):

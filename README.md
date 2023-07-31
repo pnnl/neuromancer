@@ -310,7 +310,7 @@ from neuromancer import slim
 ## Development team
 
 **Lead developers**: Aaron Tuor, Jan Drgona  
-**Active contributors**: Aaron Tuor, Jan Drgona, James Koch, Madelyn Shapiro, Draguna Vrabie  
+**Active contributors**: Aaron Tuor, Jan Drgona, James Koch, Madelyn Shapiro, Draguna Vrabie, Seth Briney
 **Past contributors**: Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 
 

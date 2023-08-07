@@ -291,9 +291,9 @@ from neuromancer import slim
   + examples/control/
       + double_integrator_dpc_ol_fixed_ref.py
       + vtol_dpc_ol_fixed_ref.py
-+ New class for L[toy_interpolation.py](examples%2Ftutorials%2Ftoy_interpolation.py)inear State Space Models (LSSM)
++ New class for Linear State Space Models (LSSM)
     + LinearSSM in dynamics.py
-+ Refactored closed loop control policy simulations
++ Refactored closed-loop control policy simulations
   + simulator.py
 + Interfaces for open and closed loop simulation (evaluation after training) for several classes 
     + Dynamics

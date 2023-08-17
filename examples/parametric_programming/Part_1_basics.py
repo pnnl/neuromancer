@@ -125,7 +125,7 @@ if __name__ == "__main__":
     obj = f.minimize(weight=1.0, name='obj')
 
     # constraints
-    Q_con = 100.  # constraint penalty weights
+    Q_con = 1.  # constraint penalty weights
     con_1 = Q_con*(x >= y)
     con_2 = Q_con*((p/2)**2 <= x**2+y**2)
     con_3 = Q_con*(x**2+y**2 <= p**2)
@@ -156,7 +156,7 @@ if __name__ == "__main__":
         dev_loader,
         test_loader,
         optimizer,
-        epochs=400,
+        epochs=200,
         patience=100,
         warmup=100,
         train_metric="train_loss",

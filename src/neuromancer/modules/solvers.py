@@ -62,13 +62,13 @@ class GradientProjection(Solver):
         :param constraints: list of objects which implement the Loss interface (e.g. Objective, Loss, or Constraint)
         :param num_steps: (int) number of iteration steps for the projected gradient method
         :param step_size: (float) scaling factor for gradient update
-        :param decay:
+        :param decay: (float) decay factor of the step_size
         :param name:
         """
         super().__init__(constraints=constraints,
                          input_keys=input_keys, output_keys=output_keys,
                          name=name)
-        self._num_steps = num_steps
+        self.num_steps = num_steps
         self.step_size = step_size
         self.input_keys = input_keys
         self.decay = decay
@@ -80,10 +80,6 @@ class GradientProjection(Solver):
         for con in self.constraints:
             assert str(con.comparator) in ['lt', 'gt'], \
                 f'constraint {con} must be inequality (lt or gt), but it is {str(con.comparator)}'
-
-    @property
-    def num_steps(self):
-        return self._num_steps
 
     def con_viol_energy(self, input_dict):
         """

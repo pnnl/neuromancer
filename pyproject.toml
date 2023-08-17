@@ -39,7 +39,9 @@ classifiers = [
     "License :: OSI Approved :: BSD License"
 ]
 dependencies = [
+    "colorama==0.4.5",
     "dill",
+    "gymnasium==0.28.1",
     "matplotlib",
     "mlflow",
     "networkx==3.0.0",
@@ -50,6 +52,7 @@ dependencies = [
     "scipy",
     "six",
     "pydot==1.4.2",
+    "pygame",
     "pyts",
     "scipy",
     "torch",
@@ -71,6 +74,6 @@ include-package-data = true
 where = ["src"]
 
 [project.optional-dependencies]
-tests = ["pytest", "hypothesis"]
+tests = ["pytest", "hypothesis", "stable-baselines3"]
 examples = ["casadi", "cvxpy", "imageio"]
 docs = ["sphinx", "sphinx-rtd-theme"]

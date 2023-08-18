@@ -7,15 +7,9 @@ name = "neuromancer"
 authors = [
     { name = "Aaron Tuor", email = "aaron.tuor@pnnl.gov" },
     { name = "Jan Drgona", email = "jan.drgona@pnnl.gov" },
-    { name = "Mia Skomski", email = "mia.skomski@pnnl.gov" },
-    { name = "Stefan Dernbach", email = "stefan.dernbach@pnnl.gov" },
     { name = "James Koch", email = "james.koch@pnnl.gov" },
-    { name = "Zhao Chen", email = "zhao.chen@pnnl.gov" },
-    { name = "Christian Møldrup Legaard", email = "cml@ece.au.dk" },
-    { name = "Draguna Vrabie", email = "draguna.vrabie@pnnl.gov" },
-    { name = "Elliot Skomski", email = "elliot.skomski@pnnl.gov" },
-    { name = "Soumya Vasisht", email = "soumya.vasisht@pnnl.gov" },
-    { name = "Madelyn Shapiro", email = "madelyn.shapiro@pnnl.gov"}
+    { name = "Madelyn Shapiro", email = "madelyn.shapiro@pnnl.gov"},
+    { name = "Draguna Vrabie", email = "draguna.vrabie@pnnl.gov" }
 ]
 description = "Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularization"
 readme = "README.md"
@@ -40,6 +34,7 @@ classifiers = [
 ]
 dependencies = [
     "dill",
+    "graphviz",
     "matplotlib",
     "mlflow",
     "networkx==3.0.0",

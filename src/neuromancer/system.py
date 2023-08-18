@@ -223,7 +223,6 @@ class System(nn.Module):
                                            have 3 dims.
         :return: (dict: {str: Tensor}) data with outputs of nstep rollout of Node interactions
         """
-
         nsteps = self.nsteps if self.nsteps is not None else data[self.nstep_key].shape[1]  # Infer number of rollout steps
         data = self.init(data)  # Set initial conditions of the system
         for i in range(nsteps):
@@ -271,7 +270,6 @@ if __name__ == "__main__":
     s2.show('system_graph.png')
     exit()
     data = {'X': torch.randn(3, 2, 3), 'U': torch.randn(3, 2, 2)}
-    print({k: v.shape for k, v in s2(data).items()})
 
     """
     This is an example of a System that implements a simple multiple shooting approach. 

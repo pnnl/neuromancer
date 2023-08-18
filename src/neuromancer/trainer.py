@@ -94,7 +94,6 @@ class Trainer:
         try:
             for i in range(self.current_epoch, self.current_epoch+self.epochs):
 
-                self.current_epoch = i
                 self.model.train()
                 losses = []
                 for t_batch in self.train_data:
@@ -144,7 +143,10 @@ class Trainer:
                     self.callback.end_epoch(self, output)
 
                     if self.badcount > self.patience:
+                        print('Early stopping!!!')
                         break
+                    self.current_epoch = i + 1
+
         except KeyboardInterrupt:
             print("Interrupted training loop.")
 

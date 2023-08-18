@@ -81,7 +81,7 @@ class Validator:
         Y, U, D = [], [], []
         nsim = (args.nsim//args.nsteps)*args.nsteps
         for x0 in self.x0s:
-            sim = sys.simulate(nsim=100, x0=x0, U=sys.get_U(100+1, type=args.input))
+            sim = sys.simulate(nsim=500, x0=x0, U=sys.get_U(500+1, type=args.input))
             Y.append(torch.tensor(sim['Y'], dtype=torch.float32))
             U.append(torch.tensor(sim['U'], dtype=torch.float32))
             D.append(torch.tensor(sim['D'], dtype=torch.float32))
@@ -125,7 +125,7 @@ def get_data(nsteps, sys, nsim, bs):
 
     """
     nsim = (nsim//nsteps)*nsteps
-    sim = sys.simulate(nsim=nsim, x0=sys.get_x0(), U=sys.get_U(nsim+1, type=args.input))
+    sim = sys.simulate(nsim=nsim, x0=sys.get_x0(), U=sys.get_U(nsim+1))
     ny, nu, nd = sim['Y'].shape[-1], sim['U'].shape[-1], sim['D'].shape[-1]
     Y = sys.normalize(sim['Y'], key='Y')
     U = sys.normalize(sim['U'], key='U')
@@ -148,10 +148,79 @@ def get_data(nsteps, sys, nsim, bs):
     return ny, nu, nd, train_loader, dev_loader, test_loader
 
 
-def get_node(ny, nu, nd, args):
+def get_node(ny, nu, nd, args, sys):
     integrator = EulerIntegrator(ny, nu, nd, args.hsize, args.nlayers, torch.tensor(args.ts))
     nodes = [Node(integrator, ['yn', 'Y', 'U', 'D'], ['yn', 'ystep'])]
     system = System(nodes, nstep_key='Y', init_func=init)
+    return system
+
+
+def get_blackbox_ssm(ny, nu, nd, args, sys):
+    """
+    y_{t+1} = f_y(f_x(x_t) + f_u(u_t) + f_d(d_t))
+    y_{t+1} = f(x_t, u_t, d_t)
+
+    """
+    map = MLP(ny + nu + nd, ny, bias=True,
+              linear_map=nn.Linear, nonlin=SoftExponential,
+              hsizes=[args.hsize for h in range(args.nlayers)])
+    ssm1 = Node(map, ['xn'], ['yn'])
+    ssm2 = Node(map, ['xs'], ['ystep'])
+    cat = Node(lambda yn, ys, u, d: (torch.cat([yn, u, d], dim=-1),
+                                     torch.cat([ys, u, d], dim=-1)), ['yn', 'Y', 'U', 'D'], ['xn', 'xs'])
+    system = System([cat, ssm1, ssm2], nstep_key='Y', init_func=init)
+    return system
+
+
+class BilinearMap(nn.Module):
+
+    def __init__(self, sys):
+        super().__init__()
+        self._rho, self._time_reg, self._cp, self.n_mf, self.n_dT = sys.rho, sys.time_reg, sys.cp, sys.n_mf, sys.n_dT
+        print(self.n_dT, self.n_mf)
+        self.rho = torch.nn.Parameter(torch.randn(1))
+        self.time_reg = torch.nn.Parameter(torch.randn(1))
+        self.cp = torch.nn.Parameter(torch.randn(1))
+
+    def forward(self, u):
+        q = self.rho * self.cp * self.time_reg * u
+        return q
+
+
+class Bilinear(nn.Module):
+
+    def __init__(self, fu, fq, fd, fx, fy, state_estimator):
+        super().__init__()
+        self.fu, self.fq, self.fd, self.fx, self.fy, self.state_estimator = fu, fq, fd, fx, fy, state_estimator
+
+    def forward(self, y, u, d):
+        fu = self.fu(self.fq(u))
+        fd = self.fd(d)
+        fx = self.fx(self.state_estimator(y))
+
+        x = fu + fd + fx
+        return self.fy(x)
+
+
+def get_bilinear_ssm(ny, nu, nd, args, psl_sys):
+    """
+    y_{t+1} = f_y(f_x(x_t) + f_u(u_t) + f_d(d_t))
+    y_{t+1} = f(x_t, u_t, d_t)
+
+    """
+    nx = psl_sys.nx
+    fu = torch.nn.Linear(sys.n_mf, nx)
+    fq = BilinearMap(psl_sys)
+    fd = torch.nn.Linear(nd, nx)
+    fx = torch.nn.Linear(nx, nx)
+    fy = torch.nn.Linear(nx, ny)
+    state_estimator = MLP(ny, nx, bias=True,
+                          linear_map=nn.Linear, nonlin=SoftExponential,
+                          hsizes=[args.hsize for h in range(args.nlayers)])
+    map = Bilinear(fu, fq, fd, fx, fy, state_estimator)
+    ssm1 = Node(map, ['yn', 'U', 'D'], ['yn'])
+    ssm2 = Node(map, ['Y', 'U', 'D'], ['ystep'])
+    system = System([ssm1, ssm2], nstep_key='Y', init_func=init)
     return system
 
 
@@ -196,7 +265,7 @@ class LinearModel(nn.Module):
         return self.fx(xn) + ud + self.bias, self.fx(xstep) + ud + self.bias
 
 
-def get_linear(nx, nu, nd, args):
+def get_linear(nx, nu, nd, args, sys):
     m = LinearModel(nx, nu, nd)
     nodes = [Node(m, ['yn', 'Y', 'U', 'D'], ['yn', 'ystep'])]
     system = System(nodes, nstep_key='Y', init_func=init)
@@ -253,14 +322,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
     os.makedirs(args.logdir, exist_ok=True)
 
-    get_model = {'node': get_node, 'linear': get_linear}
+    get_model = {'node': get_node, 'linear': get_linear, 'blackbox': get_blackbox_ssm,
+                 'bilinear': get_bilinear_ssm}
     sys = systems[args.system]()
     args.ts = sys.ts
     x0 = sys.get_x0()
-    test_sim = sys.simulate(nsim=1000, x0=x0, U=sys.get_U(1000 + 1, type='sines'))
+    test_sim = sys.simulate(nsim=1000, x0=x0, U=sines(1000 + 1, sys.nu, min=0.0, max=(sys.stats['U']['max'] + sys.stats['U']['min'])/2.))
     ny, nu, nd, train_data, dev_data, test_data = get_data(args.nsteps, sys, args.nsim, args.batch_size)
 
-    ssm = get_model[args.model](ny, nu, nd, args)
+    ssm = get_model[args.model](ny, nu, nd, args, sys)
     # opt = optimizers[args.optimizer](ssm.parameters, args.lr)
     # opt = optim.AdamW(ssm.parameters(), args.lr, betas=(0.0, 0.9))
     opt = optim.AdamW(ssm.parameters(), args.lr)

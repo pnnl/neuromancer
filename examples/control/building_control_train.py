@@ -15,8 +15,8 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch.nn as nn
 
-from neuromancer.activations import SoftExponential
-from neuromancer import blocks
+from neuromancer.modules.activations import SoftExponential
+from neuromancer.modules import blocks
 from neuromancer.psl.building_envelope import systems
 from neuromancer.problem import Problem
 from neuromancer.loggers import MLFlowLogger
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-system', default='LinearReno_full', choices=[k for k in systems],
+    parser.add_argument('-system', default='Reno_full', choices=[k for k in systems],
                         help='You can use any of the systems from psl.nonautonomous with this script')
     parser.add_argument('-epochs', type=int, default=100,
                         help='Number of epochs of training.')
@@ -139,13 +139,12 @@ if __name__ == "__main__":
                                       hsizes=[args.hsize for h in range(args.nlayers)])
 
             def forward(self, y, D, U_upper, U_lower, R):
-                features = torch.cat([y, D, U_upper, U_lower, R.reshape(R.shape[0], -1)], dim=-1)
+                features = torch.cat([y, D, U_upper, U_lower, R], dim=-1)
                 return self.net(features)
 
-        insize = ny + ny*forecast + nd + 2*nu
+        insize = ny + ny + nd + 2*nu
         policy = Policy(insize, nu)
-        policy_node = Node(policy, ['yn', 'D', 'U_upper', 'U_lower', 'R'], ['U'],
-                           horizon_data=['R'], horizon=forecast)
+        policy_node = Node(policy, ['yn', 'D', 'U_upper', 'U_lower', 'R'], ['U'])
         system_node = Node(sys, ['xn', 'U', 'Dhidden'], ['xn', 'yn'])
 
         def init(data):
@@ -163,14 +162,12 @@ if __name__ == "__main__":
     sys = systems[args.system](backend='torch', requires_grad=True)
     simulator, policy = get_system(sys, args.forecast)
 
-    train_data, dev_data, test_data = get_data(args.nsteps+args.forecast, sys, args.nsim, args.batch_size, normalize=args.normalize)
-
     opt = optim.Adam(policy.parameters(), args.lr, betas=(0.0, 0.9))
 
     tru = variable('yn')[:, 1:, :]
-    ref = variable('R')[:, :-args.forecast, :]
-    u_hi = variable('U_upper')[:, :-args.forecast, :]
-    u_lo = variable('U_lower')[:, :-args.forecast, :]
+    ref = variable('R')
+    u_hi = variable('U_upper')
+    u_lo = variable('U_lower')
     u = variable('U')
     loss = (ref == tru) ^ 2
     loss.update_name('loss')
@@ -182,16 +179,20 @@ if __name__ == "__main__":
 
     logout = ['loss']
     logger = MLFlowLogger(args, savedir=args.logdir, stdout=['train_loss', 'dev_loss'], logout=logout)
+    train_data, dev_data, test_data = get_data(args.nsteps, sys, args.nsim, args.batch_size,
+                                               normalize=args.normalize)
     trainer = Trainer(problem, train_data, dev_data, test_data, opt, logger,
-                      epochs=args.epochs,
-                      patience=args.epochs*args.iterations,
+                      epochs=2,
+                      patience=args.epochs * args.iterations,
                       train_metric='train_loss',
                       dev_metric='dev_loss',
                       test_metric='test_loss',
                       eval_metric='dev_loss')
-
-    best_model = trainer.train()
-    trainer.model.load_state_dict(best_model)
+    for i in range(args.epochs):
+        best_model = trainer.train()
+        train_data, dev_data, test_data = get_data(args.nsteps, sys, args.nsim, args.batch_size,
+                                                   normalize=args.normalize)
+        trainer.model.load_state_dict(best_model)
     # # Model training
     # lr = args.lr
     # nsteps = args.nsteps

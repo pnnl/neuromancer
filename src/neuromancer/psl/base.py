@@ -223,9 +223,9 @@ class EmulatorBase(ABC, torch.nn.Module):
                               'mean': v.mean(axis=0), 'var': v.var(axis=0),
                               'std': v.std(axis=0)} for k, v in sim.items() if k not in self.exclude_norms}
         elif self.B.core is torch:
-            self.stats = {k: {'min': v.min(axis=0)[0], 'max': v.max(axis=0)[0],
-                              'mean': v.mean(axis=0), 'var': v.var(axis=0),
-                              'std': v.std(axis=0)} for k, v in sim.items() if k not in self.exclude_norms}
+            self.stats = {k: {'min': v.min(axis=0)[0].detach(), 'max': v.max(axis=0)[0].detach(),
+                              'mean': v.mean(axis=0).detach(), 'var': v.var(axis=0).detach(),
+                              'std': v.std(axis=0).detach()} for k, v in sim.items() if k not in self.exclude_norms}
 
         self.stats_data = sim
         shapes = {k.lower(): v.shape[-1] for k, v in sim.items()

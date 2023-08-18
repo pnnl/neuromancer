@@ -60,6 +60,7 @@ class Backend:
         """
         backend: can be torch or numpy
         """
+        self.backend = backend
         for k, v in Backend.backends[backend].items():
             setattr(self, k, v)
 
@@ -77,7 +78,10 @@ class EquationWrapper:
         :param U: (2-D array of control actions)
         :param equations: (Callable) Function with signature (t, x, u)
         """
-        self.ufunc = scipy.interpolate.interp1d(Time, U, kind='previous', axis=0, fill_value='extrapolate')
+        if backend.backend == 'numpy':
+            self.ufunc = scipy.interpolate.interp1d(Time, U, kind='previous', axis=0, fill_value='extrapolate')
+        elif backend.backend == 'torch':
+            self.ufunc = scipy.interpolate.interp1d(Time, numpy.array(U.numpy(force=True)), kind='previous', axis=0, fill_value='extrapolate')
         self.equations = equations
         self.B = backend
 
@@ -364,7 +368,7 @@ class ODE_NonAutonomous(EmulatorBase):
         return {'Y': X[1:], 'X': X[1:], 'U': U[1:], 'Time': Time[1:]}
 
     @cast_backend
-    def get_U(self, nsim, signal=None, **signal_kwargs):
+    def get_U(self, nsim, umin=None, umax=None, signal=None, **signal_kwargs):
         """
         For sampling a sequence of control actions
         :param nsim: length of sequence
@@ -374,8 +378,10 @@ class ODE_NonAutonomous(EmulatorBase):
         if signal is None:
             return self.rng.normal(loc=self.stats['U']['mean'], scale=self.stats['U']['std'],
                                    size=(nsim, self.nu))
-        umin = self.stats['U']['min']
-        umax = self.stats['U']['max']
+        if umin is None:
+            umin = self.umin if hasattr(self, 'umin') else self.stats['U']['min']
+        if umax is None:
+            umax = self.umax if hasattr(self, 'umax') else self.stats['U']['max']
         d = umin.ravel().shape[0]
         return signal(nsim=nsim, d=d, min=umin, rng=self.rng, max=umax, **signal_kwargs)
 

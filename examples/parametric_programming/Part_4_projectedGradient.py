@@ -1,6 +1,6 @@
 """
 Learning to optimize parametric nonlinear programming problem (pNLP)
-using projected gradient method in Neuromancer.
+using differentiable projected gradient method in Neuromancer.
 
 Projected gradient method
 https://neos-guide.org/guide/algorithms/gradient-projection/
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     # Each element in the set of sampled parameters represents one instance of the problem
     data_seed = 408
     np.random.seed(data_seed)
-    nsim = 5000  # number of datapoints: increase sample density for more robust results
+    nsim = 3000  # number of datapoints: increase sample density for more robust results
     # create dictionaries with sampled datapoints with uniform distribution
     a_low, a_high, p_low, p_high = 0.2, 1.2, 0.5, 2.0
     samples_train = {"a": torch.FloatTensor(nsim, 1).uniform_(a_low, a_high),
@@ -117,7 +117,7 @@ if __name__ == "__main__":
     to visualize computational graph of the variable use x.show() method          
     """
 
-    # define decision variables
+    # define primal decision variables
     x = variable("x")[:, [0]]
     y = variable("x")[:, [1]]
     # problem parameters sampled in the dataset
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     obj = f.minimize(weight=1.0, name='obj')
 
     # constraints
-    Q_con = 100.  # constraint penalty weights
+    Q_con = 1.0  # constraint penalty weights set deliberately too low to demonstrate
     con_1 = Q_con * (x == y)
     con_2 = Q_con * ((p / 2) ** 2 <= x ** 2 + y ** 2)
     con_3 = Q_con * (x ** 2 + y ** 2 <= p ** 2)
@@ -138,24 +138,26 @@ if __name__ == "__main__":
     con_3.name = 'c3'
 
     """
-    add differentiable optimization solver layer
+    differentiable projected gradient layer
     """
     # instantiate projected gradient layer to correct the solutions from the neural net:
     # proj(sol_map(xi)) -> x
+    num_steps = 5
+    step_size = 0.1
     proj = solvers.GradientProjection(constraints=[con_2, con_3],          # inequality constraints to be corrected
-                                      input_keys=["x"],                    # primal variable to be updated
-                                      num_steps=3,                         # number of rollout steps of the solver method
-                                      step_size=0.01,                      # step size of the solver method
+                                      input_keys=["x"],                    # primal variables to be updated
+                                      num_steps=num_steps,                 # number of rollout steps of the solver method
+                                      step_size=step_size,                 # step size of the solver method
+                                      decay=0.1,                           # decay factor of the step size
                                       name='proj')
 
     """
     constrained optimization problem construction in Neuromancer
     """
-
+    # list of objectives, constraints, and trainable components
     objectives = [obj]
     constraints = [con_1, con_2, con_3]
     components = [features, sol_map, proj]
-
     # create penalty method loss function
     loss = PenaltyLoss(objectives, constraints)
     # construct constrained optimization problem
@@ -163,7 +165,7 @@ if __name__ == "__main__":
                       grad_inference=True   # argument for allowing computation of gradients at the inference time
                       )
     # plot computational graph
-    # problem.show()
+    problem.show()
 
     """
     # # #  pNLP problem solution in Neuromancer
@@ -176,7 +178,7 @@ if __name__ == "__main__":
         dev_loader,
         test_loader,
         optimizer,
-        epochs=400,
+        epochs=100,
         patience=100,
         warmup=100,
         train_metric="train_loss",
@@ -194,7 +196,6 @@ if __name__ == "__main__":
     """
     CasADi benchmark
     """
-
 
     # instantiate casadi optimizaiton problem class
     def NLP_param(a, p, opti_silent=False):
@@ -222,6 +223,7 @@ if __name__ == "__main__":
 
 
     # selected parameters for a single instance problem
+    # a_low, a_high, p_low, p_high = 0.2, 1.2, 0.5, 2.0
     p = 1.0
     a = 1.0
     # construct casadi problem
@@ -269,84 +271,27 @@ if __name__ == "__main__":
     print(x_nm)
     print(y_nm)
 
+    # intermediate projection steps
+    x_proj = sol_map(features(datapoint))
+    proj.num_steps = 1    # set projections steps to 1 for visualisation
+    X_projected = [x_proj['x'].detach().numpy()]
+    for steps in range(num_steps):
+        proj_inputs = {**datapoint, **x_proj}
+        x_proj = proj(proj_inputs)
+        X_projected.append(x_proj['x'].detach().numpy())
+    projected_steps = np.concatenate(X_projected, axis=0)
+
     # plot optimal solutions CasADi vs Neuromancer
-    ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10, label='CasADi')
-    ax.plot(x_nm, y_nm, 'r*', fillstyle='none', markersize=10, label='NeuroMANCER')
+    ax.plot(sol.value(x), sol.value(y), 'g*', markersize=20, label='CasADi')
+    ax.plot(x_nm, y_nm, 'r*', fillstyle='none', markersize=20, label='NeuroMANCER')
+    # plot projected steps
+    marker_sizes = list(np.linspace(120, 180, num_steps+1))
+    color_gradient = list(np.linspace(0, 1, num_steps+1))
+    ax.plot(projected_steps[:, 0], projected_steps[:, 1], '--', c='orange',
+            label='projection steps')
+    ax.scatter(projected_steps[:, 0], projected_steps[:, 1],
+               s=marker_sizes, marker='*', c=color_gradient, cmap='coolwarm',
+               label='neural net')
     plt.legend(bbox_to_anchor=(1.0, 0.15))
     plt.show(block=True)
 
-
-    def eval_constraints(x, y, p):
-        """
-        evaluate mean constraints violations
-        """
-        con_1_viol = np.maximum(0, y - x)
-        con_2_viol = np.maximum(0, (p / 2) ** 2 - (x ** 2 + y ** 2))
-        con_3_viol = np.maximum(0, x ** 2 + y ** 2 - p ** 2)
-        con_viol = con_1_viol + con_2_viol + con_3_viol
-        con_viol_mean = np.mean(con_viol)
-        return con_viol_mean
-
-
-    def eval_objective(x, y):
-        obj_value_mean = np.mean((1 - x) ** 2 + a * (y - x ** 2) ** 2)
-        return obj_value_mean
-
-
-    # select n number of random samples to evaluate
-    n_samples = 1000
-    idx = np.random.randint(0, nsim, n_samples)
-    p_samples = samples_test['p'][idx]
-    a_samples = samples_test['a'][idx]
-
-    # create named dictionary for neuromancer
-    datapoint = {'a': a_samples, 'p': p_samples, 'name': 'test'}
-
-    # Solve via neuromancer
-    t = time.time()
-    model_out = problem(datapoint)
-    nm_time = time.time() - t
-    x_nm = model_out['test_' + "x"][:, [0]].detach().numpy()
-    y_nm = model_out['test_' + "x"][:, [1]].detach().numpy()
-
-    # Solve via solver
-    t = time.time()
-    x_solver, y_solver = [], []
-    for i in range(0, n_samples):
-        prob, x, y = NLP_param(p_samples[i].numpy(), a_samples[i].numpy(), opti_silent=True)
-        sol = prob.solve()
-        x_solver.append(sol.value(x))
-        y_solver.append(sol.value(y))
-    solver_time = time.time() - t
-    x_solver = np.asarray(x_solver)
-    y_solver = np.asarray(y_solver)
-
-    # Evaluate neuromancer solution
-    print(f'Solution for {n_samples} problems via Neuromancer obtained in {nm_time:.4f} seconds')
-    nm_con_viol_mean = eval_constraints(x_nm, y_nm, p)
-    print(f'Neuromancer mean constraints violation {nm_con_viol_mean:.4f}')
-    nm_obj_mean = eval_objective(x_nm, y_nm)
-    print(f'Neuromancer mean objective value {nm_obj_mean:.4f}\n')
-
-    # Evaluate solver solution
-    print(f'Solution for {n_samples} problems via solver obtained in {solver_time:.4f} seconds')
-    solver_con_viol_mean = eval_constraints(x_solver, y_solver, p)
-    print(f'Solver mean constraints violation {solver_con_viol_mean:.4f}')
-    solver_obj_mean = eval_objective(x_solver, y_solver)
-    print(f'Solver mean objective value {solver_obj_mean:.4f}\n')
-
-    # neuromancer solver comparison
-    speedup_factor = solver_time / nm_time
-    print(f'Solution speedup factor {speedup_factor:.4f}')
-
-    # Difference in primal optimizers
-    dx = (x_solver - x_nm)[:, 0]
-    dy = (y_solver - y_nm)[:, 0]
-    err_x = np.mean(dx ** 2)
-    err_y = np.mean(dy ** 2)
-    err_primal = err_x + err_y
-    print('MSE primal optimizers:', err_primal)
-
-    # Difference in objective
-    err_obj = np.abs(solver_obj_mean - nm_obj_mean) / solver_obj_mean * 100
-    print(f'mean objective value discrepancy: {err_obj:.2f} %')

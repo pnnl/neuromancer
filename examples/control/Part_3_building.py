@@ -1,14 +1,7 @@
 """
-Test and validation sets are step function references
-Length of test and validation sets: 1000
-
-What to do if not learning well:
-+ Increase network capacity
-+ Fiddle with optimization hyperparameters
-+ Fiddle with nonlinearity
-+ Fiddle with normalization
-+ Forecast disturbances
-+ Moving horizon for y
+This script is a barebones example of setting up a closed loop neuromancer System with a PSL emulator in the loop.
+There is no evaluation code in this script. See building_ssm_control_train.py for example with evaluation example.
+It uses a new dataset for each episode of training.
 """
 import os
 from torch.utils.data import DataLoader
@@ -30,7 +23,7 @@ from neuromancer.system import Node, System
 import torch
 
 
-def get_data(nsteps, sys, nsim, bs, normalize=False):
+def get_data(nsteps, sys, nsim, bs):
     """
     Gets a reference trajectory by simulating the system with random initial conditions.
 
@@ -58,10 +51,6 @@ def get_data(nsteps, sys, nsim, bs, normalize=False):
     R, D, Dhidden = (torch.tensor(R, dtype=torch.float32, requires_grad=False),
                      torch.tensor(D, dtype=torch.float32, requires_grad=False),
                      torch.tensor(Dhidden, dtype=torch.float32, requires_grad=False))
-    if normalize:
-        R = sys.normalize(R, key='Y')
-        Dhidden = sys.normalize(Dhidden, key='D')
-        D = Dhidden[:, :, sys.d_idx]
 
     U_upper = torch.tensor(sys.umax, dtype=torch.float32).view(1, 1, -1).expand(*R.shape[:-1], -1)
     U_lower = torch.tensor(sys.umin, dtype=torch.float32).view(1, 1, -1).expand(*R.shape[:-1], -1)
@@ -69,11 +58,7 @@ def get_data(nsteps, sys, nsim, bs, normalize=False):
     train_data = DictDataset({'R': R, 'D': D, 'Dhidden': Dhidden, 'U_upper': U_upper, 'U_lower': U_lower}, name='train')
     train_loader = DataLoader(train_data, batch_size=bs,
                               collate_fn=train_data.collate_fn, shuffle=True)
-    dev_data = DictDataset({'R': R[0:1], 'D': D[0:1], 'Dhidden': Dhidden[0:1], 'U_upper': U_upper[0:1], 'U_lower': U_lower[0:1]}, name='dev')
-    dev_loader = DataLoader(dev_data, num_workers=1, batch_size=bs,
-                            collate_fn=dev_data.collate_fn, shuffle=False)
-    test_loader = dev_loader
-    return train_loader, dev_loader, test_loader
+    return train_loader
 
 
 if __name__ == "__main__":
@@ -84,7 +69,6 @@ if __name__ == "__main__":
                         help='You can use any of the systems from psl.nonautonomous with this script')
     parser.add_argument('-epochs', type=int, default=100,
                         help='Number of epochs of training.')
-    parser.add_argument('-normalize', action='store_true', help='Whether to normalize data')
     parser.add_argument('-lr', type=float, default=0.001,
                         help='Learning rate for gradient descent.')
     parser.add_argument('-nsteps', type=int, default=4,
@@ -104,30 +88,21 @@ if __name__ == "__main__":
     parser.add_argument('-nlayers', type=int, default=4, help='Number of hidden layers for MLP')
     parser.add_argument('-iterations', type=int, default=3,
                         help='How many episodes of curriculum learning by doubling the prediction horizon and halving the learn rate each episode')
-    parser.add_argument('-eval_metric', type=str, default='eval_mse')
-    parser.add_argument('-forecast', type=int, default=2, help='Number of lookahead steps for reference.')
     args = parser.parse_args()
     os.makedirs(args.logdir, exist_ok=True)
 
-    def get_system(sys, forecast):
+    def get_system(sys):
         """
-        ny = observable state size
-        ny*forecast = reference preview size
-        nd = disturbance dimension
-        2*nu = Upper and lower bounds on controls
 
-        :param ny:
-        :param nu:
-        :param nd:
-        :param forecast:
-        :return:
-        """
-        """
+        :param sys: A psl system
+        :return: (system) A neuromancer closed loop system with PSL system in the loop and learnable control policy
+                 (policy) A neural network policy which returns actions given observations and reference
+
         Inputs to the control policy:
         System state at current time or current history
         Disturbance at current time
         Constraints at current time
-        Reference with forecast
+        Reference target for next time step
         """
         ny, nu, nd = sys.ny, sys.nU, 1
 
@@ -160,48 +135,26 @@ if __name__ == "__main__":
 
 
     sys = systems[args.system](backend='torch', requires_grad=True)
-    simulator, policy = get_system(sys, args.forecast)
+    simulator, policy = get_system(sys)
 
     opt = optim.Adam(policy.parameters(), args.lr, betas=(0.0, 0.9))
 
     tru = variable('yn')[:, 1:, :]
     ref = variable('R')
-    u_hi = variable('U_upper')
-    u_lo = variable('U_lower')
-    u = variable('U')
     loss = (ref == tru) ^ 2
     loss.update_name('loss')
 
-    c_upper = u < u_hi
-    c_lower = u > u_lo
-    obj = PenaltyLoss([loss], [])#, [0.01*c_upper, 0.01*c_lower])
+    obj = PenaltyLoss([loss], [])
     problem = Problem([simulator], obj)
 
     logout = ['loss']
-    logger = MLFlowLogger(args, savedir=args.logdir, stdout=['train_loss', 'dev_loss'], logout=logout)
-    train_data, dev_data, test_data = get_data(args.nsteps, sys, args.nsim, args.batch_size,
-                                               normalize=args.normalize)
-    trainer = Trainer(problem, train_data, dev_data, test_data, opt, logger,
-                      epochs=2,
+    logger = MLFlowLogger(args, savedir=args.logdir, stdout=['train_loss'], logout=logout)
+    train_data = get_data(args.nsteps, sys, args.nsim, args.batch_size)
+    trainer = Trainer(problem, train_data, optimizer=opt, logger=logger,
+                      epochs=1,
                       patience=args.epochs * args.iterations,
                       train_metric='train_loss',
-                      dev_metric='dev_loss',
-                      test_metric='test_loss',
-                      eval_metric='dev_loss')
+                      eval_metric='train_loss')
     for i in range(args.epochs):
         best_model = trainer.train()
-        train_data, dev_data, test_data = get_data(args.nsteps, sys, args.nsim, args.batch_size,
-                                                   normalize=args.normalize)
-        trainer.model.load_state_dict(best_model)
-    # # Model training
-    # lr = args.lr
-    # nsteps = args.nsteps
-    # for i in range(args.iterations):
-    #     print(f'training {nsteps} objective, lr={lr}')
-    #     best_model = trainer.train()
-    #     trainer.model.load_state_dict(best_model)
-    #     lr /= 2.0
-    #     nsteps *= 2
-    #     nx, nu, train_data, dev_data, test_data = get_data(nsteps, sys, args.nsim, args.batch_size)
-    #     trainer.train_data, trainer.dev_data, trainer.test_data = train_data, dev_data, test_data
-    #     opt.param_groups[0]['lr'] = lr
+        train_data = get_data(args.nsteps, sys, args.nsim, args.batch_size)

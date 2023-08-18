@@ -176,6 +176,7 @@ class System(nn.Module):
             graph.write_png('system_graph.png')
             img = mpimg.imread('system_graph.png')
             os.remove('system_graph.png')
+            plt.figure()
             fig = plt.imshow(img, aspect='equal')
             fig.axes.get_xaxis().set_visible(False)
             fig.axes.get_yaxis().set_visible(False)
@@ -231,72 +232,5 @@ class System(nn.Module):
                 outdata = node(indata)  # compute
                 data = self.cat(data, outdata)  # feed the data nodes
         return data  # return recorded system measurements
-
-
-if __name__ == "__main__":
-    """
-    Here is an example of a System that implements a standard n-step prediction rollout.
-    This is the example illustrated in the slides.  
-    """
-
-
-    class MultipleShootingEuler(nn.Module):
-        """
-        Simple multiple shooting setup.
-        """
-
-        def __init__(self, nx, nu, hsize, nlayers, ts):
-            super().__init__()
-            self.dx = MLP(nx + nu, nx, bias=True, linear_map=nn.Linear, nonlin=nn.ELU,
-                          hsizes=[hsize for h in range(nlayers)])
-            interp_u = lambda tq, t, u: u
-            self.integrator = Euler(self.dx, h=torch.tensor(ts), interp_u=interp_u)
-
-        def forward(self, x1, xn, u):
-            """
-
-            :param x1: (Tensor, shape=(batchsize, nx))
-            :param xn: (Tensor, shape=(batchsize, nx))
-            :param u: (Tensor, shape=(batchsize, nu))
-            :return: (tuple of Tensors, shapes=(batchsize, nx)) x2, xn+1
-            """
-            return self.integrator(x1, u=u), self.integrator(xn, u=u)
-
-
-    m3 = EulerIntegrator(3, 2, 5, 2, 0.1)
-    m4 = Node(m3, ['xn', 'U'], ['xn'])
-    s2 = System([m4])
-    # s2.show()
-    s2.show('system_graph.png')
-    exit()
-    data = {'X': torch.randn(3, 2, 3), 'U': torch.randn(3, 2, 2)}
-
-    """
-    This is an example of a System that implements a simple multiple shooting approach. 
-    The MultipleShootingEuler module when wrapped as below will roll out for n-steps for a single initial 
-    condition but also do simple 1-step ahead predictions. x1 draws an initial condition from the data whereas
-    xn draws an initial condition from the output of the integrator.
-    This allows you to optimize both n-step and 1-step rollout which has 
-    proven to be effective for optimizing NODE surrogate models. 
-    """
-    m = MultipleShootingEuler(3, 2, 5, 2, 0.1)
-    m2 = Node(m, ['X', 'xn', 'U'], ['xstep', 'xn'])
-    s = System([m2])
-    data = {'X': torch.randn(3, 2, 3), 'U': torch.randn(3, 2, 2)}
-    print({k: v.shape for k, v in data.items()})
-    data = s(data)
-    print({k: v.shape for k, v in data.items()})
-    """
-    Test for compatibility with Problem
-    """
-    xpred = variable('xn')[:, :-1, :]
-    xtrue = variable('X')
-    loss = (xpred == xtrue)^2
-    obj = PenaltyLoss([loss], [])
-    p = Problem([s], obj)
-    data['name'] = 'test'
-    print(p(data))
-
-
 
 

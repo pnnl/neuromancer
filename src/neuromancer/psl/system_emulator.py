@@ -12,24 +12,16 @@ def system_to_psl(nm_model, psl_system):
     :param psl_system: (neuromancer.psl.BuildingEnvelope)
     :return: (SystemPSL) An instance of class SystemPSL
     """
-
-
     def equations(y, u, d):
+        # internally handle the normalization of U and D
         x = torch.cat([y.reshape(1, -1), u.reshape(1, -1), d.reshape(1, -1)], dim=-1)
-        print(y.shape, u.shape, d.shape)
-        print(x.shape)
         y = nm_model({'xn': x})['yn']
         print('y', y.shape)
         return y, y
-        # print(y.shape, u.shape, d.shape)
-        # data = {'yn': y.reshape(1, -1), 'Y': y.reshape(1, 1, -1),
-        #         'U': u.reshape(1, 1, -1), 'D': d.reshape(1, 1, -1)}
-        # print({k: v.shape for k, v in data.items()})
-        # print('got here')
-        # output = nm_model(data)
-        # print({k: v.shape for k, v in output.items()})
-        # exit()
-        # return output['yn'][-1].squeeze(), output['yn'][-1].squeeze()
+
+    # overwrite get_x0
+    # overwrite stats
+
 
     psl_system.change_backend('torch')
     psl_system.equations = equations

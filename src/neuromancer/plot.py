@@ -153,6 +153,7 @@ def pltPhase(X, figname=None):
     elif X.shape[1] == 2:
         plt.plot(X[:, 0], X[:, 1])
         plt.plot(X[0, 0], X[0, 1], 'ro')
+        plt.plot(X[-1, 0], X[-1, 1], 'g*')
         plt.xlabel('$x_1$')
         plt.ylabel('$x_2$')
     plt.tight_layout()

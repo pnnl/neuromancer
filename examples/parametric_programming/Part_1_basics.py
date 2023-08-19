@@ -143,7 +143,7 @@ if __name__ == "__main__":
     # construct constrained optimization problem
     problem = Problem(components, loss)
     # plot computational graph
-    # problem.show()
+    problem.show()
 
     """
     # # #  pNLP problem solution in Neuromancer

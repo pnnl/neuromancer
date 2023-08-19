@@ -37,15 +37,18 @@ if __name__ == '__main__':
                                                collate_fn=train_data.collate_fn, shuffle=False)
     dev_loader = torch.utils.data.DataLoader(dev_data, batch_size=3333,
                                              collate_fn=dev_data.collate_fn, shuffle=False)
+
     # Define optimization problem
     u = variable('U')
     x = variable('X')
     action_loss = 0.001 * (u == 0.)^2  # control penalty
-    regulation_loss = 5. * (x == 0.)^2  # target position
+    regulation_loss = 10. * (x == 0.)^2  # target position
     loss = PenaltyLoss([action_loss, regulation_loss], [])
     problem = Problem([cl_system], loss)
-    optimizer = torch.optim.AdamW(policy.parameters(), lr=0.001)
+    # problem.show()
 
+    # Solve the optimization problem
+    optimizer = torch.optim.AdamW(policy.parameters(), lr=0.001)
     trainer = Trainer(
         problem,
         train_loader,
@@ -64,13 +67,15 @@ if __name__ == '__main__':
     cl_system.nsteps = 2
     best_model = trainer.train()
 
-    # Test best model with prediction horizon of 50
+    # Test best model on a system rollout
     problem.load_state_dict(best_model)
     data = {'X': torch.ones(1, 1, nx, dtype=torch.float32)}
-    cl_system.nsteps = 50
+    nsteps = 30
+    cl_system.nsteps = nsteps
     trajectories = cl_system(data)
-    pltCL(Y=trajectories['X'].detach().reshape(51, 2), U=trajectories['U'].detach().reshape(50, 1), figname='cl.png')
-    pltPhase(X=trajectories['X'].detach().reshape(51, 2), figname='phase.png')
+    pltCL(Y=trajectories['X'].detach().reshape(nsteps + 1, 2), U=trajectories['U'].detach().reshape(nsteps, 1),
+          figname='cl.png')
+    pltPhase(X=trajectories['X'].detach().reshape(nsteps + 1, 2), figname='phase.png')
 
 
 

@@ -1,4 +1,5 @@
 # Differentiable Predictive Control in Neuromancer
+
 Differentiable predictive control (DPC) method allows us to learn control policy parameters directly by
 backpropagating model predictive control (MPC) objective function and constraints through the differentiable
 digital twin model of a dynamical system.

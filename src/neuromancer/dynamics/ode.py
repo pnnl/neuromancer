@@ -171,16 +171,14 @@ class TwoTankParam(ODESystem):
     
     def ode_equations(self, x): 
         # heights in tanks
-        h1 = torch.abs(x[:, [0]])    # (# batches,1)
-        h2 = torch.abs(x[:, [1]])
+        h1 = torch.clip(x[:, [0]], min=0, max=1.0)
+        h2 = torch.clip(x[:, [1]], min=0, max=1.0)
         # Inputs (2): pump and valve
-        pump = x[:, [2]]
-        valve = x[:, [3]]
+        pump = torch.clip(x[:, [2]], min=0, max=1.0)
+        valve = torch.clip(x[:, [3]], min=0, max=1.0)
         # equations
         dhdt1 = self.c1 * (1.0 - valve) * pump - self.c2 * torch.sqrt(h1)
         dhdt2 = self.c1 * valve * pump + self.c2 * torch.sqrt(h1) - self.c2 * torch.sqrt(h2)
-        dhdt1 = torch.clamp(dhdt1, min=0, max=1.0)
-        dhdt2 = torch.clamp(dhdt2, min=0, max=1.0)
         return torch.cat([dhdt1, dhdt2], dim=-1)
 
 

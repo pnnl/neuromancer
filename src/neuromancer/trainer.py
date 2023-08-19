@@ -56,7 +56,7 @@ class Trainer:
         :param eval_metric: (str) Performance metric for model selection and early stopping
         """
         self.model = problem
-        self.optimizer = optimizer if optimizer is not None else optim.Adam(problem.parameters(), 0.01, betas=(0.0, 0.9))
+        self.optimizer = optimizer if optimizer is not None else torch.optim.Adam(problem.parameters(), 0.01, betas=(0.0, 0.9))
         self.train_data = train_data
         self.dev_data = dev_data
         self.test_data = test_data

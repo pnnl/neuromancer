@@ -1,90 +1,59 @@
-#!/usr/bin/env python
-# coding: utf-8
+"""Learning to Control a Dynamical System
+Typical scenario. Off policy control learning
 
-# # Learning to Control a Dynamical System
+In a typical real world control setting, due to cost and operational concerns,
+there is not an opportunity to directly interact with the system to learn a controller.
+In this scenario, the system is perturbed for some amount of time to collect measurements
+representative of the system state space, system identification is performed,
+and a controller is created based on the fitted model created via system identification. In the following cells we walk through the three stage process of generating data, system identification, and control policy learning using neuromancer.
+"""
 
-# ## NeuroMANCER and Dependencies
-
-# ### Install (Colab only)
-# Skip this step when running locally.
-# 
-# We need to install a more recent version of matplotlib than is offered in the default Colab environment. After running the cell 1 for the first time in a new Colab runtime, you will see the prompt: "You must restart the runtime in order to use newly installed versions." After restarting, the correct version of matplotlib will be loaded for the duration of the current runtime.
-
-# In[ ]:
-
-
-get_ipython().system('pip install --upgrade matplotlib')
-
-
-# In[ ]:
-
-
-get_ipython().system('pip install setuptools==61.0.0 casadi mlflow torchdiffeq dill pyts plum-dispatch==1.7.3 --user')
-get_ipython().system('pip install git+https://github.com/pnnl/neuromancer.git@master --ignore-requires-python --no-deps --user')
-
-
-# ## Typical scenario. Off policy control learning
-# 
-# In a typical real world control setting, due to cost and operational concerns, there is not an opportunity to directly interact with the system to learn a controller. In this scenario, the system is perturbed for some amount of time to collect measurements representative of the system state space, system identification is performed, and a controller is created based on the fitted model created via system identification. In the following cells we walk through the three stage process of generating data, system identification, and control policy learning using neuromancer. 
-
-# ## Instantiate a system emulator from neuromancer.psl
-
-# In[1]:
-
-
+"""Instantiate a system emulator from neuromancer.psl"""
 from neuromancer.psl.nonautonomous import Actuator
 from neuromancer.dataset import DictDataset
+# instantiate simulator model to be controlled
 sys = Actuator()
-sys.show()
 
 
-# # Define a simple neural ODE model of the system
-
-# In[2]:
-
-
+""" Define a simple neural ODE model to identify the system from data"""
 from neuromancer.system import Node, System
 from neuromancer.modules import blocks
 from neuromancer.dynamics import integrators
 import torch
 
+# define neural ODE
 dx = blocks.MLP(sys.nx + sys.nu, sys.nx, bias=True, linear_map=torch.nn.Linear, nonlin=torch.nn.ELU,
               hsizes=[20 for h in range(3)])
 interp_u = lambda tq, t, u: u
 integrator = integrators.Euler(dx, h=torch.tensor(0.1), interp_u=interp_u)
 system_node = Node(integrator, ['xn', 'U'], ['xn'])
 model = System([system_node])
-model.show()
+model.show()        # visualize computational graph of the NODE system ID model
 
 
-# # Generate datasets representative of system behavior
-
-# In[5]:
-
-
+"""Generate datasets representative of system behavior"""
+# obtain time series of the system to be controlled
 train_data, dev_data, test_data = [sys.simulate(nsim=1000) for i in range(3)]
-sys.show()
-
-from torch.utils.data import DataLoader
+# normalize the dataset
 train_data, dev_data, test_data = [sys.normalize(d) for d in [train_data, dev_data, test_data]]
 sys.show(train_data)
-# Set up the data to be in samples of 10 contiguous time steps (100 samples with 10 time steps each last dim is dimension of the measured variable)
+
+# Set up the data to be in samples of 10 contiguous time steps
+# (100 samples with 10 time steps each last dim is dimension of the measured variable)
 for d in [train_data, dev_data]:
     d['X'] = d['X'].reshape(100, 10, 3)
     d['U'] = d['U'].reshape(100, 10, 3)
     d['Y'] = d['Y'].reshape(100, 10, 3)
-    d['xn'] = d['X'][:, 0:1, :] # Add an initial condition to start the system loop
+    d['xn'] = d['X'][:, 0:1, :]     # Add an initial condition to start the system loop
     d['Time'] = d['Time'].reshape(100, -1)
 
+# create dataloaders
+from torch.utils.data import DataLoader
 train_dataset, dev_dataset, = [DictDataset(d, name=n) for d, n in zip([train_data, dev_data], ['train', 'dev'])]
 train_loader, dev_loader = [DataLoader(d, batch_size=100, collate_fn=d.collate_fn, shuffle=True) for d in [train_dataset, dev_dataset]]
 
 
-# # Define the optimization problem
-
-# In[4]:
-
-
+"""Define the optimization problem"""
 from neuromancer.constraint import variable
 from neuromancer.problem import Problem
 from neuromancer.loss import PenaltyLoss
@@ -93,38 +62,30 @@ from neuromancer.loss import PenaltyLoss
 xpred = variable('xn')[:, :-1, :]
 # Ground truth data
 xtrue = variable('X')
-
+# define system identification loss function
 loss = (xpred == xtrue) ^ 2
 loss.update_name('loss')
-
+# construct differentiable optimization problem in Neuromancer
 obj = PenaltyLoss([loss], [])
 problem = Problem([model], obj)
+# problem.show()
 
 
-# ## Minimize the system identification problem
-
-# In[6]:
-
-
+"""Solve the system identification problem"""
 from neuromancer.trainer import Trainer
 import torch.optim as optim
 
 opt = optim.Adam(model.parameters(), 0.001)
-trainer = Trainer(problem, train_loader, dev_loader, optimizer=opt,
+trainer = Trainer(problem, train_loader, dev_loader, dev_loader,
+                  optimizer=opt,
                   epochs=1000,
                   patience=300,
                   train_metric='train_loss',
-                  
-
                   eval_metric='dev_loss')
 best_model = trainer.train()
 
 
-# ## Evaluate system model on 1000 time step rollout
-
-# In[7]:
-
-
+""" Evaluate the learned NODE system model on 1000 time step rollout"""
 import torch
 test_data = sys.normalize(sys.simulate(nsim=1000))
 print({k: v.shape for k, v in test_data.items()})
@@ -143,14 +104,10 @@ for v in range(3):
 plt.legend()
 
 
-# ## Create a closed loop system using the system model and a parametrized control policy
-# 
-
-# In[8]:
-
-
+""" Create a closed loop system using the system model and a parametrized control policy """
 nx, nu = sys.nx, sys.nu
 
+# define control policy
 class Policy(torch.nn.Module):
 
     def __init__(self, insize, outsize):
@@ -167,35 +124,32 @@ policy_node = Node(policy, ['xn', 'R'], ['U'], name='policy')
 cl_system = System([policy_node, system_node])
 cl_system.show()
 
-
-# ## Optimizing the control policy
-# 
+""" Sample dataset of control parameters """
 # For this simple Actuator system the same dataset can be used for learning a control policy as we used to learn the system model. Here we wish to optimize  controlling the system to some reference trajectory R.
-
-# In[10]:
-
-
 train_dataset = DictDataset({'R': train_data['X'], 'X': train_data['X'], 'xn': train_data['xn']}, name='train')
 dev_dataset = DictDataset({'R': dev_data['X'], 'X': train_data['X'], 'xn': dev_data['xn']}, name='dev')
-train_loader, dev_loader = [DataLoader(d, batch_size=100, collate_fn=d.collate_fn, shuffle=True) for d in [train_dataset, dev_dataset]]
+train_loader, dev_loader = [DataLoader(d, batch_size=100, collate_fn=d.collate_fn, shuffle=True)
+                            for d in [train_dataset, dev_dataset]]
 
-
-# In[11]:
-
-
-opt = optim.Adam(policy.parameters(), 0.01)
-
-tru = variable('xn')[:, 1:, :]
-ref = variable('R')
-u = variable('U')
+""" Define objectives and of the optimal control problem """
+tru = variable('xn')[:, 1:, :]  # system states
+ref = variable('R')             # reference
+u = variable('U')               # control action
+# reference tracking objective
 loss = (ref == tru) ^ 2
 loss.update_name('loss')
 
+# differentiable optimal control problem
 obj = PenaltyLoss([loss], [])
 problem = Problem([cl_system], obj)
+# problem.show()
 
+
+""" Optimize the control policy"""
+opt = optim.Adam(policy.parameters(), 0.01)
 logout = ['loss']
-trainer = Trainer(problem, train_loader, dev_loader, optimizer=opt,
+trainer = Trainer(problem, train_loader, dev_loader, dev_loader,
+                  optimizer=opt,
                   epochs=1000,
                   patience=1000,
                   train_metric='train_loss',
@@ -205,17 +159,15 @@ best_model = trainer.train()
 trainer.model.load_state_dict(best_model)
 
 
-# ## Evaluating the model on the true system
-# 
-# With the optional pytorch backend for the original ODE system we can now swap out our learned model to evaluate the learned control policy on the original system. 
-
-# In[12]:
-
-
+""" Evaluate the model on the true system """
+# With the optional pytorch backend for the original ODE system
+# we can now swap out our learned model to evaluate the learned control policy
+# on the original system.
 sys.change_backend('torch')
-# We will have to denormalize the policy actions according to the system stats
-# Conversely we will have to normalize the system states according to the system stats to hand to the policy
 
+# We will have to denormalize the policy actions according to the system stats
+# Conversely we will have to normalize the system states according to the system stats
+# to hand to the policy
 def norm(x):
     return sys.normalize(x, key='X')
 
@@ -229,13 +181,11 @@ test_system = System([normnode, policy_node, denormnode, sysnode])
 test_system.show()
 
 
-# ## Evaluate on 1000 steps with a new reference trajectory distribution
-
-# In[13]:
-
-
+""" Evaluate on 1000 steps with a new reference trajectory distribution """
 from neuromancer.psl.signals import sines, step, arma, spline
 import numpy as np
+
+plt.figure()
 references = spline(nsim=1000, d=sys.nx, min=sys.stats['X']['min'], max=sys.stats['X']['max'])
 plt.plot(references)
 test_data = {'R': torch.tensor(sys.normalize(references, key='X'), dtype=torch.float32).unsqueeze(0), 'xsys': sys.get_x0().reshape(1, 1, -1),
@@ -253,8 +203,6 @@ for v in range(3):
 plt.legend()
 plt.savefig('control.png')
 
-
-# In[ ]:
 
 
 

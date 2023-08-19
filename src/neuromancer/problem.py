@@ -135,6 +135,7 @@ class Problem(nn.Module):
             graph.write_png('problem_graph.png')
             img = mpimg.imread('problem_graph.png')
             os.remove('problem_graph.png')
+            plt.figure()
             fig = plt.imshow(img, aspect='equal')
             fig.axes.get_xaxis().set_visible(False)
             fig.axes.get_yaxis().set_visible(False)

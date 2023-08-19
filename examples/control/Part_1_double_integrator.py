@@ -53,7 +53,6 @@ if __name__ == '__main__':
         problem,
         train_loader,
         dev_loader,
-        dev_loader,
         optimizer,
         epochs=400,
         train_metric="train_loss",

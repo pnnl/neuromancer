@@ -76,7 +76,7 @@ from neuromancer.trainer import Trainer
 import torch.optim as optim
 
 opt = optim.Adam(model.parameters(), 0.001)
-trainer = Trainer(problem, train_loader, dev_loader, dev_loader,
+trainer = Trainer(problem, train_loader, dev_loader,
                   optimizer=opt,
                   epochs=1000,
                   patience=300,
@@ -148,7 +148,7 @@ problem = Problem([cl_system], obj)
 """ Optimize the control policy"""
 opt = optim.Adam(policy.parameters(), 0.01)
 logout = ['loss']
-trainer = Trainer(problem, train_loader, dev_loader, dev_loader,
+trainer = Trainer(problem, train_loader, dev_loader,
                   optimizer=opt,
                   epochs=1000,
                   patience=1000,

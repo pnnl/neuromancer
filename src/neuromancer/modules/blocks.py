@@ -447,9 +447,9 @@ class PosDef(nn.Module):
         """
 
         :param g: (nn.Module) An ICNN network
-        :param eps: (float)
-        :param d: (float)
-        :param max: (float)
+        :param eps: (float) quadratic form regularization weight
+        :param d: (float) d parameter for ReLU with a quadratic region in [0,d]
+        :param max: (float) max value of the output function
         """
         super().__init__()
         self.g = g

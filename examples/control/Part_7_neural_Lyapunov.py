@@ -1,36 +1,35 @@
 """
 Learning neural Lyapunov functions for stability certificates of dynamical systems
 
+system:              dx/dt = f(x)
+dataset:             time series of state trajectories [x_1, ..., x_N]
+Lyapunov function:   V(x): R^n -> R
+Lyapunov condition:  dV(x)/dt < 0
 
-TODO: two versions:
-
-1, Neural Lyapunov dynamics: to certify stability of autonomous system
-or closed-loop system from given rollouts of state trajectories
-
-2, Neural Lyapunov DPC: to learn control policy and certify stability
-of closed-loop system
+References:
+    Neural Lyapunov architecture from the paper: https://arxiv.org/abs/2001.06116
+    Lyapunov function: https://en.wikipedia.org/wiki/Lyapunov_function
+    Lyapunov stability: https://en.wikipedia.org/wiki/Lyapunov_stability
 
 """
 
 import torch
-import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
 import neuromancer.psl as psl
-from neuromancer.system import Node, System
+from neuromancer.system import Node
 from neuromancer.modules import blocks
 from neuromancer.dataset import DictDataset
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer.problem import Problem
 from neuromancer.trainer import Trainer
-from neuromancer.dynamics import ode, integrators
-from neuromancer.plot import pltCL, pltPhase
+from neuromancer.plot import pltPhase
 
 
-def plot_Lyapunov(net, trajectory=None, xmin=-2, xmax=2, save_path=None):
+def plot_Lyapunov(net, trajectories=None, xmin=-2, xmax=2, save_path=None):
     # sample state sapce and get function values
     x = torch.arange(xmin, xmax, 0.1)
     y = torch.arange(xmin, xmax, 0.1)
@@ -43,12 +42,15 @@ def plot_Lyapunov(net, trajectory=None, xmin=-2, xmax=2, save_path=None):
 
     # plot surface of the lyapunov function
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection="3d")
-    ax.plot_surface(plot_x, plot_y, plot_u,
+    if trajectories is not None:
+        ax1 = fig.add_subplot(121, projection="3d")
+    else:
+        ax1 = fig.add_subplot(111, projection="3d")
+    ax1.plot_surface(plot_x, plot_y, plot_u,
                            cmap=cm.viridis,
                            linewidth=0, antialiased=False)
     # plot contours
-    ax.contour(plot_x, plot_y, plot_u, 20, offset=-1,
+    ax1.contour(plot_x, plot_y, plot_u, 20, offset=-1,
                cmap=cm.viridis, linestyles="solid")
 
     # plot minimum of the lyapunov function
@@ -56,28 +58,38 @@ def plot_Lyapunov(net, trajectory=None, xmin=-2, xmax=2, save_path=None):
     point_u = plot_u[min_idx]
     point_x = plot_x[min_idx]
     point_y = plot_y[min_idx]
-    ax.scatter(point_x, point_y, point_u, color='red', s=200,
+    ax1.scatter(point_x, point_y, point_u, color='red', s=100,
                marker='o')
+    # set labels
+    ax1.set(ylabel='$x_1$')
+    ax1.set(xlabel='$x_2$')
+    ax1.set(zlabel='$V$')
+    ax1.set(title='neural Lyapunov function')
 
     # plot sample trajectory
-    if trajectory is not None:
-        u_traj = net(trajectory)
-        # ax.plot(trajectory[:, 1].detach().numpy(),
-        #         trajectory[:, 0].detach().numpy(),
-        #         u_traj[:, 0].detach().numpy(),
-        #         'r--', linewidth=5,
-        #         label='sample trajectory')
-        ax.plot(trajectory[:, 1].detach().numpy(),
-                trajectory[:, 0].detach().numpy(),
-                'k--', linewidth=4,
-                label='sample trajectory')
+    if trajectories is not None:
+        # u_traj = net(trajectory)
+        ax2 = fig.add_subplot(122)
+        # plot contours
+        ax2.contour(plot_x, plot_y, plot_u, 20, alpha=0.5,
+                    cmap=cm.viridis, linestyles="solid")
+        for i in range(trajectories.shape[0]):
+            ax2.plot(trajectories[i, :, 1].detach().numpy(),
+                    trajectories[i, :, 0].detach().numpy(),
+                    'k--', linewidth=2.0, alpha=0.8,
+                    label='sample trajectory')
+        ax2.scatter(point_x, point_y, color='red', s=50,
+                   marker='o')
+        ax2.set_aspect('equal')
+        # set labels
+        ax2.set(ylabel='$x_1$')
+        ax2.set(xlabel='$x_2$')
+        ax2.set(title='Phase portrait')
+        ax2.set_xlim([0., 4.])
+        ax2.set_ylim([0., 4.])
+        fig.tight_layout()
 
-    # set labels
-    ax.set(ylabel='$x_1$')
-    ax.set(xlabel='$x_2$')
-    ax.set(zlabel='$u$')
-    ax.set(title='Lyapunov function')
-
+    plt.rcParams.update({'font.size': 20})
     if save_path is not None:
         plt.savefig(save_path+'/lyapunov.pdf')
 
@@ -135,7 +147,7 @@ if __name__ == "__main__":
     """
     # # #  Neural Lyapunov function candidate 
     """
-    # Input convex neural network (ICNN) from https://arxiv.org/abs/2001.06116
+    # Input convex neural network (ICNN)
     g = blocks.InputConvexNN(nx, 1, hsizes=[20] * 4)
     # positive-definite layer if eps=0.0
     lyap_net = blocks.PosDef(g, eps=0.0)
@@ -149,7 +161,8 @@ if __name__ == "__main__":
     # variable: Lyapunov function value
     V = variable("V")
     # objective: discrete-time Lyapunov condition
-    Lyapunov_condition = 1.0 * (V[:, 1:, :] - V[:, :-1, :] < - 0.1)
+    #            V(f(x_k+1)) - V(f(x_k)) < 0
+    Lyapunov_condition = V[:, 1:, :] - V[:, :-1, :] < - 0.01
 
     # create constrained optimization loss
     loss = PenaltyLoss(objectives=[Lyapunov_condition], constraints=[])
@@ -178,9 +191,9 @@ if __name__ == "__main__":
     trainer.model.load_state_dict(best_model)
 
     """
-    Visualize learned Lyapunov function with a sample trajectory
+    Visualize learned Lyapunov function with sampled trajectories
     """
-    plot_Lyapunov(lyap_net, trajectory=X_train[0,:,:],
+    plot_Lyapunov(lyap_net, trajectories=X_train[0:10,:,:],
                   xmin=0, xmax=4, save_path=None)
 
 

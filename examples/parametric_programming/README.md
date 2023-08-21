@@ -231,7 +231,7 @@ Formulating and solving parametric nonlinear programming (pNLP) problem.
   ![](../figs/pNLP_Three-hump-camel_nm.png)
   ![](../figs/pNLP_Beale_nm.png)
 
-  + <a target="_blank" href="[[https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb](https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb)](https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb)"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+  + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 [Part 4](./Part_4_projectedGradient.py):
 Learning to solve constrained optimization problems with hard inequality constraints using projected gradient method.  
   ![](../figs/Part_4_projectedGradient.png)  

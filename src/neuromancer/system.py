@@ -100,7 +100,7 @@ class System(nn.Module):
     """
     Simple implementation for arbitrary cyclic computation
     """
-    def __init__(self, nodes, name='', nstep_key='X', init_func=None, nsteps=None):
+    def __init__(self, nodes, name=None, nstep_key='X', init_func=None, nsteps=None):
         """
 
         :param nodes: (list of Node objects)
@@ -132,7 +132,7 @@ class System(nn.Module):
         for node in self.nodes:
             input_keys += node.input_keys
             output_keys += node.output_keys
-            if node.name is None:
+            if node.name is None or node.name == '':
                 node.name = f'node_{nonames}'
                 nonames += 1
             sim_loop.add_node(pydot.Node(node.name, label=node.name,
@@ -142,25 +142,55 @@ class System(nn.Module):
         graph.add_node(pydot.Node('out', label='out', color='skyblue', style='filled', shape='box'))
         graph.add_subgraph(sim_loop)
 
-        for src, dst in combinations(self.nodes, 2):
-            common_keys = set(src.output_keys) & set(dst.input_keys)
-            all_common_keys += common_keys
-            for key in common_keys:
-                graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
-            reverse_common_keys = set(dst.output_keys) & set(src.input_keys)
-            for key in reverse_common_keys:
-                graph.add_edge(pydot.Edge(dst.name, src.name, label=key))
+        # # old way of building graph
+        # for src, dst in combinations(self.nodes, 2):
+        #     common_keys = set(src.output_keys) & set(dst.input_keys)
+        #     all_common_keys += common_keys
+        #     for key in common_keys:
+        #         graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
+        #     reverse_common_keys = set(dst.output_keys) & set(src.input_keys)
+        #     for key in reverse_common_keys:
+        #         graph.add_edge(pydot.Edge(dst.name, src.name, label=key))
 
-        data_keys = list(set(input_keys) - set(all_common_keys))
+        # build node connections in reverse order
+        reverse_order_nodes = self.nodes[::-1]
+        for idx_dst, dst in enumerate(reverse_order_nodes):
+            src_nodes = reverse_order_nodes[1+idx_dst:]
+            unique_common_keys = set()
+            for idx_src, src in enumerate(src_nodes):
+                common_keys = set(src.output_keys) & set(dst.input_keys)
+                for key in common_keys:
+                    if key not in unique_common_keys:
+                        graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
+                        unique_common_keys.add(key)
+
+
+        # get keys of recurrent nodes
+        loop_keys = []
         for node in self.nodes:
-            loop_keys = list(set(node.input_keys) & set(node.output_keys))
-            for key in loop_keys:
+            loop_keys += set(node.input_keys) & set(node.output_keys)
+        # get keys required as input and to initialize some nodes
+        init_keys = set(input_keys) - (set(output_keys)-set(loop_keys))
+
+        # build node connections
+        previous_output_keys = []
+        for node in self.nodes:
+            # build recurrent connections
+            node_loop_keys = list(set(node.input_keys) & set(node.output_keys))
+            for key in node_loop_keys:
                 graph.add_edge(pydot.Edge(node.name, node.name, label=key))
-            for key in set(node.input_keys) & set(data_keys):
+            # build connections to the dataset
+            for key in set(node.input_keys) & set(init_keys-set(previous_output_keys)):
                 graph.add_edge(pydot.Edge("in", node.name, label=key))
-            for key in node.output_keys:
+            previous_output_keys += node.output_keys
+        # build connections to the output of the system in a reversed order
+        previous_output_keys = []
+        for node in self.nodes[::-1]:
+            for key in (set(node.output_keys) - set(previous_output_keys)):
                 graph.add_edge(pydot.Edge(node.name, 'out', label=key))
-        self.input_keys = list(set(data_keys))
+            previous_output_keys += node.output_keys
+
+        self.input_keys = list(set(init_keys))
         self.output_keys = list(set(output_keys))
         return graph
 
@@ -176,6 +206,7 @@ class System(nn.Module):
             graph.write_png('system_graph.png')
             img = mpimg.imread('system_graph.png')
             os.remove('system_graph.png')
+            plt.figure()
             fig = plt.imshow(img, aspect='equal')
             fig.axes.get_xaxis().set_visible(False)
             fig.axes.get_yaxis().set_visible(False)
@@ -223,7 +254,6 @@ class System(nn.Module):
                                            have 3 dims.
         :return: (dict: {str: Tensor}) data with outputs of nstep rollout of Node interactions
         """
-
         nsteps = self.nsteps if self.nsteps is not None else data[self.nstep_key].shape[1]  # Infer number of rollout steps
         data = self.init(data)  # Set initial conditions of the system
         for i in range(nsteps):
@@ -232,73 +262,5 @@ class System(nn.Module):
                 outdata = node(indata)  # compute
                 data = self.cat(data, outdata)  # feed the data nodes
         return data  # return recorded system measurements
-
-
-if __name__ == "__main__":
-    """
-    Here is an example of a System that implements a standard n-step prediction rollout.
-    This is the example illustrated in the slides.  
-    """
-
-
-    class MultipleShootingEuler(nn.Module):
-        """
-        Simple multiple shooting setup.
-        """
-
-        def __init__(self, nx, nu, hsize, nlayers, ts):
-            super().__init__()
-            self.dx = MLP(nx + nu, nx, bias=True, linear_map=nn.Linear, nonlin=nn.ELU,
-                          hsizes=[hsize for h in range(nlayers)])
-            interp_u = lambda tq, t, u: u
-            self.integrator = Euler(self.dx, h=torch.tensor(ts), interp_u=interp_u)
-
-        def forward(self, x1, xn, u):
-            """
-
-            :param x1: (Tensor, shape=(batchsize, nx))
-            :param xn: (Tensor, shape=(batchsize, nx))
-            :param u: (Tensor, shape=(batchsize, nu))
-            :return: (tuple of Tensors, shapes=(batchsize, nx)) x2, xn+1
-            """
-            return self.integrator(x1, u=u), self.integrator(xn, u=u)
-
-
-    m3 = EulerIntegrator(3, 2, 5, 2, 0.1)
-    m4 = Node(m3, ['xn', 'U'], ['xn'])
-    s2 = System([m4])
-    # s2.show()
-    s2.show('system_graph.png')
-    exit()
-    data = {'X': torch.randn(3, 2, 3), 'U': torch.randn(3, 2, 2)}
-    print({k: v.shape for k, v in s2(data).items()})
-
-    """
-    This is an example of a System that implements a simple multiple shooting approach. 
-    The MultipleShootingEuler module when wrapped as below will roll out for n-steps for a single initial 
-    condition but also do simple 1-step ahead predictions. x1 draws an initial condition from the data whereas
-    xn draws an initial condition from the output of the integrator.
-    This allows you to optimize both n-step and 1-step rollout which has 
-    proven to be effective for optimizing NODE surrogate models. 
-    """
-    m = MultipleShootingEuler(3, 2, 5, 2, 0.1)
-    m2 = Node(m, ['X', 'xn', 'U'], ['xstep', 'xn'])
-    s = System([m2])
-    data = {'X': torch.randn(3, 2, 3), 'U': torch.randn(3, 2, 2)}
-    print({k: v.shape for k, v in data.items()})
-    data = s(data)
-    print({k: v.shape for k, v in data.items()})
-    """
-    Test for compatibility with Problem
-    """
-    xpred = variable('xn')[:, :-1, :]
-    xtrue = variable('X')
-    loss = (xpred == xtrue)^2
-    obj = PenaltyLoss([loss], [])
-    p = Problem([s], obj)
-    data['name'] = 'test'
-    print(p(data))
-
-
 
 

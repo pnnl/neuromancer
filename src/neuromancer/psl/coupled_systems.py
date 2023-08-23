@@ -3,55 +3,52 @@
 """
 import numpy as np
 from scipy.sparse import coo_matrix
-from neuromancer.psl.nonautonomous import ODE_NonAutonomous
-from neuromancer.psl.perturb import Periodic, Sawtooth, WhiteNoise
+from neuromancer.psl.signals import periodic, noise
 from sklearn.metrics.pairwise import euclidean_distances
-from tqdm.auto import tqdm
-from neuromancer.psl.emulator import EmulatorBase
 import numpy as np
 from scipy.integrate import odeint
+from neuromancer.psl.base import ODE_Autonomous, ODE_NonAutonomous
 
-
-class ODE_Autonomous(EmulatorBase):
-    """
-    base class autonomous ODE
-    """
-
-    def simulate(self, ninit=None, nsim=None, Time=None, ts=None, x0=None, show_progress=False):
-
-        """
-        :param nsim: (int) Number of steps for open loop response
-        :param ninit: (float) initial simulation time
-        :param ts: (float) step size, sampling time
-        :param x0: (float) state initial conditions
-        :return: The response matrices, i.e. X
-        """
-
-        if ninit is None:
-            ninit = self.ninit
-        if nsim is None:
-            nsim = self.nsim
-        if ts is None:
-            ts = self.ts
-        if Time is None:
-            Time = np.arange(0, nsim+1) * ts + ninit
-        if x0 is None:
-            x = self.x0
-        else:
-            assert x0.shape[0] % self.nx == 0, "Mismatch in x0 size"
-            x = x0
-        X = [x]
-        simrange = tqdm(range(nsim)) if show_progress else range(nsim)
-        for N in simrange:
-            if len(Time) == 1:
-                dT = [Time[0], Time[0]+ts]
-            else:
-                dT = [Time[N], Time[N + 1]]
-            xdot = odeint(self.equations, x, dT)
-            x = xdot[-1]
-            X.append(x)
-        Yout = np.asarray(X).reshape(nsim+1, -1)
-        return {'Y': Yout, 'X': np.asarray(X)}
+# class ODE_Autonomous(EmulatorBase):
+#     """
+#     base class autonomous ODE
+#     """
+# 
+#     def simulate(self, ninit=None, nsim=None, Time=None, ts=None, x0=None, show_progress=False):
+# 
+#         """
+#         :param nsim: (int) Number of steps for open loop response
+#         :param ninit: (float) initial simulation time
+#         :param ts: (float) step size, sampling time
+#         :param x0: (float) state initial conditions
+#         :return: The response matrices, i.e. X
+#         """
+# 
+#         if ninit is None:
+#             ninit = self.ninit
+#         if nsim is None:
+#             nsim = self.nsim
+#         if ts is None:
+#             ts = self.ts
+#         if Time is None:
+#             Time = np.arange(0, nsim+1) * ts + ninit
+#         if x0 is None:
+#             x = self.x0
+#         else:
+#             assert x0.shape[0] % self.nx == 0, "Mismatch in x0 size"
+#             x = x0
+#         X = [x]
+#         simrange = tqdm(range(nsim)) if show_progress else range(nsim)
+#         for N in simrange:
+#             if len(Time) == 1:
+#                 dT = [Time[0], Time[0]+ts]
+#             else:
+#                 dT = [Time[N], Time[N + 1]]
+#             xdot = odeint(self.equations, x, dT)
+#             x = xdot[-1]
+#             X.append(x)
+#         Yout = np.asarray(X).reshape(nsim+1, -1)
+#         return {'Y': Yout, 'X': np.asarray(X)}
 
 
 def multidim(is_autonomous):
@@ -59,28 +56,37 @@ def multidim(is_autonomous):
         ode._simulate = ode.simulate
         
         if is_autonomous:
-            def sim_dec(self, ninit=None, nsim=None, Time=None, ts=None, x0=None, show_progress=False):
+            def sim_dec(self, nsim=None, Time=None, ts=None, x0=None):
                 x0 = x0 if x0 is not None else self.x0
                 shape = x0.shape
-                out = ode._simulate(self, ninit, nsim, Time, ts, x0.ravel(), show_progress)
+                out = ode._simulate(self, nsim=nsim, Time=Time, ts=ts, x0=x0.ravel())
                 out['Y'].shape = (-1,) + shape
                 out['X'].shape = (-1,) + shape
                 return out
         else:
-            def sim_dec(self, U=None, ninit=None, nsim=None, Time=None, ts=None, x0=None, show_progress=False):
+            def sim_dec(self, nsim=None, Time=None, ts=None, x0=None, U=None):
                 x0 = x0 if x0 is not None else self.x0
                 shape = x0.shape
-                out = ode._simulate(self, U, ninit, nsim, Time, ts, x0.ravel(), show_progress)
+                out = ode._simulate(self, nsim=nsim, Time=Time, ts=ts, x0=x0.ravel(), U=U)
                 out['Y'].shape = (-1,) + shape
                 out['X'].shape = (-1,) + shape
                 return out
 
         ode._equations = ode.equations
-        def eq_dec(self, x, *args, **kwargs):
-            shape = (self.nx, -1)
-            x_new = x.reshape(shape)
-            dx = ode._equations(self, x_new, *args, **kwargs)
-            return dx.ravel()
+
+        if is_autonomous:
+            def eq_dec(self, t, x):
+                shape = (self.nx, -1)
+                x_new = x.reshape(shape)
+                dx = ode._equations(self, t, x_new)
+                return dx.ravel()
+
+        else:
+            def eq_dec(self, t, x, u):
+                shape = (self.nx, -1)
+                x_new = x.reshape(shape)
+                dx = ode._equations(self, t, x_new, u)
+                return dx.ravel()
         
         ode.simulate = sim_dec
         ode.equations = eq_dec
@@ -89,11 +95,15 @@ def multidim(is_autonomous):
 
 
 class Coupled_ODE(ODE_Autonomous):
-    def __init__(self, nsim=1001, ninit=0, ts=0.1, adj=None, nx=1, seed=59):
-        super().__init__(nsim, ninit, ts, seed)
-        self.nx=nx
+    def __init__(self, exclude_norms=['Time'], backend='numpy', requires_grad=False,
+                 seed=59, set_stats=True, adj=None, nx=1):
+        super().__init__(exclude_norms=exclude_norms, 
+                         backend=backend, requires_grad=requires_grad,
+                         seed=seed, set_stats=False)
+        self._rng = rng
+        self.nx = nx
         if adj is None:
-            self.adj = np.ones((nx,nx))
+            self.adj = np.ones((nx, nx))
             np.fill_diagonal(self.adj, 0)
             self.adj_list = np.stack(np.nonzero(self.adj))
         elif adj.shape[0] == 2: #(2, edges)  (i,j) adj_list[:, k]
@@ -102,8 +112,9 @@ class Coupled_ODE(ODE_Autonomous):
         else:
             self.adj = adj
             self.adj_list = np.stack(np.nonzero(self.adj))
+            self.nx = self.adj.shape[0]
     
-    def message_passing(self,receivers, senders, t):
+    def message_passing(self, receivers, senders, t):
         """Stub function for message passing operation
         Systems that inherit should compute interactions between corresponding rows of receivers and senders
         :return messages from senders to receivers np.array of shape(len(receivers), **)
@@ -113,8 +124,12 @@ class Coupled_ODE(ODE_Autonomous):
         :param t: _description_
         """
         pass
-    
-    def equations(self, x, t):
+
+    @property
+    def params(self):
+        return {}, {}, {}, {}
+
+    def equations(self, t, x):
         messages = self.message_passing(x[self.adj_list[0]], x[self.adj_list[1]], t)
         dx = np.zeros_like(x)
         np.add.at(dx, self.adj_list[0], messages)
@@ -122,9 +137,15 @@ class Coupled_ODE(ODE_Autonomous):
 
 
 class Coupled_NonAutonomous(ODE_NonAutonomous):
-    def __init__(self, nsim=1001, ninit=0, ts=0.1, adj=None, nx=1, seed=59):
-        super().__init__(nsim, ninit, ts, seed)
-        self.nx=nx
+    def __init__(self, exclude_norms=['Time'], backend='numpy', requires_grad=False,
+                 seed=59, set_stats=False, adj=None, nx=1):
+        self.nx = nx
+        self.nu = nx
+        super().__init__(exclude_norms=exclude_norms,
+                         backend=backend, requires_grad=requires_grad,
+                         seed=seed, set_stats=False)
+
+        self._rng = rng
         if adj is None:
             self.adj = np.ones((nx,nx))
             np.fill_diagonal(self.adj, 0)
@@ -135,9 +156,14 @@ class Coupled_NonAutonomous(ODE_NonAutonomous):
         else:
             self.adj = adj
             self.adj_list = np.stack(np.nonzero(self.adj))
+            self.nx = self.adj.shape[0]
         self.U = list()
-            
-    def equations(self, x, t, u):
+
+    @property
+    def params(self):
+        return {}, {}, {}, {}
+
+    def equations(self, t, x, u):
         messages = self.message_passing(x[self.adj_list[0]], x[self.adj_list[1]], t, u)
         dx = np.zeros_like(x)
         np.add.at(dx, self.adj_list[0], messages)
@@ -157,7 +183,8 @@ class Coupled_NonAutonomous(ODE_NonAutonomous):
 
 
 class RC_Network(Coupled_NonAutonomous):
-    def __init__(self, R = None, C = None, U=None, nsim=1001, ninit=0, ts=0.1, adj=None, nx=2, x0=None, seed=59):
+    def __init__(self, exclude_norms=['Time'], backend='numpy', requires_grad=False,
+                 seed=59, set_stats=False, adj=None, nx=1, R=None, C=None, U=None):
         """_summary_
 
         :param R: [float, np.array], Coupled Resistances
@@ -169,43 +196,39 @@ class RC_Network(Coupled_NonAutonomous):
         :param nx: (int), number of nodes, defaults to 1
         :param seed: seed for random number generator, defaults to 59
         """
-        super().__init__(nsim, ninit, ts, adj, nx, seed)
-        self.R = R if R is not None else self.get_R(
+        super().__init__(exclude_norms=exclude_norms, backend=backend, requires_grad=requires_grad,
+                         seed=seed, set_stats=set_stats, adj=adj, nx=nx)
+        self.R = R if R is not None else self.get_resistances(
             self.adj_list, amax=20, amin=5, symmetric=True)
         self.C = C if C is not None else self.get_C(nx)
-        self.U = U if U is not None else self.get_U(nsim, nx)
-        self.R_ext = self.get_R(np.tile(np.arange(nx),(2,1)), amax=15, symmetric=False)
-        self.R_int = self.get_R(np.tile(np.arange(nx),(2,1)), Rval=1.0, amax=15, symmetric=False)
-        self.x0 = x0 if x0 is not None else self.get_x0(nx)
+        self.U = U if U is not None else self.get_U(nsim)
+        self.R_ext = self.get_resistances(np.tile(np.arange(nx), (2,1)), amax=15, symmetric=False)
+        self.R_int = self.get_resistances(np.tile(np.arange(nx), (2,1)), Rval=1.0, amax=15, symmetric=False)
+        self.x0 = x0 if x0 is not None else self.get_x0()
         
         self.R_extCi = (1.0 / (self.R_ext * self.C))
         self.R_intCi = (1.0 / (self.R_int * self.C))
      
-    def get_x0(self, nx = None, rseed=None):
-        if rseed is not None:
-            np.random.seed(rseed)
-        nx = nx if nx is not None else self.nx
-        x0 = (np.random.rand(nx) * 12) + 288
+    def get_x0(self):
+        x0 = (np.random.rand(self.nx) * 12) + 288
         return x0
 
-    def get_U(self, nsim=None, nx=None, periods = None, rseed=1):
+    def get_U(self, nsim, periods=None):
         period_length = 500
-        nsim = nsim if nsim is not None else self.nsim
-        nx = nx if nx is not None else self.nx
         if periods is None:
             periods = int(np.ceil(nsim / period_length))
-        global_source = Periodic(nsim=nsim, xmin=280.0, xmax=300.0, numPeriods=periods)
-        global_source += WhiteNoise(nsim=nsim, xmax=1, xmin=-1, rseed=rseed)
+        global_source = periodic(nsim, 1, min=280.0, max=300.0, periods=periods, rng=self.rng)
+        global_source += noise(nsim, 1, min=-1, max=1, rng=self.rng)
         
         #Generate individual heat sources in each room, with random noise, and offset periods
-        ind_sources = Periodic(nx=nx, nsim=nsim+period_length, numPeriods=periods*2, xmin = 288, xmax=300)
-        offsets = np.random.randint(0,period_length,nx)
+        ind_sources = periodic(nsim, self.nx, min=288, max=300, periods=periods*2, rng=self.rng)
+        offsets = np.random.randint(0, period_length, self.nx)
         offsets = np.linspace(offsets, offsets + nsim-1, nsim, dtype=int)
         ind_sources = np.take_along_axis(ind_sources, offsets, axis=0)
-        ind_sources += WhiteNoise(nx=nx, nsim=nsim, xmax=0.5, xmin=-0.5, rseed=rseed)
-        return np.hstack([global_source,ind_sources])
+        ind_sources += noise(nsim, self.nx, min=-0.5, max=0.5, bound=True, rng=self.rng)
+        return np.hstack([global_source, ind_sources])
 
-    def get_R(self, adj_list, Rval=3.5, amax=20, amin=0, symmetric=True):
+    def get_resistances(self, adj_list, Rval=3.5, amax=20, amin=0, symmetric=True):
         #Default Rval is fiberglass insulation
         num = adj_list.shape[1]
         m2 = np.random.rand(num) * (amax-amin) + amin #surface area
@@ -234,7 +257,7 @@ class RC_Network(Coupled_NonAutonomous):
         messages = (1.0 / (R*C)) * (senders - receivers)
         return messages
     
-    def equations(self, x, t, u):
+    def equations(self, t, x, u):
         external_source = u[0]
         internal_sources = u[1:]
     
@@ -256,7 +279,7 @@ class RC_Network(Coupled_NonAutonomous):
     @staticmethod
     def make_5_room(nsim=10000):
         adj = np.array([[0,1],[0,2],[0,3],[1,0],[1,3],[1,4],[2,0],[2,3],[3,0],[3,1],[3,2],[3,4],[4,1],[4,3]]).T
-        return RC_Network(nsim=nsim, nx=5, adj=adj)
+        return RC_Network(nx=5, adj=adj)
 
 
 @multidim(True)
@@ -265,10 +288,10 @@ class Gravitational_System(Coupled_ODE):
     pos_idx = [1,2]
     vel_idx = [3,4]
         
-    def __init__(self, G=6.67e-11, nsim=10000, ninit=0, ts=0.1, adj=None, nx=4, seed=59, x0=None):
-        super().__init__(nsim, ninit, ts, adj, nx, seed)
+    def __init__(self, G=6.67e-11, adj=None, nx=4, seed=59, x0=None):
+        super().__init__(adj=adj, nx=nx, seed=seed)
         self.G = G
-        self.x0 = x0 if x0 is not None else self.get_x0(nx)
+        self.x0 = x0 if x0 is not None else self.get_x0()
 
     def message_passing(self, receivers, senders, t):
         #Assumes rows of the form [mass, x_pos, y_pos, x_vel, y_vel]
@@ -278,7 +301,7 @@ class Gravitational_System(Coupled_ODE):
         force_vectors = forces * (vectors / np.linalg.norm(vectors,axis=1,keepdims=True))
         return force_vectors
     
-    def equations(self, x ,t):
+    def equations(self, t, x):
         #Assumes x is  in the form (mass, x_pos, y_pos, x_vel, y_vel)
         messages = self.message_passing(x[self.adj_list[0]], x[self.adj_list[1]], t)
         dx = np.zeros_like(x)
@@ -288,11 +311,8 @@ class Gravitational_System(Coupled_ODE):
         dx[:, self.pos_idx] = x[:, self.vel_idx]
         return dx
     
-    def get_x0(self, nx = None, rseed=None):
-        if rseed is not None:
-            np.random.seed(rseed)
-        nx = nx if nx is not None else self.nx
-        x0 = np.random.rand(nx,5)
+    def get_x0(self):
+        x0 = np.random.rand(self.nx, 5)
         x0[:, self.mass_idx] *= 10
         x0[:, self.pos_idx] *= 2
         x0[:, self.vel_idx] *= 0.1
@@ -315,8 +335,8 @@ class Boids(Coupled_ODE):
     pos_idx = [0,1]
     vel_idx = [2,3]
     
-    def __init__(self, coherence=0.05, separation=0.01, alignment=0.05, avoidance_range = 0.2, visual_range=None, nsim=2000, ninit=0, ts=0.1, nx=50, x0=None, seed=59):
-          super().__init__(nsim, ninit, ts, None, nx, seed)
+    def __init__(self, coherence=0.05, separation=0.01, alignment=0.05, avoidance_range=0.2, visual_range=None, nx=50, x0=None, seed=59):
+          super().__init__(nx=nx, seed=seed)
           self.coherence = coherence
           self.separation = separation
           self.alignment = alignment
@@ -336,7 +356,7 @@ class Boids(Coupled_ODE):
         x[idx] = (x[idx]/l2)*length
         return x
 
-    def equations(self, x, t):
+    def equations(self, t, x):
         pos = x[:, self.pos_idx]
         vel = x[:, self.vel_idx]
         

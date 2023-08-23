@@ -145,7 +145,7 @@ class BuildingEnvelope(ODE_NonAutonomous):
                  max=self.stats['Y']['max'], rng=self.rng)
         return s
 
-    def __call__(self, x, u, d):
+    def forward(self, x, u, d):
         """
         For compatibility with the System class for open/closed loop simulations
 
@@ -234,6 +234,8 @@ if __name__ == '__main__':
         print(n)
         s = system(backend='torch')
         out = s.simulate(nsim=5)
+
+
         print({k: v.shape for k, v in out.items()})
 
     for n, system in systems.items():

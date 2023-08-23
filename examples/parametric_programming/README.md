@@ -1,4 +1,4 @@
-# Leatning to Solve Constrained Optimization
+# Learning to Solve Constrained Optimization Problems
     
 ## Differentiable Parametric Programming (DPP) 
 
@@ -216,7 +216,7 @@ and green stars represent solutions obtained from iterative solver (IPOPT).
 [Part 1](./Part_1_basics.py):
 Formulating and solving parametric nonlinear programming (pNLP) problem.  
   ![](../figs/Part_1_pNLP.png)  
-  +   <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_2_pQP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+  + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_2_pQP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 [Part 2](./Part_2_pQP.py): Formulating and solving two parametric quadratic programming (pQP) problems.    
   ![](../figs/pQP_nm_2.png) 
   ![](../figs/pQCQP_nm_1.png)    
@@ -229,8 +229,12 @@ Formulating and solving parametric nonlinear programming (pNLP) problem.
   ![](../figs/pNLP_Simionescu_nm.png)
   ![](../figs/pNLP_StyblinskiTang_nm.png)
   ![](../figs/pNLP_Three-hump-camel_nm.png)
-  ![](../figs/pNLP_Beale_nm.png)
-
+  ![](../figs/pNLP_Beale_nm.png)  
+  + <a target="_blank" 
+href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+[Part 4](./Part_4_projectedGradient.py):
+Learning to solve constrained optimization problems with hard inequality constraints using the projected gradient method.  
+  ![](../figs/Part_4_projectedGradient.png)  
 
 ## Related publications
 

@@ -85,7 +85,8 @@ if __name__ == "__main__":
     policy = Node(net, ['xi'], ['u'], name='policy')
 
     # closed-loop system model
-    cl_system = System([params, policy, model], nsteps=nsteps)
+    cl_system = System([params, policy, model], nsteps=nsteps,
+                       name='cl_system')
     cl_system.show()
 
     """
@@ -106,8 +107,8 @@ if __name__ == "__main__":
     regulation_loss.name = 'state_loss'
     state_lower_bound_penalty.name = 'x_min'
     state_upper_bound_penalty.name = 'x_max'
-    terminal_lower_bound_penalty.name = 'y_N_min'
-    terminal_upper_bound_penalty.name = 'y_N_max'
+    terminal_lower_bound_penalty.name = 'x_N_min'
+    terminal_upper_bound_penalty.name = 'x_N_max'
     # list of constraints and objectives
     objectives = [regulation_loss]
     constraints = [
@@ -127,7 +128,7 @@ if __name__ == "__main__":
     # construct constrained optimization problem
     problem = Problem(components, loss)
     # plot computational graph
-    # problem.show()
+    problem.show()
 
     """
     # # #  Solving the problem 

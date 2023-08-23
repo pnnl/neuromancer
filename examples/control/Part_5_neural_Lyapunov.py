@@ -169,7 +169,7 @@ if __name__ == "__main__":
     # construct optimization problem
     problem = Problem(nodes=[lyap_function], loss=loss)
     # plot computational graph
-    # problem.show()
+    problem.show()
 
     """
     # # #  Solving the problem 

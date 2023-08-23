@@ -26,8 +26,8 @@ dx = blocks.MLP(sys.nx + sys.nu, sys.nx, bias=True, linear_map=torch.nn.Linear, 
               hsizes=[20 for h in range(3)])
 interp_u = lambda tq, t, u: u
 integrator = integrators.Euler(dx, h=torch.tensor(0.1), interp_u=interp_u)
-system_node = Node(integrator, ['xn', 'U'], ['xn'])
-model = System([system_node])
+system_nodel = Node(integrator, ['xn', 'U'], ['xn'], name='NODE')
+model = System([system_nodel])
 model.show()        # visualize computational graph of the NODE system ID model
 
 
@@ -64,11 +64,11 @@ xpred = variable('xn')[:, :-1, :]
 xtrue = variable('X')
 # define system identification loss function
 loss = (xpred == xtrue) ^ 2
-loss.update_name('loss')
+loss.update_name('system_id')
 # construct differentiable optimization problem in Neuromancer
 obj = PenaltyLoss([loss], [])
 problem = Problem([model], obj)
-# problem.show()
+problem.show()
 
 
 """Solve the system identification problem"""
@@ -121,7 +121,7 @@ class Policy(torch.nn.Module):
 insize = 2*nx
 policy = Policy(insize, nu)
 policy_node = Node(policy, ['xn', 'R'], ['U'], name='policy')
-cl_system = System([policy_node, system_node])
+cl_system = System([policy_node, system_nodel])
 cl_system.show()
 
 """ Sample dataset of control parameters """
@@ -137,12 +137,12 @@ ref = variable('R')             # reference
 u = variable('U')               # control action
 # reference tracking objective
 loss = (ref == tru) ^ 2
-loss.update_name('loss')
+loss.update_name('tracking')
 
 # differentiable optimal control problem
 obj = PenaltyLoss([loss], [])
 problem = Problem([cl_system], obj)
-# problem.show()
+problem.show()
 
 
 """ Optimize the control policy"""

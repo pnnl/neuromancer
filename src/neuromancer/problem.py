@@ -82,40 +82,89 @@ class Problem(nn.Module):
     def graph(self, include_objectives=True):
         self._check_unique_names()
         graph = pydot.Dot("problem", graph_type="digraph", splines="spline", rankdir="LR")
-        graph.add_node(pydot.Node("in", label="dataset", shape="box"))
-        graph.add_node(pydot.Node("out", label="loss", shape="box"))
+        graph.add_node(pydot.Node("in", label="dataset", color='skyblue',
+                                  style='filled', shape="box"))
+        graph.add_node(pydot.Node("out", label="loss", color='lightcoral',
+                                  style='filled', shape="box"))
+        # plot clusters for nodes and loss terms
+        node_cluster = pydot.Cluster('nodes', color='cornsilk',
+                                 style='filled', label='nodes')
+        obj_cluster = pydot.Cluster('loss_term', color='cornsilk',
+                                 style='filled', label='loss terms')
+
+        # create nodes in the node cluster
         input_keys = []
         output_keys = []
-        all_common_keys = []
         nonames = 1
         for idx, node in enumerate(self.nodes):
             input_keys += node.input_keys
             output_keys += node.output_keys
-            if node.name is None:
+            if node.name is None or node.name == '':
                 node.name = f'node_{nonames}'
                 nonames += 1
-            graph.add_node(pydot.Node(node.name, label=node.name, shape="box"))
+            node_cluster.add_node(pydot.Node(node.name, color='lavender', style='filled',
+                                         label=node.name, shape="box"))
+        graph.add_subgraph(node_cluster)
 
-        for src, dst in combinations(self.nodes, 2):
-            common_keys = set(src.output_keys) & set(dst.input_keys)
-            all_common_keys += common_keys
-            for key in common_keys:
-                graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
-
-        data_keys = list(set(input_keys) - set(all_common_keys))
+        # get keys of recurrent nodes
+        loop_keys = []
         for node in self.nodes:
-            for key in set(node.input_keys) & set(data_keys):
-                graph.add_edge(pydot.Edge("in", node.name, label=key))
+            loop_keys += set(node.input_keys) & set(node.output_keys)
 
+        # build node connections in reverse order
+        reverse_order_nodes = self.nodes[::-1]
+        for idx_dst, dst in enumerate(reverse_order_nodes):
+            src_nodes = reverse_order_nodes[1+idx_dst:]
+            unique_common_keys = set()
+            for idx_src, src in enumerate(src_nodes):
+                common_keys = set(src.output_keys) & set(dst.input_keys)
+                for key in common_keys:
+                    if key not in unique_common_keys:
+                        graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
+                        unique_common_keys.add(key)
+
+        # get keys required as input and to initialize some nodes
+        init_keys = set(input_keys) - (set(output_keys)-set(loop_keys))
+        # get keys required as input to nodes from the dataset
+        data_keys = set(input_keys)-set(output_keys)
+        # create input connections to the dataset if not provided by previous node
+        previous_output_keys = []
+        for node in self.nodes:
+            for key in set(node.input_keys) & (init_keys-set(previous_output_keys)):
+                graph.add_edge(pydot.Edge("in", node.name, label=key))
+            previous_output_keys += node.output_keys
+
+        # add objectives and constraints in the graph
         if include_objectives:
-            _add_obj_nodes(graph, self.loss.objectives, self.nodes, data_keys)
-            _add_obj_nodes(graph, self.loss.constraints, self.nodes, data_keys, style="dashed")
+            for i, obj in enumerate(self.loss.objectives+self.loss.constraints):
+                if i+1 <= len(self.loss.objectives):
+                    color = "lightpink"
+                else:
+                    color = 'thistle'
+                # add loss term boxes
+                obj_cluster.add_node(pydot.Node(obj.name, label=obj.name,
+                                          shape="box", color=color, style='filled'))
+                # connect nodes to loss terms
+                unique_common_keys = set()
+                for node in reverse_order_nodes:
+                    common_keys = set(node.output_keys) & set(obj.input_keys)
+                    for key in common_keys:
+                        if key not in unique_common_keys:
+                            graph.add_edge(pydot.Edge(node.name, obj.name, label=key))
+                            unique_common_keys.add(key)
+                # generate tuples connecting input data to loss terms
+                for key in data_keys:
+                    if key in obj.input_keys:
+                        graph.add_edge(pydot.Edge("in", obj.name, label=key))
+                graph.add_edge(pydot.Edge(obj.name, "out", label=obj.name))
+            graph.add_subgraph(obj_cluster)
         else:
+            # aggregate outputs in a single output node
             for node in self.nodes:
                 for key in set(node.output_keys) & set(self.loss.input_keys):
                     graph.add_edge(pydot.Edge("out", node.name, label=key))
-                for key in set(data_keys) & set(self.loss.input_keys):
-                    graph.add_edge(pydot.Edge("in", "out", label=key))
+            for key in data_keys & set(self.loss.input_keys):
+                graph.add_edge(pydot.Edge("in", "out", label=key))
 
         input_keys += self.loss.input_keys
         self.input_keys = list(set(input_keys))
@@ -168,17 +217,3 @@ class Problem(nn.Module):
 
         return s
 
-
-def _add_obj_nodes(graph, objs, nodes, data_keys, style="solid"):
-    for obj in objs:
-        graph.add_node(pydot.Node(obj.name, label=obj.name, shape="box", color="red", style=style))
-        common_keys = [
-            (c.name, k) for c in nodes for k in c.output_keys
-            if k in obj.input_keys
-        ] + [
-            ("in", k) for k in data_keys
-            if k in obj.input_keys
-        ]
-        for n, key in common_keys:
-            graph.add_edge(pydot.Edge(n, obj.name, label=key))
-        graph.add_edge(pydot.Edge(obj.name, "out", label=obj.name))

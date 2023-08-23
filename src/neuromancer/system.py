@@ -100,7 +100,7 @@ class System(nn.Module):
     """
     Simple implementation for arbitrary cyclic computation
     """
-    def __init__(self, nodes, name='', nstep_key='X', init_func=None, nsteps=None):
+    def __init__(self, nodes, name=None, nstep_key='X', init_func=None, nsteps=None):
         """
 
         :param nodes: (list of Node objects)
@@ -132,7 +132,7 @@ class System(nn.Module):
         for node in self.nodes:
             input_keys += node.input_keys
             output_keys += node.output_keys
-            if node.name is None:
+            if node.name is None or node.name == '':
                 node.name = f'node_{nonames}'
                 nonames += 1
             sim_loop.add_node(pydot.Node(node.name, label=node.name,
@@ -142,25 +142,55 @@ class System(nn.Module):
         graph.add_node(pydot.Node('out', label='out', color='skyblue', style='filled', shape='box'))
         graph.add_subgraph(sim_loop)
 
-        for src, dst in combinations(self.nodes, 2):
-            common_keys = set(src.output_keys) & set(dst.input_keys)
-            all_common_keys += common_keys
-            for key in common_keys:
-                graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
-            reverse_common_keys = set(dst.output_keys) & set(src.input_keys)
-            for key in reverse_common_keys:
-                graph.add_edge(pydot.Edge(dst.name, src.name, label=key))
+        # # old way of building graph
+        # for src, dst in combinations(self.nodes, 2):
+        #     common_keys = set(src.output_keys) & set(dst.input_keys)
+        #     all_common_keys += common_keys
+        #     for key in common_keys:
+        #         graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
+        #     reverse_common_keys = set(dst.output_keys) & set(src.input_keys)
+        #     for key in reverse_common_keys:
+        #         graph.add_edge(pydot.Edge(dst.name, src.name, label=key))
 
-        data_keys = list(set(input_keys) - set(all_common_keys))
+        # build node connections in reverse order
+        reverse_order_nodes = self.nodes[::-1]
+        for idx_dst, dst in enumerate(reverse_order_nodes):
+            src_nodes = reverse_order_nodes[1+idx_dst:]
+            unique_common_keys = set()
+            for idx_src, src in enumerate(src_nodes):
+                common_keys = set(src.output_keys) & set(dst.input_keys)
+                for key in common_keys:
+                    if key not in unique_common_keys:
+                        graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
+                        unique_common_keys.add(key)
+
+
+        # get keys of recurrent nodes
+        loop_keys = []
         for node in self.nodes:
-            loop_keys = list(set(node.input_keys) & set(node.output_keys))
-            for key in loop_keys:
+            loop_keys += set(node.input_keys) & set(node.output_keys)
+        # get keys required as input and to initialize some nodes
+        init_keys = set(input_keys) - (set(output_keys)-set(loop_keys))
+
+        # build node connections
+        previous_output_keys = []
+        for node in self.nodes:
+            # build recurrent connections
+            node_loop_keys = list(set(node.input_keys) & set(node.output_keys))
+            for key in node_loop_keys:
                 graph.add_edge(pydot.Edge(node.name, node.name, label=key))
-            for key in set(node.input_keys) & set(data_keys):
+            # build connections to the dataset
+            for key in set(node.input_keys) & set(init_keys-set(previous_output_keys)):
                 graph.add_edge(pydot.Edge("in", node.name, label=key))
-            for key in node.output_keys:
+            previous_output_keys += node.output_keys
+        # build connections to the output of the system in a reversed order
+        previous_output_keys = []
+        for node in self.nodes[::-1]:
+            for key in (set(node.output_keys) - set(previous_output_keys)):
                 graph.add_edge(pydot.Edge(node.name, 'out', label=key))
-        self.input_keys = list(set(data_keys))
+            previous_output_keys += node.output_keys
+
+        self.input_keys = list(set(init_keys))
         self.output_keys = list(set(output_keys))
         return graph
 

@@ -97,7 +97,8 @@ if __name__ == "__main__":
     policy = Node(net, ['xi'], ['u'], name='policy')
 
     # closed-loop system model
-    cl_system = System([params, policy, model], nsteps=nsteps)
+    cl_system = System([params, policy, model], nsteps=nsteps,
+                       name='cl_system')
     cl_system.show()
 
     """
@@ -114,11 +115,11 @@ if __name__ == "__main__":
     terminal_lower_bound_penalty = 10.*(x[:, [-1], :] > ref-0.01)
     terminal_upper_bound_penalty = 10.*(x[:, [-1], :] < ref+0.01)
     # objectives and constraints names for nicer plot
-    regulation_loss.name = 'state_loss'
+    regulation_loss.name = 'ref_tracking'
     state_lower_bound_penalty.name = 'x_min'
     state_upper_bound_penalty.name = 'x_max'
-    terminal_lower_bound_penalty.name = 'y_N_min'
-    terminal_upper_bound_penalty.name = 'y_N_max'
+    terminal_lower_bound_penalty.name = 'x_N_min'
+    terminal_upper_bound_penalty.name = 'x_N_max'
     # list of constraints and objectives
     objectives = [regulation_loss]
     constraints = [
@@ -132,13 +133,13 @@ if __name__ == "__main__":
     # # #  Differentiable optimal control problem 
     """
     # data (x_k, r_k) -> parameters (xi_k) -> policy (u_k) -> dynamics (x_k+1)
-    components = [cl_system]
+    nodes = [cl_system]
     # create constrained optimization loss
     loss = PenaltyLoss(objectives, constraints)
     # construct constrained optimization problem
-    problem = Problem(components, loss)
+    problem = Problem(nodes, loss)
     # plot computational graph
-    # problem.show()
+    problem.show()
 
     """
     # # #  Solving the problem 

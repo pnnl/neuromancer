@@ -27,9 +27,9 @@ class Trainer:
         self,
         problem: Problem,
         train_data: torch.utils.data.DataLoader,
-        dev_data: torch.utils.data.DataLoader,
-        test_data: torch.utils.data.DataLoader,
-        optimizer: torch.optim.Optimizer,
+        dev_data: torch.utils.data.DataLoader = None,
+        test_data: torch.utils.data.DataLoader = None,
+        optimizer: torch.optim.Optimizer = None,
         logger: BasicLogger = None,
         callback=Callback(),
         lr_scheduler=False,
@@ -56,7 +56,7 @@ class Trainer:
         :param eval_metric: (str) Performance metric for model selection and early stopping
         """
         self.model = problem
-        self.optimizer = optimizer
+        self.optimizer = optimizer if optimizer is not None else torch.optim.Adam(problem.parameters(), 0.01, betas=(0.0, 0.9))
         self.train_data = train_data
         self.dev_data = dev_data
         self.test_data = test_data
@@ -94,7 +94,6 @@ class Trainer:
         try:
             for i in range(self.current_epoch, self.current_epoch+self.epochs):
 
-                self.current_epoch = i
                 self.model.train()
                 losses = []
                 for t_batch in self.train_data:
@@ -116,14 +115,15 @@ class Trainer:
 
                 with torch.set_grad_enabled(self.model.grad_inference):
                     self.model.eval()
-                    losses = []
-                    for d_batch in self.dev_data:
-                        d_batch = move_batch_to_device(d_batch, self.device)
-                        eval_output = self.model(d_batch)
-                        losses.append(eval_output[self.dev_metric])
-                    eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
-                    output = {**output, **eval_output}
-                    self.callback.begin_eval(self, output)  # potential simulator
+                    if self.dev_data is not None:
+                        losses = []
+                        for d_batch in self.dev_data:
+                            d_batch = move_batch_to_device(d_batch, self.device)
+                            eval_output = self.model(d_batch)
+                            losses.append(eval_output[self.dev_metric])
+                        eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
+                        output = {**output, **eval_output}
+                    self.callback.begin_eval(self, output)  # Used for alternate dev evaluation
 
                     if (self._eval_min and output[self.eval_metric] < self.best_devloss)\
                             or (not self._eval_min and output[self.eval_metric] > self.best_devloss):
@@ -144,7 +144,10 @@ class Trainer:
                     self.callback.end_epoch(self, output)
 
                     if self.badcount > self.patience:
+                        print('Early stopping!!!')
                         break
+                    self.current_epoch = i + 1
+
         except KeyboardInterrupt:
             print("Interrupted training loop.")
 
@@ -165,7 +168,7 @@ class Trainer:
         self.model.eval()
 
         with torch.set_grad_enabled(self.model.grad_inference):
-            self.callback.begin_test(self)  # setup simulator
+            self.callback.begin_test(self)
             output = {}
             for dset, metric in zip([self.train_data, self.dev_data, self.test_data],
                                     [self.train_metric, self.dev_metric, self.test_metric]):
@@ -177,7 +180,7 @@ class Trainer:
                 output[f'mean_{metric}'] = torch.mean(torch.stack(losses))
                 output = {**output, **batch_output}
 
-        self.callback.end_test(self, output)    # simulator/visualizations/output concat
+        self.callback.end_test(self, output)
 
         if self.logger is not None:
             self.logger.log_metrics({f"best_{k}": v for k, v in output.items()})
@@ -189,37 +192,3 @@ class Trainer:
         This method is deprecated. Use self.test instead.
         """
         return self.test(best_model)
-
-
-def freeze_weight(problem, module_names=['']):
-    """
-    ['parent->child->child']
-    :param component:
-    :param module_names:
-    :return:
-    """
-    modules = dict(problem.named_modules())
-    for name in module_names:
-        freeze_path = name.split('->')
-        if len(freeze_path) == 1:
-            modules[name].requires_grad_(False)
-        else:
-            parent = modules[freeze_path[0]]
-            freeze_weight(parent, ['->'.join(freeze_path[1:])])
-
-
-def unfreeze_weight(problem, module_names=['']):
-    """
-    ['parent->child->child']
-    :param component:
-    :param module_names:
-    :return:
-    """
-    modules = dict(problem.named_modules())
-    for name in module_names:
-        freeze_path = name.split('->')
-        if len(freeze_path) == 1:
-            modules[name].requires_grad_(True)
-        else:
-            parent = modules[freeze_path[0]]
-            freeze_weight(parent, ['->'.join(freeze_path[1:])])

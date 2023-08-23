@@ -213,6 +213,11 @@ class SmoothedReLU(nn.Module):
     https://arxiv.org/pdf/2001.06116.pdf
     """
     def __init__(self, d=1.0, tune_d=True):
+        """
+
+        :param d:
+        :param tune_d:
+        """
         super().__init__()
         self.d = nn.Parameter(torch.tensor(d), requires_grad=tune_d)
 

@@ -15,14 +15,10 @@ Networked systems seem like a natural fit here
 """
 import os
 import pydot
-from itertools import combinations
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
-
 import torch
 import torch.nn as nn
-from neuromancer.dynamics.integrators import Euler
-from neuromancer.modules.blocks import MLP
 
 
 class Node(nn.Module):
@@ -47,7 +43,7 @@ class Node(nn.Module):
         """
         This call function wraps the callable to receive/send dictionaries of Tensors
 
-        :param datadict: (dict {str: 3-D Tensor (batch, time, dim)}) input to callable with associated input_keys
+        :param datadict: (dict {str: Tensor}) input to callable with associated input_keys
         :return: (dict {str: Tensor}) Output of callable with associated output_keys
         """
         inputs = [data[k] for k in self.input_keys]
@@ -107,6 +103,7 @@ class System(nn.Module):
         :param name: (str) Unique identifier for system class.
         :param nstep_key: (str) Key is used to infer number of rollout steps from input_data
         :param init_func: (callable(input_dict) -> input_dict) This function is used to set initial conditions of the system
+        :param nsteps: (int) prediction horizon (rollout steps) length
         """
         super().__init__()
         self.nstep_key = nstep_key
@@ -127,7 +124,6 @@ class System(nn.Module):
                                  style='filled', label='system')
         input_keys = []
         output_keys = []
-        all_common_keys = []
         nonames = 1
         for node in self.nodes:
             input_keys += node.input_keys
@@ -142,16 +138,6 @@ class System(nn.Module):
         graph.add_node(pydot.Node('out', label='out', color='skyblue', style='filled', shape='box'))
         graph.add_subgraph(sim_loop)
 
-        # # old way of building graph
-        # for src, dst in combinations(self.nodes, 2):
-        #     common_keys = set(src.output_keys) & set(dst.input_keys)
-        #     all_common_keys += common_keys
-        #     for key in common_keys:
-        #         graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
-        #     reverse_common_keys = set(dst.output_keys) & set(src.input_keys)
-        #     for key in reverse_common_keys:
-        #         graph.add_edge(pydot.Edge(dst.name, src.name, label=key))
-
         # build node connections in reverse order
         reverse_order_nodes = self.nodes[::-1]
         for idx_dst, dst in enumerate(reverse_order_nodes):
@@ -164,18 +150,18 @@ class System(nn.Module):
                         graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
                         unique_common_keys.add(key)
 
-
         # get keys of recurrent nodes
         loop_keys = []
         for node in self.nodes:
-            loop_keys += set(node.input_keys) & set(node.output_keys)
+            node_loop_keys = set(node.input_keys) & set(node.output_keys)
+            loop_keys += node_loop_keys
         # get keys required as input and to initialize some nodes
-        init_keys = set(input_keys) - (set(output_keys)-set(loop_keys))
+        init_keys = set(input_keys) - (set(output_keys) - set(loop_keys))
 
-        # build node connections
+        # build I/O and node loop connections
         previous_output_keys = []
-        for node in self.nodes:
-            # build recurrent connections
+        for idx_node, node in enumerate(self.nodes):
+            # build single node recurrent connections
             node_loop_keys = list(set(node.input_keys) & set(node.output_keys))
             for key in node_loop_keys:
                 graph.add_edge(pydot.Edge(node.name, node.name, label=key))
@@ -183,6 +169,14 @@ class System(nn.Module):
             for key in set(node.input_keys) & set(init_keys-set(previous_output_keys)):
                 graph.add_edge(pydot.Edge("in", node.name, label=key))
             previous_output_keys += node.output_keys
+            # build feedback connections for init nodes
+            feedback_src_nodes = reverse_order_nodes[:-1-idx_node]
+            if len(set(node.input_keys) & set(loop_keys) & set(init_keys)) > 0:
+                for key in node.input_keys:
+                    for src in feedback_src_nodes:
+                        if key in src.output_keys and key not in previous_output_keys:
+                            graph.add_edge(pydot.Edge(src.name, node.name, label=key))
+                            break
         # build connections to the output of the system in a reversed order
         previous_output_keys = []
         for node in self.nodes[::-1]:

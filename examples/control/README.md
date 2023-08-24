@@ -1,11 +1,38 @@
-# Differentiable Predictive Control in Neuromancer
+# Differentiable Control in Neuromancer
 
-Differentiable predictive control (DPC) method allows us to learn control policy parameters directly by
+This directory contains interactive examples that can serve as a step-by-step tutorial 
+showcasing control capabilities in Neuromancer.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Learning to stabilize a linear dynamical system.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_2_stabilize_ODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Learning to stabilize nonlinear ordinary differential equation.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_3_ref_tracking_ODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Learning constrained neural control policy for reference tracking of ordinary differential equation.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_4_systemid_control.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Learning system identificaiton model and control policy for a dynamical system with constraints.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_5_neural_Lyapunov.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Learning neural Lyapunov function from trajectories of a nonlinear dynamical system.
+
+
+## Differentiable Predictive Control in Neuromancer
+
+[Differentiable predictive control (DPC) method](https://arxiv.org/abs/2004.11184) represents a 
+flagship capability of the Neuromancer library.
+
+DPC allows us to learn control policy parameters directly by
 backpropagating model predictive control (MPC) objective function and constraints through the differentiable
-digital twin model of a dynamical system.
+ model of a dynamical system. Instances of a differentiable model include ordinary
+differential equations (ODEs), including  [neural ODEs](https://arxiv.org/abs/1806.07366), 
+[universal differential equations (UDEs)](https://arxiv.org/abs/2001.04385), 
+or [neural state space models (SSMs)](https://ieeexplore.ieee.org/abstract/document/9482930).
 
 The conceptual methodology shown in the figures below consists of two main steps.
-In the first step, we perform system identification by learning the unknown parameters of differentiable digital twins.
+In the first step, we perform system identification by learning the unknown parameters   of differentiable digital twins.
 In the second step, we close the loop by combining the digital twin models with control policy, 
 parametrized by neural networks, obtaining a differentiable closed-loop dynamics model.
 This closed-loop model now allow us to use automatic differentiation (AD) 
@@ -17,7 +44,7 @@ boundary conditions, and parametric control tasks such as time-varying reference
 *Conceptual methodology. Simulation of the differentiable closed-loop system dynamics 
 in the forward pass is followed by backward pass computing direct policy gradients for policy optimization *
 
-## DPC Problem Formulation
+### DPC Problem Formulation
 
 Our recent development work in Neuromancer has given us the capability to 
 learn parametric control policy (parametrized by trainable weights W)
@@ -37,11 +64,10 @@ $$ \mathbf{x}_{k+1}=\mathbf{f}(\mathbf{x}_k, \mathbf{u}_k)$$
 
 Formally we can formulate the DPC problem as a following parametric
 optimal control problem:
-![DPC_problem_form.](/examples/control/figs/DPC_problem_form.PNG)  
-*DPC problem formulation.*
+![DPC_problem_form.](/examples/control/figs/DPC_problem_form.PNG)
 
 
-## DPC Problem Solution
+### DPC Problem Solution
 
 The main advantage of having a differentiable closed-loop dynamics model, control
 objective function, and constraints in the DPC problem formulation
@@ -50,9 +76,9 @@ differentiation (backpropagation through time) to directly compute the policy gr
 by representing the problem (15) as a computational graph and leveraging the chain rule, we can directly
 compute the gradients of the loss function w.r.t. the policy parameters W as follows:
 ![DPC_policy_gradients.](/examples/control/figs/DPC_policy_gradients.PNG)  
-*DPC policy gradients.*
 
-## DPC Problem Architecture 
+
+### DPC Problem Architecture 
 
 The forward pass of the DPC computational graph is conceptually
 equivalent with a single shooting formulation of the model predictive control (MPC) problem. 
@@ -66,7 +92,7 @@ horizon control (RHC) strategy by applying only the first time step of the compu
 *Structural equivalence of DPC architecture with MPC constraints.*
 
 
-## DPC Policy Optimization Algorithm
+### DPC Policy Optimization Algorithm
 
 The DPC policy optimization algorithm is summarized in the following figure. 
 The differentiable system dynamics model is required to instantiate the computational graph of the
@@ -76,7 +102,6 @@ X and Ξ, respectively. The computed policy gradients now allow us to perform di
 a gradient-based optimizer O. Thus the presented procedure introduces a generic approach for data-driven
 solution of model-based parametric optimal control problem (15) with constrained neural control policies
 ![DPC_algo.](/examples/control/figs/DPC_algo.PNG)  
-*DPC policy optimization algorithm.*
 
 From a reinforcement learning (RL) perspective, the DPC loss L can be seen as a reward function,
 with ∇L representing a deterministic policy gradient. The main difference compared with actor-critic
@@ -84,27 +109,22 @@ RL algorithms is that in DPC the reward function is fully parametrized by a clos
 model, control objective, and constraints penalties. The model-based approach avoids approximation errors
 in reward functions making DPC more sample efficient than model-free RL algorithms
 
-## DPC Syntax and Usage
-The following code illustrates the implementation of Differentiable
-Predictive Control in Neuromancer:
+### DPC Galery
+The following figures illustrate DPC policy optimization algorithm on a [Part 1 example](https://github.com/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.py).
 
-## DPC Examples
-
-This folder demonstrates a few examples for training explicit neural control policies
-given dynamical system model in the state space model (SSM) and in the neural ODE form.
 
 ![cl_trajectories.](/examples/control/figs/cl_animation.gif)  
-*Example 1: Closed-loop trajectories of learned stabilizing neural control policy using DPC policy optimization.*
+*Closed-loop trajectories of learned stabilizing neural control policy using DPC policy optimization.*
 
 ![cl_trajectories_2.](/examples/control/figs/closed%20loop%20policy%20training.gif)  
-*Example 1: Evolution of the closed-loop trajectories and DPC neural policy during training.*
+*Evolution of the closed-loop trajectories and DPC neural policy during training.*
 
 ![dpc_policy.](/examples/control/figs/policies_surfaces.png)  
-*Example 1: Landscapes of the learned neural policy via DPC policy optimization algorithm (right) 
+*Landscapes of the learned neural policy via DPC policy optimization algorithm (right) 
 and explicit MPC policy computed using parametric programming solver (left).*
 
 
-## References
+### References
 
 [1] [Drgona, J., Tuor, A., & Vrabie, D., Learning Constrained Adaptive Differentiable Predictive Control Policies With Guarantees, arXiv preprint arXiv:2004.11184, 2020](https://arxiv.org/abs/2004.11184)
 
@@ -121,7 +141,7 @@ and explicit MPC policy computed using parametric programming solver (left).*
 [7] [Ethan King, Jan Drgona, Aaron Tuor, Shrirang Abhyankar, Craig Bakker, Arnab Bhattacharya, Draguna Vrabie, Koopman-based Differentiable Predictive Control for the Dynamics-Aware Economic Dispatch Problem, American Control Conference (ACC) 2022](https://ieeexplore.ieee.org/document/9867379)
 
 
-## Cite as
+### Cite as
 
 ```yaml
 @misc{drgona2022_DPC,

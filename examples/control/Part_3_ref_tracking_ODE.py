@@ -149,7 +149,7 @@ if __name__ == "__main__":
     trainer = Trainer(
         problem,
         train_loader, dev_loader,
-        optimizer,
+        optimizer=optimizer,
         epochs=100,
         train_metric='train_loss',
         eval_metric='dev_loss',

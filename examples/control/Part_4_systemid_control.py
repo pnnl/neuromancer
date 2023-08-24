@@ -1,35 +1,32 @@
-"""Learning to Control a Dynamical System
-Typical scenario. Off policy control learning
+"""
 
-In a typical real world control setting, due to cost and operational concerns,
-there is not an opportunity to directly interact with the system to learn a controller.
-In this scenario, the system is perturbed for some amount of time to collect measurements
-representative of the system state space, system identification is performed,
-and a controller is created based on the fitted model created via system identification. In the following cells we walk through the three stage process of generating data, system identification, and control policy learning using neuromancer.
+For this example we demonstrate learning a model-based control policy for an unknown dynamical system.
+
+**Offline off-policy control learning scenario.**
+
+In a typical real world control setting, due to cost and operational concerns, there is not an opportunity to directly interact with the system to learn a controller. The presented scenario has three stages:
+
++ Stage 1: the system is perturbed for some amount of time to collect measurements representative of the system state space.
++ Stage 2: Learn a black-box neural ordinary differential equation NODE approximation of an unknown dynamical system given the time series data of system rollouts.
++ Stage 3: Learn neural control policy by differentiating closed-loop dynamical system (neural policy + NODE) using Differentiable predictive control (DPC) method.
+In the following cells we walk through the three stage process of generating data, system identification, and control policy learning using neuromancer.
+
+
+NODE paper: https://arxiv.org/abs/1806.07366
+DPC paper: https://www.sciencedirect.com/science/article/pii/S0959152422000981
+
+"""
+
+"""
+# # # # # # # # # # # # # # # # # # # # # 
+#       Stage 1: data generation        #
+# # # # # # # # # # # # # # # # # # # # # 
 """
 
 """Instantiate a system emulator from neuromancer.psl"""
 from neuromancer.psl.nonautonomous import Actuator
 from neuromancer.dataset import DictDataset
-# instantiate simulator model to be controlled
 sys = Actuator()
-
-
-""" Define a simple neural ODE model to identify the system from data"""
-from neuromancer.system import Node, System
-from neuromancer.modules import blocks
-from neuromancer.dynamics import integrators
-import torch
-
-# define neural ODE
-dx = blocks.MLP(sys.nx + sys.nu, sys.nx, bias=True, linear_map=torch.nn.Linear, nonlin=torch.nn.ELU,
-              hsizes=[20 for h in range(3)])
-interp_u = lambda tq, t, u: u
-integrator = integrators.Euler(dx, h=torch.tensor(0.1), interp_u=interp_u)
-system_nodel = Node(integrator, ['xn', 'U'], ['xn'], name='NODE')
-model = System([system_nodel])
-model.show()        # visualize computational graph of the NODE system ID model
-
 
 """Generate datasets representative of system behavior"""
 # obtain time series of the system to be controlled
@@ -52,8 +49,28 @@ from torch.utils.data import DataLoader
 train_dataset, dev_dataset, = [DictDataset(d, name=n) for d, n in zip([train_data, dev_data], ['train', 'dev'])]
 train_loader, dev_loader = [DataLoader(d, batch_size=100, collate_fn=d.collate_fn, shuffle=True) for d in [train_dataset, dev_dataset]]
 
+"""
+# # # # # # # # # # # # # # # # # # # # # # # #
+#       Stage 2: system identification        #
+# # # # # # # # # # # # # # # # # # # # # # # #
+"""
 
-"""Define the optimization problem"""
+""" Define a black-box ODE model to identify the system from data"""
+from neuromancer.system import Node, System
+from neuromancer.modules import blocks
+from neuromancer.dynamics import integrators
+import torch
+
+# define neural ODE
+dx = blocks.MLP(sys.nx + sys.nu, sys.nx, bias=True, linear_map=torch.nn.Linear, nonlin=torch.nn.ELU,
+              hsizes=[20 for h in range(3)])
+interp_u = lambda tq, t, u: u
+integrator = integrators.Euler(dx, h=torch.tensor(0.1), interp_u=interp_u)
+system_nodel = Node(integrator, ['xn', 'U'], ['xn'], name='NODE')
+model = System([system_nodel])
+model.show()        # visualize computational graph of the NODE system ID model
+
+"""Define the system identification optimization problem"""
 from neuromancer.constraint import variable
 from neuromancer.problem import Problem
 from neuromancer.loss import PenaltyLoss
@@ -70,7 +87,6 @@ obj = PenaltyLoss([loss], [])
 problem = Problem([model], obj)
 problem.show()
 
-
 """Solve the system identification problem"""
 from neuromancer.trainer import Trainer
 import torch.optim as optim
@@ -83,7 +99,6 @@ trainer = Trainer(problem, train_loader, dev_loader,
                   train_metric='train_loss',
                   eval_metric='dev_loss')
 best_model = trainer.train()
-
 
 """ Evaluate the learned NODE system model on 1000 time step rollout"""
 import torch
@@ -103,10 +118,14 @@ for v in range(3):
     ax[v].plot(test_data['X'][0, :, v].detach().numpy(), label='true')
 plt.legend()
 
+"""
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#       Stage 3: learning neural control policy         #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+"""
 
 """ Create a closed loop system using the system model and a parametrized control policy """
 nx, nu = sys.nx, sys.nu
-
 # define control policy
 class Policy(torch.nn.Module):
 
@@ -121,7 +140,7 @@ class Policy(torch.nn.Module):
 insize = 2*nx
 policy = Policy(insize, nu)
 policy_node = Node(policy, ['xn', 'R'], ['U'], name='policy')
-cl_system = System([policy_node, system_nodel])
+cl_system = System([policy_node, system_nodel], name='cl_system')
 cl_system.show()
 
 """ Sample dataset of control parameters """
@@ -144,7 +163,6 @@ obj = PenaltyLoss([loss], [])
 problem = Problem([cl_system], obj)
 problem.show()
 
-
 """ Optimize the control policy"""
 opt = optim.Adam(policy.parameters(), 0.01)
 logout = ['loss']
@@ -158,8 +176,7 @@ trainer = Trainer(problem, train_loader, dev_loader,
 best_model = trainer.train()
 trainer.model.load_state_dict(best_model)
 
-
-""" Evaluate the model on the true system """
+""" Evaluate the learned control policy on the true system """
 # With the optional pytorch backend for the original ODE system
 # we can now swap out our learned model to evaluate the learned control policy
 # on the original system.
@@ -180,14 +197,12 @@ sysnode = Node(sys, ['xsys', 'u'], ['xsys'], name='actuator')
 test_system = System([normnode, policy_node, denormnode, sysnode])
 test_system.show()
 
-
 """ Evaluate on 1000 steps with a new reference trajectory distribution """
 from neuromancer.psl.signals import sines, step, arma, spline
 import numpy as np
 
-plt.figure()
-references = spline(nsim=1000, d=sys.nx, min=sys.stats['X']['min'], max=sys.stats['X']['max'])
-plt.plot(references)
+# generate random sequence of step changes
+references = step(nsim=1000, d=sys.nx, min=sys.stats['X']['min'], max=sys.stats['X']['max'])
 test_data = {'R': torch.tensor(sys.normalize(references, key='X'), dtype=torch.float32).unsqueeze(0), 'xsys': sys.get_x0().reshape(1, 1, -1),
             'Time': (np.arange(1000)*sys.ts).reshape(1, 1000, 1)}
 print({k: v.shape for k, v in test_data.items()})
@@ -198,8 +213,8 @@ with torch.no_grad():
 print({k: v.shape for k, v in test_out.items()})
 fix, ax = plt.subplots(nrows=3)
 for v in range(3):
-    ax[v].plot(test_out['xn'][0, 1:, v].detach().numpy(), label='pred')
-    ax[v].plot(test_data['R'][0, :, v].detach().numpy(), label='true')
+    ax[v].plot(test_data['R'][0, :, v].detach().numpy(), 'r--', label='reference')
+    ax[v].plot(test_out['xn'][0, 1:, v].detach().numpy(), label='state')
 plt.legend()
 plt.savefig('control.png')
 

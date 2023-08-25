@@ -41,7 +41,7 @@ if __name__ == '__main__':
     # Define optimization problem
     u = variable('U')
     x = variable('X')
-    action_loss = 0.001 * (u == 0.)^2  # control penalty
+    action_loss = 0.0001 * (u == 0.)^2  # control penalty
     regulation_loss = 10. * (x == 0.)^2  # target position
     loss = PenaltyLoss([action_loss, regulation_loss], [])
     problem = Problem([cl_system], loss)

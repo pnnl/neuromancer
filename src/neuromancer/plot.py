@@ -294,7 +294,7 @@ def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
     plot_setup = [(name, notation, array) for
                   name, notation, array in
                   zip(['Outputs', 'States', 'Inputs', 'Disturbances'],
-                      ['Y', 'X', 'U', 'D'], [Y, X, U, D]) if
+                      ['y', 'x', 'u', 'd'], [Y, X, U, D]) if
                   array is not None]
 
     controlled_y_idx = np.zeros([Y.shape[1], 1])
@@ -304,7 +304,7 @@ def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
     custom_lines = [Line2D([0], [0], color='gray', lw=4, linestyle='--'),
                     Line2D([0], [0], color='gray', lw=4, linestyle='-')]
     for j, (name, notation, array) in enumerate(plot_setup):
-        if notation == 'Y' and R is not None:
+        if notation == 'y' and R is not None:
             colors = get_colors(array.shape[1])
             for k in range(array.shape[1]):
                 rk = ctrl_outputs.index(k) if ctrl_outputs is not None and k in ctrl_outputs else None
@@ -317,8 +317,8 @@ def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
                     ax[j, 0].plot(R, '--', linewidth=3, c='r') if R is not None else None
                     ax[j, 0].plot(Ymin, '--', linewidth=3, c='k') if Ymin is not None else None
                     ax[j, 0].plot(Ymax, '--', linewidth=3, c='k') if Ymax is not None else None
-                ax[j, 0].legend(custom_lines, ['Reference', 'Output'])
-        if notation == 'U':
+                # ax[j, 0].legend(custom_lines, ['Reference', 'Output'])
+        if notation == 'u':
             for k in range(array.shape[1]):
                 ax[j, 0].plot(array, linewidth=3)
                 ax[j, 0].plot(Umin[:, k], '--', linewidth=3, c='k') if Umin is not None else None
@@ -326,11 +326,12 @@ def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
         else:
             ax[j, 0].plot(array, linewidth=3)
         ax[j, 0].grid(True)
-        ax[j, 0].set_title(name, fontsize=14)
-        ax[j, 0].set_xlabel('Time', fontsize=14)
-        ax[j, 0].set_ylabel(notation, fontsize=14)
-        ax[j, 0].tick_params(axis='x', labelsize=12)
-        ax[j, 0].tick_params(axis='y', labelsize=12)
+        # ax[j, 0].set_title(name, fontsize=22)
+        ax[j, 0].set_xlabel('Time', fontsize=26)
+        ax[j, 0].set_ylabel(notation, fontsize=26)
+        ax[j, 0].tick_params(axis='x', labelsize=26)
+        ax[j, 0].tick_params(axis='y', labelsize=26)
+        ax[j, 0].set_xlim(0, Y.shape[0])
     plt.tight_layout()
     if figname is not None:
         plt.savefig(figname)

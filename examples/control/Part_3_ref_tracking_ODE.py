@@ -82,8 +82,7 @@ if __name__ == "__main__":
     two_tank_ode.c2 = nn.Parameter(torch.tensor(gt_model.c2), requires_grad=False)
 
     # integrate continuous time ODE
-    interp_u = lambda tq, t, u: u
-    integrator = integrators.RK4(two_tank_ode, h=torch.tensor(ts), interp_u=interp_u)
+    integrator = integrators.RK4(two_tank_ode, h=torch.tensor(ts))
     # symbolic system model
     model = Node(integrator, ['x', 'u'], ['x'], name='model')
 

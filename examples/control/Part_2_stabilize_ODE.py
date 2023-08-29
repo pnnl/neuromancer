@@ -70,8 +70,7 @@ if __name__ == "__main__":
     vdp_ode.mu = nn.Parameter(torch.tensor(gt_model.mu), requires_grad=False)
 
     # integrate continuous time ODE
-    interp_u = lambda tq, t, u: u
-    integrator = integrators.RK4(vdp_ode, h=torch.tensor(ts), interp_u=interp_u)
+    integrator = integrators.RK4(vdp_ode, h=torch.tensor(ts))
     # symbolic system model
     model = Node(integrator, ['x', 'u'], ['x'], name='model')
 

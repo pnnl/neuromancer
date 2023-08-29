@@ -24,24 +24,18 @@ def test_integrator_black_ode_auto_shape(batchsize, nx, integrator):
 
 
 @given(st.integers(1, 500),
-       st.integers(2, 10),
        st.integers(1, 10),
        st.integers(1, 10),
        st.sampled_from(integrators_generic))
 @settings(max_examples=200, deadline=None)
-def test_integrator_black_ode_non_auto_shape(batchsize, nsteps, nx, nu, integrator):
-    # create input interpolator
-    t = (torch.arange(nsteps) * 10).unsqueeze(-1).float()
-    u = torch.sin(t).repeat(1, nu)
-    interp_u = interpolation.LinInterp_Offline(t, u)
+def test_integrator_black_ode_non_auto_shape(batchsize, nx, nu, integrator):
     # instantiate mlp and integrator
     fx = MLP(nx+nu, nx, bias=True, hsizes=[20, 20], linear_map=slim.maps['linear'])
-    model = integrator(fx, interp_u=interp_u)
+    model = integrator(fx)
     # test model
     x = torch.randn([batchsize, nx])
     u = torch.randn([batchsize, nu])
-    t = torch.randn([batchsize, 1])
-    y = model(x, u, t)
+    y = model(x, u)
     assert y.shape[0] == batchsize and y.shape[1] == nx
 
 
@@ -67,17 +61,12 @@ def test_integrator_white_ode_nonauto_params_shape(batchsize, nsteps, integrator
     fx = ode()
     nx = fx.out_features
     nu = fx.in_features - nx
-    # create input interpolator
-    t = (torch.arange(nsteps) * 10).unsqueeze(-1).float()
-    u = torch.sin(t).repeat(1, nu)
-    interp_u = interpolation.LinInterp_Offline(t, u)
     # create integrator
-    model = integrator(fx, interp_u=interp_u)
+    model = integrator(fx)
     # test model
     x = torch.randn([batchsize, nx])
     u = torch.randn([batchsize, nu])
-    t = torch.randn([batchsize, 1])
-    y = model(x, u, t)
+    y = model(x, u)
     assert y.shape[0] == batchsize and y.shape[1] == fx.out_features
 
 
@@ -95,20 +84,3 @@ def test_integrator_white_ode_auto_hybrid_shape(batchsize, integrator, ode):
     assert y.shape[0] == batchsize and y.shape[1] == fx.out_features
 
 
-@given(st.integers(1, 500),
-       st.integers(1, 10),
-       st.integers(1, 10),
-       st.sampled_from(integrators_generic))
-@settings(max_examples=200, deadline=None)
-def test_integrator_black_ode_non_auto_online_shape(batchsize, nx, nu, integrator):
-    # create input interpolator
-    interp_u = interpolation.LinInterp_Online()
-    # instantiate mlp and integrator
-    fx = MLP(nx+nu, nx, bias=True, hsizes=[20, 20], linear_map=slim.maps['linear'])
-    model = integrator(fx, interp_u=interp_u)
-    # test model
-    x = torch.randn([batchsize, nx])
-    u = torch.randn([batchsize, 2, nu])
-    t = torch.randn([batchsize, 2, 1])
-    y = model(x, u, t)
-    assert y.shape[0] == batchsize and y.shape[1] == nx

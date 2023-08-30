@@ -18,7 +18,6 @@ from neuromancer.system import Node, System
 from collections import OrderedDict
 from neuromancer.loggers import BasicLogger
 from neuromancer.trainer import Trainer
-import re
 np.random.seed(200)
 torch.manual_seed(0)
 device = 'cpu'

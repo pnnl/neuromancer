@@ -107,7 +107,7 @@ def cast_backend(method):
     return _impl
 
 
-class EmulatorBase(ABC, torch.nn.Module):
+class EmulatorBase(ABC):
     def __init__(self, exclude_norms=['Time'], backend='numpy', requires_grad=False,
                  seed: Union[int,np.random._generator.Generator]=59, set_stats=True):
         """

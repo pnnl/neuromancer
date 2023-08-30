@@ -250,7 +250,7 @@ class Gravitational_System(Coupled_ODE):
     pos_idx = [1,2]
     vel_idx = [3,4]
         
-    def __init__(self, G=6.67e-11, adj=None, nx=4, seed=59, x0=None):
+    def __init__(self, backend='numpy', set_stats=False, G=6.67e-11, adj=None, nx=4, seed=59, x0=None):
         super().__init__(adj=adj, nx=nx, seed=seed)
         self.G = G
         self.x0 = x0 if x0 is not None else self.get_x0()
@@ -297,7 +297,7 @@ class Boids(Coupled_ODE):
     pos_idx = [0,1]
     vel_idx = [2,3]
     
-    def __init__(self, coherence=0.05, separation=0.01, alignment=0.05, avoidance_range=0.2, visual_range=None, nx=50, x0=None, seed=59):
+    def __init__(self, backend='numpy', set_stats=False, coherence=0.05, separation=0.01, alignment=0.05, avoidance_range=0.2, visual_range=None, nx=50, x0=None, seed=59):
           super().__init__(nx=nx, seed=seed)
           self.coherence = coherence
           self.separation = separation

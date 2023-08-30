@@ -6,14 +6,17 @@ from neuromancer.psl.base import Backend
 from neuromancer.psl.autonomous import systems as autosys
 from neuromancer.psl.nonautonomous import systems as nonautosys
 from neuromancer.psl.building_envelope import systems as buildsys
-
+from neuromancer.psl.coupled_systems import systems as coupsys
 
 SEED = 0
 
 autosys = [v for v in autosys.values()]
 nonautosys = [v for v in nonautosys.values()]
 buildsys = [v for v in buildsys.values()]
-all_systems = autosys + nonautosys + buildsys
+coupsys = [v for v in coupsys.values()]
+
+all_systems = autosys + nonautosys + buildsys + coupsys
+all_systems_minus = autosys + nonautosys + buildsys
 
 backends = list(Backend.backends)
 backend_base_type = {
@@ -22,7 +25,7 @@ backend_base_type = {
 }
 
 
-@pytest.mark.parametrize("emulator,backend", product(all_systems, backends))
+@pytest.mark.parametrize("emulator,backend", product(all_systems_minus, backends))
 def test_normalize(emulator, backend):
     """
     Normalize(x) should not equal x
@@ -64,7 +67,7 @@ def test_normalize(emulator, backend):
     assert eq(x, x_denorm_dict["X"], rtol=1e-5, atol=1e-4)
 
 
-@pytest.mark.parametrize("emulator,backend", product(all_systems, backends))
+@pytest.mark.parametrize("emulator,backend", product(all_systems_minus, backends))
 def test_get_x0_initial_value(emulator, backend):
     """
     When an object is instantiated first call of getters should always give same value
@@ -89,7 +92,7 @@ def test_get_x0_initial_value(emulator, backend):
     assert core.allclose(x0_a, x0_b)
 
 
-@pytest.mark.parametrize("emulator,backend", product(all_systems, backends))
+@pytest.mark.parametrize("emulator,backend", product(all_systems_minus, backends))
 def test_get_x0_backend_type(emulator, backend):
     """
     All getters should return datatype of backend
@@ -106,7 +109,7 @@ def test_get_x0_backend_type(emulator, backend):
     assert isinstance(x0, expected_type)
 
 
-@pytest.mark.parametrize("emulator,backend", product(all_systems, backends))
+@pytest.mark.parametrize("emulator,backend", product(all_systems_minus, backends))
 def test_get_x0_shape(emulator, backend):
     """
     All get_x0 returns should be 1d arrays or tensors
@@ -130,15 +133,11 @@ def test_get_U_initial_value(emulator, backend, nsim):
     """
     When an object is instantiated first call of getters should always give same value
     """
-    # torch.manual_seed(SEED)
-    # np.random.seed(SEED)
     emulator_a = emulator(backend=backend, set_stats=False, seed=SEED)
     data = emulator_a.simulate(nsim=nsim, U=emulator_a.U[:nsim + 1], x0=emulator_a.x0)
     emulator_a.set_stats(sim=data)
     U_a = emulator_a.get_U(nsim)
 
-    # torch.manual_seed(SEED)
-    # np.random.seed(SEED)
     emulator_b = emulator(backend=backend, set_stats=False, seed=SEED)
     data = emulator_b.simulate(nsim=nsim, U=emulator_b.U[:nsim + 1], x0=emulator_b.x0)
     emulator_b.set_stats(sim=data)

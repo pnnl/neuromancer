@@ -3,7 +3,7 @@ Base classes for dynamic systems.
 
 """
 
-import requests, random, functools, os
+import requests, functools, os
 from abc import ABC, abstractmethod
 import scipy, torch, torchdiffeq, numpy
 import numpy as np

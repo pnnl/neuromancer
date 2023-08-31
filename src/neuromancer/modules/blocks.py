@@ -6,13 +6,39 @@ Neural network module building blocks for neural state space models, state estim
 import numpy as np
 import torch
 import torch.nn as nn
-import neuromancer.slim as slim
+from abc import ABC, abstractmethod
 
+import neuromancer.slim as slim
 import neuromancer.modules.rnn as rnn
 from neuromancer.modules.activations import soft_exp, SoftExponential, SmoothedReLU
 
 
-class Linear(nn.Module):
+class Block(nn.Module, ABC):
+    """
+    Canonical abstract class of the block function approximator
+    """
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def block_eval(self, x):
+        pass
+
+    def forward(self, *inputs):
+        """
+        Handling varying number of tensor inputs
+
+        :param inputs: (list(torch.Tensor, shape=[batchsize, insize]) or torch.Tensor, shape=[batchsize, insize])
+        :return: (torch.Tensor, shape=[batchsize, outsize])
+        """
+        if len(inputs) > 1:
+            x = torch.cat(inputs, dim=-1)
+        else:
+            x = inputs[0]
+        return self.block_eval(x)
+
+
+class Linear(Block):
     """
     Linear map consistent with block interface
     """
@@ -22,8 +48,8 @@ class Linear(nn.Module):
         outsize,
         bias=True,
         linear_map=slim.Linear,
-        nonlin=SoftExponential,
-        hsizes=[64],
+        nonlin=None,
+        hsizes=None,
         linargs=dict(),
     ):
         """
@@ -44,7 +70,7 @@ class Linear(nn.Module):
     def reg_error(self):
         return self.linear.reg_error()
 
-    def forward(self, x):
+    def block_eval(self, x):
         """
 
         :param x: (torch.Tensor, shape=[batchsize, insize])
@@ -53,11 +79,11 @@ class Linear(nn.Module):
         return self.linear(x)
 
 
-class Dropout(nn.Module):
+class Dropout(Block):
     def __init__(self, p=0.0, at_train=False, at_test=True):
         """Wrapper for standard dropout that allows its use at test time.
         By default, dropout is disabled during training as it appears difficult
-        to train SSMs with it enabled.
+        to train models with it enabled.
 
         :param p: probability that an input component will be set to zero
         :param at_train: enable dropout during training
@@ -68,7 +94,7 @@ class Dropout(nn.Module):
         self.at_train = at_train
         self.at_test = at_test
 
-    def forward(self, x):
+    def block_eval(self, x):
         use_dropout = (self.training and self.at_train) or (not self.training and self.at_test)
         return torch.nn.functional.dropout(x, p=self.p, training=use_dropout)
 
@@ -83,7 +109,7 @@ def set_model_dropout_mode(model, at_train=None, at_test=None):
     model.apply(_apply_fn)
 
 
-class MLP(nn.Module):
+class MLP(Block):
     """
     Multi-Layer Perceptron consistent with blocks interface
     """
@@ -123,7 +149,7 @@ class MLP(nn.Module):
     def reg_error(self):
         return sum([k.reg_error() for k in self.linear if hasattr(k, "reg_error")])
 
-    def forward(self, x):
+    def block_eval(self, x):
         """
 
         :param x: (torch.Tensor, shape=[batchsize, insize])
@@ -191,7 +217,7 @@ class MLP_bounds(MLP):
                 f'or a differentiable callable.'
             return method
 
-    def forward(self, x):
+    def block_eval(self, x):
         """
 
         :param x: (torch.Tensor, shape=[batchsize, insize])
@@ -262,9 +288,9 @@ class InteractionEmbeddingMLP(nn.Module):
         return x
 
 
-class MLPDropout(nn.Module):
+class MLPDropout(Block):
     """
-    Multi-Layer Perceptron consistent with blocks interface
+    Multi-Layer Perceptron with dropout consistent with blocks interface
     """
     def __init__(
         self,
@@ -307,7 +333,7 @@ class MLPDropout(nn.Module):
     def reg_error(self):
         return sum([k.reg_error() for k in self.linear if hasattr(k, "reg_error")])
 
-    def forward(self, x):
+    def block_eval(self, x):
         """
 
         :param x: (torch.Tensor, shape=[batchsize, insize])
@@ -361,7 +387,7 @@ class ResMLP(MLP):
         self.outmap = linear_map(hsizes[0], outsize, bias=bias, **linargs)
         self.in_features, self.out_features = insize, outsize
 
-    def forward(self, x):
+    def block_eval(self, x):
         """
 
         :param x: (torch.Tensor, shape=[batchsize, insize])
@@ -427,7 +453,7 @@ class InputConvexNN(MLP):
         self.inmap = linear_map(insize, hsizes[0], bias=bias, **linargs)
         self.in_features, self.out_features = insize, outsize
 
-    def forward(self, x):
+    def block_eval(self, x):
         xi = x
         px = self.inmap(xi)
         x = self.nonlin[0](px)
@@ -438,12 +464,12 @@ class InputConvexNN(MLP):
         return x
 
 
-class PosDef(nn.Module):
+class PosDef(Block):
     """
     Enforce positive-definiteness of lyapunov function ICNN, V = g(x)
     Equation 12 from https://arxiv.org/abs/2001.06116
     """
-    def __init__(self, g, max=None, eps=0.01, d=1.0):
+    def __init__(self, g, max=None, eps=0.01, d=1.0, *args):
         """
 
         :param g: (nn.Module) An ICNN network
@@ -461,7 +487,7 @@ class PosDef(nn.Module):
         self.smReLU = SmoothedReLU(self.d)
         self.max = max
 
-    def forward(self, x):
+    def block_eval(self, x):
         shift_to_zero = self.smReLU(self.g(x) - self.g(self.zero))
         quad_psd = self.eps*(x**2).sum(1, keepdim=True)
         z = shift_to_zero + quad_psd
@@ -470,7 +496,7 @@ class PosDef(nn.Module):
         return z
 
 
-class PytorchRNN(nn.Module):
+class PytorchRNN(Block):
 
     """
     This wraps the torch.nn.RNN class consistent with the blocks interface
@@ -506,7 +532,7 @@ class PytorchRNN(nn.Module):
     def reg_error(self):
         return self.output.reg_error()
 
-    def forward(self, x):
+    def block_eval(self, x):
         """
 
         :param x: (torch.Tensor, shape=[nsteps, batchsize, dim]) Input sequence is expanded for order 2 tensors
@@ -520,7 +546,7 @@ class PytorchRNN(nn.Module):
         return self.output(hiddens[-1])
 
 
-class RNN(nn.Module):
+class RNN(Block):
     """
     This wraps the rnn.RNN class consistent with blocks interface to give output which is a linear map from final hidden state.
     """
@@ -565,7 +591,7 @@ class RNN(nn.Module):
     def reset(self):
         self.init_states = None
 
-    def forward(self, x, hx=None):
+    def block_eval(self, x, hx=None):
         """
         There is some logic here so that the RNN will still get context from state in open loop simulation.
 
@@ -581,7 +607,7 @@ class RNN(nn.Module):
         return self.output(hiddens[-1])
 
 
-class BilinearTorch(nn.Module):
+class BilinearTorch(Block):
     """
     Wraps torch.nn.Bilinear to be consistent with the blocks interface
     """
@@ -614,18 +640,18 @@ class BilinearTorch(nn.Module):
     def reg_error(self):
         return torch.tensor(0.0).to(self.f.weight)
 
-    def forward(self, x):
+    def block_eval(self, x):
         return self.f(x, x)
 
 
-class Poly2(nn.Module):
+class Poly2(Block):
     """
     Feature expansion of network to include pairwise multiplications of features.
     """
-    def __init__(self):
+    def __init__(self, *args):
         super().__init__()
 
-    def forward(self, x):
+    def block_eval(self, x):
         """
 
         :param x: (torch.Tensor, shape=[batchsize, N]) Input tensor
@@ -637,7 +663,7 @@ class Poly2(nn.Module):
         return torch.cat([x, expansion], dim=-1)  # concatenate
 
 
-class BasisLinear(nn.Module):
+class BasisLinear(Block):
     """
     For mapping inputs to functional basis feature expansion. This could implement a dictionary of lifting functions.
     Takes a linear combination of the expanded features.
@@ -674,7 +700,7 @@ class BasisLinear(nn.Module):
     def reg_error(self):
         return self.linear.reg_error()
 
-    def forward(self, x):
+    def block_eval(self, x):
         """
 
         :param x: (torch.Tensor, shape=[batchsize, insize])
@@ -698,11 +724,14 @@ class InterpolateAddMultiply(nn.Module):
 
 blocks = {
     "mlp": MLP,
+    "mlp_dropout": MLPDropout,
+    "mlp_bounds": MLP_bounds,
     "rnn": RNN,
     "pytorch_rnn": PytorchRNN,
     "linear": Linear,
     "residual_mlp": ResMLP,
     "basislinear": BasisLinear,
+    "poly2": Poly2,
     "bilinear": BilinearTorch,
     "icnn": InputConvexNN,
     "pos_def": PosDef

@@ -1,4 +1,6 @@
-from neuromancer.modules.blocks import Poly2, MLP, ResMLP, RNN, BilinearTorch, PytorchRNN, Linear
+from neuromancer.modules.blocks import Poly2, MLP, MLPDropout, MLP_bounds, ResMLP, RNN, \
+    BasisLinear, BilinearTorch, PytorchRNN, Linear, InputConvexNN
+from neuromancer.modules.blocks import blocks
 import torch
 from hypothesis import given, settings, strategies as st
 import neuromancer.slim as slim
@@ -7,6 +9,21 @@ from neuromancer.modules.activations import activations
 
 rect_maps = [v for k, v in maps.items() if v not in square_maps and v is not slim.linear.TrivialNullSpaceLinear]
 activations = [v for k, v in activations.items()]
+# list of all blocks with tunable insize and outsize shapes
+all_shaped_blocks = [MLP, MLPDropout, MLP_bounds, ResMLP, BilinearTorch, RNN, PytorchRNN, Linear, BasisLinear, InputConvexNN]
+
+
+@given(st.integers(1, 100),
+       st.integers(1, 20),
+       st.integers(1, 100),
+       st.integers(1, 10),
+       st.sampled_from(all_shaped_blocks))
+@settings(max_examples=200, deadline=None)
+def test_all_blocks_multiple_inputs(batchsize, insize, outsize, num_inputs, block):
+    model = block(num_inputs*insize, outsize)
+    inputs = [torch.randn([batchsize, insize]) for i in range(num_inputs)]
+    y = model(*inputs)
+    assert y.shape[0] == batchsize and y.shape[1] == outsize
 
 
 @given(st.integers(1, 500),

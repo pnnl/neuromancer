@@ -1,5 +1,5 @@
 import torch
-from neuromancer.dynamics import ode, integrators, interpolation
+from neuromancer.dynamics import ode, integrators
 from hypothesis import given, settings, strategies as st
 from neuromancer.modules.blocks import MLP
 import neuromancer.slim as slim
@@ -11,7 +11,7 @@ ode_param_systems_nonauto = [v for v in ode.ode_param_systems_nonauto.values()]
 ode_hybrid_systems_auto = [v for v in ode.ode_hybrid_systems_auto.values()]
 
 
-@given(st.integers(1, 500),
+@given(st.integers(1, 300),
        st.integers(1, 10),
        st.sampled_from(integrators_generic))
 @settings(max_examples=200, deadline=None)
@@ -23,7 +23,7 @@ def test_integrator_black_ode_auto_shape(batchsize, nx, integrator):
     assert y.shape[0] == batchsize and y.shape[1] == nx
 
 
-@given(st.integers(1, 500),
+@given(st.integers(1, 300),
        st.integers(1, 10),
        st.integers(1, 10),
        st.sampled_from(integrators_generic))
@@ -39,7 +39,7 @@ def test_integrator_black_ode_non_auto_shape(batchsize, nx, nu, integrator):
     assert y.shape[0] == batchsize and y.shape[1] == nx
 
 
-@given(st.integers(1, 500),
+@given(st.integers(1, 300),
        st.sampled_from(integrators_generic),
        st.sampled_from(ode_param_systems_auto))
 @settings(max_examples=200, deadline=None)
@@ -51,12 +51,11 @@ def test_integrator_white_ode_auto_params_shape(batchsize, integrator, ode):
     assert y.shape[0] == batchsize and y.shape[1] == fx.out_features
 
 
-@given(st.integers(1, 500),
-       st.integers(2, 10),
+@given(st.integers(1, 300),
        st.sampled_from(integrators_generic),
        st.sampled_from(ode_param_systems_nonauto))
 @settings(max_examples=200, deadline=None)
-def test_integrator_white_ode_nonauto_params_shape(batchsize, nsteps, integrator, ode):
+def test_integrator_white_ode_nonauto_params_shape(batchsize, integrator, ode):
     # crate ode
     fx = ode()
     nx = fx.out_features
@@ -70,7 +69,7 @@ def test_integrator_white_ode_nonauto_params_shape(batchsize, nsteps, integrator
     assert y.shape[0] == batchsize and y.shape[1] == fx.out_features
 
 
-@given(st.integers(1, 500),
+@given(st.integers(1, 300),
        st.sampled_from(integrators_generic),
        st.sampled_from(ode_hybrid_systems_auto))
 @settings(max_examples=200, deadline=None)

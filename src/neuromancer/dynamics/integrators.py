@@ -79,7 +79,7 @@ class DiffEqIntegrator(Integrator):
     def integrate(self, x, *args):
         t_0 = 0.0
         timepoints = torch.tensor([t_0, t_0 + self.h])
-        rhs_fun = lambda t, x: self.block(*[x, *args])
+        rhs_fun = lambda t, x: self.block(x, *args)
         solution = odeint(rhs_fun, x, timepoints, method=self.method,
                           adjoint_params=self.adjoint_params,
                           adjoint_options=dict(norm=make_norm(x)))
@@ -118,8 +118,8 @@ class Euler_Trap(Integrator):
         :param x: (torch.Tensor, shape=[batchsize, SysDim])
         :return x_{t+1}: (torch.Tensor, shape=[batchsize, SysDim])
         """
-        pred = x + self.h * self.block(*[x, *args])
-        corr = x + 0.5 * self.h * (self.block(*[x, *args]) + self.block(*[pred, *args]))
+        pred = x + self.h * self.block(x, *args)
+        corr = x + 0.5 * self.h * (self.block(x, *args) + self.block(pred, *args))
         return corr
 
 
@@ -134,8 +134,8 @@ class RK2(Integrator):
 
     def integrate(self, x, *args):
         h = self.h
-        k1 = self.block(*[x, *args])                    # k1 = f(x_i, t_i)
-        k2 = self.block(*[x + h*k1/2.0, *args])         # k2 = f(x_i + 0.5*h*k1, t_i + 0.5*h)
+        k1 = self.block(x, *args)                    # k1 = f(x_i, t_i)
+        k2 = self.block(x + h*k1/2.0, *args)         # k2 = f(x_i + 0.5*h*k1, t_i + 0.5*h)
         return x + h*k2
 
 
@@ -150,10 +150,10 @@ class RK4(Integrator):
 
     def integrate(self, x, *args):
         h = self.h
-        k1 = self.block(*[x, *args])                    # k1 = f(x_i, t_i)
-        k2 = self.block(*[x + h*k1/2.0, *args])         # k2 = f(x_i + 0.5*h*k1, t_i + 0.5*h)
-        k3 = self.block(*[x + h*k2/2.0, *args])         # k3 = f(x_i + 0.5*h*k2, t_i + 0.5*h)
-        k4 = self.block(*[x + h*k3, *args])             # k4 = f(y_i + h*k3, t_i + h)
+        k1 = self.block(x, *args)                    # k1 = f(x_i, t_i)
+        k2 = self.block(x + h*k1/2.0, *args)         # k2 = f(x_i + 0.5*h*k1, t_i + 0.5*h)
+        k3 = self.block(x + h*k2/2.0, *args)         # k3 = f(x_i + 0.5*h*k2, t_i + 0.5*h)
+        k4 = self.block(x + h*k3, *args)             # k4 = f(y_i + h*k3, t_i + h)
         return x + h*(k1/6.0 + k2/3.0 + k3/3.0 + k4/6.0)
 
 
@@ -172,12 +172,12 @@ class RK4_Trap(Integrator):
         super().__init__(block=block, interp_u=interp_u, h=h)
 
     def integrate(self, x, *args):
-        k1 = self.block(*[x, *args])                     # k1 = f(x_i, t_i)
-        k2 = self.block(*[x + self.h*k1/2.0, *args])     # k2 = f(x_i + 0.5*h*k1, t_i + 0.5*h)
-        k3 = self.block(*[x + self.h*k2/2.0, *args])     # k3 = f(x_i + 0.5*h*k2, t_i + 0.5*h)
-        k4 = self.block(*[x + self.h*k3, *args])         # k4 = f(y_i + h*k3, t_i + h)
+        k1 = self.block(x, *args)                     # k1 = f(x_i, t_i)
+        k2 = self.block(x + self.h*k1/2.0, *args)     # k2 = f(x_i + 0.5*h*k1, t_i + 0.5*h)
+        k3 = self.block(x + self.h*k2/2.0, *args)     # k3 = f(x_i + 0.5*h*k2, t_i + 0.5*h)
+        k4 = self.block(x + self.h*k3, *args)         # k4 = f(y_i + h*k3, t_i + h)
         pred = x + self.h*(k1/6.0 + k2/3.0 + k3/3.0 + k4/6.0)
-        corr = x + 0.5*self.h*(self.block(*[x, *args]) + self.block(*[pred, *args]) )
+        corr = x + 0.5*self.h*(self.block(x, *args) + self.block(pred, *args) )
         return corr
 
 
@@ -193,20 +193,20 @@ class Luther(Integrator):
     def integrate(self, x, *args):
         q = 21**0.5     # constant
         h = self.h         
-        k1 = self.block(*[x, *args])                    # k1 = f(x_i, t_i)
-        k2 = self.block(*[x + h*k1, *args])
-        k3 = self.block(*[x + h*(3/8*k1 + 1/8*k2), *args])
-        k4 = self.block(*[x + h*(8/27*k1 + 2/27*k2 + 8/27*k3), *args])
-        k5 = self.block(*[x + h*((-21 + 9*q)/392*k1 +
+        k1 = self.block(x, *args)                    # k1 = f(x_i, t_i)
+        k2 = self.block(x + h*k1, *args)
+        k3 = self.block(x + h*(3/8*k1 + 1/8*k2), *args)
+        k4 = self.block(x + h*(8/27*k1 + 2/27*k2 + 8/27*k3), *args)
+        k5 = self.block(x + h*((-21 + 9*q)/392*k1 +
                                           (-56 + 8*q)/392*k2 + (336 - 48*q)/392*k3 +
-                                          (-63 + 3*q)/392*k4), *args])
-        k6 = self.block(*[x + h*((-1155 - 255*q)/1960*k1 +
+                                          (-63 + 3*q)/392*k4), *args)
+        k6 = self.block(x + h*((-1155 - 255*q)/1960*k1 +
                                           (-280-40*q)/1960*k2 - 320*q/1960*k3 +
                                           (63 + 363*q)/1960*k4 +
-                                        (2352 + 392*q)/1960*k5), *args])
-        k7 = self.block(*[x + h*((330 + 105*q)/180*k1 + 120/180*k2 +
+                                        (2352 + 392*q)/1960*k5), *args)
+        k7 = self.block(x + h*((330 + 105*q)/180*k1 + 120/180*k2 +
                                           (-200 + 280*q)/180*k3 + (126 - 189*q)/180*k4 +
-                                          (-686 - 126*q)/180*k5 + (490 - 70*q)/180*k6), *args])
+                                          (-686 - 126*q)/180*k5 + (490 - 70*q)/180*k6), *args)
         return x + h*(1/20*k1 + 16/45*k3 + 49/180*k5 + 49/180*k6 + 1/20*k7)
 
 
@@ -233,13 +233,13 @@ class Runge_Kutta_Fehlberg(Integrator):
         :return x_{t+1}: (torch.Tensor, shape=[batchsize, SysDim])
         """
         h = self.h
-        k1 = self.block(*[x, *args])
-        k2 = self.block(*[x + h*k1/4, *args])
-        k3 = self.block(*[x + 3 * h * k1 / 32 + 9 * h * k2 / 32, *args])
-        k4 = self.block(*[x + h * k1 * 1932 / 2197 - 7200 / 2197 * h * k2 + 7296 / 2197 * h * k3, *args])
-        k5 = self.block(*[x + h * k1 * 439 / 216 - 8 * h * k2 + 3680 / 513 * h * k3 - 845 / 4104 * h * k4, *args])
-        k6 = self.block(*[x - 8 / 27 * h * k1 + 2 * h * k2 - 3544 / 2565 * h * k3 +
-                                   1859 / 4104 * h * k4 - 11 / 40 * h * k5, *args])
+        k1 = self.block(x, *args)
+        k2 = self.block(x + h*k1/4, *args)
+        k3 = self.block(x + 3 * h * k1 / 32 + 9 * h * k2 / 32, *args)
+        k4 = self.block(x + h * k1 * 1932 / 2197 - 7200 / 2197 * h * k2 + 7296 / 2197 * h * k3, *args)
+        k5 = self.block(x + h * k1 * 439 / 216 - 8 * h * k2 + 3680 / 513 * h * k3 - 845 / 4104 * h * k4, *args)
+        k6 = self.block(x - 8 / 27 * h * k1 + 2 * h * k2 - 3544 / 2565 * h * k3 +
+                                   1859 / 4104 * h * k4 - 11 / 40 * h * k5, *args)
         x_t1_high = x + h * (
                     k1 * 16 / 135 + k3 * 6656 / 12825 + k4 * 28561 / 56430 - 9 / 50 * k5 + k6 * 2 / 55)  # high order
         x_t1_low = x + h * (k1 * 25 / 216 + k3 * 1408 / 2565 + k4 * 2197 / 4104 - 1 / 5 * k5)  # low order
@@ -270,16 +270,16 @@ class MultiStep_PredictorCorrector(Integrator):
         x2 = x[:, 2, :]
         x3 = x[:, 3, :]     # current state
         # Predictor: linear multistep Adams–Bashforth method (explicit)
-        x4_pred = x3 + self.h*(55/24*self.block(*[x3, *args]) -
-                               59/24*self.block(*[x2, *args]) +
-                               37/24*self.block(*[x1, *args]) -
-                               9/24*self.block(*[x0, *args]))
+        x4_pred = x3 + self.h*(55/24*self.block(x3, *args) -
+                               59/24*self.block(x2, *args) +
+                               37/24*self.block(x1, *args) -
+                               9/24*self.block(x0, *args))
         # Corrector: linear multistep Adams–Moulton method (implicit)
-        x4_corr = x3 + self.h*(251/720*self.block(*[x4_pred, *args]) +
-                               646/720*self.block(*[x3, *args]) -
-                               264/720*self.block(*[x2, *args]) +
-                               106/720*self.block(*[x1, *args]) -
-                               19/720*self.block(*[x0, *args]))
+        x4_corr = x3 + self.h*(251/720*self.block(x4_pred, *args) +
+                               646/720*self.block(x3, *args) -
+                               264/720*self.block(x2, *args) +
+                               106/720*self.block(x1, *args) -
+                               19/720*self.block(x0, *args))
         return x4_corr  # (overlapse moving windows #, state dim) -> 2D tensor
 
 
@@ -301,9 +301,9 @@ class LeapFrog(Integrator):
         SysDim = X.shape[-1]//2
         x = X[:, :SysDim]  # x at t = i*h
         dx = X[:, SysDim:2*SysDim]  # dx at t = i*h
-        x_1 = x + dx*self.h + 0.5*self.block(*[x, *args])*self.h**2  # x at t = (i + 1)*h
-        ddx_1 = self.block(*[x_1, *args])  # ddx at t = (i + 1)*h.
-        dx_1 = dx + 0.5*(self.block(*[x, *args]) + ddx_1)*self.h  # dx at t = (i + 1)*h
+        x_1 = x + dx*self.h + 0.5*self.block(x, *args)*self.h**2  # x at t = (i + 1)*h
+        ddx_1 = self.block(x_1, *args)  # ddx at t = (i + 1)*h.
+        dx_1 = dx + 0.5*(self.block(x, *args) + ddx_1)*self.h  # dx at t = (i + 1)*h
         return torch.cat([x_1, dx_1], dim=-1)
 
 
@@ -337,13 +337,13 @@ class Yoshida4(Integrator):
         d2 = w0
         # intermediate step 1
         x_1 = x + c1*dx*self.h
-        dx_1 = dx + d1*self.block(*[x_1, *args])*self.h
+        dx_1 = dx + d1*self.block(x_1, *args)*self.h
         # intermediate step 2
         x_2 = x_1 + c2*dx_1*self.h
-        dx_2 = dx_1 + d2*self.block(*[x_2, *args])*self.h
+        dx_2 = dx_1 + d2*self.block(x_2, *args)*self.h
         # intermediate step 3
         x_3 = x_2 + c3*dx_2*self.h
-        dx_3 = dx_2 + d3*self.block(*[x_3, *args])*self.h
+        dx_3 = dx_2 + d3*self.block(x_3, *args)*self.h
         # intermediate step 4
         x_4 = x_3 + c4*dx_3*self.h
         dx_4 = dx_3

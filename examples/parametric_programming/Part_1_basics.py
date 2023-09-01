@@ -84,11 +84,6 @@ if __name__ == "__main__":
     """
     # # #  pNLP primal solution map architecture
     """
-    # wrap pytorch callable concatenating problem parameters/features (a, p)
-    # into symbolic representation via the Node class:
-    # features(a, p) -> xi
-    xi = lambda a, p: torch.cat([a, p], dim=-1)
-    features = Node(xi, ['a', 'p'], ['xi'], name='features')
     # define neural architecture for the trainable solution map
     func = blocks.MLP(insize=2, outsize=2,
                     bias=True,
@@ -96,8 +91,8 @@ if __name__ == "__main__":
                     nonlin=nn.ReLU,
                     hsizes=[80] * 4)
     # wrap neural net into symbolic representation of the solution map via the Node class:
-    # sol_map(xi) -> x
-    sol_map = Node(func, ['xi'], ['x'], name='map')
+    # sol_map(a, p) -> x
+    sol_map = Node(func, ['a', 'p'], ['x'], name='map')
 
     """
     # # #  pNLP variables, objective, and constraints formulation in Neuromancer
@@ -136,7 +131,7 @@ if __name__ == "__main__":
     # constrained optimization problem construction
     objectives = [obj]
     constraints = [con_1, con_2, con_3]
-    components = [features, sol_map]
+    components = [sol_map]
 
     # create penalty method loss function
     loss = PenaltyLoss(objectives, constraints)

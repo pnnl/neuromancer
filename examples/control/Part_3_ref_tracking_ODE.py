@@ -82,21 +82,17 @@ if __name__ == "__main__":
     two_tank_ode.c2 = nn.Parameter(torch.tensor(gt_model.c2), requires_grad=False)
 
     # integrate continuous time ODE
-    integrator = integrators.RK4(two_tank_ode, h=torch.tensor(ts))
+    integrator = integrators.RK4(two_tank_ode, h=torch.tensor(ts))  # using 4th order runge kutta integrator
     # symbolic system model
     model = Node(integrator, ['x', 'u'], ['x'], name='model')
-
-    # concatenate control parameters x and r into a vector xi
-    cat_fun = lambda x, r: torch.cat([x, r], dim=-1)
-    params = Node(cat_fun, ['x', 'r'], ['xi'], name='params')
 
     # neural net control policy
     net = blocks.MLP_bounds(insize=nx + nref, outsize=nu, hsizes=[32, 32],
                         nonlin=activations['gelu'], min=umin, max=umax)
-    policy = Node(net, ['xi'], ['u'], name='policy')
+    policy = Node(net, ['x', 'r'], ['u'], name='policy')
 
     # closed-loop system model
-    cl_system = System([params, policy, model], nsteps=nsteps,
+    cl_system = System([policy, model], nsteps=nsteps,
                        name='cl_system')
     cl_system.show()
 

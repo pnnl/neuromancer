@@ -1,10 +1,7 @@
 """
 Single-step integrators for first-order nonautomonomous ODEs
 """
-from types import NoneType
-from plum import dispatch
-import inspect
-
+import warnings
 import torch
 import torch.nn as nn
 
@@ -28,7 +25,7 @@ class Integrator(nn.Module, ABC):
         self.h = h
 
         if interp_u is not None:
-            DeprecationWarning('interp_u method is deprecated and will be removed in the next release.')
+            warnings.warn('interp_u method is deprecated, it has no effect, and will be removed in the next release.')
 
     @abstractmethod
     def integrate(self, x, *args):

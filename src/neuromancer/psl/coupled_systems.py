@@ -9,47 +9,6 @@ import numpy as np
 from scipy.integrate import odeint
 from neuromancer.psl.base import ODE_Autonomous, ODE_NonAutonomous
 
-# class ODE_Autonomous(EmulatorBase):
-#     """
-#     base class autonomous ODE
-#     """
-# 
-#     def simulate(self, ninit=None, nsim=None, Time=None, ts=None, x0=None, show_progress=False):
-# 
-#         """
-#         :param nsim: (int) Number of steps for open loop response
-#         :param ninit: (float) initial simulation time
-#         :param ts: (float) step size, sampling time
-#         :param x0: (float) state initial conditions
-#         :return: The response matrices, i.e. X
-#         """
-# 
-#         if ninit is None:
-#             ninit = self.ninit
-#         if nsim is None:
-#             nsim = self.nsim
-#         if ts is None:
-#             ts = self.ts
-#         if Time is None:
-#             Time = np.arange(0, nsim+1) * ts + ninit
-#         if x0 is None:
-#             x = self.x0
-#         else:
-#             assert x0.shape[0] % self.nx == 0, "Mismatch in x0 size"
-#             x = x0
-#         X = [x]
-#         simrange = tqdm(range(nsim)) if show_progress else range(nsim)
-#         for N in simrange:
-#             if len(Time) == 1:
-#                 dT = [Time[0], Time[0]+ts]
-#             else:
-#                 dT = [Time[N], Time[N + 1]]
-#             xdot = odeint(self.equations, x, dT)
-#             x = xdot[-1]
-#             X.append(x)
-#         Yout = np.asarray(X).reshape(nsim+1, -1)
-#         return {'Y': Yout, 'X': np.asarray(X)}
-
 
 def multidim(is_autonomous):
     def decorator(ode):
@@ -100,8 +59,9 @@ class Coupled_ODE(ODE_Autonomous):
         super().__init__(exclude_norms=exclude_norms, 
                          backend=backend, requires_grad=requires_grad,
                          seed=seed, set_stats=False)
-        self._rng = rng
+        self._rng = self.rng
         self.nx = nx
+        self.nx0 = nx
         if adj is None:
             self.adj = np.ones((nx, nx))
             np.fill_diagonal(self.adj, 0)
@@ -145,7 +105,7 @@ class Coupled_NonAutonomous(ODE_NonAutonomous):
                          backend=backend, requires_grad=requires_grad,
                          seed=seed, set_stats=False)
 
-        self._rng = rng
+        self._rng = self.rng
         if adj is None:
             self.adj = np.ones((nx,nx))
             np.fill_diagonal(self.adj, 0)
@@ -198,13 +158,14 @@ class RC_Network(Coupled_NonAutonomous):
         """
         super().__init__(exclude_norms=exclude_norms, backend=backend, requires_grad=requires_grad,
                          seed=seed, set_stats=set_stats, adj=adj, nx=nx)
+        self.nx0 = self.nx
         self.R = R if R is not None else self.get_resistances(
             self.adj_list, amax=20, amin=5, symmetric=True)
         self.C = C if C is not None else self.get_C(nx)
-        self.U = U if U is not None else self.get_U(nsim)
+        self.U = U if U is not None else self.get_U(self.nsim)
         self.R_ext = self.get_resistances(np.tile(np.arange(nx), (2,1)), amax=15, symmetric=False)
         self.R_int = self.get_resistances(np.tile(np.arange(nx), (2,1)), Rval=1.0, amax=15, symmetric=False)
-        self.x0 = x0 if x0 is not None else self.get_x0()
+        self.x0 = self.get_x0()
         
         self.R_extCi = (1.0 / (self.R_ext * self.C))
         self.R_intCi = (1.0 / (self.R_int * self.C))
@@ -221,12 +182,13 @@ class RC_Network(Coupled_NonAutonomous):
         global_source += noise(nsim, 1, min=-1, max=1, rng=self.rng)
         
         #Generate individual heat sources in each room, with random noise, and offset periods
-        ind_sources = periodic(nsim, self.nx, min=288, max=300, periods=periods*2, rng=self.rng)
+        ind_sources = periodic(nsim+period_length, self.nx, min=288, max=300, periods=periods*2, rng=self.rng)
         offsets = np.random.randint(0, period_length, self.nx)
         offsets = np.linspace(offsets, offsets + nsim-1, nsim, dtype=int)
         ind_sources = np.take_along_axis(ind_sources, offsets, axis=0)
         ind_sources += noise(nsim, self.nx, min=-0.5, max=0.5, bound=True, rng=self.rng)
-        return np.hstack([global_source, ind_sources])
+        U = np.hstack([global_source, ind_sources])
+        return U
 
     def get_resistances(self, adj_list, Rval=3.5, amax=20, amin=0, symmetric=True):
         #Default Rval is fiberglass insulation
@@ -288,7 +250,7 @@ class Gravitational_System(Coupled_ODE):
     pos_idx = [1,2]
     vel_idx = [3,4]
         
-    def __init__(self, G=6.67e-11, adj=None, nx=4, seed=59, x0=None):
+    def __init__(self, backend='numpy', set_stats=False, G=6.67e-11, adj=None, nx=4, seed=59, x0=None):
         super().__init__(adj=adj, nx=nx, seed=seed)
         self.G = G
         self.x0 = x0 if x0 is not None else self.get_x0()
@@ -335,7 +297,7 @@ class Boids(Coupled_ODE):
     pos_idx = [0,1]
     vel_idx = [2,3]
     
-    def __init__(self, coherence=0.05, separation=0.01, alignment=0.05, avoidance_range=0.2, visual_range=None, nx=50, x0=None, seed=59):
+    def __init__(self, backend='numpy', set_stats=False, coherence=0.05, separation=0.01, alignment=0.05, avoidance_range=0.2, visual_range=None, nx=50, x0=None, seed=59):
           super().__init__(nx=nx, seed=seed)
           self.coherence = coherence
           self.separation = separation
@@ -440,7 +402,7 @@ class Boids(Coupled_ODE):
         return x0
          
 systems = {
-    "RCNet" : RC_Network,
+    "RCNet": RC_Network,
     "Gravitational": Gravitational_System,
     "Boids": Boids
 }

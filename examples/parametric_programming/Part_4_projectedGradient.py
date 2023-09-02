@@ -19,13 +19,11 @@ https://en.wikipedia.org/wiki/Rosenbrock_function
 
 import torch
 import torch.nn as nn
-import numpy as np
 import neuromancer.slim as slim
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
 from casadi import *
 import casadi
-import time
 
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem

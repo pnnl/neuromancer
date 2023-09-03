@@ -30,22 +30,48 @@ x1 = variable('x')
 # evaluate forward pass of the variable with dictionary input data
 print(x1({'x': 5.00}))
 
-# 2, unnamed Variable with trainable randomly initialized tensor value
+# 2a, unnamed Variable with trainable randomly initialized tensor value
 x2 = variable()
-print(x2.value)
+print(x2.value)         # torch parameter
+print(x2.display_name)  # display name for .show()
+print(x2.key)           # uniqye key used to construct computational graph
 
-# 3, unnamed Variable with trainable randomly initialized tensor value of specified shape
+# 2b, named Variable with trainable randomly initialized tensor value
+x2_named = variable(display_name='x2')
+print(x2_named.value)         # torch parameter
+print(x2_named.display_name)  # display name for .show()
+print(x2_named.key)           # uniqye key used to construct computational graph
+
+# 3a, unnamed Variable with trainable randomly initialized tensor value of specified shape
 x3 = variable(3, 3)
 print(x3.value.shape)
+print(x3.display_name)        # display name for .show()
+print(x3.key)                 # uniqye key used to construct computational graph
 
-# 4, unnamed Variable initialized with given tensor
+# 3b, named Variable with trainable randomly initialized tensor value of specified shape
+x3_named = variable(3, 3, display_name='x3')
+print(x3_named.value.shape)         # shape of torch parameter
+print(x3_named.display_name)        # display name for .show()
+print(x3_named.key)                 # uniqye key used to construct computational graph
+
+# 4a, unnamed Variable initialized with given tensor
 x4 = variable(torch.ones(3, 3))
 print(x4.value)
+print(x4.value.shape)         # shape of torch parameter
+print(x4.display_name)        # display name for .show()
+print(x4.key)                 # uniqye key used to construct computational graph
+
 # by defaults its value is not trainable tensor
 print(x4.value.requires_grad)
 # it can be made trainable tensor
 x5 = variable(torch.ones(3, 3, requires_grad=True))
 print(x5.value.requires_grad)
+
+# 4b, named Variable initialized with given tensor
+x4_named = variable(torch.ones(3, 3), display_name='x4')
+print(x4_named.value.shape)         # shape of torch parameter
+print(x4_named.display_name)        # display name for .show()
+print(x4_named.key)                 # uniqye key used to construct computational graph
 
 # 5, composite Variable construction via algebraic expression on Variables
 x6 = x1 + 5

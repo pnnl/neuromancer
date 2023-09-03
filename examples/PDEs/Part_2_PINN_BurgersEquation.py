@@ -10,20 +10,17 @@ References
     [3] https://deepxde.readthedocs.io/en/latest/demos/pinn_forward/diffusion.1d.html
 ---------------------------- Problem Setup -----------------------------------------
 
-    Diffusion equation
-            \frac{\partial y}{\partial t} =\frac{\partial^2 y}{\partial x^2}-e^{-t}(sin(\pi x)-\pi^2 sin(\pi x))
+    Burgers' Equation
+            \frac{\partial y}{\partial t}+ y\frac{\partial y}{\partial x}=\nu\frac{\partial^2 y}{\partial x^2}            x\in[-1,1]
             x\in[-1,1]
             t\in[0,1]
 
     Initial Condition:
-            y(x,0)=sin(\pi x)
+            y(x,0)= -sin(\pi x)
 
     Boundary Conditions:
             y(-1,t)=0
             y(1,t)=0
-
-    Exact solution:
-            y(x,t)=e^{-t}sin(\pi x)
 
 """
 
@@ -31,72 +28,58 @@ import torch
 import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
+# data imports
+from scipy.io import loadmat
 
-
-def f_real(x, t):
-    # exact PDE solution y(x,t)
-    return torch.exp(-t) * (torch.sin(np.pi * x))
 
 def plot3D(X, T, y):
+    X = X.detach().numpy()
+    T = T.detach().numpy()
+    y = y.detach().numpy()
+
     #     2D
     fig = plt.figure()
     ax1 = fig.add_subplot(121)
-    cm = ax1.contourf(T.numpy(), X.numpy(), y.numpy(), 20, cmap="viridis")
-    fig.colorbar(cm, ax=ax1)  # Add a colorbar to a plot
-    ax1.set_title('y(x,t)')
+    cm = ax1.contourf(T, X, y, 20,cmap="viridis")
+    fig.colorbar(cm, ax=ax1) # Add a colorbar to a plot
+    ax1.set_title('u(x,t)')
     ax1.set_xlabel('t')
     ax1.set_ylabel('x')
     ax1.set_aspect('equal')
-    #     3D
+        #     3D
     ax2 = fig.add_subplot(122, projection='3d')
-    ax2.plot_surface(T.numpy(), X.numpy(), y.numpy(), cmap="viridis")
+    ax2.plot_surface(T, X, y,cmap="viridis")
     ax2.set_xlabel('t')
     ax2.set_ylabel('x')
-    ax2.set_zlabel('y(x,t)')
+    ax2.set_zlabel('u(x,t)')
     fig.tight_layout()
 
 
 if __name__ == "__main__":
-
-    torch.set_default_dtype(torch.float)    # Set default dtype to float32
-    torch.manual_seed(1234)     # PyTorch random number generator
-    np.random.seed(1234)        # numpy Random number generators
+    torch.set_default_dtype(torch.float)  # Set default dtype to float32
+    torch.manual_seed(1234)  # PyTorch random number generator
+    np.random.seed(1234)  # numpy Random number generators
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     """
     ## Generate data of the exact solution
     """
-    # define range of the space and time variables:
-    x_min = -1
-    x_max = 1
-    t_min = 0
-    t_max = 1
+    data = loadmat('./data/burgers_shock.mat')
+    x = data['x']  # space:      256 points between -1 and 1 [256x1]
+    t = data['t']  # time:       100 time points between 0 and 1 [100x1]
+    ysol = data['usol']  # velocitu:   PDE solution [256x100]
 
-    # define number of spatial and temporal points
-    total_points_x = 200
-    total_points_t = 100
+    nu = 0.01 / np.pi  # diffusion coeficient
 
-    # generate samples of x, t
-    x = torch.linspace(x_min, x_max, total_points_x).view(-1, 1)
-    t = torch.linspace(t_min, t_max, total_points_t).view(-1, 1)
+    X, T = np.meshgrid(x, t)  # makes 2 arrays X and T such that u(X[i],T[j])=usol[i][j] are a tuple
+    X = torch.tensor(X.T).float()
+    T = torch.tensor(T.T).float()
+    y_real = torch.tensor(ysol).float()
 
-    # Create the mesh of x, t
-    X, T = torch.meshgrid(x.squeeze(1), t.squeeze(1))
-
-    # Evaluate exact solution y(x,t) on the mesh
-    y_real = f_real(X, T)
-
-    # min and max values of the PDE solution
-    ymin = y_real.min()
-    ymax = y_real.max()
-
-    # plot exact solution
-    plot3D(X, T, y_real)
-
-    # Test data: exact PDE solution
-    X_test = X.transpose(1, 0).flatten()[:, None].float()  # the input dataset of x
-    T_test = T.transpose(1, 0).flatten()[:, None].float()  # the input dataset of t
-    Y_test = y_real.transpose(1, 0).flatten()[:, None].float()  # the real solution over (x,t)
+    #  -------- Test data -------
+    X_test = X.reshape(-1, 1)
+    T_test = T.reshape(-1, 1)
+    Y_test = y_real.reshape(-1, 1)
 
     """
     ## Construct training datasets
@@ -104,7 +87,7 @@ if __name__ == "__main__":
     We construct training and development datasets containing collocation points (CP) 
     of the spatio-temporal domain (x,t) evaluated at the sampled spatio-temporal mesh (x,t), 
     and samples of the initial conditions (IC), and boundary conditions (BC).
-    
+
     The dataset is given as:
         \Xi_{train} = [CP^i, IC^j, BC^j] 
             i = 1,...,N_f
@@ -114,10 +97,10 @@ if __name__ == "__main__":
     """
 
     # Samples of Initial conditions (IC)
-    #   Left Edge: y(x,0)=sin(x) -> xmin =< x =< xmax; t=0
+    #   Left Edge: u(x,0) = -sin(pi*x)
     left_X = X[:, [0]]
     left_T = T[:, [0]]
-    left_Y = torch.sin(np.pi * left_X[:, 0]).unsqueeze(1)
+    left_Y = -torch.sin(np.pi * left_X[:, 0]).unsqueeze(1)
 
     # Samples of Boundary Conditions (BC)
     #   Bottom Edge: x=min; tmin=<t=<max
@@ -144,12 +127,12 @@ if __name__ == "__main__":
     Y_train_Nu = Y_train[idx, :].float()  # Training Points  of y at (IC+BC)
 
     # x Domain bounds
-    x_lb = X_test[0]  # first value
-    x_ub = X_test[-1]  # last value
+    x_lb = X_test[0]  # [-1.]
+    x_ub = X_test[-1]  # [1.]
 
     # t Domain bounds
-    t_lb = T_test[0]  # first value
-    t_ub = T_test[-1]  # last value
+    t_lb = T_test[0]  # [0.]
+    t_ub = T_test[-1]  # [0.99]
 
     #  Choose (Nf) Collocation Points to Evaluate the PDE on
     Nf = 1000  # Nf: Number of collocation points (Evaluate PDE)
@@ -235,14 +218,15 @@ if __name__ == "__main__":
 
     Our neural network approximation  must satisfy the PDE equations:
                 NN_{\theta}(x,t) \approx y(x,t). 
+                
     Thus we define the physics-informed layers as f_{PINN}:
-                f_{PINN}(t,x) = (\frac{\partial NN_{\theta}}{\partial t} -
-                                \frac{\partial^2 NN_{\theta}}{\partial x^2})
-                                +e^{-t}(sin(\pi x)-\pi^2 sin(\pi x)) 
-    
+                f_{PINN}(t,x)= \frac{\partial NN_{\theta}(x,t)}{\partial t} + 
+                                NN_{\theta}(x,t) \frac{\partial NN_{\theta}(x,t)}{\partial x} 
+                                -\nu\frac{\partial^2 NN_{\theta}(x,t)}{\partial x^2}
+
     We use Automatic Diferentiation to obtain the derivatives of the neural net:
         \frac{\partial NN_{\theta}}{\partial t}, \frac{\partial^2 NN_{\theta}}{\partial x^2}$ 
-    
+
     To simplify the implementation of f_{PINN} we use the symbolic Neuromancer variable. 
     """
 
@@ -258,8 +242,7 @@ if __name__ == "__main__":
     dy_dx = y_hat.grad(x)
     d2y_d2x = dy_dx.grad(x)
     # get the PINN form
-    f_pinn = dy_dt - d2y_d2x + torch.exp(-t) * (torch.sin(torch.pi * x)
-                              - torch.pi ** 2 * torch.sin(torch.pi * x))
+    f_pinn = dy_dt + y_hat * dy_dx - nu * d2y_d2x
 
     # computational graph of the PINN neural network
     f_pinn.show()
@@ -272,13 +255,13 @@ if __name__ == "__main__":
         minimize the PDE residuals in the following loss function:
             \ell_{f}=\frac{1}{N_f}\sum^{N_f}_{i=1}|f_{PINN}(t_f^i,x_f^i)|^2
         If f_{PINN} -> 0 then our PINN will be respecting the physical law.
-    
+
     PDE Initial and Boundary Conditions Loss:
         We select N_u points from our BC and IC and used them in the following 
         supervised learning loss function:
             \ell_{u} = \frac{1}{N_u}\sum^{N_u}_{i=1} |y(t_{u}^i,x_u^i) 
                                                   - NN_{\theta}(t_{u}^i,x_u^i)|^2
-    
+
     Bound the PINN output in the PDE solution domain: 
         We expect the outputs of the neural net to be bounded in the PDE solution domain 
         NN_{\theta}(x,t) \in [-1.0, 1.0], 
@@ -286,7 +269,7 @@ if __name__ == "__main__":
             \ell_{y}=\frac{1}{N_f}\sum^{N_f}_{i=1} 
             (|RELU(NN_{\theta}(t_{f}^i,x_f^i) - y_{max})|^2 + 
              |RELU(-NN_{\theta}(t_{f}^i,x_f^i) + y_{min})|^2)
-    
+
     Total Loss:
         The total loss is just a sum of PDE residuals over CP 
         and supervised learning residuals over IC and BC:
@@ -303,8 +286,8 @@ if __name__ == "__main__":
     ell_u = scaling * (y_hat[-Nu:] == Y_train_Nu) ^ 2  # remember we stacked CP with IC and BC
 
     # output constraints to bound the PINN solution in the PDE output domain [-1.0, 1.0]
-    con_1 = scaling * (y_hat <= ymax) ^ 2
-    con_2 = scaling * (y_hat >= ymin) ^ 2
+    con_1 = scaling * (y_hat <= 1.0) ^ 2
+    con_2 = scaling * (y_hat >= -1.0) ^ 2
 
     # loss term names for nicer problem plot
     ell_f.name = 'CP'
@@ -336,8 +319,9 @@ if __name__ == "__main__":
     # show the PINN computational graph
     problem.show()
 
-    optimizer = torch.optim.Adam(problem.parameters(), lr=0.001)
-    epochs = 5000
+    optimizer = torch.optim.AdamW(problem.parameters(), lr=0.003)
+    epochs = 8000
+
     #  Neuromancer trainer
     trainer = Trainer(
         problem.to(device),
@@ -364,12 +348,12 @@ if __name__ == "__main__":
     y1 = PINN(test_data.datadict)['y_hat']
 
     # arrange data for plotting
-    y_pinn = y1.reshape(shape=[100, 200]).transpose(1, 0).detach().cpu()
+    y_pinn = y1.reshape(shape=[256, 100]).detach().cpu()
 
     # plot PINN solution
     plot3D(X, T, y_pinn)
     # plot exact PDE solution
     plot3D(X, T, y_real)
     # plot residuals PINN - exact PDE
-    plot3D(X, T, y_pinn-y_real)
+    plot3D(X, T, y_pinn - y_real)
 

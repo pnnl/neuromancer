@@ -102,7 +102,6 @@ if __name__ == "__main__":
     left_T = T[:, [0]]
     left_Y = -torch.sin(np.pi * left_X[:, 0]).unsqueeze(1)
 
-    # Samples of Boundary Conditions (BC)
     #   Bottom Edge: x=min; tmin=<t=<max
     bottom_X = X[[0], :].T
     bottom_T = T[[0], :].T
@@ -118,7 +117,7 @@ if __name__ == "__main__":
     Y_train = torch.vstack([left_Y, bottom_Y, top_Y])
 
     # Choose (Nu) Number of training points for initial and boundary conditions
-    Nu = 100
+    Nu = 200
 
     # Randomly sample Nu points of our available initial and boundary condition data:
     idx = np.sort(np.random.choice(X_train.shape[0], Nu, replace=False))
@@ -308,7 +307,8 @@ if __name__ == "__main__":
     from neuromancer.trainer import Trainer
 
     # create Neuromancer optimization loss
-    pinn_loss = PenaltyLoss(objectives=[ell_f, ell_u], constraints=[con_1, con_2])
+    pinn_loss = PenaltyLoss(objectives=[ell_f, ell_u],
+                            constraints=[con_1, con_2])
 
     # construct the PINN optimization problem
     problem = Problem(nodes=[pde_net],  # list of nodes (neural nets) to be optimized

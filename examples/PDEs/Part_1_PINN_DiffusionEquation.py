@@ -102,8 +102,8 @@ if __name__ == "__main__":
     ## Construct training datasets
 
     We construct training and development datasets containing collocation points (CP) 
-    of the spatio-temporal domain (x,t) evaluated at the sampled spatio-temporal mesh (x,t), 
-    and samples of the initial conditions (IC), and boundary conditions (BC).
+    of the spatio-temporal domain (x,t), and samples of the initial conditions (IC), 
+    and boundary conditions (BC).
     
     The dataset is given as:
         \Xi_{train} = [CP^i, IC^j, BC^j] 

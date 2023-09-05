@@ -136,7 +136,14 @@ class Problem(nn.Module):
 
         # add objectives and constraints in the graph
         if include_objectives:
+            # get keys required as input to objectives from the dataset
+            obj_input_keys = []
+            for i, obj in enumerate(self.loss.objectives + self.loss.constraints):
+                obj_input_keys += obj.input_keys
+            obj_data_keys = set(obj_input_keys) - set(output_keys)
+            # create connections
             for i, obj in enumerate(self.loss.objectives+self.loss.constraints):
+                # choose different colors for objective terms and constraints
                 if i+1 <= len(self.loss.objectives):
                     color = "lightpink"
                 else:
@@ -153,7 +160,7 @@ class Problem(nn.Module):
                             graph.add_edge(pydot.Edge(node.name, obj.name, label=key))
                             unique_common_keys.add(key)
                 # generate tuples connecting input data to loss terms
-                for key in data_keys:
+                for key in obj_data_keys:
                     if key in obj.input_keys:
                         graph.add_edge(pydot.Edge("in", obj.name, label=key))
                 graph.add_edge(pydot.Edge(obj.name, "out", label=obj.name))

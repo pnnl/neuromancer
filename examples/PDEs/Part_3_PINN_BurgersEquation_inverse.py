@@ -99,7 +99,7 @@ if __name__ == "__main__":
     """
     total_points = len(x) * len(t)
 
-    Nf = 2000  # Nf: Number of collocation points
+    Nf = 1000  # Nf: Number of collocation points
 
     # Obtain random points of our PDE measurements y(x,t)
     id_f = np.random.choice(total_points, Nf, replace=False)  # Randomly chosen points for Interior

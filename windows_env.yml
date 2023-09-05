@@ -33,7 +33,6 @@ dependencies:
   - charset-normalizer=2.0.4=pyhd3eb1b0_0
   - click=8.0.4=py310haa95532_0
   - cloudpickle=2.0.0=pyhd3eb1b0_0
-  - colorama=0.4.6=py310haa95532_0
   - configparser=5.0.2=pyhd3eb1b0_0
   - contourpy=1.0.5=py310h59b6b97_0
   - cryptography=38.0.4=py310h21b164f_0

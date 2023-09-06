@@ -28,8 +28,11 @@ def test_ode_auto_param_shape(batchsize, ode):
 @settings(max_examples=200, deadline=None)
 def test_ode_nonauto_param_shape(batchsize, ode):
     model = ode()
-    x = torch.randn([batchsize, model.in_features])
-    y = model(x)
+    nx = model.out_features
+    nu = model.in_features - model.out_features
+    x = torch.randn([batchsize, nx])
+    u = torch.randn([batchsize, nu])
+    y = model(x, u)
     assert y.shape[0] == batchsize and y.shape[1] == model.out_features
 
 
@@ -45,10 +48,10 @@ def test_ode_auto_hybrid_shape(batchsize, ode):
     assert y.shape[0] == batchsize and y.shape[1] == model.out_features
 
 
-@given(st.integers(1,100),
-       st.integers(0,1000),
-       st.integers(0,100),
-       st.integers(1,500),
+@given(st.integers(1, 100),
+       st.integers(0, 1000),
+       st.integers(0, 100),
+       st.integers(1, 500),
        st.sampled_from(bias),
        st.sampled_from(ode_networked_systems))
 @settings(max_examples=200, deadline=None)
@@ -58,19 +61,19 @@ def test_random_network(nAgents, nCouplings, nu, batchsize, bias, system):
     insize = nAgents + nu
    
     # Instantiate the agents:
-    agents = [random.choice(agent_list)(state_names = ["T"]) for _ in range(insize)]
+    agents = [random.choice(agent_list)(state_names=["T"]) for _ in range(insize)]
     map = physics.map_from_agents(agents)
 
     # Define the graph and interactions:
-    adjacency = list(torch.randint(insize,(nCouplings,2)))
-    couplings = [random.choice(coupling_list)(feature_name = "T", pins = [pair]) for pair in adjacency]
+    adjacency = list(torch.randint(insize, (nCouplings, 2)))
+    couplings = [random.choice(coupling_list)(feature_name="T", pins=[pair]) for pair in adjacency]
 
     ode = system(
-        map = map,
-        agents = agents,
-        couplings = couplings,
-        insize = insize,
-        outsize = nAgents,
+        map=map,
+        agents=agents,
+        couplings=couplings,
+        insize=insize,
+        outsize=nAgents,
         inductive_bias=bias)
 
     x = torch.randn([batchsize, insize])

@@ -14,65 +14,12 @@ class ODESystem(nn.Module, ABC):
         self.in_features, self.out_features = insize, outsize
 
     @abstractmethod
-    def ode_equations(self, x):
+    def ode_equations(self, x, *args):
         pass
 
-    def forward(self, x):
+    def forward(self, x, *args):
         assert len(x.shape) == 2
-        return self.ode_equations(x)
-
-
-class ControlODE(ODESystem):
-    """
-    Class for defining closed-loop dynamical system composed of ODEs and control policies,
-    can be mix-and-matched according to expert knowledge.
-    """
-
-    def __init__(self, policy, ode, nx, nu, np=0, u_con=[]):
-        """
-        :param policy: (nn.Module) explicit control policy
-        :param ode: (ODESystem or nn.Module) RHS of an ODE system
-        :param nx: (int) number of state variables
-        :param nu: (int) number of control input variables
-        :param np: (int) number of inputs given to the control policy
-        :param u_con:
-        """
-        insize = nx + np
-        outsize = nx
-        super().__init__(insize=insize, outsize=outsize)
-        self.nx, self.nu, self.np = nx, nu, np
-        self.policy = policy
-        self.ode = ode
-        self.u_con = nn.ModuleList(u_con)
-        assert isinstance(self.policy, nn.Module), \
-            f'Control policy must be nn.Module, got {type(self.policy)}'
-        assert isinstance(self.ode, ODESystem) or \
-               isinstance(self.ode, nn.Module), \
-            f'ODE must be ODESystem or nn.Module, got {type(self.ode)}'
-
-    def reg_error(self):
-        children_error = sum([k.reg_error() for k in self.children() if hasattr(k, 'reg_error')])
-        control_penalty = 0
-        for con in self.u_con:
-            control_penalty += con({'u': self.u})[con.output_keys[0]]
-        return children_error + control_penalty
-
-    def ode_equations(self, xi):
-        assert len(xi.shape) == 2, \
-            f'Features must have two dimensions got {len(xi.shape)} dimensions'
-        assert xi.shape[1] == self.nx + self.np, \
-            f'Second feature dimension must be equal to nx ({self.nx}) + np ({self.np}), ' \
-            f'got {xi.shape[1]}'
-        u = self.policy(xi)
-        self.u = u
-        # xi is x +
-        x = xi[:, :self.nx]
-        xu = torch.cat([x, u], dim=-1)
-        if isinstance(self.ode, ODESystem):
-            dx = self.ode.ode_equations(xu)
-        else:
-            dx = self.ode(xu)
-        return dx
+        return self.ode_equations(x, *args)
 
 
 class GeneralNetworkedODE(ODESystem):
@@ -126,19 +73,19 @@ class GeneralNetworkedODE(ODESystem):
         else:
             raise Exception("No inductive bias match.")
 
-        return dx[:,:self.outsize]
+        return dx[:, :self.outsize]
 
-    def intrinsic_physics(self,x):
+    def intrinsic_physics(self, x):
         """
         Calculate and return the contribution from all agents' intrinsic physics
         """
-        dx = torch.tensor([]) # initialize empty to avoid indexing tedium
+        dx = torch.tensor([])  # initialize empty to avoid indexing tedium
         # loop over agents and calculate contribution from intrinsic physics
-        for idx,agent_dict in enumerate(self.map):
-            dx = torch.cat((dx,self.agents[idx](x[:,list(agent_dict.values())])),-1)
+        for idx, agent_dict in enumerate(self.map):
+            dx = torch.cat((dx, self.agents[idx](x[:, list(agent_dict.values())])), -1)
         return dx
 
-    def coupling_physics(self,x):
+    def coupling_physics(self, x):
         """
         This coupling physics assumes that each coupling physics nn.Module contains the
         connection information, including what agents are connected and if the connection 
@@ -151,10 +98,10 @@ class GeneralNetworkedODE(ODESystem):
             for pin in physics.pins:
                 send = self.map[pin[0]][physics.feature_name]
                 receive = self.map[pin[1]][physics.feature_name]
-                contribution = physics(x[:,[send,receive]])
-                dx[:,[send]] += contribution
+                contribution = physics(x[:, [send, receive]])
+                dx[:, [send]] += contribution
                 if physics.symmetric:
-                    dx[:,[receive]] -= contribution
+                    dx[:, [receive]] -= contribution
         return dx   
 
 
@@ -169,13 +116,13 @@ class TwoTankParam(ODESystem):
         self.c1 = nn.Parameter(torch.tensor([0.1]), requires_grad=True)
         self.c2 = nn.Parameter(torch.tensor([0.1]), requires_grad=True)
     
-    def ode_equations(self, x): 
+    def ode_equations(self, x, u):
         # heights in tanks
         h1 = torch.clip(x[:, [0]], min=0, max=1.0)
         h2 = torch.clip(x[:, [1]], min=0, max=1.0)
         # Inputs (2): pump and valve
-        pump = torch.clip(x[:, [2]], min=0, max=1.0)
-        valve = torch.clip(x[:, [3]], min=0, max=1.0)
+        pump = torch.clip(u[:, [0]], min=0, max=1.0)
+        valve = torch.clip(u[:, [1]], min=0, max=1.0)
         # equations
         dhdt1 = self.c1 * (1.0 - valve) * pump - self.c2 * torch.sqrt(h1)
         dhdt2 = self.c1 * valve * pump + self.c2 * torch.sqrt(h1) - self.c2 * torch.sqrt(h2)
@@ -196,11 +143,11 @@ class DuffingParam(ODESystem):
         self.gamma = nn.Parameter(torch.tensor([8.0]), requires_grad=False)
         self.omega = nn.Parameter(torch.tensor([0.5]), requires_grad=True)
         
-    def ode_equations(self, x): 
+    def ode_equations(self, x, u):
         # heights in tanks
         x0 = x[:, [0]]  # (# batches,1)
         x1 = x[:, [1]]
-        t =  x[:, [2]]
+        t = u
         # equations
         dx0dt = x1
         dx1dt = -self.delta*x1 - self.alpha*x0 - self.beta*x0**3 + self.gamma*torch.cos(self.omega*t)
@@ -305,10 +252,9 @@ class VanDerPolControl(ODESystem):
         super().__init__(insize=insize, outsize=outsize)
         self.mu = nn.Parameter(torch.tensor([1.0]), requires_grad=True)
 
-    def ode_equations(self, x):
+    def ode_equations(self, x, u):
         x1 = x[:, [0]]
         x2 = x[:, [1]]
-        u = x[:, [2]]
         dx1 = x2
         dx2 = self.mu*(1 - x1**2)*x2 - x1 + u
         return torch.cat([dx1, dx2], dim=-1)
@@ -348,12 +294,12 @@ class LorenzControl(ODESystem):
         self.sigma = torch.nn.Parameter(torch.tensor([10.0], requires_grad=True))
         self.beta = torch.nn.Parameter(torch.tensor([2.66667], requires_grad=True))
 
-    def ode_equations(self, x):
+    def ode_equations(self, x, u):
         x1 = x[:, [0]]
         x2 = x[:, [1]]
         x3 = x[:, [2]]
-        u1 = x[:, [3]]
-        u2 = x[:, [4]]
+        u1 = u[:, [0]]
+        u2 = u[:, [1]]
         dx1 = self.sigma * (x2 - x1) + u1
         dx2 = x1 * (self.rho - x3) - x2
         dx3 = x1 * x2 - self.beta * x3 - u2
@@ -392,10 +338,10 @@ class CSTR_Param(ODESystem):
         self.Tf = torch.nn.Parameter(torch.tensor([350.], requires_grad=False))
         self.Caf = torch.nn.Parameter(torch.tensor([1.], requires_grad=False))
 
-    def ode_equations(self, x):
+    def ode_equations(self, x, u):
         Ca = x[:, [0]]      # state: Concentration of A in CSTR (mol/m^3)
         T = x[:, [1]]       # state: Temperature in CSTR (K)
-        Tc = x[:, [2]]      # control: Temperature of cooling jacket (K)
+        Tc = u              # control: Temperature of cooling jacket (K)
         # reaction rate
         rA = self.k0 * torch.exp(-self.EoverR / T) * Ca
         # Calculate concentration derivative

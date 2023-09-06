@@ -34,6 +34,7 @@ class Trainer:
         callback=Callback(),
         lr_scheduler=False,
         epochs=1000,
+        epoch_verbose=1,
         patience=5,
         warmup=0,
         train_metric="train_loss",
@@ -51,6 +52,7 @@ class Trainer:
         :param optimizer: Pytorch optimizer
         :param logger: Object for logging results
         :param epochs: (int) Number of epochs to train
+        :param epoch_verbose (int) printing epoch metric at each i-th epoch
         :param patience: (int) Number of epochs to allow no improvement before early stopping
         :param warmup: (int) How many epochs to wait before enacting early stopping policy
         :param eval_metric: (str) Performance metric for model selection and early stopping
@@ -64,6 +66,7 @@ class Trainer:
         self.logger = logger
         self.epochs = epochs
         self.current_epoch = 0
+        self.epoch_verbose = epoch_verbose
         if logger is not None:
             self.logger.log_weights(self.model)
         self.train_metric = train_metric
@@ -137,7 +140,8 @@ class Trainer:
                         self.logger.log_metrics(output, step=i)
                     else:
                         mean_loss = output[f'mean_{self.train_metric}']
-                        print(f'epoch: {i}  {self.train_metric}: {mean_loss}')
+                        if i % (self.epoch_verbose) == 0:
+                            print(f'epoch: {i}  {self.train_metric}: {mean_loss}')
 
                     self.callback.end_eval(self, output)  # visualizations
 

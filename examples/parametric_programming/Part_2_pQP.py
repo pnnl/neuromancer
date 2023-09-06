@@ -99,12 +99,10 @@ if __name__ == "__main__":
                     linear_map=slim.maps['linear'],
                     nonlin=nn.ReLU,
                     hsizes=[80] * 4)
-    # define symbolic solution map with concatenated features (problem parameters)
-    xi = lambda p1, p2: torch.cat([p1, p2], dim=-1)
-    features = Node(xi, ['p1', 'p2'], ['xi'], name='features')
-    sol_map = Node(func, ['xi'], ['x'], name='map')
+    # define symbolic solution map
+    sol_map = Node(func, ['p1', 'p2'], ['x'], name='map')
     # trainable components of the problem solution
-    components = [features, sol_map]
+    components = [sol_map]
 
     """
     # # #  mpQP objective and constraints formulation in Neuromancer

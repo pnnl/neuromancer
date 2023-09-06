@@ -25,7 +25,7 @@ class Integrator(nn.Module, ABC):
         self.h = h
 
         if interp_u is not None:
-            warnings.warn('interp_u method is deprecated, it has no effect, and will be removed in the next release.')
+            warnings.warn('interp_u argument is deprecated, it has no effect, and will be removed in the next release.', FutureWarning)
 
     @abstractmethod
     def integrate(self, x, *args):

@@ -1,4 +1,4 @@
-# NeuroMANCER v1.4
+# NeuroMANCER v1.4.1
 
 **Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
 is an open-source differentiable programming (DP) library for solving parametric constrained optimization problems, 
@@ -7,6 +7,16 @@ NeuroMANCER is written in [PyTorch](https://pytorch.org/) and allows for systema
 integration of machine learning with scientific computing for creating end-to-end 
 differentiable models and algorithms embedded with prior knowledge and physics.
 
+
+### New in v1.4.1
+We've made some backwards-compatible changes in order to simplify integration and support multiple symbolic inputs to `nn.Modules` in our `blocks` interface.
+
+**New Colab Examples:** Physics-Informed Neural Networks (PINNs) for solving PDEs in NeuroMANCER
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Diffusion Equation
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_2_PINN_BurgersEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Burgers' Equation
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_3_PINN_BurgersEquation_inverse.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Burgers' Equation w/ Parameter Estimation (Inverse Problem)
+
+See [v1.4.1 release notes](#version-141-release-notes) for more details.
 
 ## Features and Examples
 
@@ -244,6 +254,16 @@ be highly valuable but not included below, please open an issue and let us know 
 
 ##  Release notes
 
+### Version 1.4.1 Release Notes
++ To simplify integration, interpolation of control input is no longer supported in `integrators.py`
+  + The `interp_u` parameter of `Integrator` and subclasses has been deprecated
++ Additional inputs (e.g., `u`, `t`) can now be passed as `*args` (instead of as a single tensor input stacked with `x`) in:
+  + `Integrator` and subclasses in `integrators.py`
+  + `Block` - new base class for all other classes in `blocks.py`
+  + `ODESystem` in `ode.py`
++ New Physics-Informed Neural Network (PINN) examples for solving PDEs in `/examples/PDEs/`
++ Fixed a bug in the `show(...)` method of the `Problem` class
+
 ###  Version 1.4 Release Notes
 + Refactored PSL
   + Better PSL unit testing coverage
@@ -251,6 +271,12 @@ be highly valuable but not included below, please open an issue and let us know 
   + Consistent perturbation signal interface in signals.py
 + Refactored Control and System ID learning using Node and System class (system.py)
   + Classes used for system ID can now be easily interchanged to accommodate downstream control policy learning
+
+###  Version 1.3.2 Release Notes
++ Merged Structured Linear Maps and Pyton Systems Library into Neuromancer
+  + The code in neuromancer was closely tied to psl and slim.
+  A decision was made to integrate the packages as submodules of neuromancer.
+  This also solves the issue of the package names "psl" and "slim" already being taken on PyPI.
 
 *Import changes for psl and slim*
 
@@ -263,12 +289,6 @@ import slim
 from neuromancer import psl
 from neuromancer import slim
 ```
-
-###  Version 1.3.2 Release Notes
-+ Merged Structured Linear Maps and Pyton Systems Library into Neuromancer
-  + The code in neuromancer was closely tied to psl and slim.
-  A decision was made to integrate the packages as submodules of neuromancer.
-  This also solves the issue of the package names "psl" and "slim" already being taken on PyPI.
 
 ### Version 1.3.1 release notes
 + New example scripts and notebooks

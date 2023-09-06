@@ -19,13 +19,11 @@ https://en.wikipedia.org/wiki/Rosenbrock_function
 
 import torch
 import torch.nn as nn
-import numpy as np
 import neuromancer.slim as slim
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
 from casadi import *
 import casadi
-import time
 
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
@@ -88,11 +86,6 @@ if __name__ == "__main__":
     """
     # # #  pNLP primal solution map architecture
     """
-    # wrap pytorch callable concatenating problem parameters/features (a, p)
-    # into symbolic representation via the Node class:
-    # features(a, p) -> xi
-    xi = lambda a, p: torch.cat([a, p], dim=-1)
-    features = Node(xi, ['a', 'p'], ['xi'], name='features')
     # define neural architecture for the trainable solution map
     func = blocks.MLP(insize=2, outsize=2,
                       bias=True,
@@ -100,8 +93,8 @@ if __name__ == "__main__":
                       nonlin=nn.ReLU,
                       hsizes=[80] * 4)
     # wrap neural net into symbolic representation of the solution map via the Node class:
-    # sol_map(xi) -> x
-    sol_map = Node(func, ['xi'], ['x'], name='map')
+    # sol_map(a, p) -> x
+    sol_map = Node(func,  ['a', 'p'], ['x'], name='map')
 
     """
     # # #  pNLP variables, objective, and constraints formulation in Neuromancer
@@ -157,7 +150,7 @@ if __name__ == "__main__":
     # list of objectives, constraints, and trainable components
     objectives = [obj]
     constraints = [con_1, con_2, con_3]
-    components = [features, sol_map, proj]
+    components = [sol_map, proj]
     # create penalty method loss function
     loss = PenaltyLoss(objectives, constraints)
     # construct constrained optimization problem
@@ -272,7 +265,7 @@ if __name__ == "__main__":
     print(y_nm)
 
     # intermediate projection steps
-    x_proj = sol_map(features(datapoint))
+    x_proj = sol_map(datapoint)
     proj.num_steps = 1    # set projections steps to 1 for visualisation
     X_projected = [x_proj['x'].detach().numpy()]
     for steps in range(num_steps):

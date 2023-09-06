@@ -64,8 +64,7 @@ import torch
 # define neural ODE
 dx = blocks.MLP(sys.nx + sys.nu, sys.nx, bias=True, linear_map=torch.nn.Linear, nonlin=torch.nn.ELU,
               hsizes=[20 for h in range(3)])
-interp_u = lambda tq, t, u: u
-integrator = integrators.Euler(dx, h=torch.tensor(0.1), interp_u=interp_u)
+integrator = integrators.Euler(dx, h=torch.tensor(0.1))
 system_nodel = Node(integrator, ['xn', 'U'], ['xn'], name='NODE')
 model = System([system_nodel])
 model.show()        # visualize computational graph of the NODE system ID model

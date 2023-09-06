@@ -46,7 +46,6 @@ dependencies = [
     "six",
     "pydot==1.4.2",
     "pyts",
-    "scipy",
     "torch",
     "torchdiffeq",
     "toml"

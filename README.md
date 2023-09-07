@@ -38,7 +38,7 @@ NeuroMANCER syntax tutorial: modules, Node and System class.
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 Learning to solve a constrained optimization problem.
 
-+ <a target="_blank" href="https://github.com/pnnl/neuromancer/blob/master/examples/system_identification/brusselator_parameter.ipynb">
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/system_identification/brusselator_parameter.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to model a dynamical system with prior knowledge.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb">

@@ -12,6 +12,8 @@ class ODESystem(nn.Module, ABC):
     def __init__(self, insize, outsize):
         super().__init__()
         self.in_features, self.out_features = insize, outsize
+        self.nx = outsize
+        self.nu = insize - outsize
 
     @abstractmethod
     def ode_equations(self, x, *args):
@@ -56,7 +58,7 @@ class GeneralNetworkedODE(ODESystem):
  
         assert len(self.map) == len(self.agents)
 
-    def ode_equations(self, x):
+    def ode_equations(self, x, u):
         """
         Select the inductive bias to use for the problem:
          - Additive: f(x_i) + sum(g(x_i,x_j))
@@ -64,33 +66,35 @@ class GeneralNetworkedODE(ODESystem):
          - Composed: f(sum(g(x_i,x_j)))
         """
         if self.inductive_bias == "additive":
-            dx = self.intrinsic_physics(x) + self.coupling_physics(x)
+            dx = self.intrinsic_physics(x, u) + self.coupling_physics(x, u)
         elif self.inductive_bias == "general":
             #dx = self.intrinsic_physics(x,self.coupling_physics(x))
             raise Exception("General RHS not implemented.")
         elif self.inductive_bias == "compositional":
-            dx = self.intrinsic_physics(self.coupling_physics(x))
+            dx = self.intrinsic_physics(self.coupling_physics(x, u), u)
         else:
             raise Exception("No inductive bias match.")
 
         return dx[:, :self.outsize]
 
-    def intrinsic_physics(self, x):
+    def intrinsic_physics(self, x, u):
         """
         Calculate and return the contribution from all agents' intrinsic physics
         """
         dx = torch.tensor([])  # initialize empty to avoid indexing tedium
         # loop over agents and calculate contribution from intrinsic physics
+        features = torch.cat([x, u], dim=-1)
         for idx, agent_dict in enumerate(self.map):
-            dx = torch.cat((dx, self.agents[idx](x[:, list(agent_dict.values())])), -1)
+            dx = torch.cat((dx, self.agents[idx](features[:, list(agent_dict.values())])), -1)
         return dx
 
-    def coupling_physics(self, x):
+    def coupling_physics(self, x, u):
         """
         This coupling physics assumes that each coupling physics nn.Module contains the
         connection information, including what agents are connected and if the connection 
         is symmetric.
         """
+        features = torch.cat([x, u], dim=-1)
         dx = torch.zeros_like(x)
         # first loop over coupling physics listed in self.couplings
         for physics in self.couplings:
@@ -98,7 +102,7 @@ class GeneralNetworkedODE(ODESystem):
             for pin in physics.pins:
                 send = self.map[pin[0]][physics.feature_name]
                 receive = self.map[pin[1]][physics.feature_name]
-                contribution = physics(x[:, [send, receive]])
+                contribution = physics(features[:, [send, receive]])
                 dx[:, [send]] += contribution
                 if physics.symmetric:
                     dx[:, [receive]] -= contribution

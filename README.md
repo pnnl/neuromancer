@@ -11,10 +11,15 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 ### New in v1.4.1
 We've made some backwards-compatible changes in order to simplify integration and support multiple symbolic inputs to `nn.Modules` in our `blocks` interface.
 
-**New Colab Examples:** Physics-Informed Neural Networks (PINNs) for solving PDEs in NeuroMANCER
+**New Colab Examples:**  
+Physics-Informed Neural Networks (PINNs) for solving PDEs in NeuroMANCER
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Diffusion Equation
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_2_PINN_BurgersEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Burgers' Equation
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_3_PINN_BurgersEquation_inverse.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Burgers' Equation w/ Parameter Estimation (Inverse Problem)
+  
+System identification for networked ordinary differential equations (ODEs)
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/system_identification/rc_net.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Data-driven modeling of physics-structured network ODEs.
 
 See [v1.4.1 release notes](#version-141-release-notes) for more details.
 
@@ -43,9 +48,6 @@ href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/exam
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/system_identification/brusselator_parameter.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Parameter estimation of ordinary differential equation (ODE).
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/system_identification/rc_net.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Data-driven modeling of physics-structured network ODEs.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to stabilize a linear dynamical system.
@@ -114,6 +116,51 @@ Note: If you have a previous neuromancer env it would be best at this point to c
 git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
 ```
 
+### PIP Install
+Recommended installation.  
+Pip installation is broken up into required dependencies for core Neuromancer
+and dependencies associated with the examples, tests, and generating the documentation.
+Below we give instructions to install all dependencies in a conda virtual enviroment via pip. 
+You need at least pip version >= 21.3.
+
+#### Create and activate virtual environment
+
+``` bash
+conda create -n neuromancer python=3.10.4
+conda activate neuromancer
+```
+
+#### Install neuromancer and all dependencies.
+From top level directory of cloned neuromancer run:
+
+```bash
+pip install -e.[docs,tests,examples]
+```
+
+OR, for zsh users:
+```zsh
+pip install -e.'[docs,tests,examples]'
+```
+
+See the `pyproject.toml` file for reference.
+
+``` toml
+[project.optional-dependencies]
+tests = ["pytest", "hypothesis"]
+examples = ["casadi", "cvxpy", "imageio"]
+docs = ["sphinx", "sphinx-rtd-theme"]
+```
+
+#### Note on pip install with `examples` on MacOS (Apple M1)
+Before CVXPY can be installed on Apple M1, you must install `cmake` via Homebrew:
+
+```zsh
+brew install cmake
+```
+
+See [CVXPY installation instructions](https://www.cvxpy.org/install/index.html) for more details.
+
+
 ### Conda install
 Conda install is recommended for GPU acceleration. 
 In many cases the following simple install should work for the specified OS
@@ -166,50 +213,6 @@ From the top level directory of cloned neuromancer
 ```bash
 pip install -e . --no-deps
 ```
-
-### PIP Install
-Pip installation is broken up into required dependencies for core Neuromancer
-and dependencies associated with the examples, tests, and generating the documentation.
-Below we give instructions to install all dependencies in a conda virtual enviroment via pip. 
-You need at least pip version >= 21.3.
-
-#### Create and activate virtual environment
-
-``` bash
-conda create -n neuromancer python=3.10.4
-conda activate neuromancer
-```
-
-
-#### Install neuromancer and all dependencies.
-From top level directory of cloned neuromancer run:
-
-```bash
-pip install -e.[docs,tests,examples]
-```
-
-OR, for zsh users:
-```zsh
-pip install -e.'[docs,tests,examples]'
-```
-
-See the `pyproject.toml` file for reference.
-
-``` toml
-[project.optional-dependencies]
-tests = ["pytest", "hypothesis"]
-examples = ["casadi", "cvxpy", "imageio"]
-docs = ["sphinx", "sphinx-rtd-theme"]
-```
-
-#### Note on pip install with `examples` on MacOS (Apple M1)
-Before CVXPY can be installed on Apple M1, you must install `cmake` via Homebrew:
-
-```zsh
-brew install cmake
-```
-
-See [CVXPY installation instructions](https://www.cvxpy.org/install/index.html) for more details.
 
 ### Test NeuroMANCER install
 Run pytest on the [tests folder](https://github.com/pnnl/neuromancer/tree/master/tests). 
@@ -268,6 +271,7 @@ be highly valuable but not included below, please open an issue and let us know 
   + `Block` - new base class for all other classes in `blocks.py`
   + `ODESystem` in `ode.py`
 + New Physics-Informed Neural Network (PINN) examples for solving PDEs in `/examples/PDEs/`
++ New system identification example for learning physics-structured networked ODEs `/examples/system_identification/`
 + Fixed a bug in the `show(...)` method of the `Problem` class
 
 ###  Version 1.4 Release Notes

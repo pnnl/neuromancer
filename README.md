@@ -38,6 +38,9 @@ NeuroMANCER syntax tutorial: modules, Node, and System class.
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 Learning to solve a constrained optimization problem.
 
+ + <a target="_blank" 
+href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to solve a constrained optimization problem with differentiable projected gradient method.
+
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/system_identification/brusselator_parameter.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Parameter estimation of ordinary differential equation (ODE).
 

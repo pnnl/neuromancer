@@ -372,3 +372,8 @@ ode_hybrid_systems_auto = {'LotkaVolterraHybrid': LotkaVolterraHybrid,
                            'BrusselatorHybrid': BrusselatorHybrid}
 
 ode_networked_systems = {'GeneralNetworkedODE': GeneralNetworkedODE}
+
+odes = {**ode_param_systems_auto,
+        **ode_param_systems_nonauto,
+        **ode_hybrid_systems_auto,
+        **ode_networked_systems}

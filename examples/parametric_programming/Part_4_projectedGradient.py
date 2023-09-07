@@ -171,7 +171,7 @@ if __name__ == "__main__":
         dev_loader,
         test_loader,
         optimizer,
-        epochs=100,
+        epochs=50,
         patience=100,
         warmup=100,
         train_metric="train_loss",

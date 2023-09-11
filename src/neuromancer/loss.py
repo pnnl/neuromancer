@@ -12,11 +12,13 @@ Currently supported loss functions:
 
 import math
 from abc import ABC, abstractmethod
+import copy
 
 import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
+from torch.nn import Module
 
 from neuromancer.constraint import Constraint
 
@@ -109,6 +111,46 @@ class AggregateLoss(nn.Module, ABC):
     @abstractmethod
     def forward(self, input_dict):
         pass
+
+    def __add__(self, other):
+        """
+        Overload the + operator to aggregate objective functions and constraints
+        """
+        if not isinstance(other, AggregateLoss):
+            raise ValueError("Only instances of AggregateLoss can be added")
+        # unique names
+        obj1 = nn.ModuleList([copy.copy(obj) for obj in self.objectives])
+        for obj in obj1:
+            obj.name += "_{}".format(id(self))
+        obj2 = nn.ModuleList([copy.copy(obj) for obj in other.objectives])
+        for obj in obj2:
+            obj.name += "_{}".format(id(other))
+        cons1 =  nn.ModuleList([copy.copy(con) for con in self.constraints])
+        for con in cons1:
+            con.name += "_{}".format(id(self))
+        cons2 = nn.ModuleList([copy.copy(con) for con in other.constraints])
+        for con in cons2:
+            con.name += "_{}".format(id(other))
+        # combine objectives and constraints from both instances
+        new_objectives = obj1 + obj2
+        new_constraints = cons1 + cons2
+        return type(self)(new_objectives, new_constraints)
+
+    def __mul__(self, weight):
+        """
+        Overload the * operator to change the scale of objective functions and constraints
+        """
+        new_objectives = nn.ModuleList([weight * obj for obj in self.objectives])
+        new_constraints = nn.ModuleList([weight * con for con in self.constraints])
+        return type(self)(new_objectives, new_constraints)
+
+    def __rmul__(self, weight):
+        """
+        Overload the * operator to change the scale of objective functions and constraints
+        """
+        new_objectives = nn.ModuleList([weight * obj for obj in self.objectives])
+        new_constraints = nn.ModuleList([weight * con for con in self.constraints])
+        return type(self)(new_objectives, new_constraints)
 
 
 class PenaltyLoss(AggregateLoss):

@@ -34,7 +34,7 @@ $\frac{\partial NN_{\theta}}{\partial t},\frac{\partial^2 NN_{\theta}}{\partial 
 using [Automatic Diferentiation](https://en.wikipedia.org/wiki/Automatic_differentiation). 
 
 ### PINNs dataset 
-The training dataset containis [collocation points (CP)](https://en.wikipedia.org/wiki/Collocation_method) 
+The training dataset contains [collocation points (CP)](https://en.wikipedia.org/wiki/Collocation_method) 
 of the spatio-temporal domain $(x, t)$, and samples of the [initial conditions (IC)](https://en.wikipedia.org/wiki/Initial_condition), 
 and [boundary conditions (BC)](https://en.wikipedia.org/wiki/Boundary_value_problem).
 
@@ -45,9 +45,8 @@ The PINNs loss function is composed of multiple terms.
 **PDE Collocation Points Loss:**  
 The PINN $f_{\texttt{PINN}}$ is evaluated over given number ($N_f$) 
 of collocation points (CP) to minimize the PDE residuals 
-in the following loss function term:
-
-$$ \ell_{f} = \frac{1}{N_f} \sum^{N_f}_{i=1} |f_{\texttt{PINN}}(t_f^i,x_f^i)|^2 $$
+in the following loss function term:  
+$$\ell_{f} = \frac{1}{N_f} \sum_{i=1}^{N_f} |f_{\texttt{PINN}}(t_f^i,x_f^i)|^2$$
 
 If $f_{\texttt{PINN}}\rightarrow 0$ then the PINN will be respecting 
 the physical law.
@@ -56,14 +55,14 @@ the physical law.
 
 We select $N_u$ points from the BC and IC and used them in the following supervised learning loss term:
 
-$$ \ell_{u} = \frac{1}{N_u} \sum^{N_u}_{i=1} |u(t_{u}^i,x_u^i)-NN_{\theta}(t_{u}^i,x_u^i)|^2 $$
+$$ \ell_{u} = \frac{1}{N_u} \sum_{i=1}^{N_u} |u(t_{u}^i,x_u^i)-NN_{\theta}(t_{u}^i,x_u^i)|^2 $$
 
 **Bound the PINN output in the PDE solution domain:**  
 Sometimes we expect the outputs of the neural net 
 to be bounded in the PDE solution domain $NN_{\theta}(x,t) \in [u_{min}, u_{max}]$, 
 thus we impose the following inequality constraints via additional penalties:
 
-$$\ell_{y} = \frac{1}{N_f} \sum^{N_f}_{i=1} \Big(|{RELU}(NN_{\theta}(t_{f}^i,x_f^i) - u_{max})|^2 + |{RELU}(-NN_{\theta}(t_{f}^i,x_f^i) + u_{min})|^2 \Big)$$
+$$\ell_{y} = \frac{1}{N_f} \sum_{i=1}^{N_f} \Big(|\texttt{RELU}(NN_{\theta}(t_{f}^i,x_f^i) - u_{max})|^2 + |\texttt{RELU}(-NN_{\theta}(t_{f}^i,x_f^i) + u_{min})|^2 \Big)$$
 
 **Total Loss:**  
 Then the total loss is just a sum of PDE residuals over CP 

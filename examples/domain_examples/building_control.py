@@ -1,9 +1,8 @@
 """
-Controlling a building via Differentiable predictive control (DPC)
-
+Controlling building heating system via Differentiable predictive control (DPC)
 
 system: single-zone building model
-
+        partially observable white-box model setup
 """
 
 import torch
@@ -229,8 +228,6 @@ if __name__ == "__main__":
     # constraints bounds
     Umin = umin * np.ones([nsteps_test, nu])
     Umax = umax * np.ones([nsteps_test, nu])
-    # Ymin = x_min * np.ones([nsteps_test+1, ny])
-    # Ymax = x_max * np.ones([nsteps_test+1, ny])
     Ymin = trajectories['ymin'].detach().reshape(nsteps_test+1, nref)
     Ymax = trajectories['ymax'].detach().reshape(nsteps_test+1, nref)
     # plot closed loop trajectories

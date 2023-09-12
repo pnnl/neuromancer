@@ -1,9 +1,8 @@
 """
-Controlling a building via Differentiable predictive control (DPC)
-
+Controlling building heating system via Differentiable predictive control (DPC)
 
 system: single-zone building model
-
+        fully observable white-box model setup
 """
 
 import torch
@@ -191,7 +190,7 @@ if __name__ == "__main__":
     """
     # # #  Differentiable optimal control problem 
     """
-    # data (x_k, r_k) -> parameters (xi_k) -> policy (u_k) -> dynamics (x_k+1)
+    # data -> parameters (xi_k) -> policy (u_k) -> dynamics (x_k+1)
     nodes = [cl_system]
     # create constrained optimization loss
     loss = PenaltyLoss(objectives, constraints)
@@ -244,8 +243,6 @@ if __name__ == "__main__":
     # constraints bounds
     Umin = umin * np.ones([nsteps_test, nu])
     Umax = umax * np.ones([nsteps_test, nu])
-    # Ymin = x_min * np.ones([nsteps_test+1, ny])
-    # Ymax = x_max * np.ones([nsteps_test+1, ny])
     Ymin = trajectories['ymin'].detach().reshape(nsteps_test+1, nref)
     Ymax = trajectories['ymax'].detach().reshape(nsteps_test+1, nref)
     # plot closed loop trajectories
@@ -255,35 +252,3 @@ if __name__ == "__main__":
           D=trajectories['d'].detach().reshape(nsteps_test+1, nd),
           U=trajectories['u'].detach().reshape(nsteps_test, nu),
           Umin=Umin, Umax=Umax, Ymin=Ymin, Ymax=Ymax)
-
-
-
-    # # define policy class with batch norm
-    # class Policy(nn.Module):
-    #     def __init__(self, insize, outsize, min, max,
-    #                  hsizes=[32, 32], nonlin=activations['gelu']):
-    #         super().__init__()
-    #         # batch normalisaion
-    #         self.bn = nn.BatchNorm1d(insize)
-    #         # output-constrained neural network
-    #         self.net = blocks.MLP_bounds(insize=insize,
-    #                         outsize=outsize, hsizes=hsizes,
-    #                         nonlin=nonlin,
-    #                         min=min, max=max)
-    #
-    #     def forward(self, *inputs):
-    #         """
-    #         Handling varying number of tensor inputs
-    #         :param inputs: (list(torch.Tensor, shape=[batchsize, insize]) or torch.Tensor, shape=[batchsize, insize])
-    #         :return: (torch.Tensor, shape=[batchsize, outsize])
-    #         """
-    #         x = torch.cat(inputs, dim=-1)
-    #         x_norm = self.bn(x)
-    #         u = self.net(x_norm)
-    #         return u
-    #
-    # # instantiate policy class
-    # net = Policy(insize=nx + 2 * nref + nd, outsize=nu,
-    #              min=umin, max=umax,
-    #              hsizes=[32, 32], nonlin=activations['gelu'])
-

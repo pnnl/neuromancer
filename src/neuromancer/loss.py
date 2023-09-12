@@ -116,8 +116,8 @@ class AggregateLoss(nn.Module, ABC):
         """
         Overload the + operator to aggregate objective functions and constraints
         """
-        if not isinstance(other, AggregateLoss):
-            raise ValueError("Only instances of AggregateLoss can be added")
+        if not isinstance(other, type(self)):
+            raise ValueError("Only instances of the same loss can be added")
         # unique names
         obj1 = nn.ModuleList([copy.copy(obj) for obj in self.objectives])
         for obj in obj1:

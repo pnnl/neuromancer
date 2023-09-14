@@ -250,7 +250,7 @@ class BarrierLoss(PenaltyLoss):
                 penalty_loss = c.weight * torch.mean(penalty_mask * cviolation)
                 loss += penalty_loss
             if (~penalty_mask).any():
-                barrier_loss = torch.mean(~penalty_mask * cbarrier)
+                barrier_loss = c.weight * torch.mean(~penalty_mask * cbarrier)
                 b_loss += barrier_loss
                 loss += barrier_loss
         output_dict['barrier_loss'] = b_loss

@@ -4,7 +4,7 @@ import torch
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss, BarrierLoss
 
-from hypothesis import given, settings, strategies as st, extra
+from hypothesis import given, settings, strategies as st
 from hypothesis.extra.numpy import arrays
 
 
@@ -110,12 +110,8 @@ def test_mul(multiplier, p, x, y, aggLoss, problems, weight):
     # mul
     weighted_loss = multiplier * loss
     weighted_output = weighted_loss(datapoints)
+    # test
     assert torch.isclose(multiplier * output["objective_loss"], weighted_output["objective_loss"])
-    if aggLoss is PenaltyLoss:
-        assert torch.isclose(multiplier * output["penalty_loss"], weighted_output["penalty_loss"])
-        assert torch.isclose(multiplier * output["loss"], weighted_output["loss"])
-    if aggLoss is BarrierLoss:
-        # the barrier part is not multiplied
-        weights = np.array([con.weight for con in loss.constraints])
-        weighted_weights = np.array([con.weight for con in weighted_loss.constraints])
-        assert np.allclose(multiplier * weights, weighted_weights)
+    assert torch.isclose(multiplier * output["penalty_loss"], weighted_output["penalty_loss"])
+    assert torch.isclose(multiplier * output["loss"], weighted_output["loss"])
+

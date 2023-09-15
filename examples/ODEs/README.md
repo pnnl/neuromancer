@@ -159,18 +159,18 @@ second is torchdyn which lives within the PyTorch ecosystem. Both packages are w
 become established in application-based research literature.
 
 ### External references
-[1]: Ricky TQ Chen, Yulia Rubanova, Jesse Bettencourt, and David K Duvenaud. Neural ordinary differential
-equations. Advances in neural information processing systems, 31, 2018.
-[2]: Maziar Raissi, Paris Perdikaris, and George E Karniadakis. Physics-informed neural networks: A deep
++ [1]: [Ricky TQ Chen, Yulia Rubanova, Jesse Bettencourt, and David K Duvenaud. Neural ordinary differential
+equations. Advances in neural information processing systems, 31, 2018.](https://papers.nips.cc/paper_files/paper/2018/hash/69386f6bb1dfed68692a24c8686939b9-Abstract.html)
++ [2]: [Maziar Raissi, Paris Perdikaris, and George E Karniadakis. Physics-informed neural networks: A deep
 learning framework for solving forward and inverse problems involving nonlinear partial differential equations.
-Journal of Computational physics, 378:686–707, 2019.
+Journal of Computational physics, 378:686–707, 2019.](https://www.sciencedirect.com/science/article/abs/pii/S0021999118307125)
 
 ### Papers using Neuromancer
-+ James Koch, Zhao Chen, Aaron Tuor, Jan Drgona, Draguna Vrabie, Structural Inference of Networked Dynamical Systems with Universal Differential Equations, 	arXiv:2207.04962, (2022)
-+ Drgoňa, J., Tuor, A. R., Chandan, V., & Vrabie, D. L., Physics-constrained deep learning of multi-zone building thermal dynamics. Energy and Buildings, 243, 110992, (2021)
-+ E. Skomski, S. Vasisht, C. Wight, A. Tuor, J. Drgoňa and D. Vrabie, "Constrained Block Nonlinear Neural Dynamical Models," 2021 American Control Conference (ACC), 2021, pp. 3993-4000, doi: 10.23919/ACC50511.2021.9482930.
-+ Skomski, E., Drgoňa, J., & Tuor, A. (2021, May). Automating Discovery of Physics-Informed Neural State Space Models via Learning and Evolution. In Learning for Dynamics and Control (pp. 980-991). PMLR.
-+ Tuor, A., Drgona, J., & Vrabie, D. (2020). Constrained neural ordinary differential equations with stability guarantees. arXiv preprint arXiv:2004.10883.
++ [J. Koch, Z. Chen, A. Tuor, J. Drgona, D. Vrabie; Structural inference of networked dynamical systems with universal differential equations. Chaos 1 February 2023; 33 (2): 023103. https://doi.org/10.1063/5.0109093](https://pubs.aip.org/aip/cha/article-abstract/33/2/023103/2875955/Structural-inference-of-networked-dynamical?redirectedFrom=fulltext)
++ [Drgoňa, J., Tuor, A. R., Chandan, V., & Vrabie, D. L., Physics-constrained deep learning of multi-zone building thermal dynamics. Energy and Buildings, 243, 110992, (2021)](https://www.sciencedirect.com/science/article/pii/S0378778821002760)
++ [E. Skomski, S. Vasisht, C. Wight, A. Tuor, J. Drgoňa and D. Vrabie, "Constrained Block Nonlinear Neural Dynamical Models," 2021 American Control Conference (ACC), 2021, pp. 3993-4000, doi: 10.23919/ACC50511.2021.9482930.](https://ieeexplore.ieee.org/document/9482930)
++ [Skomski, E., Drgoňa, J., & Tuor, A. (2021, May). Automating Discovery of Physics-Informed Neural State Space Models via Learning and Evolution. In Learning for Dynamics and Control (pp. 980-991). PMLR.](https://proceedings.mlr.press/v144/skomski21a.html)
++ [Tuor, A., Drgona, J., & Vrabie, D. (2020). Constrained neural ordinary differential equations with stability guarantees. arXiv preprint arXiv:2004.10883.](https://arxiv.org/abs/2004.10883)
 
 
 ## Cite as

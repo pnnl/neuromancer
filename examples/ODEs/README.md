@@ -1,14 +1,63 @@
-## System Identification with Neural Networks in Neuromancer
+# System Identification with Neural Networks in Neuromancer
 
-Differentiable models such as [Neural ordinary
-differential equations (NODEs)]((https://arxiv.org/abs/1806.07366)) 
-or [neural state space models (NSSMs)](https://arxiv.org/abs/2011.13497) 
-represent a class of data-driven models
-that can incorporate prior physical knowledge into their architectures and loss functions. Examples include
-structural assumption on the computational graph inspired by domain application, or structure of the weight
-matrices of NSSM models, or networked NODE architecture. Differentiaity of NODEs and NSSMs allows us to 
+This directory contains interactive examples that can serve as a step-by-step tutorial 
+showcasing system identification capabilities in Neuromancer.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_2_param_estim_ODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Parameter estimation of nonlinear ordinary differential equation (ODE).
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/rc_net.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Data-driven modeling of physics-structured network ODEs.
+
+
+## System Identification
+
+[System identification](https://en.wikipedia.org/wiki/System_identification) is using statistical methods to construct mathematical models of dynamical systems given the measured observations of the system behavior.
+
+### System ID methods
+
+In this library, we are primarily interested in differentiable system ID methods that can incorporate prior physical knowledge into their architectures and loss functions. Examples include
+structural assumption on the computational graph inspired by domain application, structure of the weight
+matrices, or network architectures. Differentiaity allows us to 
 leverage gradient-based optimization algorithms for learning the
 unknown parameters of these structured digital twin models from observational data of the real system.
+
+Neuromancer currently supports the following system identification methods:
++ [Neural ordinary differential equations (NODEs)](https://arxiv.org/abs/1806.07366)
++ [Neural state space models (NSSMs)](https://arxiv.org/abs/2011.13497)
++ [Universal differential equations (UDEs)](https://arxiv.org/abs/2001.04385)
+  
+
+### System Identification Models
+
+Our recent development work in Neuromancer has given us the capability 
+to learn discrete time dynamical systems (Neural State Space Models) in the following forms:
+
+$$x_{k+1}=f_{\theta}(x_k)$$  
+
+$$x_{k+1}=f_{\theta}(x_k, u_k)$$
+
+as well as continuous dynamical systems (Neural ODEs) in the following forms:
+
+$$\frac{dx}{dt}=f_{\theta}(x(t))$$  
+
+$$\frac{dx}{dt}=f_{\theta}(x(t), t)$$  
+
+$$\frac{dx}{dt}=f_{\theta}(x(t), u(t), t)$$  
+
+Where x(t) is the time-varying state of the considered system, u(t) are system control inputs, and f is the state
+transition dynamics. This modeling strategy can be thought of as an equivalent method to Neural Ordinary
+Differential Equations[1], whereby an ODE of the above forms is fit to data with a universal function
+approximator (e.g., deep neural network) acting as the state transition dynamics. To train an appropriate
+RHS, Chen et al. utilize a continuous form of the adjoint equation, itself solved with an ODESolver.
+An alternative is to unroll the ODE solvers and utilize the autodifferentiation properties of PyTorch 
+to build differentiable canonical ODE integrators (e.g. as in Raissi et al.[2]).
+
+In the case of the continuous-time model, we need to first integrate the ODE system using an ODE solver, 
+e.g., [Euler](https://en.wikipedia.org/wiki/Euler_method), 
+or [Runge–Kutta](https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods), to obtain the discretized system:
+
+$$x_{k+1} = \text{ODESolve}(f_{\theta}(x_k))$$ 
 
 ### System Identification Dataset
 Consider the following ordinary differential equation system:
@@ -23,74 +72,36 @@ $$\hat{X} = [\hat{x}^i_0, ..., \hat{x}^i_{N}], \, \, i \in [1, ..., m]$$
 where $N$ represents the prediction horizon, $m$ represents number of measured trajectories, 
 and $i$ represents an index of the sampled trajectory.
 
+### System Identification Problem
+
 The primary objective of the system identification task is to learn the unknown parameters $\theta$
 of the model $f_{\theta}(x(t)) \approx f(x(t))$ approximating the real system.
 
-
-### System Identification Models
-
-Our recent development work in Neuromancer has given us the capability 
-to learn discrete time dynamical systems (Neural State Space Models) in the following forms:
-
-$$x_{k+1}=f_{\theta}(x_k)$$  
-$$x_{k+1}=f_{\theta}(x_k, u_k)$$
-
-as well as continuous dynamical systems (Neural ODEs) in the following forms:
-
-$$\frac{dx}{dt}=f_{\theta}(x(t))$$  
-$$\frac{dx}{dt}=f_{\theta}(x(t), t)$$  
-$$\frac{dx}{dt}=f_{\theta}(x(t), u(t), t)$$  
-
-where x(t) is the time-varying state of the considered system, u(t) are system control inputs, and f is the state
-transition dynamics. This modeling strategy can be thought of as an equivalent method to Neural Ordinary
-Differential Equations[^1], whereby an ODE of the above forms is fit to data with a universal function
-approximator (e.g. deep neural network) acting as the state transition dynamics. To train an appropriate
-RHS, Chen et al. utilize a continuous form of the adjoint equation; itself solved with an ODESolver.
-An alternative is to unroll the ODE solvers and utilize the autodifferentiation properties of PyTorch 
-to build differentiable canonical ODE integrators (e.g. as in Raissi et al.[^2]).
-
-In the case of continuous-time model we need to first integrate the ODE system using an ODE solver, 
-e.g., [Euler](https://en.wikipedia.org/wiki/Euler_method), 
-or [Runge–Kutta](https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods), to obtain the discretized system:
-
-$$x_{k+1} = \text{ODESolve}(f_{\theta}(x_k))$$ 
-
-
-
-### System Identification Problem
-
-The primary learning objective
-is to minimize the mean squared error, Ly , between predicted values and the ground truth measurements
-for the N -step prediction horizon:
+Standard learning objective
+is to minimize the mean squared error between predicted values and the ground truth measurements:
 
 $$\ell_x = Q_x||x^i_k - \hat{x}^i_k||_2^2$$ 
 
-The primary objective  can be augmented with various kind 
+The primary objective  can be augmented with various kinds 
 of physics-informed soft constraints. For instance, one could impose finite difference loss
-matching the first derivative estimates of the model and data.
+matching the model's and data's first derivative estimates.
 
 $$\ell_{dx} =  Q_{dx}||\Delta x^i_k - \Delta \hat{x}^i_k||_2^2$$
+
 where $\Delta x^i_k = x^i_{k+1} - x^i_k$
 
-There are many more loss function terms that could be included in the system ID task.
-
-Then given the training dataset $\hat{X} = [\hat{x}^i_0, ..., \hat{x}^i_{N}]$ 
-we want to solve the following system ID problem:
+There are many more loss function terms that could be included in the system ID task that can be combined 
+in the final system ID loss function:
  
-$$
-\begin{align}
-&\underset{\theta}{\text{minimize}}     && \sum_{i=1}^m \Big(\sum_{k=1}^{N}  Q_x||x^i_k - \hat{x}^i_k||_2^2  +  \sum_{k=1}^{N-1}  Q_{dx}||\Delta x^i_k - \Delta \hat{x}^i_k||_2^2  \Big) \\
-&\text{subject to}    && x^i_{k+1} =  \text{ODESolve}(f_{\theta}(x^i_k)) \\
-\end{align}
-$$  
+$$ \text{min}  \sum_{i=1}^m \Big( \sum_{k=1}^{N}  \ell_x  +  \sum_{k=1}^{N-1} \ell_{dx} \Big) $$
 
+$$ \text{s.t.}  &emsp;  x^i_{k+1} =  \text{ODESolve}(f_{\theta}(x^i_k)) $$  
 
 
 
 ## Neuromancer Syntax and Use
 
 Neuromancer provides an intuitive API for defining dynamical system models. 
-
 
 ### Neural State Space Models in Neuromancer
 ```python 
@@ -148,9 +159,9 @@ second is torchdyn which lives within the PyTorch ecosystem. Both packages are w
 become established in application-based research literature.
 
 ### External references
-[^1]: Ricky TQ Chen, Yulia Rubanova, Jesse Bettencourt, and David K Duvenaud. Neural ordinary differential
+[1]: Ricky TQ Chen, Yulia Rubanova, Jesse Bettencourt, and David K Duvenaud. Neural ordinary differential
 equations. Advances in neural information processing systems, 31, 2018.
-[^2]: Maziar Raissi, Paris Perdikaris, and George E Karniadakis. Physics-informed neural networks: A deep
+[2]: Maziar Raissi, Paris Perdikaris, and George E Karniadakis. Physics-informed neural networks: A deep
 learning framework for solving forward and inverse problems involving nonlinear partial differential equations.
 Journal of Computational physics, 378:686–707, 2019.
 

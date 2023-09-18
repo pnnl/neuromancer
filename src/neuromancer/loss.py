@@ -18,7 +18,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-from torch.nn import Module
 
 from neuromancer.constraint import Constraint
 

@@ -18,7 +18,7 @@ Physics-Informed Neural Networks (PINNs) for solving PDEs in NeuroMANCER
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_3_PINN_BurgersEquation_inverse.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Burgers' Equation w/ Parameter Estimation (Inverse Problem)
   
 System identification for networked ordinary differential equations (ODEs)
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/system_identification/rc_net.ipynb">
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/rc_net.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Data-driven modeling of physics-structured network ODEs.
 
 See [v1.4.1 release notes](#version-141-release-notes) for more details.
@@ -46,8 +46,8 @@ Learning to solve a constrained optimization problem.
  + <a target="_blank" 
 href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to solve a constrained optimization problem with projected gradient method.
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/system_identification/brusselator_parameter.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Parameter estimation of ordinary differential equation (ODE).
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_2_param_estim_ODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Parameter estimation of a nonlinear ordinary differential equation (ODE).
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to stabilize a linear dynamical system.
@@ -346,8 +346,9 @@ from neuromancer import slim
 ## Development team
 
 **Lead developers**: Aaron Tuor, Jan Drgona  
-**Active contributors**: Aaron Tuor, Jan Drgona, James Koch, Madelyn Shapiro, Draguna Vrabie, Seth Briney  
-**Past contributors**: Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
+**Active PNNL developers**: James Koch, Madelyn Shapiro, Draguna Vrabie
+**Community contributors**: Seth Briney, Bo Tang
+**Past contributors**: Shrirang Abhyankar, Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 
 
 ## Publications

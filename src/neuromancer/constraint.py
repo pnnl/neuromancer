@@ -212,6 +212,12 @@ class Objective(nn.Module):
     def __repr__(self):
         return f"Objective: {self.name}({', '.join(self.input_keys)}) = {self.weight} * {self.metric}({', '.join(self.input_keys)})"
 
+    def __mul__(self, weight):
+        return Objective(self.var, self.metric, self.weight*weight, self.name)
+
+    def __rmul__(self, weight):
+        return Objective(self.var, self.metric, self.weight*weight, self.name)
+
 
 class Constraint(nn.Module):
     """
@@ -271,10 +277,10 @@ class Constraint(nn.Module):
         return Constraint(self.left, self.right, comparator, weight=self.weight, name=self.name)
 
     def __mul__(self, weight):
-        return Constraint(self.left, self.right, self.comparator, weight=weight, name=self.name)
+        return Constraint(self.left, self.right, self.comparator, weight=self.weight*weight, name=self.name)
 
     def __rmul__(self, weight):
-        return Constraint(self.left, self.right, self.comparator, weight=weight, name=self.name)
+        return Constraint(self.left, self.right, self.comparator, weight=self.weight*weight, name=self.name)
 
     def __bool__(self):
         return self.left is self.right

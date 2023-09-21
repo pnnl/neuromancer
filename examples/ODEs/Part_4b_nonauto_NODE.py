@@ -34,27 +34,40 @@ def get_data(sys, nsim, nsteps, ts, bs):
     nbatch = nsim//nsteps
     length = (nsim//nsteps) * nsteps
 
-    trainX = train_sim['X'][:length].reshape(nbatch, nsteps, nx)
+    mean_x = modelSystem.stats['X']['mean']
+    std_x = modelSystem.stats['X']['std']
+    mean_u = modelSystem.stats['U']['mean']
+    std_u = modelSystem.stats['U']['std']
+    def normalize(x, mean, std):
+        return (x - mean) / std
+
+    trainX = normalize(train_sim['X'][:length], mean_x, std_x)
+    trainX = trainX.reshape(nbatch, nsteps, nx)
     trainX = torch.tensor(trainX, dtype=torch.float32)
-    trainU = train_sim['U'][:length].reshape(nbatch, nsteps, nu)
+    trainU = normalize(train_sim['U'][:length], mean_u, std_u)
+    trainU = trainU.reshape(nbatch, nsteps, nu)
     trainU = torch.tensor(trainU, dtype=torch.float32)
     train_data = DictDataset({'X': trainX, 'xn': trainX[:, 0:1, :],
                               'U': trainU}, name='train')
     train_loader = DataLoader(train_data, batch_size=bs,
                               collate_fn=train_data.collate_fn, shuffle=True)
 
-    devX = dev_sim['X'][:length].reshape(nbatch, nsteps, nx)
+    devX = normalize(dev_sim['X'][:length], mean_x, std_x)
+    devX = devX.reshape(nbatch, nsteps, nx)
     devX = torch.tensor(devX, dtype=torch.float32)
-    devU = train_sim['U'][:length].reshape(nbatch, nsteps, nu)
+    devU = normalize(dev_sim['U'][:length], mean_u, std_u)
+    devU = devU[:length].reshape(nbatch, nsteps, nu)
     devU = torch.tensor(devU, dtype=torch.float32)
     dev_data = DictDataset({'X': devX, 'xn': devX[:, 0:1, :],
                             'U': devU}, name='dev')
     dev_loader = DataLoader(dev_data, batch_size=bs,
                             collate_fn=dev_data.collate_fn, shuffle=True)
 
-    testX = test_sim['X'][:length].reshape(1, nsim, nx)
+    testX = normalize(test_sim['X'][:length], mean_x, std_x)
+    testX = testX.reshape(1, nbatch*nsteps, nx)
     testX = torch.tensor(testX, dtype=torch.float32)
-    testU = train_sim['U'][:length].reshape(1, nsim, nu)
+    testU = normalize(test_sim['U'][:length], mean_u, std_u)
+    testU = testU.reshape(1, nbatch*nsteps, nu)
     testU = torch.tensor(testU, dtype=torch.float32)
     test_data = {'X': testX, 'xn': testX[:, 0:1, :],
                  'U': testU}
@@ -65,8 +78,13 @@ def get_data(sys, nsim, nsteps, ts, bs):
 if __name__ == '__main__':
     torch.manual_seed(0)
 
+    # todo:
+    # CSTR, SwingEquation, TwoTank
+    # HindmarshRose, LorenzControl
+    # ThomasAttractorControl
+
     # %%  ground truth system
-    system = psl.systems['DuffingControl']
+    system = psl.systems['VanDerPolControl']
     modelSystem = system()
     ts = modelSystem.ts
     nx = modelSystem.nx
@@ -76,8 +94,8 @@ if __name__ == '__main__':
     plot.pltPhase(X=raw['Y'])
 
     # get datasets
-    nsim = 1000
-    nsteps = 50
+    nsim = 2000
+    nsteps = 10
     bs = 100
     train_loader, dev_loader, test_data = \
         get_data(modelSystem, nsim, nsteps, ts, bs)
@@ -96,7 +114,7 @@ if __name__ == '__main__':
     xhat = variable('xn')[:, :-1, :]
 
     # trajectory tracking loss
-    reference_loss = (xhat == x)^2
+    reference_loss = 5.*(xhat == x)^2
     reference_loss.name = "ref_loss"
 
     # one step tracking loss

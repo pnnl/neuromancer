@@ -3,6 +3,53 @@ import torch.nn as nn
 from abc import ABC, abstractmethod
 
 
+class SSM(nn.Module):
+    """
+    Baseline class for (neural) state space model (SSM)
+    Implements discrete-time dynamical system:
+        x_k+1 = fx(x_k) + fu(u_k) + fd(d_k)
+    with variables:
+        x_k - states
+        u_k - control inputs
+        d_k - disturbances
+
+    """
+    def __init__(self, fx, fu, nx, nu, fd=None, nd=0):
+        """
+
+        :param fx: (nn.Module) state transition dynamics
+        :param fu: (nn.Module) input dynamics
+        :param nx: (int) number of states
+        :param nu: (int) number of inputs
+        :param fd: (nn.Module) disturnance dynamics
+        :param nd: (int) number of disturbances
+        """
+        super().__init__()
+        self.fx, self.fu, self.fd = fx, fu, fd
+        self.nx, self.nu, self.nd = nx, nu, nd
+        self.in_features, self.out_features = nx+nu+nd, nx
+
+    def forward(self, x, u, d=None):
+        """
+
+        :param x: (torch.Tensor, shape=[batchsize, nx])
+        :param u: (torch.Tensor, shape=[batchsize, nu])
+        :param d: (torch.Tensor, shape=[batchsize, nd])
+        :return: (torch.Tensor, shape=[batchsize, outsize])
+        """
+        assert len(x.shape) == 2
+        assert len(u.shape) == 2
+
+        # state space model
+        x = self.fx(x) + self.fu(u)
+
+        # add disturbance dynamics
+        if self.fd is not None and d is not None:
+            assert len(d.shape) == 2
+            x += self.fd(d)
+        return x
+
+
 class ODESystem(nn.Module, ABC):
     """
     Class for defining RHS of arbitrary ODE functions, 

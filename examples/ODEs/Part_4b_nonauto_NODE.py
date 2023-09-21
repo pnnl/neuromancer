@@ -7,7 +7,6 @@ from neuromancer.psl import plot
 from neuromancer import psl
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
-import os
 
 from neuromancer.system import Node, System
 from neuromancer.dynamics import integrators, ode
@@ -78,13 +77,13 @@ def get_data(sys, nsim, nsteps, ts, bs):
 if __name__ == '__main__':
     torch.manual_seed(0)
 
-    # todo:
-    # CSTR, SwingEquation, TwoTank
-    # HindmarshRose, LorenzControl
-    # ThomasAttractorControl
+    # select system:
+    #   TwoTank, CSTR, SwingEquation,
+    #   VanDerPolControl, IverSimple
+    #   SEIR_population, LorenzControl
 
     # %%  ground truth system
-    system = psl.systems['VanDerPolControl']
+    system = psl.systems['CSTR']
     modelSystem = system()
     ts = modelSystem.ts
     nx = modelSystem.nx

@@ -31,7 +31,7 @@ if __name__ == "__main__":
     """
     gt_model = psl.nonautonomous.TwoTank()
     # sampling rate
-    ts = 10*gt_model.params[1]['ts']
+    ts = gt_model.params[1]['ts']
     # problem dimensions
     nx = gt_model.nx    # number of states
     nu = gt_model.nu    # number of control inputs

@@ -63,14 +63,10 @@ class DiffEqIntegrator(Integrator):
         """
 
         :param block:(nn.Module) A state transition model.
-        :param interp_u: Function for interpolating control input values for intermediate integration steps.
-                         If you assume a constant control sequence over the time intervals of the samples then
-                         lambda u, t: u will work.
-                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
-                         more sophisticated interpolation schemes.
+        :param interp_u: Function for interpolating control input values - deprecated
         :param h: (float) integration step size
-        :param method: (str) Can be dopri8, dopri5, bosh3, fehlberg2, adaptive_heun, euler, midpoint, rk4, explicit_adams, implicit_adams
-        rk4, explicit_adams, implicit_adams, fixed_adams
+        :param method: (str) Can be dopri8, dopri5, bosh3, fehlberg2, adaptive_heun, euler,
+        midpoint, rk4, explicit_adams, implicit_adams, explicit_adams, implicit_adams, fixed_adams
         """
         super().__init__(block, interp_u=interp_u, h=h)
         self.method = method

@@ -155,7 +155,7 @@ class TwoTank(ODE):
     @property
     def params(self):
         variables = {'x0': [0., 0.],}
-        constants = {'ts': 0.1}
+        constants = {'ts': 1.0}
         parameters = {'c1': 0.08,  # inlet valve coefficient
                       'c2': 0.04,  # tank outlet coefficient
                       }
@@ -178,7 +178,8 @@ class TwoTank(ODE):
     def get_U(self, nsim, signal=None, **signal_kwargs):
         if signal is not None:
             return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
-        u = step(nsim=nsim, d=2, min=0., max=0.4, randsteps=int(np.ceil(self.ts*nsim)), rng=self.rng)
+        u = step(nsim=nsim, d=2, min=0., max=0.4,
+                 randsteps=int(np.ceil(self.ts*nsim/100)), rng=self.rng)
         return u
 
     @cast_backend
@@ -493,7 +494,8 @@ class SwingEquation(ODE):
         domega = x[1]
         Pm = u[0]
         Pmax = self.Pmax
-        dx_dt = [self.ws * domega, (Pm - Pmax * np.sin(delta) - self.D * domega) / self.M]
+        dx_dt = [self.ws * domega,
+                 (Pm - Pmax * np.sin(delta) - self.D * domega) / self.M]
         return dx_dt
 
 
@@ -515,6 +517,15 @@ class DuffingControl(ODE):
                       }
         meta = {}
         return variables, constants, parameters, meta
+
+    @cast_backend
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+        u = periodic(nsim, d=1, min=0., max=5.,
+                     periods=int(np.ceil(nsim/100)),
+                     form='sin')
+        return u
 
     @cast_backend
     def equations(self, t, x, u):

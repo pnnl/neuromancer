@@ -1,5 +1,5 @@
 """
-Learning neural ODEs from time series data
+Learning neural ODEs with exogenous inputs from time series data
 """
 
 import torch
@@ -30,24 +30,34 @@ def get_data(sys, nsim, nsteps, ts, bs):
     """
     train_sim, dev_sim, test_sim = [sys.simulate(nsim=nsim, ts=ts) for i in range(3)]
     nx = sys.nx
+    nu = sys.nu
     nbatch = nsim//nsteps
     length = (nsim//nsteps) * nsteps
 
     trainX = train_sim['X'][:length].reshape(nbatch, nsteps, nx)
     trainX = torch.tensor(trainX, dtype=torch.float32)
-    train_data = DictDataset({'X': trainX, 'xn': trainX[:, 0:1, :]}, name='train')
+    trainU = train_sim['U'][:length].reshape(nbatch, nsteps, nu)
+    trainU = torch.tensor(trainU, dtype=torch.float32)
+    train_data = DictDataset({'X': trainX, 'xn': trainX[:, 0:1, :],
+                              'U': trainU}, name='train')
     train_loader = DataLoader(train_data, batch_size=bs,
                               collate_fn=train_data.collate_fn, shuffle=True)
 
     devX = dev_sim['X'][:length].reshape(nbatch, nsteps, nx)
     devX = torch.tensor(devX, dtype=torch.float32)
-    dev_data = DictDataset({'X': devX, 'xn': devX[:, 0:1, :]}, name='dev')
+    devU = train_sim['U'][:length].reshape(nbatch, nsteps, nu)
+    devU = torch.tensor(devU, dtype=torch.float32)
+    dev_data = DictDataset({'X': devX, 'xn': devX[:, 0:1, :],
+                            'U': devU}, name='dev')
     dev_loader = DataLoader(dev_data, batch_size=bs,
                             collate_fn=dev_data.collate_fn, shuffle=True)
 
     testX = test_sim['X'][:length].reshape(1, nsim, nx)
     testX = torch.tensor(testX, dtype=torch.float32)
-    test_data = {'X': testX, 'xn': testX[:, 0:1, :]}
+    testU = train_sim['U'][:length].reshape(1, nsim, nu)
+    testU = torch.tensor(testU, dtype=torch.float32)
+    test_data = {'X': testX, 'xn': testX[:, 0:1, :],
+                 'U': testU}
 
     return train_loader, dev_loader, test_data
 
@@ -55,49 +65,51 @@ def get_data(sys, nsim, nsteps, ts, bs):
 if __name__ == '__main__':
     torch.manual_seed(0)
 
+    # todo:
+    # CSTR, SwingEquation, TwoTank
+    # DuffingControl, HindmarshRose, LorenzControl
+    # ThomasAttractorControl, VanDerPolControl
+
     # %%  ground truth system
-    system = psl.systems['VanDerPol']
+    system = psl.systems['DuffingControl']
     modelSystem = system()
     ts = modelSystem.ts
     nx = modelSystem.nx
+    nu = modelSystem.nu
     raw = modelSystem.simulate(nsim=1000, ts=ts)
-    plot.pltOL(Y=raw['Y'])
+    plot.pltOL(Y=raw['Y'], U=raw['U'])
     plot.pltPhase(X=raw['Y'])
 
     # get datasets
-    nsim = 600
-    nsteps = 2
+    nsim = 1000
+    nsteps = 50
     bs = 100
-    train_loader, dev_loader, test_data = get_data(modelSystem, nsim, nsteps, ts, bs)
+    train_loader, dev_loader, test_data = \
+        get_data(modelSystem, nsim, nsteps, ts, bs)
 
     # construct NODE model in Neuromancer
-    fx = blocks.MLP(nx, nx, bias=True,
+    fx = blocks.MLP(nx+nu, nx, bias=True,
                      linear_map=torch.nn.Linear,
                      nonlin=torch.nn.ReLU,
-                     hsizes=[60, 60, 60])
-    # integrate NODE with adjoint-based solver
-    fxRK4 = integrators.DiffEqIntegrator(fx, h=ts, method='rk4')
-    # make symbolic NODE model
-    model = Node(fxRK4, ['xn'], ['xn'], name='NODE')
+                     hsizes=[80, 80, 80])
+    fxRK4 = integrators.RK4(fx, h=ts)
+    model = Node(fxRK4, ['xn', 'U'], ['xn'], name='NODE')
     dynamics_model = System([model], name='system')
 
     # %% Constraints + losses:
     x = variable("X")
     xhat = variable('xn')[:, :-1, :]
-    # finite difference variables
-    xFD = (x[:, 1:, :] - x[:, :-1, :])
-    xhatFD = (xhat[:, 1:, :] - xhat[:, :-1, :])
-
-    # finite difference loss
-    fd_loss = 2.*(xFD == xhatFD)^2
-    fd_loss.name = 'FD_loss'
 
     # trajectory tracking loss
     reference_loss = (xhat == x)^2
     reference_loss.name = "ref_loss"
 
+    # one step tracking loss
+    onestep_loss = 1.*(xhat[:, 1, :] == x[:, 1, :])^2
+    onestep_loss.name = "onestep_loss"
+
     # %%
-    objectives = [reference_loss, fd_loss]
+    objectives = [reference_loss, onestep_loss]
     constraints = []
     # create constrained optimization loss
     loss = PenaltyLoss(objectives, constraints)
@@ -107,7 +119,8 @@ if __name__ == '__main__':
     problem.show()
 
     # %%
-    optimizer = torch.optim.Adam(problem.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(problem.parameters(),
+                                 lr=0.003)
     logger = BasicLogger(args=None, savedir='test', verbosity=1,
                          stdout=['dev_loss', 'train_loss'])
 
@@ -117,9 +130,9 @@ if __name__ == '__main__':
         dev_loader,
         test_data,
         optimizer,
-        patience=50,
+        patience=100,
         warmup=100,
-        epochs=500,
+        epochs=1000,
         eval_metric="dev_loss",
         train_metric="train_loss",
         dev_metric="dev_loss",

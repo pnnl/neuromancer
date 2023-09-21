@@ -1,16 +1,16 @@
 """
-Learning neural ODEs with exogenous inputs from time series data
+Learning neural state space model (SSM) with exogenous inputs from time series data
 """
 
 import torch
+import torch.nn as nn
+
 from neuromancer.psl import plot
 from neuromancer import psl
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
-import os
 
 from neuromancer.system import Node, System
-from neuromancer.dynamics import integrators, ode
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
 from neuromancer.loggers import BasicLogger
@@ -75,11 +75,37 @@ def get_data(sys, nsim, nsteps, ts, bs):
     return train_loader, dev_loader, test_data
 
 
+class SSM(nn.Module):
+    def __init__(self, fx, fu, nx, nu, fd=None, nd=0):
+        super().__init__()
+        self.fx, self.fu, self.fd = fx, fu, fd
+        self.nx, self.nu, self.nd = nx, nu, nd
+        self.in_features, self.out_features = nx+nu+nd, nx
+
+    def forward(self, x, u, d=None):
+        """
+
+        :param x: (torch.Tensor, shape=[batchsize, nx])
+        :param u: (torch.Tensor, shape=[batchsize, nu])
+        :param d: (torch.Tensor, shape=[batchsize, nd])
+        :return: (torch.Tensor, shape=[batchsize, outsize])
+        """
+        # state space model
+        x = self.fx(x) + self.fu(u)
+        # add disturbance dynamics
+        if self.fd is not None and d is not None:
+            x += self.fd(d)
+        return x
+
+
 if __name__ == '__main__':
     torch.manual_seed(0)
 
+    # select system:
+    #   TwoTank, CSTR, SwingEquation,
+
     # %%  ground truth system
-    system = psl.systems['SwingEquation']
+    system = psl.systems['CSTR']
     modelSystem = system()
     ts = modelSystem.ts
     nx = modelSystem.nx
@@ -95,13 +121,19 @@ if __name__ == '__main__':
     train_loader, dev_loader, test_data = \
         get_data(modelSystem, nsim, nsteps, ts, bs)
 
-    # construct NODE model in Neuromancer
-    fx = blocks.MLP(nx+nu, nx, bias=True,
+    # instantiate neural nets
+    fx = blocks.MLP(nx, nx, bias=True,
                      linear_map=torch.nn.Linear,
                      nonlin=torch.nn.ReLU,
                      hsizes=[40, 40])
-    fxRK4 = integrators.RK4(fx, h=ts)
-    model = Node(fxRK4, ['xn', 'U'], ['xn'], name='NODE')
+    fu = blocks.MLP(nu, nx, bias=True,
+                    linear_map=torch.nn.Linear,
+                    nonlin=torch.nn.ReLU,
+                    hsizes=[40, 40])
+    # construct NSSM model in Neuromancer
+    ssm = SSM(fx, fu, nx, nu)
+    # construct symbolic model
+    model = Node(ssm, ['xn', 'U'], ['xn'], name='NODE')
     dynamics_model = System([model], name='system')
 
     # %% Constraints + losses:
@@ -109,7 +141,7 @@ if __name__ == '__main__':
     xhat = variable('xn')[:, :-1, :]
 
     # trajectory tracking loss
-    reference_loss = 1.*(xhat == x)^2
+    reference_loss = 5.*(xhat == x)^2
     reference_loss.name = "ref_loss"
 
     # one step tracking loss
@@ -129,8 +161,6 @@ if __name__ == '__main__':
     # %%
     optimizer = torch.optim.Adam(problem.parameters(),
                                  lr=0.003)
-    logger = BasicLogger(args=None, savedir='test', verbosity=1,
-                         stdout=['dev_loss', 'train_loss'])
 
     trainer = Trainer(
         problem,
@@ -145,7 +175,6 @@ if __name__ == '__main__':
         train_metric="train_loss",
         dev_metric="dev_loss",
         test_metric="dev_loss",
-        logger=logger,
     )
     # %%
     best_model = trainer.train()

@@ -1,23 +1,21 @@
 """
-Learning neural ODEs with exogenous inputs from time series data
+Learning the parameters of Universal differential equations from time series data
 """
 
 import torch
-from neuromancer.psl import plot
-from neuromancer import psl
-import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
-import os
+import matplotlib.pyplot as plt
 
 from neuromancer.system import Node, System
 from neuromancer.dynamics import integrators, ode
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
-from neuromancer.loggers import BasicLogger
 from neuromancer.dataset import DictDataset
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer.modules import blocks
+from neuromancer.psl import plot
+from neuromancer import psl
 
 
 def get_data(sys, nsim, nsteps, ts, bs):
@@ -30,66 +28,81 @@ def get_data(sys, nsim, nsteps, ts, bs):
     """
     train_sim, dev_sim, test_sim = [sys.simulate(nsim=nsim, ts=ts) for i in range(3)]
     nx = sys.nx
-    nu = sys.nu
     nbatch = nsim//nsteps
     length = (nsim//nsteps) * nsteps
 
     trainX = train_sim['X'][:length].reshape(nbatch, nsteps, nx)
     trainX = torch.tensor(trainX, dtype=torch.float32)
-    trainU = train_sim['U'][:length].reshape(nbatch, nsteps, nu)
-    trainU = torch.tensor(trainU, dtype=torch.float32)
-    train_data = DictDataset({'X': trainX, 'xn': trainX[:, 0:1, :],
-                              'U': trainU}, name='train')
+    train_data = DictDataset({'X': trainX, 'xn': trainX[:, 0:1, :]}, name='train')
     train_loader = DataLoader(train_data, batch_size=bs,
                               collate_fn=train_data.collate_fn, shuffle=True)
 
     devX = dev_sim['X'][:length].reshape(nbatch, nsteps, nx)
     devX = torch.tensor(devX, dtype=torch.float32)
-    devU = dev_sim['U'][:length].reshape(nbatch, nsteps, nu)
-    devU = torch.tensor(devU, dtype=torch.float32)
-    dev_data = DictDataset({'X': devX, 'xn': devX[:, 0:1, :],
-                            'U': devU}, name='dev')
+    dev_data = DictDataset({'X': devX, 'xn': devX[:, 0:1, :]}, name='dev')
     dev_loader = DataLoader(dev_data, batch_size=bs,
                             collate_fn=dev_data.collate_fn, shuffle=True)
 
     testX = test_sim['X'][:length].reshape(1, nsim, nx)
     testX = torch.tensor(testX, dtype=torch.float32)
-    testU = test_sim['U'][:length].reshape(1, nsim, nu)
-    testU = torch.tensor(testU, dtype=torch.float32)
-    test_data = {'X': testX, 'xn': testX[:, 0:1, :],
-                 'U': testU}
+    test_data = {'X': testX, 'xn': testX[:, 0:1, :]}
 
     return train_loader, dev_loader, test_data
+
+
+class BrusselatorHybrid(ode.ODESystem):
+    def __init__(self, block, insize=2, outsize=2):
+        """
+
+        :param block:
+        :param insize:
+        :param outsize:
+        """
+        super().__init__(insize=insize, outsize=outsize)
+        self.block = block
+        self.alpha = torch.nn.Parameter(torch.tensor([5.0], requires_grad=True))
+        self.beta = torch.nn.Parameter(torch.tensor([5.0], requires_grad=True))
+        assert self.block.in_features == 2
+        assert self.block.out_features == 1
+
+    def ode_equations(self, x):
+        x1 = x[:, [0]]
+        x2 = x[:, [-1]]
+        dx1 = self.alpha + self.block(x) - self.beta*x1 - x1
+        dx2 = self.beta*x1 -self.block(x)
+        return torch.cat([dx1, dx2], dim=-1)
 
 
 if __name__ == '__main__':
     torch.manual_seed(0)
 
     # %%  ground truth system
-    system = psl.systems['DuffingControl']
+    system = psl.systems['Brusselator1D']
     modelSystem = system()
     ts = modelSystem.ts
     nx = modelSystem.nx
-    nu = modelSystem.nu
     raw = modelSystem.simulate(nsim=1000, ts=ts)
-    plot.pltOL(Y=raw['Y'], U=raw['U'])
+    plot.pltOL(Y=raw['Y'])
     plot.pltPhase(X=raw['Y'])
 
     # get datasets
-    nsim = 1000
-    nsteps = 50
+    nsim = 2000
+    nsteps = 2
     bs = 100
     train_loader, dev_loader, test_data = \
         get_data(modelSystem, nsim, nsteps, ts, bs)
 
-    # construct NODE model in Neuromancer
-    fx = blocks.MLP(nx+nu, nx, bias=True,
+    # construct UDE model in Neuromancer
+    net = blocks.MLP(2, 1, bias=True,
                      linear_map=torch.nn.Linear,
-                     nonlin=torch.nn.ReLU,
-                     hsizes=[80, 80, 80])
+                     nonlin=torch.nn.GELU,
+                     hsizes=4*[20])
+    fx = BrusselatorHybrid(net)
+    # integrate UDE model
     fxRK4 = integrators.RK4(fx, h=ts)
-    model = Node(fxRK4, ['xn', 'U'], ['xn'], name='NODE')
-    dynamics_model = System([model], name='system')
+    # create symbolic UDE model
+    ude = Node(fxRK4, ['xn'], ['xn'], name='UDE')
+    dynamics_model = System([ude])
 
     # %% Constraints + losses:
     x = variable("X")
@@ -99,12 +112,20 @@ if __name__ == '__main__':
     reference_loss = (xhat == x)^2
     reference_loss.name = "ref_loss"
 
-    # one step tracking loss
+    # one-step tracking loss
     onestep_loss = 1.*(xhat[:, 1, :] == x[:, 1, :])^2
     onestep_loss.name = "onestep_loss"
 
+    # finite difference variables
+    xFD = (x[:, 1:, :] - x[:, :-1, :])
+    xhatFD = (xhat[:, 1:, :] - xhat[:, :-1, :])
+
+    # finite difference loss
+    fd_loss = 2.0*((xFD == xhatFD)^2)
+    fd_loss.name = 'FD_loss'
+
     # %%
-    objectives = [reference_loss, onestep_loss]
+    objectives = [reference_loss, fd_loss, onestep_loss]
     constraints = []
     # create constrained optimization loss
     loss = PenaltyLoss(objectives, constraints)
@@ -114,10 +135,7 @@ if __name__ == '__main__':
     problem.show()
 
     # %%
-    optimizer = torch.optim.Adam(problem.parameters(),
-                                 lr=0.003)
-    logger = BasicLogger(args=None, savedir='test', verbosity=1,
-                         stdout=['dev_loss', 'train_loss'])
+    optimizer = torch.optim.Adam(problem.parameters(), lr=0.003)
 
     trainer = Trainer(
         problem,
@@ -125,31 +143,49 @@ if __name__ == '__main__':
         dev_loader,
         test_data,
         optimizer,
-        patience=100,
+        patience=50,
         warmup=100,
         epochs=1000,
         eval_metric="dev_loss",
         train_metric="train_loss",
         dev_metric="dev_loss",
         test_metric="dev_loss",
-        logger=logger,
     )
     # %%
     best_model = trainer.train()
     problem.load_state_dict(best_model)
     # %%
 
+    # evaluate learned parameters
+    print('Learned parameter a=', float(fx.alpha))
+    print('Learned parameter b=', float(fx.beta))
+
+    print('True parameter a=', float(modelSystem.a))
+    print('True parameter b=', float(modelSystem.b))
+
+    # evaluate learned black box block
+    x1 = torch.arange(0., 150., 0.5)
+    x2 = torch.arange(0., 150., 0.5)
+    true_block = x1*x2**2
+    learned_block = net(torch.stack([x1, x2]).T).squeeze()
+    plt.figure()
+    plt.plot(true_block.detach().numpy(), 'c',
+             linewidth=4.0, label='True')
+    plt.plot(learned_block.detach().numpy(), 'm--',
+             linewidth=4.0, label='Learned')
+    plt.legend(fontsize=25)
+
     # Test set results
     test_outputs = dynamics_model(test_data)
 
-    pred_traj = test_outputs['xn'][:, :-1, :].detach().numpy().reshape(-1, nx)
-    true_traj = test_data['X'].detach().numpy().reshape(-1, nx)
-    input_traj = test_data['U'].detach().numpy().reshape(-1, nu)
+    pred_traj = test_outputs['xn'][:, :-1, :]
+    true_traj = test_data['X']
+    pred_traj = pred_traj.detach().numpy().reshape(-1, nx)
+    true_traj = true_traj.detach().numpy().reshape(-1, nx)
     pred_traj, true_traj = pred_traj.transpose(1, 0), true_traj.transpose(1, 0)
 
-    # plot rollout
     figsize = 25
-    fig, ax = plt.subplots(nx + nu, figsize=(figsize, figsize))
+    fig, ax = plt.subplots(nx, figsize=(figsize, figsize))
     labels = [f'$y_{k}$' for k in range(len(true_traj))]
     for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, labels)):
         if nx > 1:
@@ -162,9 +198,5 @@ if __name__ == '__main__':
         axe.tick_params(labelbottom=False, labelsize=figsize)
     axe.tick_params(labelbottom=True, labelsize=figsize)
     axe.legend(fontsize=figsize)
-    ax[-1].plot(input_traj, 'c', linewidth=4.0, label='inputs')
-    ax[-1].legend(fontsize=figsize)
-    ax[-1].set_xlabel('$time$', fontsize=figsize)
-    ax[-1].set_ylabel('$u$', rotation=0, labelpad=20, fontsize=figsize)
-    ax[-1].tick_params(labelbottom=True, labelsize=figsize)
+    axe.set_xlabel('$time$', fontsize=figsize)
     plt.tight_layout()

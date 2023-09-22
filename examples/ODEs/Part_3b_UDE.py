@@ -14,7 +14,7 @@ from neuromancer.problem import Problem
 from neuromancer.dataset import DictDataset
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
-from neuromancer. modules import blocks
+from neuromancer.modules import blocks
 from neuromancer.psl import plot
 from neuromancer import psl
 
@@ -82,8 +82,8 @@ if __name__ == '__main__':
 
     # %%  ground truth system
     system = psl.systems['LotkaVolterra']
-    ts = 0.1
     modelSystem = system()
+    ts = modelSystem.ts
     nx = modelSystem.nx
     raw = modelSystem.simulate(nsim=1000, ts=ts)
     plot.pltOL(Y=raw['Y'])

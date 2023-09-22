@@ -21,7 +21,7 @@ class SSM(nn.Module):
         :param fu: (nn.Module) input dynamics
         :param nx: (int) number of states
         :param nu: (int) number of inputs
-        :param fd: (nn.Module) disturnance dynamics
+        :param fd: (nn.Module) disturbance dynamics
         :param nd: (int) number of disturbances
         """
         super().__init__()

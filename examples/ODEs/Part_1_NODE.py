@@ -7,7 +7,6 @@ from neuromancer.psl import plot
 from neuromancer import psl
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
-import os
 
 from neuromancer.system import Node, System
 from neuromancer.dynamics import integrators, ode
@@ -70,7 +69,7 @@ if __name__ == '__main__':
     bs = 100
     train_loader, dev_loader, test_data = get_data(modelSystem, nsim, nsteps, ts, bs)
 
-    # construct NODE model in Neuromancer
+    # define neural network of the NODE
     fx = blocks.MLP(nx, nx, bias=True,
                      linear_map=torch.nn.Linear,
                      nonlin=torch.nn.ReLU,

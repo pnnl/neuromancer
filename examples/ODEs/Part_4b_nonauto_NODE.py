@@ -16,7 +16,7 @@ from neuromancer.loggers import BasicLogger
 from neuromancer.dataset import DictDataset
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
-from neuromancer. modules import blocks
+from neuromancer.modules import blocks
 
 
 def get_data(sys, nsim, nsteps, ts, bs):
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     #   SEIR_population, LorenzControl
 
     # %%  ground truth system
-    system = psl.systems['CSTR']
+    system = psl.systems['SwingEquation']
     modelSystem = system()
     ts = modelSystem.ts
     nx = modelSystem.nx
@@ -159,14 +159,14 @@ if __name__ == '__main__':
     # Test set results
     test_outputs = dynamics_model(test_data)
 
-    pred_traj = test_outputs['xn'][:, :-1, :]
-    true_traj = test_data['X']
-    pred_traj = pred_traj.detach().numpy().reshape(-1, nx)
-    true_traj = true_traj.detach().numpy().reshape(-1, nx)
+    pred_traj = test_outputs['xn'][:, :-1, :].detach().numpy().reshape(-1, nx)
+    true_traj = test_data['X'].detach().numpy().reshape(-1, nx)
+    input_traj = test_data['U'].detach().numpy().reshape(-1, nu)
     pred_traj, true_traj = pred_traj.transpose(1, 0), true_traj.transpose(1, 0)
 
+    # plot rollout
     figsize = 25
-    fig, ax = plt.subplots(nx, figsize=(figsize, figsize))
+    fig, ax = plt.subplots(nx + nu, figsize=(figsize, figsize))
     labels = [f'$y_{k}$' for k in range(len(true_traj))]
     for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, labels)):
         if nx > 1:
@@ -179,5 +179,9 @@ if __name__ == '__main__':
         axe.tick_params(labelbottom=False, labelsize=figsize)
     axe.tick_params(labelbottom=True, labelsize=figsize)
     axe.legend(fontsize=figsize)
-    axe.set_xlabel('$time$', fontsize=figsize)
+    ax[-1].plot(input_traj, 'c', linewidth=4.0, label='inputs')
+    ax[-1].legend(fontsize=figsize)
+    ax[-1].set_xlabel('$time$', fontsize=figsize)
+    ax[-1].set_ylabel('$u$', rotation=0, labelpad=20, fontsize=figsize)
+    ax[-1].tick_params(labelbottom=True, labelsize=figsize)
     plt.tight_layout()

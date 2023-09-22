@@ -242,8 +242,8 @@ class BrusselatorHybrid(ODESystem):
     def ode_equations(self, x):
         x1 = x[:, [0]]
         x2 = x[:, [-1]]
-        dx1 = self.alpha + self.block(x) - self.beta*x1
-        dx2 = -self.block(x)
+        dx1 = self.alpha + self.block(x) - self.beta*x1 - x1
+        dx2 = self.beta*x1 -self.block(x)
         return torch.cat([dx1, dx2], dim=-1)
 
 

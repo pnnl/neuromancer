@@ -8,7 +8,6 @@ from neuromancer import psl
 import matplotlib.pyplot as plt
 import argparse
 from torch.utils.data import DataLoader
-import os
 
 from neuromancer.system import Node, System
 from neuromancer.dynamics import integrators, ode

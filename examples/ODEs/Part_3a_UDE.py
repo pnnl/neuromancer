@@ -1,32 +1,32 @@
 """
-Parameter estimation for a 1D Brusselator system.
+Learning the parameters of Universal differential equations from time series data
 """
 
 import torch
-from neuromancer.psl import plot
-from neuromancer import psl
-import matplotlib.pyplot as plt
-import argparse
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
 
 from neuromancer.system import Node, System
 from neuromancer.dynamics import integrators, ode
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
-from neuromancer.loggers import BasicLogger
 from neuromancer.dataset import DictDataset
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
+from neuromancer.modules import blocks
+from neuromancer.psl import plot
+from neuromancer import psl
 
 
-def get_data(sys, nsim, nsteps, bs):
+def get_data(sys, nsim, nsteps, ts, bs):
     """
     :param nsteps: (int) Number of timesteps for each batch of training data
     :param sys: (psl.system)
-    :param normalize: (bool) Whether to normalize the data
+    :param ts: (float) step size
+    :param bs: (int) batch size
 
     """
-    train_sim, dev_sim, test_sim = [sys.simulate(nsim=nsim, ts=0.05) for i in range(3)]
+    train_sim, dev_sim, test_sim = [sys.simulate(nsim=nsim, ts=ts) for i in range(3)]
     nx = sys.nx
     nbatch = nsim//nsteps
     length = (nsim//nsteps) * nsteps
@@ -50,57 +50,92 @@ def get_data(sys, nsim, nsteps, bs):
     return train_loader, dev_loader, test_data
 
 
+class BrusselatorHybrid(ode.ODESystem):
+    def __init__(self, block, insize=2, outsize=2):
+        """
+
+        :param block:
+        :param insize:
+        :param outsize:
+        """
+        super().__init__(insize=insize, outsize=outsize)
+        self.block = block
+        self.alpha = torch.nn.Parameter(torch.tensor([5.0], requires_grad=True))
+        self.beta = torch.nn.Parameter(torch.tensor([5.0], requires_grad=True))
+        assert self.block.in_features == 2
+        assert self.block.out_features == 1
+
+    def ode_equations(self, x):
+        x1 = x[:, [0]]
+        x2 = x[:, [-1]]
+        dx1 = self.alpha + self.block(x) - self.beta*x1 - x1
+        dx2 = self.beta*x1 -self.block(x)
+        return torch.cat([dx1, dx2], dim=-1)
+
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-epochs', type=int, default=100)
-
-    args = parser.parse_args()
-
     torch.manual_seed(0)
 
     # %%  ground truth system
     system = psl.systems['Brusselator1D']
-    ts = 0.05
     modelSystem = system()
+    ts = modelSystem.ts
     nx = modelSystem.nx
     raw = modelSystem.simulate(nsim=1000, ts=ts)
     plot.pltOL(Y=raw['Y'])
     plot.pltPhase(X=raw['Y'])
 
     # get datasets
-    train_loader, dev_loader, test_data = get_data(modelSystem, 500, 2, 32)
+    nsim = 2000
+    nsteps = 2
+    bs = 100
+    train_loader, dev_loader, test_data = \
+        get_data(modelSystem, nsim, nsteps, ts, bs)
 
-    # construct ODE model in Neuromancer
-    brussels = ode.BrusselatorParam()
-    fxRK4 = integrators.RK4(brussels, h=ts)
-    dynamics_model = System([Node(fxRK4, ['xn'], ['xn'])])
+    # construct UDE model in Neuromancer
+    net = blocks.MLP(2, 1, bias=True,
+                     linear_map=torch.nn.Linear,
+                     nonlin=torch.nn.GELU,
+                     hsizes=4*[20])
+    fx = BrusselatorHybrid(net)
+    # integrate UDE model
+    fxRK4 = integrators.RK4(fx, h=ts)
+    # create symbolic UDE model
+    ude = Node(fxRK4, ['xn'], ['xn'], name='UDE')
+    dynamics_model = System([ude])
 
     # %% Constraints + losses:
     x = variable("X")
     xhat = variable('xn')[:, :-1, :]
 
+    # trajectory tracking loss
+    reference_loss = (xhat == x)^2
+    reference_loss.name = "ref_loss"
+
+    # one-step tracking loss
+    onestep_loss = 1.*(xhat[:, 1, :] == x[:, 1, :])^2
+    onestep_loss.name = "onestep_loss"
+
+    # finite difference variables
     xFD = (x[:, 1:, :] - x[:, :-1, :])
     xhatFD = (xhat[:, 1:, :] - xhat[:, :-1, :])
 
+    # finite difference loss
     fd_loss = 2.0*((xFD == xhatFD)^2)
     fd_loss.name = 'FD_loss'
 
-    reference_loss = ((xhat == x)^2)
-    reference_loss.name = "ref_loss"
-
     # %%
-    objectives = [reference_loss, fd_loss]
+    objectives = [reference_loss, fd_loss, onestep_loss]
     constraints = []
     # create constrained optimization loss
     loss = PenaltyLoss(objectives, constraints)
     # construct constrained optimization problem
     problem = Problem([dynamics_model], loss)
     # plot computational graph
+    problem.show()
 
     # %%
-    optimizer = torch.optim.Adam(problem.parameters(), lr=0.1)
-    logger = BasicLogger(args=None, savedir='test', verbosity=1,
-                         stdout=['dev_loss', 'train_loss'])
+    optimizer = torch.optim.Adam(problem.parameters(), lr=0.003)
 
     trainer = Trainer(
         problem,
@@ -108,22 +143,37 @@ if __name__ == '__main__':
         dev_loader,
         test_data,
         optimizer,
-        patience=10,
-        warmup=10,
-        epochs=args.epochs,
+        patience=50,
+        warmup=100,
+        epochs=1000,
         eval_metric="dev_loss",
         train_metric="train_loss",
         dev_metric="dev_loss",
         test_metric="dev_loss",
-        logger=logger,
     )
     # %%
     best_model = trainer.train()
     problem.load_state_dict(best_model)
     # %%
-    # %%
-    print('alpha = '+str(brussels.alpha.item()))
-    print('beta = '+str(brussels.beta.item()))
+
+    # evaluate learned parameters
+    print('Learned parameter a=', float(fx.alpha))
+    print('Learned parameter b=', float(fx.beta))
+
+    print('True parameter a=', float(modelSystem.a))
+    print('True parameter b=', float(modelSystem.b))
+
+    # evaluate learned black box block
+    x1 = torch.arange(0., 150., 0.5)
+    x2 = torch.arange(0., 150., 0.5)
+    true_block = x1*x2**2
+    learned_block = net(torch.stack([x1, x2]).T).squeeze()
+    plt.figure()
+    plt.plot(true_block.detach().numpy(), 'c',
+             linewidth=4.0, label='True')
+    plt.plot(learned_block.detach().numpy(), 'm--',
+             linewidth=4.0, label='Learned')
+    plt.legend(fontsize=25)
 
     # Test set results
     test_outputs = dynamics_model(test_data)
@@ -150,4 +200,3 @@ if __name__ == '__main__':
     axe.legend(fontsize=figsize)
     axe.set_xlabel('$time$', fontsize=figsize)
     plt.tight_layout()
-    # plt.savefig('open_loop.png')

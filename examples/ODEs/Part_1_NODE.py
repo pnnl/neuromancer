@@ -1,5 +1,5 @@
 """
-Learning the parameters of Universal differential equations from time series data
+Learning neural ODEs from time series data
 """
 
 import torch
@@ -7,7 +7,6 @@ from neuromancer.psl import plot
 from neuromancer import psl
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
-import os
 
 from neuromancer.system import Node, System
 from neuromancer.dynamics import integrators, ode
@@ -20,14 +19,15 @@ from neuromancer.loss import PenaltyLoss
 from neuromancer. modules import blocks
 
 
-def get_data(sys, nsim, nsteps, bs):
+def get_data(sys, nsim, nsteps, ts, bs):
     """
     :param nsteps: (int) Number of timesteps for each batch of training data
     :param sys: (psl.system)
-    :param normalize: (bool) Whether to normalize the data
+    :param ts: (float) step size
+    :param bs: (int) batch size
 
     """
-    train_sim, dev_sim, test_sim = [sys.simulate(nsim=nsim, ts=0.05) for i in range(3)]
+    train_sim, dev_sim, test_sim = [sys.simulate(nsim=nsim, ts=ts) for i in range(3)]
     nx = sys.nx
     nbatch = nsim//nsteps
     length = (nsim//nsteps) * nsteps
@@ -55,39 +55,48 @@ if __name__ == '__main__':
     torch.manual_seed(0)
 
     # %%  ground truth system
-    system = psl.systems['LotkaVolterra']
-    ts = 0.05
+    system = psl.systems['VanDerPol']
     modelSystem = system()
+    ts = modelSystem.ts
     nx = modelSystem.nx
     raw = modelSystem.simulate(nsim=1000, ts=ts)
     plot.pltOL(Y=raw['Y'])
     plot.pltPhase(X=raw['Y'])
 
     # get datasets
-    nsim = 2000
-    nsteps = 100
-    bs = 50
-    train_loader, dev_loader, test_data = get_data(modelSystem, nsim, nsteps, bs)
+    nsim = 600
+    nsteps = 2
+    bs = 100
+    train_loader, dev_loader, test_data = get_data(modelSystem, nsim, nsteps, ts, bs)
 
-    # construct UDE model in Neuromancer
-    net = blocks.MLP(2, 1, bias=True,
+    # define neural network of the NODE
+    fx = blocks.MLP(nx, nx, bias=True,
                      linear_map=torch.nn.Linear,
-                     nonlin=torch.nn.GELU,
-                     hsizes=[10, 10])
-    fx = ode.LotkaVolterraHybrid(net)
-    # integrate UDE model
-    fxRK4 = integrators.RK4(fx, h=ts)
-    dynamics_model = System([Node(fxRK4, ['xn'], ['xn'])])
+                     nonlin=torch.nn.ReLU,
+                     hsizes=[60, 60, 60])
+    # integrate NODE with adjoint-based solver
+    fxRK4 = integrators.DiffEqIntegrator(fx, h=ts, method='rk4')
+    # make symbolic NODE model
+    model = Node(fxRK4, ['xn'], ['xn'], name='NODE')
+    dynamics_model = System([model], name='system')
 
     # %% Constraints + losses:
     x = variable("X")
     xhat = variable('xn')[:, :-1, :]
+    # finite difference variables
+    xFD = (x[:, 1:, :] - x[:, :-1, :])
+    xhatFD = (xhat[:, 1:, :] - xhat[:, :-1, :])
 
+    # finite difference loss
+    fd_loss = 2.*(xFD == xhatFD)^2
+    fd_loss.name = 'FD_loss'
+
+    # trajectory tracking loss
     reference_loss = (xhat == x)^2
     reference_loss.name = "ref_loss"
 
     # %%
-    objectives = [reference_loss]
+    objectives = [reference_loss, fd_loss]
     constraints = []
     # create constrained optimization loss
     loss = PenaltyLoss(objectives, constraints)
@@ -107,7 +116,7 @@ if __name__ == '__main__':
         dev_loader,
         test_data,
         optimizer,
-        patience=10,
+        patience=50,
         warmup=100,
         epochs=500,
         eval_metric="dev_loss",
@@ -146,4 +155,3 @@ if __name__ == '__main__':
     axe.legend(fontsize=figsize)
     axe.set_xlabel('$time$', fontsize=figsize)
     plt.tight_layout()
-    # plt.savefig('open_loop.png')

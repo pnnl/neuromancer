@@ -70,90 +70,139 @@ class ODESystem(nn.Module, ABC):
         assert len(x.shape) == 2
         return self.ode_equations(x, *args)
 
-
 class GeneralNetworkedODE(ODESystem):
-    """
-    Coupled nonlinear dynamical system with heterogeneous agents. This class acts as an
-    aggregator for multiple interacting physics that contribute to the dynamics of one
-    or more agents. 
-    """
+    """ Coupled nonlinear dynamical system with heterogeneous agents. Can be used standalone for networked ODE systems with
+    homo/heterogeneous agents or together with :class:'GeneralNetworkedAE' for the specification of differential-algebraic
+    equations."""
 
-    def __init__(self, map = None, 
+    def __init__(self, states = None, 
                 agents = None, 
                 couplings = None,
                 insize = None,
                 outsize = None,
-                inductive_bias = "additive"
                 ):
+        """Constructor method.
+        :param states: (dict) dictionary of state and index pairs, defaults to None
+        :param agents: (list(Agents)) list of agents for the networked system, defaults to None
+        :param couplings: (list(Couplings)) list of couplings between agents
+        :param insize: (int) in state dimension, defaults to None
+        :param outsize: (int) out state dimension, defaults to None
         """
-        :param map: mapping between state index and agent state name(s)
-        :param agents: list of ordered dicts, one per agent.
-        :param couplings: list of blocks. one per interaction type.
-        :param insize: dimensionality of input, including disturbances and control
-        :param outsize: dimensionality of output, just for agent evolution
-        :param inductive_bias: selection of inductive bias for ODE. additive or compositional
-        """
+
         super().__init__(insize=insize, outsize=outsize)
         
         # Composition of network:
-        self.map = map
+        self.states = states
         self.agents = nn.ModuleList(agents)
         self.couplings = nn.ModuleList(couplings)
         self.insize = insize
         self.outsize = outsize
-        self.inductive_bias = inductive_bias
  
-        assert len(self.map) == len(self.agents)
-
     def ode_equations(self, x, *args):
-        """
-        Select the inductive bias to use for the problem:
-         - Additive: f(x_i) + sum(g(x_i,x_j))
-         - General: f(x_i, sum(g(x_i,x_j)))
-         - Composed: f(sum(g(x_i,x_j)))
-        """
-        if self.inductive_bias == "additive":
-            dx = self.intrinsic_physics(x, *args) + self.coupling_physics(x, *args)
-        elif self.inductive_bias == "general":
-            #dx = self.intrinsic_physics(x,self.coupling_physics(x))
-            raise Exception("General RHS not implemented.")
-        elif self.inductive_bias == "compositional":
-            dx = self.intrinsic_physics(self.coupling_physics(x, *args), *args)
-        else:
-            raise Exception("No inductive bias match.")
+        """Forward pass of the method. 
 
-        return dx[:, :self.outsize]
+        :param x: (torch.Tensor) input tensor of size (batches,states)
+        :return: (torch.Tensor) output tensor of size (batches,states)
+        """
 
-    def intrinsic_physics(self, x, *args):
+        # construct the RHS of the ODE via physics(states,accumulated interactions)[return only autonomous part]
+        # dx/dt = f(x,\sum_A(couplings))
+        return self.intrinsic_physics(x,self.coupling_physics(x, *args), *args)[:,:self.outsize]
+
+    def intrinsic_physics(self, x, interactions, *args):
+        """Calculation of intrinsic physics contributions from agents. For each agent, 
+        aggregate interactions and call the forward pass of the agent.
+
+        :param x: (torch.Tensor) input tensor of size (batches,states), these are the states of the system
+        :param interactions: (torch.Tensor) input tensor of size (batches,states), these are the accumulated interactions of the system
+        :return: (torch.Tensor) output tensor of size (batches,states)
         """
-        Calculate and return the contribution from all agents' intrinsic physics
-        """
-        dx = torch.tensor([])  # initialize empty to avoid indexing tedium
         features = torch.cat([x, *args], dim=-1)
-        # loop over agents and calculate contribution from intrinsic physics
-        for idx, agent_dict in enumerate(self.map):
-            dx = torch.cat((dx, self.agents[idx](features[:, list(agent_dict.values())])), -1)
+        dx = torch.zeros_like(features)
+
+        for agent in self.agents:
+            """Get all of the relevant attributes from the agent object and pass them as arguments to agents() fwd pass. 
+            Loop through each agent. construct RHS of the ODE.
+            """
+
+            state_idxs = list(map(self.states.get, agent.state_keys))
+            input_idxs = list(map(self.states.get, agent.in_keys))
+            dx[:,state_idxs] = agent(features[:,input_idxs], interactions[:,state_idxs])
+
         return dx
-
+    
     def coupling_physics(self, x, *args):
+        """Calculate aggregated coupling physics across all connections in self.couplings.
+
+        :param x: (torch.Tensor) input tensor of size (batches,states), these are the states of the system
+        :return: (torch.Tensor) output tensor of size (batches,states)
         """
-        This coupling physics assumes that each coupling physics nn.Module contains the
-        connection information, including what agents are connected and if the connection 
-        is symmetric.
-        """
-        dx = torch.zeros_like(x)
+
         features = torch.cat([x, *args], dim=-1)
+        dx = torch.zeros_like(features)
+        
         # first loop over coupling physics listed in self.couplings
         for physics in self.couplings:
             # for each physics in self.couplings, loop over the pins and add contribution to dx
             for pin in physics.pins:
-                send = self.map[pin[0]][physics.feature_name]
-                receive = self.map[pin[1]][physics.feature_name]
-                contribution = physics(features[:, [send, receive]])
-                dx[:, [send]] += contribution
+                
+                send = list(map(self.states.get, self.agents[pin[0]].state_keys))
+                receive = list(map(self.states.get, self.agents[pin[1]].state_keys))
+                interaction_idx = list(map(self.states.get, physics.in_keys))
+
+                contribution = physics(features[:,interaction_idx]) # -> x[:,[1]] - x[:,[0]]
+                dx[:,receive] += contribution
                 if physics.symmetric:
-                    dx[:, [receive]] -= contribution
-        return dx   
+                    dx[:,send] -= contribution
+        return dx 
+
+class GeneralNetworkedAE(ODESystem):
+    """General Networked Algebraic Equation class. This is an extension of the ODESystem class
+    for handling update of algebraic states for differential-algebraic equations. Intended to 
+    be used in conjunction with GeneralNetworkedODE class.   
+    """
+    
+    def __init__(self, states = None,
+                agents = None,
+                insize = None,
+                outsize = None):
+        """Constructor method.
+        :param states: (dict) dictionary of state and index pairs, defaults to None
+        :param agents: (list(Agents)) list of agents for the networked system, defaults to None
+        :param insize: (int) in state dimension, defaults to None
+        :param outsize: (int) out state dimension, defaults to None
+        """
+        super().__init__(insize=insize, outsize=outsize)
+        self.states = states
+        self.agents = nn.ModuleList(agents)
+        self.insize = insize
+        self.outsize = outsize
+       
+    def ode_equations(self, x, *args):
+        """Forward pass of the method. For evolution of algebraic states, we call 
+        self.algebraic_equations(x) here.
+
+        :param x: (torch.Tensor) input tensor of size (batches,states)
+        :return: (torch.Tensor) output tensor of size (batches,states)
+        """
+
+        return self.algebraic_equations(x, *args)
+
+    def algebraic_equations(self, x, *args):
+        """Update of algebraic state variables according to agent-based algebra solvers or surrogates thereof.
+    
+        :param x: (torch.Tensor) input tensor of size (batches,states)
+        :return: (torch.Tensor) output tensor of size (batches,states)
+        """
+
+        features = torch.cat([x, *args], dim=-1)
+        dx = torch.clone(features)
+
+        for agent in self.agents:
+            # change the states at these indices based on the algebra solvers contained in the agents, if any
+            dx[:,list(map(self.states.get, agent.state_keys))] = agent(features[:,list(map(self.states.get, agent.in_keys))], [], mode="dae") 
+
+        return dx[:,:self.outsize]
 
 
 class TwoTankParam(ODESystem):

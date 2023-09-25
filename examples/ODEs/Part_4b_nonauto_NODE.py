@@ -159,29 +159,31 @@ if __name__ == '__main__':
     # Test set results
     test_outputs = dynamics_model(test_data)
 
-    pred_traj = test_outputs['xn'][:, :-1, :].detach().numpy().reshape(-1, nx)
-    true_traj = test_data['X'].detach().numpy().reshape(-1, nx)
-    input_traj = test_data['U'].detach().numpy().reshape(-1, nu)
-    pred_traj, true_traj = pred_traj.transpose(1, 0), true_traj.transpose(1, 0)
+    pred_traj = test_outputs['xn'][:, :-1, :].detach().numpy().reshape(-1, nx).transpose(1, 0)
+    true_traj = test_data['X'].detach().numpy().reshape(-1, nx).transpose(1, 0)
+    input_traj = test_data['U'].detach().numpy().reshape(-1, nu).transpose(1, 0)
 
     # plot rollout
     figsize = 25
     fig, ax = plt.subplots(nx + nu, figsize=(figsize, figsize))
-    labels = [f'$y_{k}$' for k in range(len(true_traj))]
-    for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, labels)):
-        if nx > 1:
-            axe = ax[row]
-        else:
-            axe = ax
+
+    x_labels = [f'$y_{k}$' for k in range(len(true_traj))]
+    for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, x_labels)):
+        axe = ax[row]
         axe.set_ylabel(label, rotation=0, labelpad=20, fontsize=figsize)
         axe.plot(t1, 'c', linewidth=4.0, label='True')
         axe.plot(t2, 'm--', linewidth=4.0, label='Pred')
         axe.tick_params(labelbottom=False, labelsize=figsize)
     axe.tick_params(labelbottom=True, labelsize=figsize)
     axe.legend(fontsize=figsize)
-    ax[-1].plot(input_traj, 'c', linewidth=4.0, label='inputs')
-    ax[-1].legend(fontsize=figsize)
+
+    u_labels = [f'$u_{k}$' for k in range(len(input_traj))]
+    for row, (u, label) in enumerate(zip(input_traj, u_labels)):
+        axe = ax[row+nx]
+        axe.plot(u, linewidth=4.0, label='inputs')
+        axe.legend(fontsize=figsize)
+        axe.set_ylabel(label, rotation=0, labelpad=20, fontsize=figsize)
+        axe.tick_params(labelbottom=True, labelsize=figsize)
+
     ax[-1].set_xlabel('$time$', fontsize=figsize)
-    ax[-1].set_ylabel('$u$', rotation=0, labelpad=20, fontsize=figsize)
-    ax[-1].tick_params(labelbottom=True, labelsize=figsize)
     plt.tight_layout()

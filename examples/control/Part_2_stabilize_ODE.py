@@ -27,7 +27,6 @@ from neuromancer.plot import pltCL, pltPhase
 
 
 if __name__ == "__main__":
-
     """
     # # #  Ground truth system model
     """
@@ -148,7 +147,7 @@ if __name__ == "__main__":
     Test Closed Loop System
     """
     print('\nTest Closed Loop System \n')
-    nsteps = 1000
+    nsteps = 100
     # generate initial data for closed loop simulation
     data = {'x': torch.randn(1, 1, nx, dtype=torch.float32),
             'r': torch.zeros(1, nsteps+1, nx, dtype=torch.float32)}

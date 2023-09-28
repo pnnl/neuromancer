@@ -88,7 +88,8 @@ class BuildingEnvelope(ODE_NonAutonomous):
         return np.concatenate([self.mf_min, self.dT_min])
 
     def __init__(self, seed=59, exclude_norms=['Time'],
-                 backend='numpy', requires_grad=False, system='Reno_full', set_stats=True):
+                 backend='numpy', requires_grad=False,
+                 system='Reno_full', set_stats=True, *args, **kwargs):
         self.nsim = 6000
         self.system = system
         download(self.url, self.path)
@@ -174,7 +175,7 @@ class BuildingEnvelope(ODE_NonAutonomous):
         Time = self.B.core.arange(0, nsim + 1) * self.ts
         return nsim, x0, U, D, Time
 
-    def simulate(self, nsim=None, U=None, D=None, x0=None):
+    def simulate(self, nsim=None, U=None, D=None, x0=None, *args, **kwargs):
         """
         Simulate at a minimum needs the number of simulation steps. You can optionally supply U, D, and x0
         with or without nsim. If supplying U and D need to supply an extra time step of data.

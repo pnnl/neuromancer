@@ -3,6 +3,53 @@ import torch.nn as nn
 from abc import ABC, abstractmethod
 
 
+class SSM(nn.Module):
+    """
+    Baseline class for (neural) state space model (SSM)
+    Implements discrete-time dynamical system:
+        x_k+1 = fx(x_k) + fu(u_k) + fd(d_k)
+    with variables:
+        x_k - states
+        u_k - control inputs
+        d_k - disturbances
+
+    """
+    def __init__(self, fx, fu, nx, nu, fd=None, nd=0):
+        """
+
+        :param fx: (nn.Module) state transition dynamics
+        :param fu: (nn.Module) input dynamics
+        :param nx: (int) number of states
+        :param nu: (int) number of inputs
+        :param fd: (nn.Module) disturbance dynamics
+        :param nd: (int) number of disturbances
+        """
+        super().__init__()
+        self.fx, self.fu, self.fd = fx, fu, fd
+        self.nx, self.nu, self.nd = nx, nu, nd
+        self.in_features, self.out_features = nx+nu+nd, nx
+
+    def forward(self, x, u, d=None):
+        """
+
+        :param x: (torch.Tensor, shape=[batchsize, nx])
+        :param u: (torch.Tensor, shape=[batchsize, nu])
+        :param d: (torch.Tensor, shape=[batchsize, nd])
+        :return: (torch.Tensor, shape=[batchsize, outsize])
+        """
+        assert len(x.shape) == 2
+        assert len(u.shape) == 2
+
+        # state space model
+        x = self.fx(x) + self.fu(u)
+
+        # add disturbance dynamics
+        if self.fd is not None and d is not None:
+            assert len(d.shape) == 2
+            x += self.fd(d)
+        return x
+
+
 class ODESystem(nn.Module, ABC):
     """
     Class for defining RHS of arbitrary ODE functions, 
@@ -58,7 +105,7 @@ class GeneralNetworkedODE(ODESystem):
  
         assert len(self.map) == len(self.agents)
 
-    def ode_equations(self, x, u):
+    def ode_equations(self, x, *args):
         """
         Select the inductive bias to use for the problem:
          - Additive: f(x_i) + sum(g(x_i,x_j))
@@ -66,36 +113,36 @@ class GeneralNetworkedODE(ODESystem):
          - Composed: f(sum(g(x_i,x_j)))
         """
         if self.inductive_bias == "additive":
-            dx = self.intrinsic_physics(x, u) + self.coupling_physics(x, u)
+            dx = self.intrinsic_physics(x, *args) + self.coupling_physics(x, *args)
         elif self.inductive_bias == "general":
             #dx = self.intrinsic_physics(x,self.coupling_physics(x))
             raise Exception("General RHS not implemented.")
         elif self.inductive_bias == "compositional":
-            dx = self.intrinsic_physics(self.coupling_physics(x, u), u)
+            dx = self.intrinsic_physics(self.coupling_physics(x, *args), *args)
         else:
             raise Exception("No inductive bias match.")
 
         return dx[:, :self.outsize]
 
-    def intrinsic_physics(self, x, u):
+    def intrinsic_physics(self, x, *args):
         """
         Calculate and return the contribution from all agents' intrinsic physics
         """
         dx = torch.tensor([])  # initialize empty to avoid indexing tedium
+        features = torch.cat([x, *args], dim=-1)
         # loop over agents and calculate contribution from intrinsic physics
-        features = torch.cat([x, u], dim=-1)
         for idx, agent_dict in enumerate(self.map):
             dx = torch.cat((dx, self.agents[idx](features[:, list(agent_dict.values())])), -1)
         return dx
 
-    def coupling_physics(self, x, u):
+    def coupling_physics(self, x, *args):
         """
         This coupling physics assumes that each coupling physics nn.Module contains the
         connection information, including what agents are connected and if the connection 
         is symmetric.
         """
-        features = torch.cat([x, u], dim=-1)
         dx = torch.zeros_like(x)
+        features = torch.cat([x, *args], dim=-1)
         # first loop over coupling physics listed in self.couplings
         for physics in self.couplings:
             # for each physics in self.couplings, loop over the pins and add contribution to dx
@@ -195,8 +242,8 @@ class BrusselatorHybrid(ODESystem):
     def ode_equations(self, x):
         x1 = x[:, [0]]
         x2 = x[:, [-1]]
-        dx1 = self.alpha + self.block(x) - self.beta*x1
-        dx2 = -self.block(x)
+        dx1 = self.alpha + self.block(x) - self.beta*x1 - x1
+        dx2 = self.beta*x1 -self.block(x)
         return torch.cat([dx1, dx2], dim=-1)
 
 

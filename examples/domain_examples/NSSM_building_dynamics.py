@@ -19,6 +19,12 @@ from neuromancer.loss import PenaltyLoss
 from neuromancer.modules import blocks
 
 
+def normalize(x, mean, std):
+    return (x - mean) / std
+
+def denormalize(x, mean, std):
+    return (x + mean) * std
+
 def get_data(sys, nsim, nsteps, ts, bs):
     """
     :param nsteps: (int) Number of timesteps for each batch of training data
@@ -43,8 +49,6 @@ def get_data(sys, nsim, nsteps, ts, bs):
     std_u = modelSystem.stats['U']['std']
     mean_d = modelSystem.stats['D']['mean']
     std_d = modelSystem.stats['D']['std']
-    def normalize(x, mean, std):
-        return (x - mean) / std
 
     trainX = normalize(train_sim['X'][:length], mean_x, std_x)
     trainX = trainX.reshape(nbatch, nsteps, nx)
@@ -209,7 +213,7 @@ if __name__ == '__main__':
         test_data,
         optimizer,
         patience=100,
-        warmup=400,
+        warmup=500,
         epochs=1000,
         eval_metric="dev_loss",
         train_metric="train_loss",
@@ -229,6 +233,8 @@ if __name__ == '__main__':
     input_traj = test_data['U'].detach().numpy().reshape(-1, nu).transpose(1, 0)
     dist_traj = test_data['D'].detach().numpy().reshape(-1, nd).transpose(1, 0)
 
+    plt_nsteps = 500
+
     # plot rollout
     figsize = 25
     fig, ax = plt.subplots(ny + nu + nd, figsize=(figsize, figsize))
@@ -237,8 +243,8 @@ if __name__ == '__main__':
     for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, x_labels)):
         axe = ax[row]
         axe.set_ylabel(label, rotation=0, labelpad=20, fontsize=figsize)
-        axe.plot(t1, 'c', linewidth=4.0, label='True')
-        axe.plot(t2, 'm--', linewidth=4.0, label='Pred')
+        axe.plot(t1[:plt_nsteps], 'c', linewidth=4.0, label='True')
+        axe.plot(t2[:plt_nsteps], 'm--', linewidth=4.0, label='Pred')
         axe.tick_params(labelbottom=False, labelsize=figsize)
     axe.tick_params(labelbottom=True, labelsize=figsize)
     axe.legend(fontsize=figsize)
@@ -246,7 +252,7 @@ if __name__ == '__main__':
     u_labels = [f'$u_{k}$' for k in range(len(input_traj))]
     for row, (u, label) in enumerate(zip(input_traj, u_labels)):
         axe = ax[row+ny]
-        axe.plot(u, linewidth=4.0, label='inputs')
+        axe.plot(u[:plt_nsteps], linewidth=4.0, label='inputs')
         axe.legend(fontsize=figsize)
         axe.set_ylabel(label, rotation=0, labelpad=20, fontsize=figsize)
         axe.tick_params(labelbottom=True, labelsize=figsize)
@@ -254,7 +260,7 @@ if __name__ == '__main__':
     d_labels = [f'$d_{k}$' for k in range(len(dist_traj))]
     for row, (d, label) in enumerate(zip(dist_traj, d_labels)):
         axe = ax[row+ny+nu]
-        axe.plot(d, linewidth=4.0, label='disturbances')
+        axe.plot(d[:plt_nsteps], linewidth=4.0, label='disturbances')
         axe.legend(fontsize=figsize)
         axe.set_ylabel(label, rotation=0, labelpad=20, fontsize=figsize)
         axe.tick_params(labelbottom=True, labelsize=figsize)

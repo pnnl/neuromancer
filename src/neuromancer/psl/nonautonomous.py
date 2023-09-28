@@ -155,7 +155,7 @@ class TwoTank(ODE):
     @property
     def params(self):
         variables = {'x0': [0., 0.],}
-        constants = {'ts': 0.1}
+        constants = {'ts': 1.0}
         parameters = {'c1': 0.08,  # inlet valve coefficient
                       'c2': 0.04,  # tank outlet coefficient
                       }
@@ -178,7 +178,8 @@ class TwoTank(ODE):
     def get_U(self, nsim, signal=None, **signal_kwargs):
         if signal is not None:
             return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
-        u = step(nsim=nsim, d=2, min=0., max=0.4, randsteps=int(np.ceil(self.ts*nsim)), rng=self.rng)
+        u = step(nsim=nsim, d=2, min=0., max=0.4,
+                 randsteps=int(np.ceil(self.ts*nsim/100)), rng=self.rng)
         return u
 
     @cast_backend
@@ -484,8 +485,10 @@ class SwingEquation(ODE):
         """
         Noisy mechanical power with constant Pmax)
         """
-        Pmech = walk(nsim=nsim, d=1, min=0.8 * 0.98, max=0.8 * 1.02, sigma=0.1, rng=self.rng)
-        return Pmech
+        u = step(nsim=nsim, d=1,  min=0.8 * 0.98, max=0.8 * 1.02,
+                 randsteps=int(np.ceil(nsim / 200)),
+                 rng=self.rng)
+        return u
 
     @cast_backend
     def equations(self, t, x, u):
@@ -493,7 +496,8 @@ class SwingEquation(ODE):
         domega = x[1]
         Pm = u[0]
         Pmax = self.Pmax
-        dx_dt = [self.ws * domega, (Pm - Pmax * np.sin(delta) - self.D * domega) / self.M]
+        dx_dt = [self.ws * domega,
+                 (Pm - Pmax * np.sin(delta) - self.D * domega) / self.M]
         return dx_dt
 
 
@@ -517,6 +521,16 @@ class DuffingControl(ODE):
         return variables, constants, parameters, meta
 
     @cast_backend
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+        u = periodic(nsim, d=1, min=0., max=5.,
+                     periods=int(np.ceil(nsim/100)),
+                     form='sin')
+
+        return u
+
+    @cast_backend
     def equations(self, t, x, u):
         dx1 = x[1]
         dx2 = - self.delta*x[1] - self.alpha*x[0] - self.beta*x[0]**3 + \
@@ -537,7 +551,7 @@ class VanDerPolControl(ODE):
     def params(self):
         variables = {'x0': self.rng.standard_normal(2),
                      'U': 0.5*np.cos([np.arange(0., self.nsim+1) * 0.02]).T}
-        constants = {'ts': 0.02}
+        constants = {'ts': 0.1}
         parameters = {'mu': 1.0}
         meta = {}
         return variables, constants, parameters, meta
@@ -548,6 +562,15 @@ class VanDerPolControl(ODE):
         dx2 = self.mu*(1 - x[0]**2)*x[1] - x[0] + u[0]
         dx = [dx1, dx2]
         return dx
+
+    @cast_backend
+    def get_U(self, nsim, signal=None, **signal_kwargs):
+        if signal is not None:
+            return super().get_U(nsim=nsim, signal=signal, **signal_kwargs)
+        u = step(nsim=nsim, d=1,  min=-5., max=5.,
+                 randsteps=int(np.ceil(nsim / 200)),
+                 rng=self.rng)
+        return u
 
 
 class ThomasAttractorControl(ODE):

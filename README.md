@@ -12,14 +12,9 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 We've made some backwards-compatible changes in order to simplify integration and support multiple symbolic inputs to `nn.Modules` in our `blocks` interface.
 
 **New Colab Examples:**  
-Physics-Informed Neural Networks (PINNs) for solving PDEs in NeuroMANCER
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Diffusion Equation
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_2_PINN_BurgersEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Burgers' Equation
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_3_PINN_BurgersEquation_inverse.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Burgers' Equation w/ Parameter Estimation (Inverse Problem)
-  
-System identification for networked ordinary differential equations (ODEs)
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/rc_net.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Data-driven modeling of physics-structured network ODEs.
+> ⭐ [Physics-Informed Neural Networks (PINNs) for solving partial differential equations (PDEs) in NeuroMANCER](#physics-informed-neural-networks-pinns-for-partial-differential-equations-pdes)
+
+> ⭐ [System identification for ordinary differential equations (ODEs)](#ordinary-differential-equations-odes)
 
 See [v1.4.1 release notes](#version-141-release-notes) for more details.
 
@@ -31,35 +26,73 @@ Interactive notebook versions of examples are available on Google Colab!
 Test out NeuroMANCER functionality before cloning the repository and setting up an
 environment.
 
+### Intro to NeuroMANCER
+
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_1_linear_regression.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-Linear regression in PyTorch vs NeuroMANCER.  
+Part 1: Linear regression in PyTorch vs NeuroMANCER.  
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_2_variable.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-NeuroMANCER syntax tutorial: variables, constraints, and objectives.  
+Part 2: NeuroMANCER syntax tutorial: variables, constraints, and objectives.  
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_3_node.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-NeuroMANCER syntax tutorial: modules, Node, and System class.
+Part 3: NeuroMANCER syntax tutorial: modules, Node, and System class.
+
+
+### Parametric Programming
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-Learning to solve a constrained optimization problem.
+Part 1: Learning to solve a constrained optimization problem.
 
- + <a target="_blank" 
-href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to solve a constrained optimization problem with projected gradient method.
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_2_pQP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+Part 2: Learning to solve a quadratically-constrained optimization problem.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_3_pNLP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+Part 3: Learning to solve a set of 2D constrained optimization problems.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
+Part 4: Learning to solve a constrained optimization problem with projected gradient method.
+
+### Ordinary Differential Equations (ODEs)
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_1_NODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Neural Ordinary Differential Equations (NODEs)
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_2_param_estim_ODE.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Parameter estimation of a nonlinear ordinary differential equation (ODE).
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Parameter estimation of ODE system
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_3_UDE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Universal Differential Equations (UDEs)
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_4_nonauto_NODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: NODEs with exogenous inputs
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_5_nonauto_NSSM.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Neural State Space Models (NSSMs) with exogenous inputs
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_6_NetworkODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Data-driven modeling of resistance-capacitance (RC) network ODEs
+
+
+### Physics-Informed Neural Networks (PINNs) for Partial Differential Equations (PDEs)
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Diffusion Equation
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_2_PINN_BurgersEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Burgers' Equation
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_3_PINN_BurgersEquation_inverse.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Burgers' Equation w/ Parameter Estimation (Inverse Problem)
+
+### Control
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to stabilize a linear dynamical system.
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Learning to stabilize a linear dynamical system.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_2_stabilize_ODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Learning to stabilize a nonlinear differential equation.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_3_ref_tracking_ODE.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to control a nolinear differential equation.
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Learning to control a nonlinear differential equation.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_4_systemid_control.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning neural ODE model and neural control policy for an unknown dynamical system.
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Learning neural ODE model and neural control policy for an unknown dynamical system.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_5_neural_Lyapunov.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning neural Lyapunov function for a nonlinear dynamical system.
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Learning neural Lyapunov function for a nonlinear dynamical system.
 
 
 
@@ -225,40 +258,55 @@ up in a future release.
 
 We welcome contributions and feedback from the open-source community!
 
+### Discussions
+
+[Discussions](https://github.com/pnnl/neuromancer/discussions) should be the first line of contact for new users to provide direct feedback on the library.
+Post your [Ideas](https://github.com/pnnl/neuromancer/discussions/categories/ideas) for new features or examples, 
+showcase your work using neuromancer in [Show and tell](https://github.com/pnnl/neuromancer/discussions/categories/show-and-tell),
+or get support for usage in [Q&As](https://github.com/pnnl/neuromancer/discussions/categories/q-a),
+please post them in one of our  categories.
+
+
 ### Contributing examples
 If you have an example of using NeuroMANCER to solve an interesting problem, or of using 
-NeuroMANCER in a unique way, we would love to see it incorporated into our current library of examples. 
+NeuroMANCER in a unique way please share them in [Show and tell](https://github.com/pnnl/neuromancer/discussions/categories/show-and-tell)
+discussions.
+The best examples might be incorporated into our current library of examples. 
 To submit an example, create a folder for your example/s in the example folder if there isn't 
 currently an applicable folder and place either your executable python file or notebook file there. 
-Push your code back to github and then submit a pull request. Please make sure to note in a comment at 
+Push your code back to Github and then submit a pull request. Please make sure to note in a comment at 
 the top of your code if there are additional dependencies to run your example and how to install 
 those dependencies. 
 
 ### Contributing code
 
 We welcome contributions to NeuroMANCER. Please accompany contributions with some lightweight unit tests
-via pytest (see test/ folder for some examples of easy to compose unit tests using pytest). In addition to unit tests
+via pytest (see test/ folder for some examples of easy to compose unit tests using pytest). 
+In addition to unit tests
 a script utilizing introduced new classes or modules should be placed in the examples folder. 
-To contribute a new feature please submit a pull request. 
+To contribute a new well-developed feature please submit a pull request (PR). 
+Before creating a PR, we encourage developers to discuss and document the intended feature
+in [Ideas](https://github.com/pnnl/neuromancer/discussions/categories/ideas) discussion category.
 
 ### Reporting issues or bugs
-If you find a bug in the code or want to request a new feature, please open an issue.
+If you find a bug in the code or want to request a new well-developed feature, please open an issue.
 
 ## NeuroMANCER development plan
 Here are some upcoming features we plan to develop. Please let us know if you would like to get involved and 
 contribute so we may be able to coordinate on development. If there is a feature that you think would
 be highly valuable but not included below, please open an issue and let us know your thoughts. 
 
-+ Faster dynamics modeling via Torchscript
 + Control and modelling for networked systems
++ Support for stochastic differential equations (SDEs)
 + Easy to implement modeling and control with uncertainty quantification
++ Proximal operators for dealing with equality and inequality constraints
++ Interface with CVXPYlayers
 + Online learning examples
 + Benchmark examples of DPC compared to deep RL
 + Conda and pip package distribution
-+ CVXPY-like interface for optimization via Problem.solve method
 + More versatile and simplified time series dataloading
-+ Pytorch Lightning trainer compatibility
 + Discovery of governing equations from learned RHS via NODEs and SINDy
++ More domain science examples
 
 
 ##  Release notes
@@ -271,8 +319,9 @@ be highly valuable but not included below, please open an issue and let us know 
   + `Block` - new base class for all other classes in `blocks.py`
   + `ODESystem` in `ode.py`
 + New Physics-Informed Neural Network (PINN) examples for solving PDEs in `/examples/PDEs/`
-+ New system identification example for learning physics-structured networked ODEs `/examples/system_identification/`
++ New system identification examples for ODEs in `/examples/ODEs/`
 + Fixed a bug in the `show(...)` method of the `Problem` class
++ Hotfix: `*args` for `GeneralNetworkedODE`
 
 ###  Version 1.4 Release Notes
 + Refactored PSL
@@ -346,8 +395,8 @@ from neuromancer import slim
 ## Development team
 
 **Lead developers**: Aaron Tuor, Jan Drgona  
-**Active PNNL developers**: James Koch, Madelyn Shapiro, Draguna Vrabie
-**Community contributors**: Seth Briney, Bo Tang
+**Active PNNL developers**: James Koch, Madelyn Shapiro, Ethan King, Draguna Vrabie  
+**Community contributors**: Seth Briney, Bo Tang  
 **Past contributors**: Shrirang Abhyankar, Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 
 

@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 # Neuromancer imports
 from neuromancer.psl.coupled_systems import *
-#from neuromancer.dynamics import integrators, ode, physics, interpolation
+from neuromancer.dynamics import integrators, ode, physics
 from neuromancer.dataset import DictDataset
 from neuromancer.constraint import variable
 from neuromancer.problem import Problem
@@ -19,11 +19,6 @@ from neuromancer.loss import PenaltyLoss
 from neuromancer.system import Node, System
 from neuromancer.loggers import BasicLogger
 from neuromancer.trainer import Trainer
-
-# Local core development:
-import local_integrators as integrators
-import local_physics as physics
-import local_ode as ode
 
 # Fix seeds for reproducibility
 np.random.seed(200)
@@ -120,7 +115,7 @@ model_ode = ode.GeneralNetworkedODE(
     outsize = s.nx)
 
 # Integrator instantiation
-fx_int = integrators.Euler(model_ode, h=1.0)
+fx_int = integrators.RK4(model_ode, h=1.0)
 
 dynamics_model = System([Node(fx_int,['xn','U'],['xn'])])
 

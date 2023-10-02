@@ -395,8 +395,8 @@ from neuromancer import slim
 ## Development team
 
 **Lead developers**: Aaron Tuor, Jan Drgona  
-**Active PNNL developers**: James Koch, Madelyn Shapiro, Draguna Vrabie
-**Community contributors**: Seth Briney, Bo Tang
+**Active PNNL developers**: James Koch, Madelyn Shapiro, Ethan King, Draguna Vrabie  
+**Community contributors**: Seth Briney, Bo Tang  
 **Past contributors**: Shrirang Abhyankar, Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 
 

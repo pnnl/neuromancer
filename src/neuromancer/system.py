@@ -240,14 +240,15 @@ class System(nn.Module):
         """
         return data
 
-    def forward(self, data):
+    def forward(self, input_dict):
         """
 
-        :param data: (dict: {str: Tensor}) Tensor shapes in dictionary are asssumed to be (batch, time, dim)
+        :param input_dict: (dict: {str: Tensor}) Tensor shapes in dictionary are asssumed to be (batch, time, dim)
                                            If an init function should be written to assure that any 2-d or 1-d tensors
                                            have 3 dims.
         :return: (dict: {str: Tensor}) data with outputs of nstep rollout of Node interactions
         """
+        data = input_dict.copy()
         nsteps = self.nsteps if self.nsteps is not None else data[self.nstep_key].shape[1]  # Infer number of rollout steps
         data = self.init(data)  # Set initial conditions of the system
         for i in range(nsteps):

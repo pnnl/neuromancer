@@ -164,8 +164,6 @@ if __name__ == "__main__":
     pltCL(Y=trajectories['x'].detach().reshape(nsteps + 1, 2),
           R=trajectories['r'].detach().reshape(nsteps + 1, 2),
           U=trajectories['u'].detach().reshape(nsteps, 1),
-          Umin=Umin, Umax=Umax,
-          figname='cl.png')
+          Umin=Umin, Umax=Umax)
     # plot phase portrait
-    pltPhase(X=trajectories['x'].detach().reshape(nsteps + 1, 2),
-             figname='phase.png')
+    pltPhase(X=trajectories['x'].detach().reshape(nsteps + 1, 2))

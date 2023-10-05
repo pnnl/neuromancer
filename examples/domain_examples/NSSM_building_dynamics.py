@@ -22,9 +22,6 @@ from neuromancer.modules import blocks
 def normalize(x, mean, std):
     return (x - mean) / std
 
-def denormalize(x, mean, std):
-    return (x + mean) * std
-
 def get_data(sys, nsim, nsteps, ts, bs):
     """
     :param nsteps: (int) Number of timesteps for each batch of training data
@@ -153,7 +150,7 @@ if __name__ == '__main__':
 
     # get datasets
     nsim = 2000
-    nsteps = 50
+    nsteps = 2
     bs = 100
     train_loader, dev_loader, test_data = \
         get_data(modelSystem, nsim, nsteps, ts, bs)
@@ -213,27 +210,45 @@ if __name__ == '__main__':
         test_data,
         optimizer,
         patience=100,
-        warmup=500,
+        warmup=100,
         epochs=1000,
         eval_metric="dev_loss",
         train_metric="train_loss",
         dev_metric="dev_loss",
         test_metric="dev_loss",
     )
-    # %%
-    best_model = trainer.train()
-    problem.load_state_dict(best_model)
-    # %%
+
+    # Curriculum Model training
+    iterations = 5
+    for i in range(iterations):
+        print(f'training {nsteps} objective')
+        best_model = trainer.train()
+        trainer.model.load_state_dict(best_model)
+        nsteps *= 2  # increase prediction horizon
+        # create dataloaders with batched trajectories using new prediction horizon
+        train_loader, dev_loader, test_data = \
+            get_data(modelSystem, nsim, nsteps, ts, bs)
+        trainer.train_data, trainer.dev_data, trainer.test_data = \
+            train_loader, dev_loader, test_data
+        # reset early stopping
+        trainer.badcount = 0
 
     # Test set results
     test_outputs = dynamics_model(test_data)
 
-    pred_traj = test_outputs['yn'][:, :-1, :].detach().numpy().reshape(-1, ny).transpose(1, 0)
-    true_traj = test_data['Y'].detach().numpy().reshape(-1, ny).transpose(1, 0)
-    input_traj = test_data['U'].detach().numpy().reshape(-1, nu).transpose(1, 0)
-    dist_traj = test_data['D'].detach().numpy().reshape(-1, nd).transpose(1, 0)
+    def denormalize(x, mean, std):
+        return (x * std) + mean
 
-    plt_nsteps = 500
+    pred_traj = denormalize(test_outputs['yn'][:, :-1, :].detach().numpy(), modelSystem.stats["Y"]["mean"],
+                            modelSystem.stats["Y"]["std"]).reshape(-1, ny).T
+    true_traj = denormalize(test_data['Y'].detach().numpy(), modelSystem.stats["Y"]["mean"],
+                            modelSystem.stats["Y"]["std"]).reshape(-1,ny).T
+    input_traj = denormalize(test_data['U'].detach().numpy(),
+                             modelSystem.stats["U"]["mean"], modelSystem.stats["U"]["std"]).reshape(-1, nu).T
+    dist_traj = denormalize(test_data['D'].detach().numpy(),
+                            modelSystem.stats["D"]["mean"], modelSystem.stats["D"]["std"]).reshape(-1,nd).T
+
+    plt_nsteps = 1000
 
     # plot rollout
     figsize = 25

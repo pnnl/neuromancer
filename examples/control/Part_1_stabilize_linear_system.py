@@ -72,9 +72,9 @@ if __name__ == '__main__':
     nsteps = 30
     cl_system.nsteps = nsteps
     trajectories = cl_system(data)
-    pltCL(Y=trajectories['X'].detach().reshape(nsteps + 1, 2), U=trajectories['U'].detach().reshape(nsteps, 1),
-          figname='cl.png')
-    pltPhase(X=trajectories['X'].detach().reshape(nsteps + 1, 2), figname='phase.png')
+    pltCL(Y=trajectories['X'].detach().reshape(nsteps + 1, 2),
+          U=trajectories['U'].detach().reshape(nsteps, 1))
+    pltPhase(X=trajectories['X'].detach().reshape(nsteps + 1, 2))
 
 
 

@@ -222,13 +222,17 @@ if __name__ == '__main__':
     problem.nodes[1].nsteps = test_data['Y'].shape[1]
     test_outputs = problem(test_data)
 
-    pred_traj = test_outputs['test_y'].detach().numpy().reshape(-1, ny).transpose(1, 0)
-    true_traj = test_data['Y'].detach().numpy().reshape(-1, ny).transpose(1, 0)
-    input_traj = test_data['U'].detach().numpy().reshape(-1, nu).transpose(1, 0)
-    dist_traj = test_data['D'].detach().numpy().reshape(-1, nd).transpose(1, 0)
+    def denormalize(x, mean, std):
+        return (x * std) + mean
 
-
-    # TODO: denormalize for plots
+    pred_traj = denormalize(test_outputs['test_y'], modelSystem.stats["Y"]["mean"],
+                            modelSystem.stats["Y"]["std"]).reshape(-1, ny).T
+    true_traj = denormalize(test_data['Y'], modelSystem.stats["Y"]["mean"],
+                            modelSystem.stats["Y"]["std"]).reshape(-1,ny).T
+    input_traj = denormalize(test_data['U'],
+                             modelSystem.stats["U"]["mean"], modelSystem.stats["U"]["std"]).reshape(-1, nu).T
+    dist_traj = denormalize(test_data['D'],
+                            modelSystem.stats["D"]["mean"], modelSystem.stats["D"]["std"]).reshape(-1,nd).T
 
     plt_nsteps = 500
 

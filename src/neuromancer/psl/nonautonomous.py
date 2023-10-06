@@ -168,7 +168,7 @@ class TwoTank(ODE):
 
     @property
     def umax(self):
-        return np.array([.5,.5])
+        return np.array([1, 1])
 
     @cast_backend
     def get_x0(self):

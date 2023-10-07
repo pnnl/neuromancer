@@ -1,18 +1,18 @@
 """
 Learning provably stable Deep Koopman model from time series data
 
-references Koopman models:
-[1] https://www.nature.com/articles/s41467-018-07210-0
-[2] https://ieeexplore.ieee.org/document/8815339
-[3] https://arxiv.org/abs/1710.04340
-[4] https://nicholasgeneva.com/deep-learning/koopman/dynamics/2020/05/30/intro-to-koopman.html
+references Koopman control models:
+[1] https://arxiv.org/abs/2202.08004
+[2]
+[3]
 
 references stability:
-[5] https://ieeexplore.ieee.org/document/9482930
+[4] https://ieeexplore.ieee.org/document/9482930
 
 """
 
 import torch
+import torch.nn as nn
 import numpy as np
 
 from neuromancer.psl import plot
@@ -24,12 +24,10 @@ from neuromancer.system import Node, System
 from neuromancer.slim import slim
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
-from neuromancer.loggers import BasicLogger
 from neuromancer.dataset import DictDataset
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer. modules import blocks
-
 
 def get_data(sys, nsim, nsteps, ts, bs):
     """
@@ -40,40 +38,90 @@ def get_data(sys, nsim, nsteps, ts, bs):
 
     """
     train_sim, dev_sim, test_sim = [sys.simulate(nsim=nsim, ts=ts) for i in range(3)]
-    ny = sys.ny
+    nx = sys.nx
+    nu = sys.nu
     nbatch = nsim//nsteps
     length = (nsim//nsteps) * nsteps
 
-    trainY = train_sim['Y'][:length].reshape(nbatch, nsteps, ny)
-    trainY = torch.tensor(trainY, dtype=torch.float32)
-    train_data = DictDataset({'Y': trainY, 'Y0': trainY[:, 0:1, :]}, name='train')
+    mean_x = modelSystem.stats['Y']['mean']
+    std_x = modelSystem.stats['Y']['std']
+    mean_u = modelSystem.stats['U']['mean']
+    std_u = modelSystem.stats['U']['std']
+    def normalize(x, mean, std):
+        return (x - mean) / std
+
+    trainX = normalize(train_sim['Y'][:length], mean_x, std_x)
+    trainX = trainX.reshape(nbatch, nsteps, nx)
+    trainX = torch.tensor(trainX, dtype=torch.float32)
+    trainU = normalize(train_sim['U'][:length], mean_u, std_u)
+    trainU = trainU.reshape(nbatch, nsteps, nu)
+    trainU = torch.tensor(trainU, dtype=torch.float32)
+    train_data = DictDataset({'Y': trainX, 'Y0': trainX[:, 0:1, :],
+                              'U': trainU}, name='train')
     train_loader = DataLoader(train_data, batch_size=bs,
                               collate_fn=train_data.collate_fn, shuffle=True)
 
-    devY = dev_sim['Y'][:length].reshape(nbatch, nsteps, ny)
-    devY = torch.tensor(devY, dtype=torch.float32)
-    dev_data = DictDataset({'Y': devY, 'Y0': devY[:, 0:1, :]}, name='dev')
+    devX = normalize(dev_sim['Y'][:length], mean_x, std_x)
+    devX = devX.reshape(nbatch, nsteps, nx)
+    devX = torch.tensor(devX, dtype=torch.float32)
+    devU = normalize(dev_sim['U'][:length], mean_u, std_u)
+    devU = devU[:length].reshape(nbatch, nsteps, nu)
+    devU = torch.tensor(devU, dtype=torch.float32)
+    dev_data = DictDataset({'Y': devX, 'Y0': devX[:, 0:1, :],
+                            'U': devU}, name='dev')
     dev_loader = DataLoader(dev_data, batch_size=bs,
                             collate_fn=dev_data.collate_fn, shuffle=True)
 
-    testY = test_sim['Y'][:length].reshape(1, nsim, ny)
-    testY = torch.tensor(testY, dtype=torch.float32)
-    test_data = {'Y': testY, 'Y0': testY[:, 0:1, :], 'name': 'test'}
+    testX = normalize(test_sim['Y'][:length], mean_x, std_x)
+    testX = testX.reshape(1, nbatch*nsteps, nx)
+    testX = torch.tensor(testX, dtype=torch.float32)
+    testU = normalize(test_sim['U'][:length], mean_u, std_u)
+    testU = testU.reshape(1, nbatch*nsteps, nu)
+    testU = torch.tensor(testU, dtype=torch.float32)
+    test_data = {'Y': testX, 'Y0': testX[:, 0:1, :],
+                 'U': testU}
 
     return train_loader, dev_loader, test_data
+
+class Koopman_control(nn.Module):
+    """
+    Baseline class for Koopman control model
+    Implements discrete-time dynamical system:
+        x_k+1 = K x_k + u_k
+    with variables:
+        x_k - latent states
+        u_k - latent control inputs
+    """
+
+    def __init__(self, K):
+        super().__init__()
+        self.K = K
+
+    def forward(self, x, u):
+        """
+        :param x: (torch.Tensor, shape=[batchsize, nx])
+        :param u: (torch.Tensor, shape=[batchsize, nx])
+        :return: (torch.Tensor, shape=[batchsize, nx])
+        """
+        x = self.K(x) + u
+        return x
 
 
 if __name__ == '__main__':
     torch.manual_seed(0)
 
+    # select system:
+    #   TwoTank, CSTR, SwingEquation, IverSimple
+
     # %%  ground truth system
-    system = psl.systems['VanDerPol']
+    system = psl.systems['CSTR']
     modelSystem = system()
     ts = modelSystem.ts
     nx = modelSystem.nx
     ny = modelSystem.ny
+    nu = modelSystem.nu
     raw = modelSystem.simulate(nsim=1000, ts=ts)
-    plot.pltOL(Y=raw['Y'])
+    plot.pltOL(Y=raw['Y'], U=raw['U'])
     plot.pltPhase(X=raw['Y'])
 
     # get datasets
@@ -86,25 +134,31 @@ if __name__ == '__main__':
     n_hidden = 60
     n_layers = 2
 
-    # instantiate encoder neural net
-    encode = blocks.MLP(ny, nx_koopman, bias=True,
+    # instantiate state encoder neural net
+    f_y = blocks.MLP(ny, nx_koopman, bias=True,
                      linear_map=torch.nn.Linear,
                      nonlin=torch.nn.ELU,
                      hsizes=n_layers*[n_hidden])
     # initial condition encoder
-    encode_Y0 = Node(encode, ['Y0'], ['x'], name='encoder_Y0')
+    encode_Y0 = Node(f_y, ['Y0'], ['x'], name='encoder_Y0')
     # observed trajectory encoder
-    encode_Y = Node(encode, ['Y'], ['x_traj'], name='encoder_Y')
+    encode_Y = Node(f_y, ['Y'], ['x_latent'], name='encoder_Y')
 
-    # instantiate decoder neural net
-    decode = blocks.MLP(nx_koopman, ny, bias=True,
+    # instantiate input encoder net
+    f_u = blocks.MLP(nu, nx_koopman, bias=True,
+                     linear_map=torch.nn.Linear,
+                     nonlin=torch.nn.ELU,
+                     hsizes=n_layers*[n_hidden])
+    # initial condition encoder
+    encode_U = Node(f_u, ['U'], ['u_latent'], name='encoder_U')
+
+    # instantiate state decoder neural net
+    f_y_inv = blocks.MLP(nx_koopman, ny, bias=True,
                     linear_map=torch.nn.Linear,
                     nonlin=torch.nn.ELU,
                     hsizes=n_layers*[n_hidden])
-    # reconstruction decoder
-    decode_y0 = Node(decode, ['x'], ['yhat0'], name='decoder_y0')
     # predicted trajectory decoder
-    decode_y = Node(decode, ['x'], ['yhat'], name='decoder_y')
+    decode_y = Node(f_y_inv, ['x'], ['yhat'], name='decoder_y')
 
     # instantiate Koopman matrix
     stable = True     # provably stable Koopman operator
@@ -117,38 +171,34 @@ if __name__ == '__main__':
         # linear Koopman operator without guaranteed stability
         K = torch.nn.Linear(nx_koopman, nx_koopman, bias=False)
 
-    # symbolic Koopman model
-    Koopman = Node(K, ['x'], ['x'], name='K')
+    # symbolic Koopman model with control inputs
+    Koopman = Node(Koopman_control(K), ['x', 'u_latent'], ['x'], name='K')
 
     # latent Koopmann rollout
     dynamics_model = System([Koopman], name='Koopman', nsteps=nsteps)
 
-    # %% Constraints + losses:
-    Y = variable("Y")                      # observed
-    yhat = variable('yhat')                # predicted output
-    Y0 = variable('Y0')                    # observed initial conditions
-    yhat0 = variable('yhat0')              # reconstructed initial conditions
-    x_traj = variable('x_traj')            # encoded trajectory in the latent space
-    x = variable('x')                      # Koopman latent space trajectory
+    # variables
+    Y = variable("Y")  # observed
+    yhat = variable('yhat')  # predicted output
+    x_latent = variable('x_latent')  # encoded output trajectory in the latent space
+    u_latent = variable('u_latent')  # encoded input trajectory in the latent space
+    x = variable('x')  # Koopman latent space trajectory
+    xu_latent = x_latent + u_latent  # latent state trajectory
 
     # output trajectory tracking loss
     y_loss = 10. * (yhat[:, 1:-1, :] == Y[:, 1:, :]) ^ 2
     y_loss.name = "y_loss"
 
-    # latent trajectory tracking loss
-    x_loss = 1. * (x[:, 1:-1, :] == x_traj[:, 1:, :]) ^ 2
-    x_loss.name = "x_loss"
-
     # one-step tracking loss
     onestep_loss = 1.*(yhat[:, 1, :] == Y[:, 1, :])^2
     onestep_loss.name = "onestep_loss"
 
-    # encoder-decoder reconstruction loss
-    reconstruct_loss = 1.*(Y0 == yhat0)^2
-    reconstruct_loss.name = "reconstruct_loss"
+    # latent trajectory tracking loss
+    x_loss = 1. * (x[:, 1:-1, :] == xu_latent[:, 1:, :]) ^ 2
+    x_loss.name = "x_loss"
 
-    # %%
-    objectives = [y_loss, x_loss, onestep_loss, reconstruct_loss]
+    # % objectives and constraints
+    objectives = [y_loss, x_loss, onestep_loss]
     constraints = []
 
     if stable:
@@ -162,16 +212,13 @@ if __name__ == '__main__':
     # create constrained optimization loss
     loss = PenaltyLoss(objectives, constraints)
     # construct constrained optimization problem
-    nodes = [encode_Y0, decode_y0, encode_Y,
-             dynamics_model, decode_y]
+    nodes = [encode_Y0, encode_Y, encode_U, dynamics_model, decode_y]
     problem = Problem(nodes, loss)
     # plot computational graph
     problem.show()
 
     # %%
     optimizer = torch.optim.Adam(problem.parameters(), lr=0.001)
-    logger = BasicLogger(args=None, savedir='test', verbosity=1,
-                         stdout=['dev_loss', 'train_loss'])
 
     trainer = Trainer(
         problem,
@@ -186,7 +233,6 @@ if __name__ == '__main__':
         train_metric="train_loss",
         dev_metric="dev_loss",
         test_metric="dev_loss",
-        logger=logger,
     )
     # %%
     best_model = trainer.train()
@@ -199,23 +245,31 @@ if __name__ == '__main__':
 
     pred_traj = test_outputs['yhat'][:, 1:-1, :].detach().numpy().reshape(-1, nx).T
     true_traj = test_data['Y'][:, 1:, :].detach().numpy().reshape(-1, nx).T
+    input_traj = test_data['U'].detach().numpy().reshape(-1, nu).T
 
     # plot trajectories
     figsize = 25
-    fig, ax = plt.subplots(nx, figsize=(figsize, figsize))
-    labels = [f'$y_{k}$' for k in range(len(true_traj))]
-    for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, labels)):
-        if nx > 1:
-            axe = ax[row]
-        else:
-            axe = ax
+    fig, ax = plt.subplots(nx + nu, figsize=(figsize, figsize))
+
+    x_labels = [f'$y_{k}$' for k in range(len(true_traj))]
+    for row, (t1, t2, label) in enumerate(zip(true_traj, pred_traj, x_labels)):
+        axe = ax[row]
         axe.set_ylabel(label, rotation=0, labelpad=20, fontsize=figsize)
         axe.plot(t1, 'c', linewidth=4.0, label='True')
         axe.plot(t2, 'm--', linewidth=4.0, label='Pred')
         axe.tick_params(labelbottom=False, labelsize=figsize)
     axe.tick_params(labelbottom=True, labelsize=figsize)
     axe.legend(fontsize=figsize)
-    axe.set_xlabel('$time$', fontsize=figsize)
+
+    u_labels = [f'$u_{k}$' for k in range(len(input_traj))]
+    for row, (u, label) in enumerate(zip(input_traj, u_labels)):
+        axe = ax[row+nx]
+        axe.plot(u, linewidth=4.0, label='inputs')
+        axe.legend(fontsize=figsize)
+        axe.set_ylabel(label, rotation=0, labelpad=20, fontsize=figsize)
+        axe.tick_params(labelbottom=True, labelsize=figsize)
+
+    ax[-1].set_xlabel('$time$', fontsize=figsize)
     plt.tight_layout()
 
     # compute Koopman eigenvalues and eigenvectors
@@ -241,15 +295,17 @@ if __name__ == '__main__':
     ax1.set_ylabel("$Im(\lambda)$", fontsize=figsize)
     fig1.suptitle('Koopman operator eigenvalues')
 
-    # compute Koopman eigenvectors
-    y1 = torch.linspace(-2.2, 2.2, 1000)
-    y2 = torch.linspace(-2.2, 2.2, 1000)
+    # compute Koopman state eigenvectors
+    y_min = 1.1*test_data['Y'].min()
+    y_max = 1.1*test_data['Y'].max()
+    y1 = torch.linspace(y_min, y_max, 1000)
+    y2 = torch.linspace(y_min, y_max, 1000)
     yy1, yy2 = torch.meshgrid(y1, y1)
     plot_yy1 = yy1.detach().numpy()
     plot_yy2 = yy2.detach().numpy()
     # eigenvectors
     features = torch.stack([yy1, yy2]).transpose(0, 2)
-    latent = encode(features)
+    latent = encode_state(features)
     phi = torch.matmul(latent, abs(eig_vec))
     # select first 6 eigenvectors
     phi_1 = phi.detach().numpy()[:,:,0]
@@ -258,7 +314,6 @@ if __name__ == '__main__':
     phi_4 = phi.detach().numpy()[:,:,3]
     phi_5 = phi.detach().numpy()[:,:,4]
     phi_6 = phi.detach().numpy()[:,:,6]
-
     # plot eigenvectors
     fig2, axs = plt.subplots(2, 3)
     im1 = axs[0,0].imshow(phi_1)

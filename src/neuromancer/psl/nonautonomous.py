@@ -164,11 +164,11 @@ class TwoTank(ODE):
 
     @property
     def umin(self):
-        return np.array([0,0])
+        return np.array([0.0, 0.0], dtype=np.float32)
 
     @property
     def umax(self):
-        return np.array([.5,.5])
+        return np.array([1.0, 1.0], dtype=np.float32)
 
     @cast_backend
     def get_x0(self):

@@ -104,7 +104,7 @@ if __name__ == '__main__':
     # reconstruction decoder
     decode_y0 = Node(decode, ['x'], ['yhat0'], name='decoder_y0')
     # predicted trajectory decoder
-    decode_y = Node(decode, ['x'], ['y'], name='decoder_y')
+    decode_y = Node(decode, ['x'], ['yhat'], name='decoder_y')
 
     # instantiate Koopman matrix
     stable = True     # provably stable Koopman operator
@@ -125,18 +125,18 @@ if __name__ == '__main__':
 
     # %% Constraints + losses:
     Y = variable("Y")                      # observed
-    yhat = variable('y')                   # predicted output
+    yhat = variable('yhat')                # predicted output
     Y0 = variable('Y0')                    # observed initial conditions
     yhat0 = variable('yhat0')              # reconstructed initial conditions
     x_traj = variable('x_traj')            # encoded trajectory in the latent space
     x = variable('x')                      # Koopman latent space trajectory
 
     # output trajectory tracking loss
-    y_loss = 10.*(yhat[:, :-1, :] == Y)^2
+    y_loss = 10. * (yhat[:, 1:-1, :] == Y[:, 1:, :]) ^ 2
     y_loss.name = "y_loss"
 
     # latent trajectory tracking loss
-    x_loss = 1.*(x_traj == x[:, :-1, :])^2
+    x_loss = 1. * (x[:, 1:-1, :] == x_traj[:, 1:, :]) ^ 2
     x_loss.name = "x_loss"
 
     # one-step tracking loss
@@ -197,8 +197,8 @@ if __name__ == '__main__':
     problem.nodes[3].nsteps = test_data['Y'].shape[1]
     test_outputs = problem.step(test_data)
 
-    pred_traj = test_outputs['y'][:, :-1, :]
-    true_traj = test_data['Y']
+    pred_traj = test_outputs['yhat'][:, 1:-1, :]
+    true_traj = test_data['Y'][:, 1:, :]
     pred_traj = pred_traj.detach().numpy().reshape(-1, nx)
     true_traj = true_traj.detach().numpy().reshape(-1, nx)
     pred_traj, true_traj = pred_traj.transpose(1, 0), true_traj.transpose(1, 0)
@@ -242,15 +242,15 @@ if __name__ == '__main__':
     ax1.set_facecolor("navy")
     ax1.set_xlabel("$Re(\lambda)$", fontsize=figsize)
     ax1.set_ylabel("$Im(\lambda)$", fontsize=figsize)
+    fig1.suptitle('Koopman operator eigenvalues')
 
-    #
+    # compute Koopman eigenvectors
     y1 = torch.linspace(-2.2, 2.2, 1000)
     y2 = torch.linspace(-2.2, 2.2, 1000)
     yy1, yy2 = torch.meshgrid(y1, y1)
     plot_yy1 = yy1.detach().numpy()
     plot_yy2 = yy2.detach().numpy()
-
-    # compute eigenvectors
+    # eigenvectors
     features = torch.stack([yy1, yy2]).transpose(0, 2)
     latent = encode(features)
     phi = torch.matmul(latent, abs(eig_vec))
@@ -270,4 +270,5 @@ if __name__ == '__main__':
     im4 = axs[1,0].imshow(phi_4)
     im5 = axs[1,1].imshow(phi_5)
     im6 = axs[1,2].imshow(phi_6)
-    fig.colorbar(im1, ax=axs)
+    fig2.colorbar(im1, ax=axs)
+    fig2.suptitle('first six eigenfunctions')

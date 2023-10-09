@@ -305,7 +305,7 @@ if __name__ == '__main__':
     plot_yy2 = yy2.detach().numpy()
     # eigenvectors
     features = torch.stack([yy1, yy2]).transpose(0, 2)
-    latent = encode_state(features)
+    latent = f_y(features)
     phi = torch.matmul(latent, abs(eig_vec))
     # select first 6 eigenvectors
     phi_1 = phi.detach().numpy()[:,:,0]

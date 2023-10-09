@@ -1,4 +1,4 @@
-# System Identification for ODEs in Neuromancer
+# Domain Examples in Neuromancer
 
 This directory contains interactive examples that can serve as a step-by-step tutorial 
 showcasing the use of Neuromancer in solving various domain problems.

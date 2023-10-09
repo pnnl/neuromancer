@@ -69,14 +69,13 @@ class LinearBase(nn.Module, ABC):
         """
         return torch.tensor(0.0).to(self.device)
 
-    def eig(self, eigenvectors=False):
+    def eig(self):
         """
         Returns the eigenvalues (optionally eigenvectors) of the linear map used in matrix multiplication.
 
-        :param eigenvectors: (bool) Whether to return eigenvectors along with eigenvalues.
         :return: (torch.Tensor) Vector of eigenvalues, optionally a tuple including a matrix of eigenvectors.
         """
-        return torch.eig(self.effective_W(), eigenvectors=eigenvectors)
+        return torch.linalg.eig(self.effective_W())
 
     @abstractmethod
     def effective_W(self):

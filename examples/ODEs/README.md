@@ -185,12 +185,3 @@ Journal of Computational physics, 378:686–707, 2019.](https://www.sciencedirec
 + [Tuor, A., Drgona, J., & Vrabie, D. (2020). Constrained neural ordinary differential equations with stability guarantees. arXiv preprint arXiv:2004.10883.](https://arxiv.org/abs/2004.10883)
 
 
-## Cite as
-```yaml
-@article{Neuromancer2022,
-  title={{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}},
-  author={Tuor, Aaron and Drgona, Jan and Skomski, Mia and Koch, James and Chen, Zhao and Dernbach, Stefan and Legaard, Christian Møldrup and Vrabie, Draguna},
-  Url= {https://github.com/pnnl/neuromancer}, 
-  year={2022}
-}
-```

@@ -394,10 +394,10 @@ from neuromancer import slim
 
 ## Development team
 
-**Lead developers**: Aaron Tuor, Jan Drgona  
-**Active PNNL developers**: James Koch, Madelyn Shapiro, Ethan King, Draguna Vrabie  
-**Community contributors**: Seth Briney, Bo Tang  
-**Past contributors**: Shrirang Abhyankar, Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
+**Lead developers**: Jan Drgona, Aaron Tuor   
+**Active core developers**: James Koch, Madelyn Shapiro, Draguna Vrabie  
+**Notable contributors**: Seth Briney, Bo Tang, Ethan King, Shrirang Abhyankar, 
+Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 
 
 ## Publications
@@ -420,7 +420,7 @@ from neuromancer import slim
 ```yaml
 @article{Neuromancer2023,
   title={{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}},
-  author={Tuor, Aaron and Drgona, Jan and Koch, James and Shapiro, Madelyn and Vrabie, Draguna and Briney, Seth},
+  author={Drgona, Jan and Tuor, Aaron and Koch, James and Shapiro, Madelyn and Vrabie, Draguna},
   Url= {https://github.com/pnnl/neuromancer}, 
   year={2023}
 }

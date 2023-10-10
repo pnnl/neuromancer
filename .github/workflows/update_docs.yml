@@ -44,7 +44,7 @@ jobs:
           git commit -m 'Added new documentation'
 
 
-
+          git push 
 
       
           

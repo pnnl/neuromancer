@@ -4,7 +4,6 @@ on: [push]
 jobs:
   PullRepo:
     name: Main
-    working-directory: ${{ github.workspace }}
     runs-on: "ubuntu-latest"
     steps:
       - name: Set up Python

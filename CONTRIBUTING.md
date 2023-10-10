@@ -1,5 +1,5 @@
 
-## Community Development
+## Community Development Guidelines
 
 We welcome contributions and feedback from the open-source community!
 
@@ -34,4 +34,22 @@ Before creating a PR, we encourage developers to discuss and document the intend
 in [Ideas](https://github.com/pnnl/neuromancer/discussions/categories/ideas) discussion category.
 
 ### Reporting issues or bugs
-If you find a bug in the code or want to request a new well-developed feature, please open an issue.
+If you find a bug in the code or want to request a new well-developed feature, please open an [issue](https://github.com/pnnl/neuromancer/issues).
+
+
+## NeuroMANCER development plan
+Here are some upcoming features we plan to develop. Please let us know if you would like to get involved and 
+contribute so we may be able to coordinate on development. If there is a feature that you think would
+be highly valuable but not included below, please open an issue and let us know your thoughts. 
+
++ Control and modelling for networked systems
++ Support for stochastic differential equations (SDEs)
++ Easy to implement modeling and control with uncertainty quantification
++ Proximal operators for dealing with equality and inequality constraints
++ Interface with CVXPYlayers
++ Online learning examples
++ Benchmark examples of DPC compared to deep RL
++ Conda and pip package distribution
++ More versatile and simplified time series dataloading
++ Discovery of governing equations from learned RHS via NODEs and SINDy
++ More domain science examples

@@ -32,7 +32,7 @@ jobs:
           cd ..
           mkdir tmp 
           cp -r ../docs/html tmp
-          cd tmp 
+          cd tmp/html 
 
           git config --global user.email "rahul.birmiwal@pnnl.gov"
           git config --global user.name "RBirmiwal"

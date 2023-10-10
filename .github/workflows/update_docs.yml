@@ -15,6 +15,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install sphinx
           pip install sphinx_rtd_theme
+          
 
       - uses: actions/checkout@v2
       - shell: bash -l {0}
@@ -22,7 +23,7 @@ jobs:
 
           mkdir docs
           cd docs
-          git clone https://github.com/pnnl/neuromancer.git -b gh-pages --single-branch
+          git clone https://github.com/pnnl/neuromancer.git -b birmiwal.rahul_development --single-branch
           mv neuromancer html
 
           cd ../neuromancer/docs
@@ -44,7 +45,7 @@ jobs:
           git commit -m 'Added new documentation'
 
 
-          git push 
+          git push origin birmiwal.rahul_development
 
       
           

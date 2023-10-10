@@ -1,5 +1,5 @@
 name: Update Documentation
-on: [push]
+on: [push, pull]
 
 jobs:
   PullRepo:

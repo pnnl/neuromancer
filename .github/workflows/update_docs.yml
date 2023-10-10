@@ -48,7 +48,10 @@ jobs:
           git config --global user.name "RBirmiwal"
           git add *.html
           git add objects.inv
-          git commit -m 'Added new documentation'
+          git add searchindex.js
+          git commit -m 'TEST: Added new documentation'
+          
+          
 
           
           cd ..

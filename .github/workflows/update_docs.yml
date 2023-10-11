@@ -1,55 +1,26 @@
-name: Update Documentation
-on: [push, pull_request]
+name: documentation
+
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: write
 
 jobs:
-  PullRepo:
-    name: Main
-    runs-on: "ubuntu-latest"
+  docs:
+    runs-on: ubuntu-latest
     steps:
-      - name: Set up Python
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+      - name: Install dependencies
+        run: |
+          pip install sphinx sphinx_rtd_theme myst_parser
+      - name: Sphinx build
+        run: |
+          TZ=UTC sphinx-build docs _build
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          python-version: 3.9
-      - name: Install Sphinx
-        run: |
-          python -m pip install --upgrade pip
-          pip install sphinx
-          pip install sphinx_rtd_theme
-          
-
-      - uses: actions/checkout@v2
-      - shell: bash -l {0}
-        run: |
-
-          mkdir docs
-          cd docs
-          git clone https://github.com/pnnl/neuromancer.git -b birmiwal.rahul_development --single-branch
-          mv neuromancer html
-
-          cd ../neuromancer/docs
-
-          
-          TZ=UTC make html
-          cd ..
-          mkdir tmp 
-          cp -r ../docs/html tmp
-          cd tmp/html 
-
-          git config --global user.email "rahul.birmiwal@pnnl.gov"
-          git config --global user.name "RBirmiwal"
-
-
-          git add *.html
-          git add objects.inv
-          git add searchindex.js
-          git commit -m 'Added new documentation'
-
-
-          git push origin birmiwal.rahul_development
-
-      
-          
-          
-        
-          
-          
+          publish_branch: gh-pages-test
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs
+          force_orphan: true

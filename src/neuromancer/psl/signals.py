@@ -434,7 +434,7 @@ def nd_walk(nsim, d, min:_float_or_npd=0., max:_float_or_npd=1., x0:_float_or_np
 
 periodic_signals = {f'{stype}': functools.partial(periodic, form=stype) for stype in _periodic_functions}
 signals = {**periodic_signals, 'walk': walk, 'noise': noise, 'step': step, 'spline': spline,
-           'sines': sines,  'arma': arma, 'prbs': prbs}
+           'sines': sines,  'arma': arma, 'prbs': prbs, 'beta':beta, 'beta_walk_mean':beta_walk_mean, 'beta_walk_max_step':beta_walk_max_step}
 
 
 if __name__ == '__main__':

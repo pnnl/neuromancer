@@ -1,4 +1,4 @@
-Activations Test
+Activations
 ===========
 
 .. automodule:: neuromancer.activations

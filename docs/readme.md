@@ -1,4 +1,3 @@
-# TEST
 Instructions for updating the documentation and hosting on open source github repo.
 
 On the same level as your Neuromancer repo, make a docs directory 

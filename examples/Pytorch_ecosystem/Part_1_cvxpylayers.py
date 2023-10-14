@@ -69,7 +69,7 @@ if __name__ == "__main__":
     # Each element in the set of sampled parameters represents one instance of the problem
     data_seed = 408
     np.random.seed(data_seed)
-    nsim = 5000  # number of datapoints: increase sample density for more robust results
+    nsim = 1000  # number of datapoints: increase sample density for more robust results
     # create dictionaries with sampled datapoints with uniform distribution
     p_low, p_high = 0.2, 5.0,
     b_low, b_high = 0.0, 1.0,
@@ -96,7 +96,6 @@ if __name__ == "__main__":
     """
     # # #  pNLP primal solution map architecture
     """
-
     # define neural architecture for the trainable solution map
     # mapping problem parameters to decitionv ariables
     func = blocks.MLP(insize=n_con+n_p, outsize=nx,
@@ -109,9 +108,8 @@ if __name__ == "__main__":
     sol_map = Node(func, ['p', 'b_param'], ['xy'], name='map')
 
     """
-    # # #  pNLP variables, objective, and constraints formulation in Neuromancer      
+    # # #  Neuromancer variables and objective function 
     """
-
     # define decision variables
     xy = variable("xy")
     x = variable("xy")[:, [0]]
@@ -122,16 +120,41 @@ if __name__ == "__main__":
 
     # objective function
     f = (1-x)**2 + p*(y-x**2)**2
-    obj = f.minimize(weight=1.0, name='obj')
+    nm_obj = f.minimize(weight=10.0, name='obj')
 
-    # # constraints
-    # Q_con = 1.  # constraint penalty weights
-    # ineq_con = Q_con*(xy@A.T <= b0 + b_param)
+    """
+    # # #  cvxpy layer
+    """
+    # cvxpy projection problem
+    A_cvxpy = A.detach().numpy()
+    b0_cvxpy = b0.detach().numpy()
+    b_cvxpy = cvxpy.Parameter(n_con)
+    xy_net = cvxpy.Parameter(nx)      # primal decision from neural net
+    xy_cvxpy = cvxpy.Variable(nx)     # cvxpy decision variable
+    cvxpy_obj = cvxpy.Minimize(1.0 * cvxpy.sum_squares(xy_net - xy_cvxpy))
+    cvxpy_cons = [xy_cvxpy@A_cvxpy.T <= b0_cvxpy + b_cvxpy]
+    cvxpy_prob = cvxpy.Problem(cvxpy_obj, cvxpy_cons)
 
+    # cvxpy layer
+    cvxpy_layer = CvxpyLayer(cvxpy_prob,
+                       parameters=[b_cvxpy, xy_net],
+                       variables=[xy_cvxpy])
+    # symbolic wrapper: sol_map(bparam, xy) -> xy
+    project = Node(cvxpy_layer, ['b_param', 'xy'], ['xy_cvx'], name='proj')
+
+    # corrected variable by the cvxpy layer
+    xy_cvx = variable("xy_cvx")
+    # cvxpy-supervised loss for the neural net
+    residual = torch.abs(xy - xy_cvx)
+    cvxp_loss = 1.*(residual == 0)
+
+    """
+    # # #  Differentiable Parametric optimization problem
+    """
     # constrained optimization problem construction
-    objectives = [obj]
+    objectives = [nm_obj, cvxp_loss]
     constraints = []
-    components = [sol_map]
+    components = [sol_map, project]
 
     # create penalty method loss function
     loss = PenaltyLoss(objectives, constraints)
@@ -152,6 +175,8 @@ if __name__ == "__main__":
         test_loader,
         optimizer,
         epochs=10,
+        patience=10,
+        warmup=10,
         train_metric="train_loss",
         dev_metric="dev_loss",
         test_metric="test_loss",
@@ -163,30 +188,6 @@ if __name__ == "__main__":
     best_outputs = trainer.test(best_model)
     # load best model dict
     problem.load_state_dict(best_model)
-
-    """
-    # # #  cvxpy layer  
-    """
-
-    A_cvxpy = A.detach().numpy()
-    b0_cvxpy = b0.detach().numpy()
-    b_cvxpy = cvxpy.Parameter(n_con)
-    xy_net = cvxpy.Parameter(nx)      # primal decision from neural net
-    xy_cvxpy = cvxpy.Variable(nx)     # cvxpy decision variable
-    obj = cvxpy.Minimize(1.0 * cvxpy.sum_squares(xy_net - xy_cvxpy))
-    cons = [xy_cvxpy@A_cvxpy.T <= b0_cvxpy + b_cvxpy]
-    # A_cvxpy @ xy_cvxpy
-    prob = cvxpy.Problem(obj, cons)
-
-    layer = CvxpyLayer(prob,
-                       parameters=[b_cvxpy, xy_net],
-                       variables=[xy_cvxpy])
-    # sol_map(bparam, xy) -> xy
-    project = Node(layer, ['b_param', 'xy'], ['xy_cvx'], name='proj')
-
-    # add cvxpy layer in the computational graph for solution correction
-    problem.nodes.append(project)
-    problem.show()
 
     """
     Plots
@@ -246,7 +247,7 @@ if __name__ == "__main__":
 
     # plot optimal solutions CasADi vs Neuromancer
     ax.plot(x_nm_net, y_nm_net, 'r*', fillstyle='none', markersize=15, label='net')
-    ax.plot(x_nm_cvx, x_nm_cvx, 'g*', fillstyle='none', markersize=10, label='cvxpy')
+    ax.plot(x_nm_cvx, y_nm_cvx, 'g*', fillstyle='none', markersize=10, label='cvxpy')
     plt.legend(bbox_to_anchor=(1.0, 0.15))
     plt.show(block=True)
 

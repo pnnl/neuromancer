@@ -30,14 +30,10 @@ from cvxpylayers.torch import CvxpyLayer
 # plotting
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
-from scipy.spatial import HalfspaceIntersection, ConvexHull
-from scipy.optimize import linprog
+import os
+import imageio.v2 as imageio
 
-# benchmarking
-from casadi import *
-import casadi
-import time
-
+# neuromancer
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
 from neuromancer.constraint import variable
@@ -192,62 +188,92 @@ if __name__ == "__main__":
     """
     Plots
     """
-    p = torch.FloatTensor(n_p).uniform_(p_low, p_high)
-    b_param = torch.rand(n_con)
-    b = b0 + b_param
+    def plot_pNLP(p, b_param, savedir=None):
+        # sample primal solution domain
+        x1 = np.arange(-0.5, 1.5, 0.02)
+        y1 = np.arange(-0.5, 1.5, 0.02)
+        xx, yy = np.meshgrid(x1, y1)
+        xy_samples = np.stack([xx.flatten(), yy.flatten()])
 
-    x1 = np.arange(-0.5, 1.5, 0.02)
-    y1 = np.arange(-0.5, 1.5, 0.02)
-    xx, yy = np.meshgrid(x1, y1)
+        # eval constraints Ax - b <= 0
+        A_np = A.detach().numpy()
+        b = b0 + b_param
+        b_np = b.detach().numpy()
+        C_samples = np.subtract(np.matmul(A_np, xy_samples).T, b_np).T
+        C_samples = C_samples.reshape(n_con, x1.shape[0], y1.shape[0])
 
-    x_flat = xx.flatten()
-    y_flat = yy.flatten()
-    xy_samples = np.stack([x_flat, y_flat])
-    # sampled constraints Ax - b <= 0
-    A_np = A.detach().numpy()
-    b_np = b.detach().numpy()
-    C_samples = np.subtract(np.matmul(A_np, xy_samples).T, b_np).T
-    C_samples = C_samples.reshape(n_con, x1.shape[0], y1.shape[0])
+        # eval objective
+        p_np = p.detach().numpy()
+        J = (1 - xx) ** 2 + p_np * (yy - xx ** 2) ** 2
 
-    feasible = (C_samples <= 0.0)
-    feasible_region = feasible.sum(0) == n_con
+        # plot objective and constraints
+        fig, ax = plt.subplots(1, 1)
+        cp = ax.contourf(xx, yy, J,
+                         levels=[0, 0.05, 0.2, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0, 16],
+                         alpha=0.6)
+        fig.colorbar(cp)
+        ax.set_title('Rosenbrock problem')
+        for k in range(n_con):
+            cg1 = ax.contour(xx, yy, -C_samples[k], [0],
+                             colors='mediumblue', alpha=0.7)
+            plt.setp(cg1.collections,
+                     path_effects=[patheffects.withTickedStroke()], alpha=0.7)
 
-    # eval objective and constraints
-    p_np = p.detach().numpy()
-    J = (1 - xx) ** 2 + p_np * (yy - xx ** 2) ** 2
+        # Solution to pNLP via Neuromancer
+        datapoint = {'p': p, 'b_param': b_param,
+                     'name': 'test'}
+        # evaluate neuromancer model
+        model_out = problem.step(datapoint)
+        # neural net solution
+        x_nm_net = model_out["xy"][0].detach().numpy()
+        y_nm_net = model_out["xy"][1].detach().numpy()
+        # cvxpy projected solution
+        x_nm_cvx = model_out["xy_cvx"][0].detach().numpy()
+        y_nm_cvx = model_out["xy_cvx"][1].detach().numpy()
 
-    fig, ax = plt.subplots(1, 1)
-    cp = ax.contourf(xx, yy, J,
-                     levels=[0, 0.05, 0.2, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0, 16],
-                     alpha=0.6)
-    fig.colorbar(cp)
-    ax.set_title('Rosenbrock problem')
-    for k in range(n_con):
-        cg1 = ax.contour(xx, yy, -C_samples[k], [0], colors='mediumblue', alpha=0.7)
-        plt.setp(cg1.collections,
-                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        # plot optimal solutions CasADi vs Neuromancer
+        ax.plot(x_nm_net, y_nm_net, 'r*', fillstyle='none',
+                markersize=16, label='net')
+        ax.plot(x_nm_cvx, y_nm_cvx, 'g*', fillstyle='none',
+                markersize=14, label='cvxpy')
+        # plot projection step
+        ax.plot([x_nm_net, x_nm_cvx],
+                [y_nm_net, y_nm_cvx], '--', c='orange')
+        plt.legend(bbox_to_anchor=(1.0, 0.15))
 
-    # Solution to pNLP via Neuromancer
-    datapoint = {'p': p, 'b_param': b_param,
-                 'name': 'test'}
-    # evaluate neuromancer model
-    model_out = problem.step(datapoint)
+        if savedir is not None:
+            if not os.path.exists(savedir):
+                os.mkdir(savedir)
+            figure_path = os.path.join(savedir, f'pNLP_p={p}_bsum={b_np}.png')
+            plt.savefig(figure_path)
+            return figure_path
+        else:
+            plt.show(block=True)
 
-    # neural net solution
-    x_nm_net = model_out["xy"][0].detach().numpy()
-    y_nm_net = model_out["xy"][1].detach().numpy()
-    print(x_nm_net)
-    print(y_nm_net)
+    generate_gif = False  # if True generate pNLP sensitivity gif
 
-    # cvxpy projected solution
-    x_nm_cvx = model_out["xy_cvx"][0].detach().numpy()
-    y_nm_cvx = model_out["xy_cvx"][1].detach().numpy()
-    print(x_nm_cvx)
-    print(y_nm_cvx)
+    if not generate_gif:  # plot single pNLP scenario
+        # sample random scenario
+        p = torch.FloatTensor(n_p).uniform_(p_low, p_high)
+        b_param = torch.rand(n_con)
+        b = b0 + b_param
+        # plot single random scenario
+        plot_pNLP(p, b)
 
-    # plot optimal solutions CasADi vs Neuromancer
-    ax.plot(x_nm_net, y_nm_net, 'r*', fillstyle='none', markersize=15, label='net')
-    ax.plot(x_nm_cvx, y_nm_cvx, 'g*', fillstyle='none', markersize=10, label='cvxpy')
-    plt.legend(bbox_to_anchor=(1.0, 0.15))
-    plt.show(block=True)
+    else:  # plot pNLP sensitivity gif
+        p_set = torch.arange(p_low, p_high, 0.05)
+        n_samples = p_set.shape[0]
+        savedir = './figs/'
+        images = []
+        b_values, _ = torch.FloatTensor(n_samples, n_con)\
+                      .uniform_(0.0, 1.0).sort(0)
+        for i, p in enumerate(p_set):
+            # plot snapshot
+            figure_path = plot_pNLP(p.unsqueeze(0),
+                                    b_values[-(i+1)], savedir)
+            # get image
+            images.append(imageio.imread(figure_path))
+        # get gif
+        gif_path = os.path.join(savedir, 'cvxpy_layer.gif')
+        imageio.mimsave(gif_path, images)
 

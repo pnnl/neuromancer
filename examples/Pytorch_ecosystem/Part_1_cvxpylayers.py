@@ -17,7 +17,7 @@ https://en.wikipedia.org/wiki/Rosenbrock_function
 
 
 We will use neuromancer to minimize the objective function,
-and cvxpy layers to project the solution onto feasible resion.
+and cvxpy layers to project the solution onto feasible region.
 
 """
 
@@ -256,9 +256,8 @@ if __name__ == "__main__":
         # sample random scenario
         p = torch.FloatTensor(n_p).uniform_(p_low, p_high)
         b_param = torch.rand(n_con)
-        b = b0 + b_param
         # plot single random scenario
-        plot_pNLP(p, b)
+        plot_pNLP(p, b_param)
 
     else:  # plot pNLP sensitivity gif
         p_set = torch.arange(p_low, p_high, 0.05)

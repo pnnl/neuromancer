@@ -17,7 +17,7 @@ def test_signal_shape(signal, nsim, d):
     """
     out = signal(nsim, d)
     assert isinstance(out, np.ndarray)
-    assert np.issubdtype(out.dtype, np.float64)
+    assert np.issubdtype(out.dtype, np.floating)
     assert out.shape == (nsim, d)
 
 

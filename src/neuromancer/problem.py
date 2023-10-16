@@ -180,7 +180,7 @@ class Problem(nn.Module):
         return graph
 
     def show(self, figname=None):
-        graph = self.problem_graph
+        graph = self.graph()
         if figname is not None:
             plot_func = {'svg': graph.write_svg,
                          'png': graph.write_png,

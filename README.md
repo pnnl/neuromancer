@@ -1,3 +1,8 @@
+
+<p align="center">
+  <img src="figs/Neuromancer.png" width="250">  
+</p>
+
 # NeuroMANCER v1.4.1
 
 **Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
@@ -71,6 +76,12 @@ Part 4: Learning to solve a constrained optimization problem with projected grad
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_6_NetworkODE.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Data-driven modeling of resistance-capacitance (RC) network ODEs
 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_7_DeepKoopman.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 7: Deep Koopman operator
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_8_nonauto_DeepKoopman.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 8: control-oriented Deep Koopman operator
+
 
 ### Physics-Informed Neural Networks (PINNs) for Partial Differential Equations (PDEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Diffusion Equation
@@ -88,8 +99,8 @@ Part 4: Learning to solve a constrained optimization problem with projected grad
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_3_ref_tracking_ODE.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Learning to control a nonlinear differential equation.
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_4_systemid_control.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Learning neural ODE model and neural control policy for an unknown dynamical system.
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_4_NODE_control.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Learning neural ODE model and control policy for an unknown dynamical system.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_5_neural_Lyapunov.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Learning neural Lyapunov function for a nonlinear dynamical system.
@@ -253,154 +264,22 @@ It should take about 2 minutes to run the tests on CPU.
 There will be a lot of warnings that you can safely ignore. These warnings will be cleaned 
 up in a future release.
 
+## Community Information
+We welcome contributions and feedback from the open-source community!  
 
-## Community Development
+### Contributions, Discussions, and Issues
+Please read the [Community Development Guidelines](https://github.com/pnnl/neuromancer/blob/master/CONTRIBUTING.md) 
+for further information on contributions, [discussions](https://github.com/pnnl/neuromancer/discussions), and [Issues](https://github.com/pnnl/neuromancer/issues).
 
-We welcome contributions and feedback from the open-source community!
+###  Release notes
+See the [Release notes](https://github.com/pnnl/neuromancer/blob/master/RELEASE_NOTES.md) documenting new features.
 
-### Discussions
-
-[Discussions](https://github.com/pnnl/neuromancer/discussions) should be the first line of contact for new users to provide direct feedback on the library.
-Post your [Ideas](https://github.com/pnnl/neuromancer/discussions/categories/ideas) for new features or examples, 
-showcase your work using neuromancer in [Show and tell](https://github.com/pnnl/neuromancer/discussions/categories/show-and-tell),
-or get support for usage in [Q&As](https://github.com/pnnl/neuromancer/discussions/categories/q-a),
-please post them in one of our  categories.
-
-
-### Contributing examples
-If you have an example of using NeuroMANCER to solve an interesting problem, or of using 
-NeuroMANCER in a unique way please share them in [Show and tell](https://github.com/pnnl/neuromancer/discussions/categories/show-and-tell)
-discussions.
-The best examples might be incorporated into our current library of examples. 
-To submit an example, create a folder for your example/s in the example folder if there isn't 
-currently an applicable folder and place either your executable python file or notebook file there. 
-Push your code back to Github and then submit a pull request. Please make sure to note in a comment at 
-the top of your code if there are additional dependencies to run your example and how to install 
-those dependencies. 
-
-### Contributing code
-
-We welcome contributions to NeuroMANCER. Please accompany contributions with some lightweight unit tests
-via pytest (see test/ folder for some examples of easy to compose unit tests using pytest). 
-In addition to unit tests
-a script utilizing introduced new classes or modules should be placed in the examples folder. 
-To contribute a new well-developed feature please submit a pull request (PR). 
-Before creating a PR, we encourage developers to discuss and document the intended feature
-in [Ideas](https://github.com/pnnl/neuromancer/discussions/categories/ideas) discussion category.
-
-### Reporting issues or bugs
-If you find a bug in the code or want to request a new well-developed feature, please open an issue.
-
-## NeuroMANCER development plan
-Here are some upcoming features we plan to develop. Please let us know if you would like to get involved and 
-contribute so we may be able to coordinate on development. If there is a feature that you think would
-be highly valuable but not included below, please open an issue and let us know your thoughts. 
-
-+ Control and modelling for networked systems
-+ Support for stochastic differential equations (SDEs)
-+ Easy to implement modeling and control with uncertainty quantification
-+ Proximal operators for dealing with equality and inequality constraints
-+ Interface with CVXPYlayers
-+ Online learning examples
-+ Benchmark examples of DPC compared to deep RL
-+ Conda and pip package distribution
-+ More versatile and simplified time series dataloading
-+ Discovery of governing equations from learned RHS via NODEs and SINDy
-+ More domain science examples
+###  License
+NeuroMANCER comes with [BSD license](https://en.wikipedia.org/wiki/BSD_licenses).
+See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) for further details. 
 
 
-##  Release notes
-
-### Version 1.4.1 Release Notes
-+ To simplify integration, interpolation of control input is no longer supported in `integrators.py`
-  + The `interp_u` parameter of `Integrator` and subclasses has been deprecated
-+ Additional inputs (e.g., `u`, `t`) can now be passed as `*args` (instead of as a single tensor input stacked with `x`) in:
-  + `Integrator` and subclasses in `integrators.py`
-  + `Block` - new base class for all other classes in `blocks.py`
-  + `ODESystem` in `ode.py`
-+ New Physics-Informed Neural Network (PINN) examples for solving PDEs in `/examples/PDEs/`
-+ New system identification examples for ODEs in `/examples/ODEs/`
-+ Fixed a bug in the `show(...)` method of the `Problem` class
-+ Hotfix: `*args` for `GeneralNetworkedODE`
-
-###  Version 1.4 Release Notes
-+ Refactored PSL
-  + Better PSL unit testing coverage
-  + Consistent interfaces across system types
-  + Consistent perturbation signal interface in signals.py
-+ Refactored Control and System ID learning using Node and System class (system.py)
-  + Classes used for system ID can now be easily interchanged to accommodate downstream control policy learning
-
-###  Version 1.3.2 Release Notes
-+ Merged Structured Linear Maps and Pyton Systems Library into Neuromancer
-  + The code in neuromancer was closely tied to psl and slim.
-  A decision was made to integrate the packages as submodules of neuromancer.
-  This also solves the issue of the package names "psl" and "slim" already being taken on PyPI.
-
-*Import changes for psl and slim*
-
-```python
-# before
-import psl
-import slim
-
-# now
-from neuromancer import psl
-from neuromancer import slim
-```
-
-### Version 1.3.1 release notes
-+ New example scripts and notebooks
-  + Interactive Colab notebooks for testing Neuromancer functionality without setting up an environment 
-    + See [Examples](#examples) for links to Colab
-  + RC-Network modeling using Graph Neural Time-steppers example:
-    + See neuromancer/examples/graph_timesteppers/
-  + Baseline NODE dynamics modeling results for all nonautonomous systems in Python Systems Library
-    + See neuromancer/examples/benchmarks/node/
-  + Updated install instructions for Linux, Windows, and MAC operating systems
-    + New linux_env.yml, windows_env.yml, osxarm64_env.yml files for installation of dependencies across OS
-+ Corresponding releases of SLiM and PSL packages
-  + Make sure to update these packages if updating Neuromancer
-  + Release 1.4 will roll SLiM and PSL into core Neuromancer for ease of installation and development
-
-###  Version 1.3 release notes
-+ Tutorial [YouTube videos](https://www.youtube.com/channel/UC5oWRFxzUwWrDNzkdWLIb7A) to accompany tutorial scripts in examples folder:
-  + [examples/system_identification/duffing_parameter.py](https://www.youtube.com/watch?v=HLuqneSnoC8)
-+ Closed loop control policy learning examples with Neural Ordinary Differential Equations
-  + examples/control/
-      + vdpo_DPC_cl_fixed_ref.py
-      + two_tank_sysID_DPC_cl_var_ref.py
-      + two_tank_DPC_cl_var_ref.py
-      + two_tank_DPC_cl_fixed_ref.py
-+ Closed loop control policy learning example with Linear State Space Models. 
-  + examples/control/
-      + double_integrator_dpc_ol_fixed_ref.py
-      + vtol_dpc_ol_fixed_ref.py
-+ New class for Linear State Space Models (LSSM)
-    + LinearSSM in dynamics.py
-+ Refactored closed-loop control policy simulations
-  + simulator.py
-+ Interfaces for open and closed loop simulation (evaluation after training) for several classes 
-    + Dynamics
-    + Estimator
-    + Policy
-    + Constraint
-    + PSL Emulator classes
-+ New class for closed-loop policy learning of non-autonomous ODE systems
-  + ControlODE class in ode.py
-+ Added support for NODE systems
-  + Torchdiffeq integration with fast adjoint method for NODE optimization
-
-
-## Development team
-
-**Lead developers**: Aaron Tuor, Jan Drgona  
-**Active PNNL developers**: James Koch, Madelyn Shapiro, Ethan King, Draguna Vrabie  
-**Community contributors**: Seth Briney, Bo Tang  
-**Past contributors**: Shrirang Abhyankar, Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
-
-
-## Publications
+## Publications 
 + [James Koch, Zhao Chen, Aaron Tuor, Jan Drgona, Draguna Vrabie, Structural Inference of Networked Dynamical Systems with Universal Differential Equations, arXiv:2207.04962, (2022)](https://aps.arxiv.org/abs/2207.04962)
 + [Ján Drgoňa, Sayak Mukherjee, Aaron Tuor, Mahantesh Halappanavar, Draguna Vrabie, Learning Stochastic Parametric Differentiable Predictive Control Policies, IFAC ROCOND conference (2022)](https://www.sciencedirect.com/science/article/pii/S2405896322015877)
 + [Sayak Mukherjee, Ján Drgoňa, Aaron Tuor, Mahantesh Halappanavar, Draguna Vrabie, Neural Lyapunov Differentiable Predictive Control, IEEE Conference on Decision and Control Conference 2022](https://arxiv.org/abs/2205.10728)
@@ -420,11 +299,26 @@ from neuromancer import slim
 ```yaml
 @article{Neuromancer2023,
   title={{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}},
-  author={Tuor, Aaron and Drgona, Jan and Koch, James and Shapiro, Madelyn and Vrabie, Draguna and Briney, Seth},
+  author={Drgona, Jan and Tuor, Aaron and Koch, James and Shapiro, Madelyn and Vrabie, Draguna},
   Url= {https://github.com/pnnl/neuromancer}, 
   year={2023}
 }
 ```
+
+## Development team
+
+**Lead developers**: Jan Drgona, Aaron Tuor   
+**Active core developers**: James Koch, Madelyn Shapiro  
+**Scientific advisors**: Draguna Vrabie  
+**Notable contributors**: Seth Briney, Bo Tang, Ethan King, Shrirang Abhyankar, 
+Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
+
+Open-source contributions made by:  
+<a href="https://github.com/pnnl/neuromancer/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=pnnl/neuromancer" />
+</a>
+
+Made with [contrib.rocks](https://contrib.rocks).
 
 ## Acknowledgments
 This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research's “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects. 

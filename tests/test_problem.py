@@ -196,76 +196,72 @@ def test_problem_loss():
 
 
 
-    def test_problem_initialization(self):
-        components = components_example_1()
-        objectives, constraints = objectives_constraints_example_1()
-        loss = PenaltyLoss(objectives, constraints)
-        problem = Problem(components, loss, grad_inference=True, check_overwrite=True)
+def test_problem_initialization():
+    components = components_example_1()
+    objectives, constraints = objectives_constraints_example_1()
+    loss = PenaltyLoss(objectives, constraints)
+    problem = Problem(components, loss, grad_inference=True, check_overwrite=True)
 
-        assert problem is not None
-        assert isinstance(problem.nodes, torch.nn.ModuleList)
-        assert list_equals_modulelist(components, problem.nodes)
-        assert problem.loss == loss
-        assert problem.grad_inference == True
-        assert problem.check_overwrite == True
+    assert problem is not None
+    assert isinstance(problem.nodes, torch.nn.ModuleList)
+    assert list_equals_modulelist(components, problem.nodes)
+    assert problem.loss == loss
+    assert problem.grad_inference == True
+    assert problem.check_overwrite == True
 
-    def test_problem_initialization_faulty(self):
-        components = components_example_1()
-        components += ["foo"]
+def test_problem_initialization_faulty():
+    components = components_example_1()
+    components += ["foo"]
 
-        objectives, constraints = objectives_constraints_example_1()
-        loss = PenaltyLoss(objectives, constraints)
+    objectives, constraints = objectives_constraints_example_1()
+    loss = PenaltyLoss(objectives, constraints)
 
-        with pytest.raises(TypeError):
-            Problem(components, loss)
+    with pytest.raises(TypeError):
+        Problem(components, loss)
 
-        with pytest.raises(TypeError):
-            Problem("Foo", loss)
+    with pytest.raises(TypeError):
+        Problem("Foo", loss)
 
-        with pytest.raises(TypeError):
-            problem2 = Problem(1, loss)
+    with pytest.raises(TypeError):
+        problem2 = Problem(1, loss)
 
-        with pytest.raises(TypeError):
-            problem2 = Problem(nn.Module, loss)
+    with pytest.raises(TypeError):
+        problem2 = Problem(nn.Module, loss)
+
+
+def test_check_keys():
+    components = components_example_1()
+    node2 = Node(lambda x: x, ['p'], ['x'], name='Node With Duplicate Key')
+
+    objectives, constraints = objectives_constraints_example_1()
+    loss = PenaltyLoss(objectives, constraints)
+
+    problem1 = Problem(nodes=components, loss=loss, grad_inference=True, check_overwrite=True)
+
+    components.append(node2)
+    problem2 = Problem(nodes=components, loss=loss, grad_inference=True, check_overwrite=True)
+    with pytest.warns(Warning):
+        problem2._check_keys()
+
+
 """
-    def test_check_keys(self):
-        components = components_example_1()
-        node2 = Node(lambda x: x, ['p1'], ['y'], name='Node With Duplicate Key')
+def test_check_unique_names():
+    # Test the _check_unique_names method
+    # Create a Problem instance with nodes and loss that have unique names,
+    # then call _check_unique_names and assert that no exceptions are raised.
+    components = components_example_1()
+    objectives, constraints = objectives_constraints_example_1()
+    loss = PenaltyLoss(objectives, constraints)
+    problem = Problem(nodes=components, loss=loss, grad_inference=True, check_overwrite=True)
 
-        objectives, constraints = objectives_constraints_example_1()
-        loss = PenaltyLoss(objectives, constraints)
+    problem._check_unique_names()
 
-        problem1 = Problem(nodes=components, loss=loss, grad_inference=True, check_overwrite=True)
-        with pytest.check_warnings():
-            warnings.simplefilter("error")
-            problem1._check_keys()
+    node2 = Node(lambda x: x, ['p'], ['y'], name='map')
+    new_components = components.append(node2)
+    problem2 = Problem(nodes=new_components, loss=loss, grad_inference=True, check_overwrite=True)
 
-        components.append(node2)
-        problem2 = Problem(nodes=components, loss=loss, grad_inference=True, check_overwrite=True)
-        with pytest.warns():
-            problem2._check_keys()
+    with pytest.raises(AssertionError):
+        problem2._check_unique_names()
 
-        problem2 = Problem(nodes=components, loss=loss, grad_inference=True, check_overwrite=False)
-        with pytest.check_warnings():
-            warnings.simplefilter("error")
-            problem2._check_keys()
 
-    def test_check_unique_names(self):
-        # Test the _check_unique_names method
-        # Create a Problem instance with nodes and loss that have unique names,
-        # then call _check_unique_names and assert that no exceptions are raised.
-        components = components_example_1()
-        objectives, constraints = objectives_constraints_example_1()
-        loss = PenaltyLoss(objectives, constraints)
-        problem = Problem(nodes=components, loss=loss, grad_inference=True, check_overwrite=True)
-
-        problem._check_unique_names()
-
-        node2 = Node(lambda x: x, ['p1'], ['y'], name='map')
-        new_components = components.append(node2)
-        problem2 = Problem(nodes=new_components, loss=loss, grad_inference=True, check_overwrite=True)
-
-        with pytest.raises(AssertionError):
-            problem2._check_unique_names()
 """
-

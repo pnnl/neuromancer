@@ -14,57 +14,75 @@ class TestNode:
     def setup_method(self):
         # Set up sample data for testing
         self.sample_data = {
-            'input1': torch.tensor([[1.0, 2.0], [3.0, 4.0]]),
-            'input2': torch.tensor([[5.0, 6.0], [7.0, 8.0]])
+            'x1': torch.tensor([[1.0, 2.0], [3.0, 4.0]]),
+            'x2': torch.tensor([[5.0, 6.0], [7.0, 8.0]])
         }
 
         self.sample_callable_tuple_output = lambda x1,x2: (x1 + x2, x1 - x2)
         self.sample_callable_single_output = lambda x1, x2: x1 + x2
+        self.sample_callable_overriding = lambda x1,x2: x2
+
 
     def test_node_initialization(self):
         # Test the initialization of the Node class
-        node = Node(self.sample_callable_tuple_output, ['input1', 'input2'], ['output1', 'output2'], name='test_node')
-        assert node.input_keys == ['input1', 'input2']
-        assert node.output_keys == ['output1', 'output2']
+        node = Node(self.sample_callable_tuple_output, ['x1', 'x2'], ['y1', 'y2'], name='test_node')
+        assert node.input_keys == ['x1', 'x2']
+        assert node.output_keys == ['y1', 'y2']
         assert node.name == 'test_node'
+        assert node.callable == self.sample_callable_tuple_output
 
     def test_node_forward(self):
         # Test the forward method of the Node class
-        node = Node(self.sample_callable_tuple_output, ['input1', 'input2'], ['output1', 'output2'])
+        node = Node(self.sample_callable_tuple_output, ['x1', 'x2'], ['y1', 'y2'])
         data_dict = self.sample_data
         result = node(data_dict)
 
-        assert 'output1' in result
-        assert 'output2' in result
-        assert torch.all(result['output1'] == self.sample_data['input1'] + self.sample_data['input2'])
-        assert torch.all(result['output2'] == self.sample_data['input1'] - self.sample_data['input2'])
+        assert 'y1' in result
+        assert 'y2' in result
+        assert torch.all(result['y1'] == self.sample_data['x1'] + self.sample_data['x2'])
+        assert torch.all(result['y2'] == self.sample_data['x1'] - self.sample_data['x2'])
 
     def test_node_forward_single_output(self):
         # Test when the callable returns a single tensor (not a tuple)
 
-        node = Node(self.sample_callable_single_output, ['input1', 'input2'], ['output1', 'output2'])
+        node = Node(self.sample_callable_single_output, ['x1', 'x2'], ['y1', 'y2'])
         data_dict = self.sample_data
         result = node(data_dict)
 
-        assert 'output1' in result
-        assert 'output2' not in result
-        assert torch.all(result['output1'] == self.sample_data['input1'] + self.sample_data['input2'])
+        assert 'y1' in result
+        assert 'y2' not in result
+        assert torch.all(result['y1'] == self.sample_data['x1'] + self.sample_data['x2'])
 
-    def test_node_missing_keys(self):
+    def test_node_forward_missing_keys(self):
         # Test with missing input keys in the data dictionary
-        node = Node(self.sample_callable_tuple_output, ['missing_input'], ['output1', 'output2'])
+        node = Node(self.sample_callable_tuple_output, ['z1'], ['y1', 'y2'])
         data_dict = self.sample_data
 
         with pytest.raises(KeyError):
             node(data_dict)
 
-    def test_node_extra_keys(self):
+    def test_node_forward_extra_keys(self):
         # Test with extra keys in the data dictionary
-        node = Node(self.sample_callable_tuple_output, ['input1', 'input2', 'extra_input'], ['output1', 'output2'])
+        node = Node(self.sample_callable_tuple_output, ['x1', 'x2', 'z1'], ['y1', 'y2'])
         data_dict = self.sample_data
 
         with pytest.raises(KeyError):
             node(data_dict)
+
+    def test_node_forward_callable_override(self):
+        node = Node(self.sample_callable_overriding, ['x1', 'x2'], ['y1', 'y2'])
+        data_dict = self.sample_data
+        result = node(data_dict)
+        keys = list(result.keys())
+        assert len(keys) == 1
+        assert 'y1' in keys
+        assert 'y2' not in keys
+
+    def test_node_same_keys(self):
+        node = Node(lambda x,y: (x,y), ['x1', 'x2'], ['x1', 'x2'])
+        data_dict = self.sample_data
+        result = node(data_dict)
+        assert dict_equals(result, data_dict)
 
 
 def sample_basic_nodes():
@@ -175,6 +193,7 @@ def get_input_value_count(nodes):
             input_value_count[node_name] = len(node.input_keys)
     return input_value_count
 
+
 def generate_data_dict(sample_nodes, expected_edges, nstep, batch):
 
     data_dict = {}
@@ -224,6 +243,11 @@ def dict_equals(dict1, dict2):
             return False
     return True
 
+def list_equals_modulelist(lst, mod_list):
+    lst2 = []
+    for elem in mod_list:
+        lst2.append(elem)
+    return lst == lst2
 
 def cat(data3d, data2d):
     """
@@ -263,10 +287,6 @@ def is_valid_node_list(nodes):
     return True
 
 
-
-
-
-# Define a PyTest test function for different graph structures
 def test_system_initialization(get_nodes_and_edges, get_nstep_batch):
     sample_nodes, expected_edges = get_nodes_and_edges
 
@@ -276,6 +296,8 @@ def test_system_initialization(get_nodes_and_edges, get_nstep_batch):
 
     system = System(nodes=sample_nodes, nstep_key=test_nstep_key, init_func=test_init_func, nsteps=test_nsteps)
     assert system is not None
+    assert isinstance(system.nodes, torch.nn.ModuleList)
+    assert list_equals_modulelist(sample_nodes, system.nodes)
     assert hasattr(system.init, '__self__') #original init
     assert system.nstep_key == test_nstep_key
     assert system.nsteps == test_nsteps
@@ -347,6 +369,7 @@ def test_graph_generation_invalid_node_lists(get_nodes_and_edges):
     assert edges == expected_edges
 """
 
+
 def test_system_init(get_nodes_and_edges, get_nstep_batch, get_init_func_error_pairs):
     sample_nodes, expected_edges = get_nodes_and_edges
     nstep, batch = get_nstep_batch
@@ -364,6 +387,23 @@ def test_system_init(get_nodes_and_edges, get_nstep_batch, get_init_func_error_p
         assert dict_equals(expected_data_dict, output_data_dict)
 
 
+def test_system_cat():
+    callable = lambda x: x*2
+    nsteps = 3
+    batch_size = 2
+    node_1 = Node(callable, ['x1'], ['y1'])
+    system = System(nodes=[node_1],nsteps=3)
+    input_data_dict = {'x1': torch.rand(batch_size, nsteps, 1)}
+    output_data_dict = node_1(input_data_dict)
+
+    test_cat_result = system.cat(input_data_dict, output_data_dict)
+    expected_cat_result = cat(input_data_dict, output_data_dict)
+
+    assert dict_equals(test_cat_result, expected_cat_result)
+
+
+
+
 def test_forward_on_valid_node_lists(get_nodes_and_edges, get_nstep_batch):
     sample_nodes, expected_edges = get_nodes_and_edges
     nstep, batch = get_nstep_batch
@@ -373,21 +413,27 @@ def test_forward_on_valid_node_lists(get_nodes_and_edges, get_nstep_batch):
     expected_result_dict = generate_expected_output(node_list=sample_nodes, nsteps=nstep, init_data=input_data_dict)
     assert dict_equals(test_result_dict, expected_result_dict)
 
-"""
-def test_forward_on_invalid_node_lists(get_nodes_and_edges, get_nstep_batch):
-    sample_nodes, expected_edges = get_nodes_and_edges
-    nstep, batch = get_nstep_batch
 
+def test_forward_on_invalid_node_lists(get_nodes_and_edges, get_nstep_batch):
+
+    sample_nodes, expected_edges = get_nodes_and_edges
+
+    nstep, batch = get_nstep_batch
     if 'in' in list(expected_edges.keys()):
         nodes_list = list(itertools.permutations(sample_nodes))
-        nodes_list = [i for i in nodes_list if not is_valid_node_list(i)]
+        invalid_nodes_list = []
+        for lst in nodes_list:
+            if not is_valid_node_list(lst):
+                invalid_nodes_list.append(lst)
 
-        print("INVALID LISTS: ", nodes_list)
-        for nodes in nodes_list:
+        for nodes in invalid_nodes_list:
+            nodes = list(nodes)
+
             system = System(nodes=nodes, nsteps=nstep)
+
             input_data_dict = generate_data_dict(nodes, expected_edges, nstep, batch)
-            with pytest.raises(KeyError):
-                System(input_data_dict)
+
+            with pytest.raises(TypeError):
+                _ = System(input_data_dict)
     else:
         assert True
-"""

@@ -1,6 +1,9 @@
-name: documentation
+name: Automate Documentation Build
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - master
 
 permissions:
   contents: write
@@ -20,7 +23,7 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          publish_branch: gh-pages-test
+          publish_branch: gh-pages
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: html/
           force_orphan: true

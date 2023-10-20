@@ -82,7 +82,7 @@ class MovingHorizon(nn.Module):
         repeated ndelay times to initialize the buffer.
 
         :param input: (dict: str: 2-d tensor (batch, dim)) Dictionary of single step tensor inputs
-        :return: (dict: str: 2-d Tensor (batch, dim)) Dictionary of single step tensor outputs
+        :return: (dict: str: 3-d Tensor (ndelay, batch, dim)) Dictionary of tensor outputs for the last ndelay times
         """
         for k in self.input_keys:
             self.history[k].append(input[k])
@@ -257,5 +257,9 @@ class System(nn.Module):
                 outdata = node(indata)  # compute
                 data = self.cat(data, outdata)  # feed the data nodes
         return data  # return recorded system measurements
+
+
+
+
 
 

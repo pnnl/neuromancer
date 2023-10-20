@@ -1,5 +1,12 @@
-Instructions for updating the documentation and hosting on open source github repo.
+#### Update: Automated Documentation Process 
+Documentation will now be built and deployed to gh-pages branch (https://pnnl.github.io/neuromancer/) automatically on 
+merge with master branch. This is done through a Github Actions script found at ./github/workflows/update_docs.yml. 
+No need to manually build on your local machine. 
 
+For reference, the instructions for updating the documentation is shown below: 
+
+
+#### Manual Process for Documentation Updates
 On the same level as your Neuromancer repo, make a docs directory 
 and then clone the gh-pages branch of the repo at github.com/pnnl/neuromancer
 

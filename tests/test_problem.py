@@ -12,12 +12,16 @@ from neuromancer.dataset import DictDataset
 from neuromancer.loss import PenaltyLoss
 from neuromancer.modules import blocks
 from collections import defaultdict
-from hypothesis import given, settings, strategies as st
+
 
 torch.manual_seed(0)
 
-def components_example_1():
-    # define neural architecture for the solution map
+def example_1():
+    """
+    define an example 'problem' set-up, e.g. that from
+    https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb
+    This will be used to test problem class
+    """
     func = blocks.MLP(insize=2, outsize=2,
                       bias=True,
                       linear_map=slim.maps['linear'],
@@ -27,10 +31,7 @@ def components_example_1():
     sol_map = Node(func, ['a', 'p'], ['x'], name='map')
     # trainable components of the problem solution
     components = [sol_map]
-    return components
 
-
-def objectives_constraints_example_1():
     # define decision variables
     x1 = variable("x")[:, [0]]
     x2 = variable("x")[:, [1]]
@@ -51,21 +52,31 @@ def objectives_constraints_example_1():
     con_2.name = 'c2'
     con_3.name = 'c3'
 
-    return [obj], [con_1, con_2, con_3]
+    objectives = [obj]
+    constraints = [con_1, con_2, con_3]
+    loss = PenaltyLoss(objectives, constraints)
 
-def get_edges_example_1():
     edges = defaultdict(list,
-                {'in': ['map', 'map', 'obj', 'c2', 'c3'],
-                 'map': ['obj', 'c1', 'c2', 'c3'],
-                 'obj': ['out'],
-                 'c1': ['out'],
-                 'c2': ['out'],
-                 'c3': ['out']})
-    return dict(edges)
+                        {'in': ['map', 'map', 'obj', 'c2', 'c3'],
+                         'map': ['obj', 'c1', 'c2', 'c3'],
+                         'obj': ['out'],
+                         'c1': ['out'],
+                         'c2': ['out'],
+                         'c3': ['out']})
+    edges = dict(edges)
+
+    return objectives, constraints, components, loss, edges
 
 
 def dict_equals(dict1, dict2):
+    """
+    Helper function to test equality of two data dictionaries
 
+    :param dict_1 (dict {str: Tensor): one data dictionary
+    :param dict_2 (dict {str: Tensor): second data dictionary
+    :return (bool): True if data dictionaries have same key, and the (value) tensors
+       are equal for each key
+    """
     if len(dict1) != len(dict2):
         return False
 
@@ -82,7 +93,8 @@ def dict_equals(dict1, dict2):
     return True
 
 
-def get_test_dataloader():
+def get_test_dataloader_example_1():
+    """ associated dataloaders for example 1 """
     nsim = 5000  # number of datapoints: increase sample density for more robust results
     # create dictionaries with sampled datapoints with uniform distribution
     a_low, a_high, p_low, p_high = 0.2, 1.2, 0.5, 2.0
@@ -102,7 +114,9 @@ def get_test_dataloader():
     return train_loader
 
 
+
 def step(test_data, problem):
+    """ taken directly from problem.py step to test correctness """
     input_dict = test_data
     for node in problem.nodes:
         output_dict = node(input_dict)
@@ -113,6 +127,15 @@ def step(test_data, problem):
 
 
 def list_equals_modulelist(lst, mod_list):
+    """
+    Helper function to test if a standard list "equals" a generic iterable (in this case
+        a nn.ModuleList)
+
+    :param dict_1 (dict {str: Tensor): one data dictionary
+    :param dict_2 (dict {str: Tensor): second data dictionary
+    :return (bool): True if data dictionaries have same key, and the (value) tensors
+        are equal for each key
+    """
     lst2 = []
     for elem in mod_list:
         lst2.append(elem)
@@ -120,22 +143,30 @@ def list_equals_modulelist(lst, mod_list):
 
 
 def test_problem_initialization():
-    components = components_example_1()
-    objectives, constraints = objectives_constraints_example_1()
-    loss = PenaltyLoss(objectives, constraints)
+    """
+    Pytest testing function to check initialization of a problem, ensuring its class
+    attributes are correct.
+    """
+    objectives, constraints, components, loss, _ = example_1()
     problem = Problem(components, loss, grad_inference=True, check_overwrite=True)
 
-    #assert problem1.nodes == nn.ModuleList(components)
+    assert list_equals_modulelist(components, problem.nodes)
     assert problem.loss == loss
     assert problem.grad_inference == True
     assert problem.check_overwrite == True
     assert isinstance(problem, torch.nn.Module)
 
+    problem = Problem(components, loss)
+
+    assert list_equals_modulelist(components, problem.nodes)
+    assert problem.loss == loss
+    assert isinstance(problem.grad_inference, bool)
+    assert isinstance(problem.check_overwrite, bool)
+    assert isinstance(problem, torch.nn.Module)
+
 
 def test_problem_graph_generation():
-    components = components_example_1()
-    objectives, constraints = objectives_constraints_example_1()
-    loss = PenaltyLoss(objectives, constraints)
+    objectives, constraints, components, loss, expected_edges = example_1()
     problem = Problem(components, loss, grad_inference=True, check_overwrite=True)
 
     graph = problem.problem_graph
@@ -164,29 +195,26 @@ def test_problem_graph_generation():
         src, dest = e.get_source(), e.get_destination()
         edges[src].append(dest)
 
-    assert edges == get_edges_example_1()
+    assert edges == expected_edges
 
 
 def test_problem_step():
-    components = components_example_1()
-    objectives, constraints = objectives_constraints_example_1()
-    loss = PenaltyLoss(objectives, constraints)
-    test_dataloader = get_test_dataloader()
+    objectives, constraints, components, loss, edges = example_1()
+    problem = Problem(components, loss, grad_inference=True, check_overwrite=True)
+    test_dataloader = get_test_dataloader_example_1()
     test_data = next(iter(test_dataloader))
 
-    problem = Problem(components, loss, grad_inference=True, check_overwrite=True)
 
     expected_output = step(test_data, problem)
     actual_output = problem.step(test_data)
     assert dict_equals(expected_output, actual_output)
 
+
 def test_problem_loss():
-    components = components_example_1()
-    objectives, constraints = objectives_constraints_example_1()
-    loss = PenaltyLoss(objectives, constraints)
-    test_dataloader = get_test_dataloader()
-    test_data = next(iter(test_dataloader))
+    objectives, constraints, components, loss, edges = example_1()
     problem = Problem(components, loss, grad_inference=True, check_overwrite=True)
+    test_dataloader = get_test_dataloader_example_1()
+    test_data = next(iter(test_dataloader))
     output = problem(test_data)
 
     assert 'train_loss' in list(output.keys())
@@ -195,27 +223,9 @@ def test_problem_loss():
     assert loss_val.requires_grad
 
 
-
-def test_problem_initialization():
-    components = components_example_1()
-    objectives, constraints = objectives_constraints_example_1()
-    loss = PenaltyLoss(objectives, constraints)
-    problem = Problem(components, loss, grad_inference=True, check_overwrite=True)
-
-    assert problem is not None
-    assert isinstance(problem.nodes, torch.nn.ModuleList)
-    assert list_equals_modulelist(components, problem.nodes)
-    assert problem.loss == loss
-    assert problem.grad_inference == True
-    assert problem.check_overwrite == True
-
 def test_problem_initialization_faulty():
-    components = components_example_1()
+    objectives, constraints, components, loss, edges = example_1()
     components += ["foo"]
-
-    objectives, constraints = objectives_constraints_example_1()
-    loss = PenaltyLoss(objectives, constraints)
-
     with pytest.raises(TypeError):
         Problem(components, loss)
 
@@ -230,38 +240,37 @@ def test_problem_initialization_faulty():
 
 
 def test_check_keys():
-    components = components_example_1()
-    node2 = Node(lambda x: x, ['p'], ['x'], name='Node With Duplicate Key')
+    """
+    Pytest testing function to check that private function _check_keys() to check
+    uniqueness of node names is correct.
+    """
+    objectives, constraints, components, loss, edges = example_1()
+    node1 = Node(lambda x: x, ['p'], ['p'], name='Node')
+    problem2 = Problem(nodes=[node1], loss=loss, grad_inference=True, check_overwrite=True)
 
-    objectives, constraints = objectives_constraints_example_1()
-    loss = PenaltyLoss(objectives, constraints)
-
-    problem1 = Problem(nodes=components, loss=loss, grad_inference=True, check_overwrite=True)
-
-    components.append(node2)
-    problem2 = Problem(nodes=components, loss=loss, grad_inference=True, check_overwrite=True)
     with pytest.warns(Warning):
         problem2._check_keys()
 
 
-"""
-def test_check_unique_names():
-    # Test the _check_unique_names method
-    # Create a Problem instance with nodes and loss that have unique names,
-    # then call _check_unique_names and assert that no exceptions are raised.
-    components = components_example_1()
-    objectives, constraints = objectives_constraints_example_1()
-    loss = PenaltyLoss(objectives, constraints)
-    problem = Problem(nodes=components, loss=loss, grad_inference=True, check_overwrite=True)
 
-    problem._check_unique_names()
+def test_check_unique_names():
+    """
+    Pytest testing function to check that private function _check_unique_names (within graph()) to check
+    uniqueness of node names is correct.
+    """
+    objectives, constraints, components, loss, edges = example_1()
+    new_components = components.copy()
 
     node2 = Node(lambda x: x, ['p'], ['y'], name='map')
-    new_components = components.append(node2)
-    problem2 = Problem(nodes=new_components, loss=loss, grad_inference=True, check_overwrite=True)
+    new_components.append(node2)
 
+    # should not throw an error because names are unique
+    problem = Problem(nodes=components, loss=loss, grad_inference=True, check_overwrite=True)
+
+    # should throw an error because node2 has a duplicate name
     with pytest.raises(AssertionError):
-        problem2._check_unique_names()
+        problem2 = Problem(nodes=new_components, loss=loss, grad_inference=True, check_overwrite=True)
 
 
-"""
+
+

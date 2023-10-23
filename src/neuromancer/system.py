@@ -150,25 +150,22 @@ class System(nn.Module):
                         graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
                         unique_common_keys.add(key)
 
-        # get keys of recurrent nodes
-        loop_keys = []
-        for node in self.nodes:
-            node_loop_keys = set(node.input_keys) & set(node.output_keys)
-            loop_keys += node_loop_keys
-        # get keys required as input and to initialize some nodes
-        init_keys = set(input_keys) - (set(output_keys) - set(loop_keys))
-
         # build I/O and node loop connections
+        loop_keys = []
+        init_keys = []
         previous_output_keys = []
         for idx_node, node in enumerate(self.nodes):
+            node_loop_keys = set(node.input_keys) & set(node.output_keys)
+            loop_keys += node_loop_keys
+            init_keys += set(node.input_keys) - set(previous_output_keys)
+            previous_output_keys += node.output_keys
+
             # build single node recurrent connections
-            node_loop_keys = list(set(node.input_keys) & set(node.output_keys))
             for key in node_loop_keys:
                 graph.add_edge(pydot.Edge(node.name, node.name, label=key))
             # build connections to the dataset
-            for key in set(node.input_keys) & set(init_keys-set(previous_output_keys)):
+            for key in set(node.input_keys) & set(init_keys):
                 graph.add_edge(pydot.Edge("in", node.name, label=key))
-            previous_output_keys += node.output_keys
             # build feedback connections for init nodes
             feedback_src_nodes = reverse_order_nodes[:-1-idx_node]
             if len(set(node.input_keys) & set(loop_keys) & set(init_keys)) > 0:
@@ -177,6 +174,7 @@ class System(nn.Module):
                         if key in src.output_keys and key not in previous_output_keys:
                             graph.add_edge(pydot.Edge(src.name, node.name, label=key))
                             break
+
         # build connections to the output of the system in a reversed order
         previous_output_keys = []
         for node in self.nodes[::-1]:
@@ -189,7 +187,7 @@ class System(nn.Module):
         return graph
 
     def show(self, figname=None):
-        graph = self.system_graph
+        graph = self.graph()
         if figname is not None:
             plot_func = {'svg': graph.write_svg,
                          'png': graph.write_png,

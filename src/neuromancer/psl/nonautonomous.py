@@ -255,6 +255,7 @@ class CSTR(ODE):
             * Caf = Feed Concentration (mol/m^3)
         States (2):
             * Concentration of A in CSTR (mol/m^3)
+            * Temperature in CSTR (K)
         """
         Tc = u  # Temperature of cooling jacket (K)
         Ca = x[0]  # Concentration of A in CSTR (mol/m^3)

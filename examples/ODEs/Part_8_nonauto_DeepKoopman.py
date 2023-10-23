@@ -7,9 +7,11 @@ references Koopman control models:
 [3] https://ieeexplore.ieee.org/document/9799788
 [4] https://ieeexplore.ieee.org/document/9022864
 [5] https://github.com/HaojieSHI98/DeepKoopmanWithControl
+[6] https://pubs.aip.org/aip/cha/article-abstract/22/4/047510/341880/Applied-Koopmanisma
+[7] https://arxiv.org/abs/1312.0041
 
 references stability:
-[6] https://ieeexplore.ieee.org/document/9482930
+[8] https://ieeexplore.ieee.org/document/9482930
 
 """
 

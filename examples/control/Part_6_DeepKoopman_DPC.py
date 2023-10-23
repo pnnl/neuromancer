@@ -177,7 +177,7 @@ if __name__ == '__main__':
                     nonlin=torch.nn.ELU,
                     hsizes=n_layers*[n_hidden])
     # predicted trajectory decoder
-    decode_y = Node(f_y_inv, ['x'], ['yhat'], name='decoder_y')
+    decode_y = Node(f_y_inv, ['x'], ['y'], name='decoder_y')
 
     # instantiate SVD factorized Koopman operator with bounded eigenvalues
     K = slim.linear.SVDLinear(nx_koopman, nx_koopman,
@@ -195,10 +195,11 @@ if __name__ == '__main__':
 
     # latent Koopmann rollout
     dynamics_model = System([Koopman], name='Koopman', nsteps=nsteps)
+    dynamics_model.show()
 
     # variables
     Y = variable("Y")  # observed
-    yhat = variable('yhat')  # predicted output
+    yhat = variable('y')  # predicted output
     x_latent = variable('x_latent')  # encoded output trajectory in the latent space
     u_latent = variable('u_latent')  # encoded input trajectory in the latent space
     x = variable('x')  # Koopman latent space trajectory
@@ -254,7 +255,7 @@ if __name__ == '__main__':
     problem.nodes[3].nsteps = test_data['Y'].shape[1]
     test_outputs = problem.step(test_data)
 
-    pred_traj = test_outputs['yhat'][:, 1:-1, :].detach().numpy().reshape(-1, nx).T
+    pred_traj = test_outputs['y'][:, 1:-1, :].detach().numpy().reshape(-1, nx).T
     true_traj = test_data['Y'][:, 1:, :].detach().numpy().reshape(-1, nx).T
     input_traj = test_data['U'].detach().numpy().reshape(-1, nu).T
 
@@ -302,7 +303,7 @@ if __name__ == '__main__':
     ref = torch.cat(list_refs)
     batched_ref = ref.reshape([n_samples, nsteps+1, nref])
     # Training dataset
-    train_data = DictDataset({'x': torch.rand(n_samples, 1, nx),
+    train_data = DictDataset({'y': torch.rand(n_samples, 1, ny),
                               'r': batched_ref}, name='train')
 
     # references for dev set
@@ -310,7 +311,7 @@ if __name__ == '__main__':
     ref = torch.cat(list_refs)
     batched_ref = ref.reshape([n_samples, nsteps+1, nref])
     # Development dataset
-    dev_data = DictDataset({'x': torch.rand(n_samples, 1, nx),
+    dev_data = DictDataset({'y': torch.rand(n_samples, 1, ny),
                             'r': batched_ref}, name='dev')
 
     # torch dataloaders
@@ -322,18 +323,25 @@ if __name__ == '__main__':
                                              collate_fn=dev_data.collate_fn,
                                              shuffle=False)
 
+    """
+    # # #  Deep Koopman DPC architecture
+    """
+    # state encoder
+    encode_y = Node(f_y, ['y'], ['x'], name='encoder_y')
 
-
-    # initial condition encoder
-    encode_y = Node(f_y, ['y'], ['x'], name='encoder_Y0')
+    # fix parameters of the Koopman model
+    encode_y.requires_grad_(False)
+    encode_U.requires_grad_(False)
+    dynamics_model.requires_grad_(False)
+    decode_y.requires_grad_(False)
 
     # neural net control policy
     net = blocks.MLP(insize=nx + nref, outsize=nu, hsizes=4*[32],
                             nonlin=torch.nn.ELU)
-    policy_node = Node(net, ['y', 'R'], ['U'], name='policy')
+    policy = Node(net, ['y', 'r'], ['U'], name='policy')
 
-    nodes = [encode_y, policy_node, encode_U, dynamics_model, decode_y]
-    cl_system = System(nodes, name='cl_system')
+    nodes = [encode_y, policy, encode_U, dynamics_model, decode_y]
+    cl_system = System(nodes, name='cl_system', nsteps=nsteps)
     cl_system.show()
 
     """

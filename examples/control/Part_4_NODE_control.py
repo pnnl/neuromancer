@@ -136,6 +136,9 @@ class Policy(torch.nn.Module):
         features = torch.cat([x, R], dim=-1)
         return self.net(features)
 
+# fix model parameters
+system_nodel.requires_grad_(False)
+
 insize = 2*nx
 policy = Policy(insize, nu)
 policy_node = Node(policy, ['xn', 'R'], ['U'], name='policy')

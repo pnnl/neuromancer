@@ -1,5 +1,5 @@
 """
-Learning provably stable Deep Koopman model from time series data
+Learning Deep Koopman model and control policiy from time series data
 
 references Koopman control models:
 [1] https://arxiv.org/abs/2202.08004
@@ -7,9 +7,10 @@ references Koopman control models:
 [3] https://ieeexplore.ieee.org/document/9799788
 [4] https://ieeexplore.ieee.org/document/9022864
 [5] https://github.com/HaojieSHI98/DeepKoopmanWithControl
+[6] https://arxiv.org/abs/2202.08004
 
-references stability:
-[6] https://ieeexplore.ieee.org/document/9482930
+Control problem:
+[7] http://apmonitor.com/do/index.php/Main/NonlinearControl
 
 """
 
@@ -30,9 +31,13 @@ from neuromancer.dataset import DictDataset
 from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
 from neuromancer. modules import blocks
+from neuromancer.plot import pltCL, pltPhase
+
 
 def get_data(sys, nsim, nsteps, ts, bs):
     """
+    Generate training data for system identification using Koopman model
+
     :param nsteps: (int) Number of timesteps for each batch of training data
     :param sys: (psl.system)
     :param ts: (float) step size
@@ -112,6 +117,12 @@ class Koopman_control(nn.Module):
 if __name__ == '__main__':
     torch.manual_seed(0)
 
+    """
+    # # # # # # # # # # # # # # # # # # # # # 
+    #       Stage 1: data generation        #
+    # # # # # # # # # # # # # # # # # # # # # 
+    """
+
     # select system:
     #   TwoTank, CSTR, SwingEquation, IverSimple
 
@@ -131,6 +142,12 @@ if __name__ == '__main__':
     nsteps = 20
     bs = 100
     train_loader, dev_loader, test_data = get_data(modelSystem, nsim, nsteps, ts, bs)
+
+    """
+    # # # # # # # # # # # # # # # # # # # # # # # #
+    #       Stage 2: system identification        #
+    # # # # # # # # # # # # # # # # # # # # # # # #
+    """
 
     nx_koopman = 50
     n_hidden = 60
@@ -162,16 +179,16 @@ if __name__ == '__main__':
     # predicted trajectory decoder
     decode_y = Node(f_y_inv, ['x'], ['yhat'], name='decoder_y')
 
-    # instantiate Koopman matrix
-    stable = True     # provably stable Koopman operator
-    if stable:
-        # SVD factorized Koopman operator with bounded eigenvalues
-        K = slim.linear.SVDLinear(nx_koopman, nx_koopman,
-                              sigma_min=0.01, sigma_max=1.0,
-                              bias=False)
-    else:
-        # linear Koopman operator without guaranteed stability
-        K = torch.nn.Linear(nx_koopman, nx_koopman, bias=False)
+    # instantiate SVD factorized Koopman operator with bounded eigenvalues
+    K = slim.linear.SVDLinear(nx_koopman, nx_koopman,
+                          sigma_min=0.01, sigma_max=1.0,
+                          bias=False)
+
+    # SVD penalty variable
+    K_reg_error = variable(K.reg_error())
+    # SVD penalty loss term
+    K_reg_loss = 1.*(K_reg_error == 0.0)
+    K_reg_loss.name = 'SVD_loss'
 
     # symbolic Koopman model with control inputs
     Koopman = Node(Koopman_control(K), ['x', 'u_latent'], ['x'], name='K')
@@ -200,16 +217,8 @@ if __name__ == '__main__':
     x_loss.name = "x_loss"
 
     # % objectives and constraints
-    objectives = [y_loss, x_loss, onestep_loss]
+    objectives = [y_loss, x_loss, onestep_loss, K_reg_loss]
     constraints = []
-
-    if stable:
-        # SVD penalty variable
-        K_reg_error = variable(K.reg_error())
-        # SVD penalty loss term
-        K_reg_loss = 1.*(K_reg_error == 0.0)
-        K_reg_loss.name = 'SVD_loss'
-        objectives.append(K_reg_loss)
 
     # create constrained optimization loss
     loss = PenaltyLoss(objectives, constraints)
@@ -274,55 +283,138 @@ if __name__ == '__main__':
     ax[-1].set_xlabel('$time$', fontsize=figsize)
     plt.tight_layout()
 
-    # compute Koopman eigenvalues and eigenvectors
-    if stable:
-        eig, eig_vec = torch.linalg.eig(K.effective_W())
-    else:
-        eig, eig_vec = torch.linalg.eig(K.weight)
-    # Koopman eigenvalues real and imaginary parts
-    eReal = eig.real.detach().numpy()
-    eImag = eig.imag.detach().numpy()
-    # unit circle
-    t = np.linspace(0.0, 2 * np.pi, 1000)
-    x_circ = np.cos(t)
-    y_circ = np.sin(t)
+    """
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    #       Stage 3: learning neural control policy         #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    """
 
-    # plot Koopman eigenvalues
-    fig1, ax1 = plt.subplots()
-    ax1.plot(x_circ, y_circ, 'c', linewidth=4)
-    ax1.plot(eReal, eImag, 'wo')
-    ax1.set_aspect('equal', 'box')
-    ax1.set_facecolor("navy")
-    ax1.set_xlabel("$Re(\lambda)$", fontsize=figsize)
-    ax1.set_ylabel("$Im(\lambda)$", fontsize=figsize)
-    fig1.suptitle('Koopman operator eigenvalues')
+    """
+    # # #  Control Dataset 
+    """
+    nsteps = 50  # prediction horizon
+    n_samples = 2000    # number of sampled scenarios
+    nref = 1            # number of references
 
-    # compute Koopman state eigenvectors
-    y_min = 1.1*test_data['Y'].min()
-    y_max = 1.1*test_data['Y'].max()
-    y1 = torch.linspace(y_min, y_max, 1000)
-    y2 = torch.linspace(y_min, y_max, 1000)
-    yy1, yy2 = torch.meshgrid(y1, y1)
-    plot_yy1 = yy1.detach().numpy()
-    plot_yy2 = yy2.detach().numpy()
-    # eigenvectors
-    features = torch.stack([yy1, yy2]).transpose(0, 2)
-    latent = f_y(features)
-    phi = torch.matmul(latent, abs(eig_vec))
-    # select first 6 eigenvectors
-    phi_1 = phi.detach().numpy()[:,:,0]
-    phi_2 = phi.detach().numpy()[:,:,1]
-    phi_3 = phi.detach().numpy()[:,:,2]
-    phi_4 = phi.detach().numpy()[:,:,3]
-    phi_5 = phi.detach().numpy()[:,:,4]
-    phi_6 = phi.detach().numpy()[:,:,6]
-    # plot eigenvectors
-    fig2, axs = plt.subplots(2, 3)
-    im1 = axs[0,0].imshow(phi_1)
-    im2 = axs[0,1].imshow(phi_2)
-    im3 = axs[0,2].imshow(phi_3)
-    im4 = axs[1,0].imshow(phi_4)
-    im5 = axs[1,1].imshow(phi_5)
-    im6 = axs[1,2].imshow(phi_6)
-    fig2.colorbar(im1, ax=axs)
-    fig2.suptitle('first six eigenfunctions')
+    # TODO: sample right data
+    #  sampled references for training the policy
+    list_refs = [torch.rand(1, 1)*torch.ones(nsteps+1, nref) for k in range(n_samples)]
+    ref = torch.cat(list_refs)
+    batched_ref = ref.reshape([n_samples, nsteps+1, nref])
+    # Training dataset
+    train_data = DictDataset({'x': torch.rand(n_samples, 1, nx),
+                              'r': batched_ref}, name='train')
+
+    # references for dev set
+    list_refs = [torch.rand(1, 1)*torch.ones(nsteps+1, nref) for k in range(n_samples)]
+    ref = torch.cat(list_refs)
+    batched_ref = ref.reshape([n_samples, nsteps+1, nref])
+    # Development dataset
+    dev_data = DictDataset({'x': torch.rand(n_samples, 1, nx),
+                            'r': batched_ref}, name='dev')
+
+    # torch dataloaders
+    batch_size = 200
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size,
+                                               collate_fn=train_data.collate_fn,
+                                               shuffle=False)
+    dev_loader = torch.utils.data.DataLoader(dev_data, batch_size=batch_size,
+                                             collate_fn=dev_data.collate_fn,
+                                             shuffle=False)
+
+
+
+    # initial condition encoder
+    encode_y = Node(f_y, ['y'], ['x'], name='encoder_Y0')
+
+    # neural net control policy
+    net = blocks.MLP(insize=nx + nref, outsize=nu, hsizes=4*[32],
+                            nonlin=torch.nn.ELU)
+    policy_node = Node(net, ['y', 'R'], ['U'], name='policy')
+
+    nodes = [encode_y, policy_node, encode_U, dynamics_model, decode_y]
+    cl_system = System(nodes, name='cl_system')
+    cl_system.show()
+
+    """
+    # # #  Differentiable Predictive Control objectives and constraints
+    """
+    # variables
+    y = variable('y')
+    ref = variable("r")
+    # objectives
+    regulation_loss = 5. * ((y == ref) ^ 2)  # target posistion
+    # constraints
+    terminal_lower_bound_penalty = 10.*(y[:, [-1], :] > ref-0.01)
+    terminal_upper_bound_penalty = 10.*(y[:, [-1], :] < ref+0.01)
+    # objectives and constraints names for nicer plot
+    regulation_loss.name = 'ref_tracking'
+    terminal_lower_bound_penalty.name = 'x_N_min'
+    terminal_upper_bound_penalty.name = 'x_N_max'
+    # list of constraints and objectives
+    objectives = [regulation_loss]
+    constraints = [
+        terminal_lower_bound_penalty,
+        terminal_upper_bound_penalty,
+    ]
+
+    """
+    # # #  Differentiable optimal control problem 
+    """
+    # data (x_k, r_k) -> parameters (xi_k) -> policy (u_k) -> dynamics (x_k+1)
+    nodes = [cl_system]
+    # create constrained optimization loss
+    loss = PenaltyLoss(objectives, constraints)
+    # construct constrained optimization problem
+    problem = Problem(nodes, loss)
+    # plot computational graph
+    problem.show()
+
+    """
+    # # #  Solving the problem 
+    """
+    optimizer = torch.optim.AdamW(problem.parameters(), lr=0.002)
+    #  Neuromancer trainer
+    trainer = Trainer(
+        problem,
+        train_loader, dev_loader,
+        optimizer=optimizer,
+        epochs=100,
+        train_metric='train_loss',
+        eval_metric='dev_loss',
+        warmup=50,
+    )
+    # Train control policy
+    best_model = trainer.train()
+    # load best trained model
+    trainer.model.load_state_dict(best_model)
+
+    """
+    Test Closed Loop System
+    """
+    print('\nTest Closed Loop System \n')
+    nsteps = 750
+    step_length = 150
+    # generate reference
+    np_refs = psl.signals.step(nsteps+1, 1, min=xmin, max=xmax, randsteps=5)
+    R = torch.tensor(np_refs, dtype=torch.float32).reshape(1, nsteps+1, 1)
+    torch_ref = torch.cat([R, R], dim=-1)
+    # generate initial data for closed loop simulation
+    data = {'x': torch.rand(1, 1, nx, dtype=torch.float32),
+            'r': torch_ref}
+    cl_system.nsteps = nsteps
+    # perform closed-loop simulation
+    trajectories = cl_system(data)
+
+    # constraints bounds
+    Umin = umin * np.ones([nsteps, nu])
+    Umax = umax * np.ones([nsteps, nu])
+    Xmin = xmin * np.ones([nsteps+1, nx])
+    Xmax = xmax * np.ones([nsteps+1, nx])
+    # plot closed loop trajectories
+    pltCL(Y=trajectories['x'].detach().reshape(nsteps + 1, nx),
+          R=trajectories['r'].detach().reshape(nsteps + 1, nref),
+          U=trajectories['u'].detach().reshape(nsteps, nu),
+          Umin=Umin, Umax=Umax, Ymin=Xmin, Ymax=Xmax)
+    # plot phase portrait
+    pltPhase(X=trajectories['x'].detach().reshape(nsteps + 1, nx))

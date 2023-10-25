@@ -55,7 +55,7 @@ class GradientProjection(Solver):
         DC3 paper: https://arxiv.org/abs/2104.12225
     """
     def __init__(self, constraints, input_keys, output_keys=[], decay=0.1,
-                 num_steps=1, step_size=0.01, name=None):
+                 num_steps=1, step_size=0.01, energy_update=True, name=None):
         """
         :param constraints:
         :param input_keys: (List of str) List of input variable names
@@ -63,6 +63,7 @@ class GradientProjection(Solver):
         :param num_steps: (int) number of iteration steps for the projected gradient method
         :param step_size: (float) scaling factor for gradient update
         :param decay: (float) decay factor of the step_size
+        :param energy_update: (bool) flag to update energy
         :param name:
         """
         super().__init__(constraints=constraints,
@@ -72,6 +73,7 @@ class GradientProjection(Solver):
         self.step_size = step_size
         self.input_keys = input_keys
         self.decay = decay
+        self.energy_update = energy_update
 
     def _constraints_check(self):
         """
@@ -96,23 +98,31 @@ class GradientProjection(Solver):
 
     def forward(self, data):
         """
-        foward pass of the projected gradient solver
+        forward pass of the projected gradient solver
         :param data: (dict: {str: Tensor})
         :return: (dict: {str: Tensor})
         """
-        energy = self.con_viol_energy(data)
-        output_data = {}
-        for in_key, out_key in zip(self.input_keys, self.output_keys):
-            x = data[in_key]
-            step = gradient(energy, x)
-            assert step.shape == x.shape, \
-                f'Dimensions of gradient step {step.shape} should be equal to dimensions ' \
-                f'{x.shape}  of a single variable {in_key}'
-            d = 1.
-            for k in range(self.num_steps):
-                x = x - d*self.step_size*step
-                d = d - self.decay*d
-            output_data[out_key] = x
+        # init output
+        output_data = data.copy()
+        if self.energy_update:
+            data = output_data
+        # init decay rate
+        d = 1
+        # projected gradient
+        for k in range(self.num_steps):
+            # update energy
+            energy = self.con_viol_energy(data)
+            for in_key, out_key in zip(self.input_keys, self.output_keys):
+                # get grad
+                x = data[in_key]
+                step = gradient(energy, x)
+                assert step.shape == x.shape, \
+                    f'Dimensions of gradient step {step.shape} should be equal to dimensions ' \
+                    f'{x.shape}  of a single variable {in_key}'
+                # update
+                x = x - d * self.step_size*step
+                d = d - self.decay * d
+                output_data[out_key] = x
         return output_data
 
 

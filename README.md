@@ -140,7 +140,28 @@ problem = nm.problem.Problem(nodes=[map], loss=loss)
 
 ## Installation
 
-For either pip or conda installation, first clone the neuromancer package.
+### PIP Install (recommended)
+
+Consider using a dedicated virtual environment (conda or otherwise) with Python 3.9+ installed. 
+
+```bash
+pip install neuromancer
+```
+Example usage: 
+
+```bash
+import torch
+from neuromancer.system import Node
+
+fun_1 = lambda x1, x2: 2.*x1 - x2**2
+node_3 = Node(fun_1, ['y1', 'y2'], ['y3'], name='quadratic')
+# evaluate forward pass of the node with dictionary input dataset
+print(node_3({'y1': torch.rand(2), 'y2': torch.rand(2)}))
+
+```
+### Manual Install
+
+First clone the neuromancer package.
 A dedicated virtual environment (conda or otherwise) is recommended. 
 
 Note: If you have a previous neuromancer env it would be best at this point to create a new environment given the following instructions.
@@ -148,13 +169,6 @@ Note: If you have a previous neuromancer env it would be best at this point to c
 ```bash
 git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
 ```
-
-### PIP Install
-Recommended installation.  
-Pip installation is broken up into required dependencies for core Neuromancer
-and dependencies associated with the examples, tests, and generating the documentation.
-Below we give instructions to install all dependencies in a conda virtual enviroment via pip. 
-You need at least pip version >= 21.3.
 
 #### Create and activate virtual environment
 

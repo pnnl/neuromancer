@@ -9,7 +9,9 @@ from collections import defaultdict
 
 torch.manual_seed(0)
 
-
+"""
+############################## TESTING FUNCTIONS FOR NODE CLASS ####################################
+"""
 class TestNode:
     """
     Testing class for node
@@ -96,6 +98,9 @@ class TestNode:
         assert dict_equals(result, data_dict)
 
 
+"""
+############################## TESTING FUNCTIONS FOR MOVINGHORIZON CLASS ####################################
+"""
 class TestMovingHorizon:
     def setup_method(self):
         # Set up sample data for testing
@@ -125,9 +130,11 @@ class TestMovingHorizon:
         #assert dict_equals(expected_output_dict, horizon_output)
 
 
-""" BEGIN TESTING METHODS FOR SYSTEM """
+"""
+############################## HELPER FUNCTIONS FOR SYSTEM CLASS ####################################
+"""
 # PAIR OF BASIC NODE LIST AND ITS ADJACENCY LIST
-def sample_basic_nodes():
+def get_basic_nodes_and_edges():
     """ Create list of nodes that form a "basic" DAG """
     node_1 = Node(callable=lambda x: x, input_keys=['x1'], output_keys=['y1'], name='node_1')
     net_2 = torch.nn.Sequential(torch.nn.Linear(2, 5),
@@ -137,21 +144,17 @@ def sample_basic_nodes():
                                 torch.nn.Linear(3, 1))
     node_2 = Node(callable=net_2, input_keys=['x2'], output_keys=['y2'], name='node_2')
     node_3 = Node(callable=lambda x1, x2: 2.*x1 - x2**2, input_keys=['y1', 'y2'], output_keys=['y3'], name='quadratic')
-    return [node_1, node_2, node_3]
-
-
-def sample_basic_nodes_edges():
-    # The edges associated with sample basic nodes
     edges = defaultdict(list,
-                       {'node_2': ['quadratic', 'out'],
-                        'node_1': ['quadratic', 'out'],
-                        'in': ['node_1', 'node_2'],
-                        'quadratic': ['out']})
-    return dict(edges)
+                        {'node_2': ['quadratic', 'out'],
+                         'node_1': ['quadratic', 'out'],
+                         'in': ['node_1', 'node_2'],
+                         'quadratic': ['out']})
+    return [node_1, node_2, node_3], dict(edges)
+
 
 
 # PAIR OF BASIC NODE LIST W/0 NAMES AND ITS ADJACENCY LIST
-def sample_basic_nodes_without_names():
+def get_basic_nodes_and_edges_without_names():
     """ Create list of nodes that form a "basic" DAG, nodes are without name """
     node_1 = Node(callable=lambda x: x, input_keys=['x1'], output_keys=['y1'])
     net_2 = torch.nn.Sequential(torch.nn.Linear(2, 5),
@@ -161,67 +164,34 @@ def sample_basic_nodes_without_names():
                                 torch.nn.Linear(3, 1))
     node_2 = Node(callable=net_2, input_keys=['x2'], output_keys=['y2'])
     node_3 = Node(callable=lambda x1, x2: 2.*x1 - x2**2, input_keys=['y1', 'y2'], output_keys=['y3'])
-    return [node_1, node_2, node_3]
-
-
-def sample_basic_nodes_without_names_edges():
-    """ The edges associated with sample_basic_nodes_without_names """
-
     edges = defaultdict(list,
-            {'node_2': ['node_3', 'out'],
-             'node_1': ['node_3', 'out'],
-             'in': ['node_1', 'node_2'],
-             'node_3': ['out']})
-    return dict(edges)
-
-
-# PAIR OF ISOLATED (isolated from dataset) NODE LIST AND ITS ADJACENCY LIST
-def sample_isolated_graph_nodes():
-    """ Create list of nodes that form an isolated graph (isolated from dataset) """
-    node_1 = Node(callable=lambda x: x, input_keys=['x1'], output_keys=['y1'], name='node_1')
-    node_2 = Node(callable=lambda x: x, input_keys=['y1'], output_keys=['x1'], name='node_2')
-    return [node_1, node_2]
-
-
-def sample_isolated_graph_nodes_edges():
-    """ edges associated with isolated graph """
-    edges = defaultdict(list, {'node_1': ['node_2', 'out'], 'node_2': ['out']})
-    return dict(edges)
+                        {'node_2': ['node_3', 'out'],
+                         'node_1': ['node_3', 'out'],
+                         'in': ['node_1', 'node_2'],
+                         'node_3': ['out']})
+    return [node_1, node_2, node_3], dict(edges)
 
 
 # PAIR OF SINGLE ELEMENT NODE LIST AND ITS ADJACENCY LIST
-def sample_single_node_basic():
+def get_single_node_and_edges_basic():
     """ create a node list containing single node """
     node_1 = Node(callable=lambda x: x, input_keys=['x1'], output_keys=['y1'], name='node_1')
-    return [node_1]
-
-
-def sample_single_node_basic_edges():
-    """ edges for the single node graph """
     edges = defaultdict(list, {'in': ['node_1'], 'node_1': ['out']})
-    return dict(edges)
+    return [node_1], dict(edges)
+
 
 
 # PAIR OF SINGLE ELEMENT NODE (with self-loop) LIST AND ITS ADJACENCY LIST
-def sample_single_node_recurrent():
+def get_single_node_and_edges_recurrent():
     """ create a node list containing a single node with self-loop """
     node_1 = Node(callable=lambda x: x, input_keys=['x1'], output_keys=['x1'], name='node_1')
-    return [node_1]
-
-
-def sample_single_node_recurrent_edges():
-    """ edges for the self-loop single-node graph """
     edges = defaultdict(list, {'node_1': ['node_1', 'out'], 'in': ['node_1']})
-    return dict(edges)
+    return [node_1], dict(edges)
 
 
 # Define fixtures for different (node list, adjacency list) pairs
-@pytest.fixture(params=[(sample_basic_nodes(), sample_basic_nodes_edges()), \
-                        (sample_basic_nodes_without_names(), sample_basic_nodes_without_names_edges()), \
-                        (sample_isolated_graph_nodes(), sample_isolated_graph_nodes_edges()), \
-                        (sample_single_node_basic(), sample_single_node_basic_edges()), \
-                        (sample_single_node_recurrent(), sample_single_node_recurrent_edges() )
-                        ])
+@pytest.fixture(params=[get_basic_nodes_and_edges(), get_basic_nodes_and_edges_without_names(), \
+                        get_single_node_and_edges_basic(), get_single_node_and_edges_recurrent()])
 def get_nodes_and_edges(request):
     return request.param
 
@@ -245,16 +215,16 @@ def get_init_func_error_pairs(request):
     return request.param
 
 
-def get_input_value_count(nodes):
+def get_input_value_count(node_list):
     """
     Helper function to compute the cardinality of the node's input for each node in a node list
 
-    :param nodes: (list) List of nodes, e.g. from sample_basic_nodes()
+    :param node_list: (list) List of nodes, e.g. from sample_basic_nodes()
     :return: (dict: {str: int}) dictionary of node_name to number of input dimensions
         needed for its callable
     """
     input_value_count = {}
-    for node in nodes:
+    for node in node_list:
         node_name = node.name
         if isinstance(node.callable, torch.nn.Module):
             first_layer = node.callable[0]
@@ -267,12 +237,12 @@ def get_input_value_count(nodes):
     return input_value_count
 
 
-def generate_data_dict(sample_nodes, expected_edges, nstep, batch):
+def generate_data_dict(node_list, expected_edges, nstep, batch):
     """
     Helper function to generate random data dictionary based on node list, expected adjacency list,
     as well as nstep and batch size dimensions
 
-    :param sample_nodes: (list) List of nodes, e.g. from sample_basic_nodes()
+    :param node_list: (list) List of nodes, e.g. from sample_basic_nodes()
     :param expected_edges: (dict: {str, list}) Dictionary representation of the correct adjacency list for
         the input sample_nodes
     :param nstep (int): Number of steps
@@ -280,12 +250,12 @@ def generate_data_dict(sample_nodes, expected_edges, nstep, batch):
     :return (dict {str: Tensor}): A data dictionary
     """
     data_dict = {}
-    input_value_counts = get_input_value_count(sample_nodes)
+    input_value_counts = get_input_value_count(node_list)
     if 'in' in list(expected_edges.keys()):
         input_node_names = expected_edges['in']
     else:
         input_node_names = list(expected_edges.keys())
-    input_nodes = [n for n in sample_nodes if n.name in input_node_names]
+    input_nodes = [n for n in node_list if n.name in input_node_names]
     input_node_names = [n.name for n in input_nodes]
     input_keys = [n.input_keys for n in input_nodes]
     input_keys = list(itertools.chain(*input_keys))
@@ -373,16 +343,16 @@ def cat(data3d, data2d):
     return data3d
 
 
-def is_valid_node_list(nodes):
+def is_valid_node_list(node_list):
     """
     Helper function that checks if within a list of nodes that all child nodes
     are to the right of parent nodes
 
-    :param nodes: (list) A node list e.g. from sample_basic_nodes()
+    :param node_list: (list) A node list e.g. from sample_basic_nodes()
     :return: (bool) True if valid node list
     """
     dependency_dict = dict()
-    for node in nodes:
+    for node in node_list:
         output_keys, in_keys = node.output_keys, node.input_keys
         for o in output_keys:
             if o not in dependency_dict:
@@ -391,7 +361,7 @@ def is_valid_node_list(nodes):
                 dependency_dict[o].append(in_keys)
 
     visited = set()
-    for node in nodes:
+    for node in node_list:
         if not any(i in list(dependency_dict.keys()) for j in range(len(node.output_keys)) for i in
                    dependency_dict[node.output_keys[j]]):
             for n in node.output_keys:
@@ -403,22 +373,24 @@ def is_valid_node_list(nodes):
     return True
 
 
-
+"""
+############################## TESTING FUNCTIONS FOR SYSTEM CLASS ####################################
+"""
 def test_system_initialization(get_nodes_and_edges, get_nstep_batch):
     """
     Pytest testing function to check initialization of a system, ensuring its class
     attributes are correct.
     """
-    sample_nodes, expected_edges = get_nodes_and_edges
+    node_list, expected_edges = get_nodes_and_edges
 
     test_init_func = None
     test_nstep_key = 'X'
     test_nsteps = 3
 
-    system = System(nodes=sample_nodes, nstep_key=test_nstep_key, init_func=test_init_func, nsteps=test_nsteps)
+    system = System(nodes=node_list, nstep_key=test_nstep_key, init_func=test_init_func, nsteps=test_nsteps)
     assert system is not None
     assert isinstance(system.nodes, torch.nn.ModuleList)
-    assert list_equals_modulelist(sample_nodes, system.nodes)
+    assert list_equals_modulelist(node_list, system.nodes)
     assert hasattr(system.init, '__self__') #original init
     assert system.nstep_key == test_nstep_key
     assert system.nsteps == test_nsteps
@@ -430,8 +402,8 @@ def test_graph_generation_valid_node_lists(get_nodes_and_edges):
     We assume the graph is correct if its adjacency list of edges and nodes (represented by a dictionary)
     is equal to the "true" adj list dictionary
     """
-    sample_nodes, expected_edges = get_nodes_and_edges
-    system = System(nodes=sample_nodes)
+    node_list, expected_edges = get_nodes_and_edges
+    system = System(nodes=node_list)
     graph = system.system_graph
     assert graph is not None
     assert isinstance(graph, pydot.Dot)
@@ -440,14 +412,14 @@ def test_graph_generation_valid_node_lists(get_nodes_and_edges):
     input_keys = []
     output_keys = []
     nonames = 1
-    for node in sample_nodes:
+    for node in node_list:
         input_keys += node.input_keys
         output_keys += node.output_keys
         if node.name is None or node.name == '':
             node.name = f'node_{nonames}'
             nonames += 1
 
-    expected_node_names = [node.name for node in sample_nodes]  # expected_node_names
+    expected_node_names = [node.name for node in node_list]  # expected_node_names
     for node in system.nodes:  # node name after being ingested by system
         assert node.name in expected_node_names
 
@@ -466,12 +438,12 @@ def test_system_init(get_nodes_and_edges, get_nstep_batch, get_init_func_error_p
     Function to check that System will produce expected behavior to variety
     of init functions
     """
-    sample_nodes, expected_edges = get_nodes_and_edges
+    node_list, expected_edges = get_nodes_and_edges
     nstep, batch = get_nstep_batch
     init_func, expected_error = get_init_func_error_pairs
 
-    input_data_dict = generate_data_dict(sample_nodes, expected_edges, nstep, batch)
-    system = System(nodes=sample_nodes, nsteps=nstep, init_func=init_func)
+    input_data_dict = generate_data_dict(node_list, expected_edges, nstep, batch)
+    system = System(nodes=node_list, nsteps=nstep, init_func=init_func)
 
     if expected_error is not None:
         with pytest.raises(expected_error):
@@ -503,12 +475,12 @@ def test_forward_on_valid_node_lists(get_nodes_and_edges, get_nstep_batch):
     Function to test System's forward on a variety of graph types,
     nsteps, and batch sizes
     """
-    sample_nodes, expected_edges = get_nodes_and_edges
+    node_list, expected_edges = get_nodes_and_edges
     nstep, batch = get_nstep_batch
-    system = System(nodes=sample_nodes, nsteps=nstep)
-    input_data_dict = generate_data_dict(sample_nodes, expected_edges, nstep, batch)
+    system = System(nodes=node_list, nsteps=nstep)
+    input_data_dict = generate_data_dict(node_list, expected_edges, nstep, batch)
     test_result_dict = system(input_data_dict)
-    expected_result_dict = generate_expected_output(node_list=sample_nodes, nsteps=nstep, init_data=input_data_dict)
+    expected_result_dict = generate_expected_output(node_list=node_list, nsteps=nstep, init_data=input_data_dict)
     assert dict_equals(test_result_dict, expected_result_dict)
 
 
@@ -519,12 +491,12 @@ def test_forward_on_invalid_node_lists(get_nodes_and_edges, get_nstep_batch):
     input keys to exist .. but they will not as they are dependent on an unseen parent output key.
     nsteps, and batch sizes
     """
-    sample_nodes, expected_edges = get_nodes_and_edges
+    node_list, expected_edges = get_nodes_and_edges
     nstep, batch = get_nstep_batch
 
     # generate permutations of invalid node list
     if 'in' in list(expected_edges.keys()):
-        nodes_list = list(itertools.permutations(sample_nodes))
+        nodes_list = list(itertools.permutations(node_list))
         invalid_nodes_list = []
         for lst in nodes_list:
             if not is_valid_node_list(lst):
@@ -543,11 +515,11 @@ def test_forward_on_invalid_node_lists(get_nodes_and_edges, get_nstep_batch):
 
 
 def test_graph_generation_invalid_node_lists(get_nodes_and_edges):
-    sample_nodes, expected_edges = get_nodes_and_edges
+    node_list, expected_edges = get_nodes_and_edges
 
     # generate permutations of invalid node list
     if 'in' in list(expected_edges.keys()):
-        nodes_list = list(itertools.permutations(sample_nodes))
+        nodes_list = list(itertools.permutations(node_list))
         invalid_nodes_list = []
         for lst in nodes_list:
             if not is_valid_node_list(lst):
@@ -567,14 +539,14 @@ def test_graph_generation_invalid_node_lists(get_nodes_and_edges):
                 input_keys = []
                 output_keys = []
                 nonames = 1
-                for node in sample_nodes:
+                for node in node_list:
                     input_keys += node.input_keys
                     output_keys += node.output_keys
                     if node.name is None or node.name == '':
                         node.name = f'node_{nonames}'
                         nonames += 1
 
-                expected_node_names = [node.name for node in sample_nodes]  # expected_node_names
+                expected_node_names = [node.name for node in node_list]  # expected_node_names
                 for node in system.nodes:  # node name after being ingested by system
                     assert node.name in expected_node_names
 

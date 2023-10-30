@@ -120,14 +120,19 @@ class TestMovingHorizon:
 
     def test_movinghorizon_forward(self):
         expected_output_dict = self.node_1(self.sample_data)
-        horizon = MovingHorizon(self.node_1, ndelay=1)
+        ndelay = 2
+        horizon = MovingHorizon(self.node_1, ndelay=ndelay)
         horizon_output = horizon(self.sample_data)
         assert isinstance(horizon_output, dict)
         assert [isinstance(horizon_output[j], torch.Tensor) for j in list(horizon_output.keys())]
+
+        # below checks that output of moving horizon is data dict with values of dimension (ndelay, batch, dim)
         assert [(horizon_output[j].shape[0]) == horizon.ndelay for j in list(horizon_output.keys())]
         assert [(horizon_output[j].shape[1]) == self.sample_data['x1'].shape[0] for j in list(horizon_output.keys())]
         assert [(horizon_output[j].shape[2]) == self.sample_data['x1'].shape[1] for j in list(horizon_output.keys())]
-        #assert dict_equals(expected_output_dict, horizon_output)
+
+        # expected output should be output of node repeated ndelay times 
+        assert [horizon_output['y1'][j] == expected_output_dict['y1'] for j in range(ndelay)]
 
 
 """

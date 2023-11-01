@@ -3,7 +3,7 @@
   <img src="figs/Neuromancer.png" width="250">  
 </p>
 
-# NeuroMANCER v1.4.1
+# NeuroMANCER v1.4.2
 
 **Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
 is an open-source differentiable programming (DP) library for solving parametric constrained optimization problems, 
@@ -11,6 +11,10 @@ physics-informed system identification, and parametric model-based optimal contr
 NeuroMANCER is written in [PyTorch](https://pytorch.org/) and allows for systematic 
 integration of machine learning with scientific computing for creating end-to-end 
 differentiable models and algorithms embedded with prior knowledge and physics.
+
+### New in v1.4.2
+*insert updates here*
+
 
 
 ### New in v1.4.1

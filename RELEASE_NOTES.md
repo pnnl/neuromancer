@@ -1,6 +1,10 @@
 
 ##  Release notes
 
+### Version 1.4.2 Release Notes 
++ Insert Here
+  + Insert Here
+
 ### Version 1.4.1 Release Notes
 + To simplify integration, interpolation of control input is no longer supported in `integrators.py`
   + The `interp_u` parameter of `Integrator` and subclasses has been deprecated

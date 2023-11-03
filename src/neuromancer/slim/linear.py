@@ -93,7 +93,6 @@ class LinearBase(nn.Module, ABC):
 
     def forward(self, x):
         """
-0-
         :param x: (torch.Tensor, shape=[batchsize, in_features])
         :return: (torch.Tensor, shape=[batchsize, out_features])
         """

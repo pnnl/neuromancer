@@ -48,10 +48,14 @@ class LinearBase(nn.Module, ABC):
         """
         super().__init__()
         self.in_features, self.out_features = insize, outsize
-        self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=not bias)
-        if bias:
+        self.use_bias = bias 
+        if bias: 
             bound = 1 / math.sqrt(insize)
             torch.nn.init.uniform_(self.bias, -bound, bound)
+            self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=bias)
+        else: 
+            self.register_parameter('bias', None)
+
         if provide_weights:
             self.weight = nn.Parameter(torch.Tensor(insize, outsize))
             torch.nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
@@ -93,8 +97,10 @@ class LinearBase(nn.Module, ABC):
         :param x: (torch.Tensor, shape=[batchsize, in_features])
         :return: (torch.Tensor, shape=[batchsize, out_features])
         """
-        return torch.matmul(x, self.effective_W()) + self.bias
-
+        if self.use_bias: 
+            return torch.matmul(x, self.effective_W()) + self.bias
+        else: 
+            return torch.matmul(x, self.effective_W())
 
 class Linear(LinearBase):
     """

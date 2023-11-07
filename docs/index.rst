@@ -9,7 +9,7 @@ NeuroMANCER
 
 .. image:: _static/class_diagram.png
 .. include:: ../README.md
-   :parser: myst_parser.sphinx_
+   :parser: markdown
 
 
 

@@ -8,7 +8,8 @@ NeuroMANCER
 ============================
 
 .. image:: _static/class_diagram.png
-.. include ../README.md
+.. include:: ../README.md
+   :parser: myst_parser.sphinx_
 
 
 

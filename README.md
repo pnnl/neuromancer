@@ -12,20 +12,18 @@ NeuroMANCER is written in [PyTorch](https://pytorch.org/) and allows for systema
 integration of machine learning with scientific computing for creating end-to-end 
 differentiable models and algorithms embedded with prior knowledge and physics.
 
+### ⭐ Now available on PyPi! ⭐
+![Static Badge](https://img.shields.io/badge/pip_install-neuromancer-blue)
+ ![PyPI - Version](https://img.shields.io/pypi/v/neuromancer)
+
 ### New in v1.4.2
-*insert updates here*
-
-
-
-### New in v1.4.1
-We've made some backwards-compatible changes in order to simplify integration and support multiple symbolic inputs to `nn.Modules` in our `blocks` interface.
+New feature: `GradientProjection` now supports updating violation energy at each gradient step, as in the original [DC3 paper] (https://arxiv.org/pdf/2104.12225.pdf). See the full [release notes](RELEASE_NOTES.md) for more information.
 
 **New Colab Examples:**  
 > ⭐ [Physics-Informed Neural Networks (PINNs) for solving partial differential equations (PDEs) in NeuroMANCER](#physics-informed-neural-networks-pinns-for-partial-differential-equations-pdes)
 
 > ⭐ [System identification for ordinary differential equations (ODEs)](#ordinary-differential-equations-odes)
 
-See [v1.4.1 release notes](#version-141-release-notes) for more details.
 
 ## Features and Examples
 
@@ -209,7 +207,7 @@ See the `pyproject.toml` file for reference.
 ``` toml
 [project.optional-dependencies]
 tests = ["pytest", "hypothesis"]
-examples = ["casadi", "cvxpy", "imageio"]
+examples = ["casadi", "cvxpy", "imageio", "cvxpylayers"]
 docs = ["sphinx", "sphinx-rtd-theme"]
 ```
 
@@ -225,7 +223,9 @@ See [CVXPY installation instructions](https://www.cvxpy.org/install/index.html) 
 
 ### Conda install
 Conda install is recommended for GPU acceleration. 
-In many cases the following simple install should work for the specified OS
+
+> ❗️Warning: `linux_env.yml`, `windows_env.yml`, and `osxarm64_env.yml` are out of date. Manual installation of dependencies is recommended for conda.
+
 
 #### Create environment & install dependencies
 ##### Ubuntu

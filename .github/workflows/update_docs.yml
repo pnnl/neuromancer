@@ -3,7 +3,7 @@ name: Automate Documentation Build #name of action
 on: #trigger event
   push:
     branches:
-      - master #execute on a push to master branch
+      - bug/gha-docs-fix #execute on a push to master branch
 
 permissions:
   contents: write #grant access to write to master branch
@@ -15,6 +15,8 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
 
       # step 1: syntax for telling GHA to use this repository's code as "root" directory. Rest of GHA is able to have access
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       # step 2: #syntax for telling GHA to set-up Python on this runner associated for this whole job
       - uses: actions/setup-python@v3
 
@@ -32,11 +34,10 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
       - name: Deploy to GitHub Pages
         #uses a github action "extension" called actions-gh-pages
         uses: peaceiris/actions-gh-pages@v3
-        if: github.ref == 'refs/heads/master' #ensure that we are on the master branch
+        #if: github.ref == 'refs/heads/master' #ensure that we are on the master branch
 
         #following is syntax for using actions-gh-pages action
         with:
           publish_branch: gh-pages
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: html/ #docs to publish to html directory
-          force_orphan: true #common command associated with deploying a GitHub Page
+          publish_dir: ./html

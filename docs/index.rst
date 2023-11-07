@@ -8,7 +8,9 @@ NeuroMANCER
 ============================
 
 .. image:: _static/class_diagram.png
-..mdinclude:: ../README.md
+
+```{include} ../README.md
+```
 
 
 

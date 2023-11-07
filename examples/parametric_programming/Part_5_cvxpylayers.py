@@ -19,6 +19,10 @@ https://en.wikipedia.org/wiki/Rosenbrock_function
 We will use neuromancer to minimize the objective function,
 and cvxpy layers to project the solution onto feasible region.
 
+
+This example requires the installation of cvxpylayers:
+https://github.com/cvxgrp/cvxpylayers
+
 """
 
 import torch

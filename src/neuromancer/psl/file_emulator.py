@@ -56,6 +56,7 @@ def _read_file(file_path):
         U = f.get("u", None)  # inputs
         D = f.get("d", None)  # disturbances
         id_ = f.get("exp_id", None)  # experiment run id
+        Time = f.get("Time", None)
     elif file_type == "csv":
         data = pd.read_csv(file_path)
         Y = _extract_var(data, "^y[0-9]+$")
@@ -63,18 +64,29 @@ def _read_file(file_path):
         U = _extract_var(data, "^u[0-9]+$")
         D = _extract_var(data, "^d[0-9]+$")
         id_ = _extract_var(data, "^exp_id")
+        Time = _extract_var(data, "^Time$")
     else:
         print(f"error: unsupported file type: {file_type}")
 
     assert any([v is not None for v in [Y, X, U, D]])
 
-    if id_ is None:
+    if id_ is None and Time is None:
         return {
             k: v for k, v in zip(["Y", "X", "U", "D"], [Y, X, U, D]) if v is not None
         }
-    else:
+    elif Time is None:
         return [
             {k: v[id_.flatten() == i, ...] for k, v in zip(["Y", "X", "U", "D"], [Y, X, U, D]) if v is not None}
+            for i in sorted(set(id_.flatten()))
+        ]
+    elif id_ is None:
+        return {
+            k: v for k, v in zip(["Time", "Y", "X", "U", "D"], [Time, Y, X, U, D]) if v is not None
+        }
+    else:
+        return [
+            {k: v[id_.flatten() == i, ...] for k, v in zip(["Time", "Y", "X", "U", "D"], [Time, Y, X, U, D]) if
+             v is not None}
             for i in sorted(set(id_.flatten()))
         ]
 
@@ -91,7 +103,6 @@ class FileEmulator(EmulatorBase):
         :param path: (str) Filepath to file stored locally
         :param system: (str) System name for dataset registered in the global datasets variable in this file.
         """
-        self.ts = 0.1
         if path is not None:
             self._path = path
         if system is not None:
@@ -105,6 +116,7 @@ class FileEmulator(EmulatorBase):
         elif 'X' not in data_keys:
             self.data['X'] = self.data['Y']
             data_keys.append('X')
+        self.ts = np.diff(self.data['Time'], axis=0).mean() if 'Time' in data_keys else 0.1
         self.data_keys = data_keys
         self.nsim = 100
         self.batch = self.get_batch(self.nsim, startidx=0)
@@ -114,7 +126,7 @@ class FileEmulator(EmulatorBase):
             self.nu = self.batch['U'].shape[-1]
         elif 'D' in self.data_keys:
             self.nd = self.batch['D'].shape[-1]
-        super().__init__(seed)
+        super().__init__(seed=seed)
 
     @property
     def params(self):

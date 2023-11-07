@@ -3,7 +3,7 @@
   <img src="figs/Neuromancer.png" width="250">  
 </p>
 
-# NeuroMANCER v1.4.1
+# NeuroMANCER v1.4.2
 
 **Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
 is an open-source differentiable programming (DP) library for solving parametric constrained optimization problems, 
@@ -12,16 +12,18 @@ NeuroMANCER is written in [PyTorch](https://pytorch.org/) and allows for systema
 integration of machine learning with scientific computing for creating end-to-end 
 differentiable models and algorithms embedded with prior knowledge and physics.
 
+### ⭐ Now available on PyPi! ⭐
+![Static Badge](https://img.shields.io/badge/pip_install-neuromancer-blue)
+ ![PyPI - Version](https://img.shields.io/pypi/v/neuromancer)
 
-### New in v1.4.1
-We've made some backwards-compatible changes in order to simplify integration and support multiple symbolic inputs to `nn.Modules` in our `blocks` interface.
+### New in v1.4.2
+New feature: `GradientProjection` now supports updating violation energy at each gradient step, as in the original [DC3 paper](https://arxiv.org/pdf/2104.12225.pdf). See the full [release notes](RELEASE_NOTES.md) for more information.
 
 **New Colab Examples:**  
 > ⭐ [Physics-Informed Neural Networks (PINNs) for solving partial differential equations (PDEs) in NeuroMANCER](#physics-informed-neural-networks-pinns-for-partial-differential-equations-pdes)
 
 > ⭐ [System identification for ordinary differential equations (ODEs)](#ordinary-differential-equations-odes)
 
-See [v1.4.1 release notes](#version-141-release-notes) for more details.
 
 ## Features and Examples
 
@@ -55,7 +57,11 @@ Part 2: Learning to solve a quadratically-constrained optimization problem.
 Part 3: Learning to solve a set of 2D constrained optimization problems.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
-Part 4: Learning to solve a constrained optimization problem with projected gradient method.
+Part 4: Learning to solve a constrained optimization problem with the projected gradient.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_5_cvxpy_layers.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
+Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasible set.  
+
 
 ### Ordinary Differential Equations (ODEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_1_NODE.ipynb">
@@ -151,7 +157,28 @@ problem = nm.problem.Problem(nodes=[map], loss=loss)
 
 ## Installation
 
-For either pip or conda installation, first clone the neuromancer package.
+### PIP Install (recommended)
+
+Consider using a dedicated virtual environment (conda or otherwise) with Python 3.9+ installed. 
+
+```bash
+pip install neuromancer
+```
+Example usage: 
+
+```bash
+import torch
+from neuromancer.system import Node
+
+fun_1 = lambda x1, x2: 2.*x1 - x2**2
+node_3 = Node(fun_1, ['y1', 'y2'], ['y3'], name='quadratic')
+# evaluate forward pass of the node with dictionary input dataset
+print(node_3({'y1': torch.rand(2), 'y2': torch.rand(2)}))
+
+```
+### Manual Install
+
+First clone the neuromancer package.
 A dedicated virtual environment (conda or otherwise) is recommended. 
 
 Note: If you have a previous neuromancer env it would be best at this point to create a new environment given the following instructions.
@@ -159,13 +186,6 @@ Note: If you have a previous neuromancer env it would be best at this point to c
 ```bash
 git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
 ```
-
-### PIP Install
-Recommended installation.  
-Pip installation is broken up into required dependencies for core Neuromancer
-and dependencies associated with the examples, tests, and generating the documentation.
-Below we give instructions to install all dependencies in a conda virtual enviroment via pip. 
-You need at least pip version >= 21.3.
 
 #### Create and activate virtual environment
 
@@ -191,7 +211,7 @@ See the `pyproject.toml` file for reference.
 ``` toml
 [project.optional-dependencies]
 tests = ["pytest", "hypothesis"]
-examples = ["casadi", "cvxpy", "imageio"]
+examples = ["casadi", "cvxpy", "imageio", "cvxpylayers"]
 docs = ["sphinx", "sphinx-rtd-theme"]
 ```
 
@@ -207,7 +227,9 @@ See [CVXPY installation instructions](https://www.cvxpy.org/install/index.html) 
 
 ### Conda install
 Conda install is recommended for GPU acceleration. 
-In many cases the following simple install should work for the specified OS
+
+> ❗️Warning: `linux_env.yml`, `windows_env.yml`, and `osxarm64_env.yml` are out of date. Manual installation of dependencies is recommended for conda.
+
 
 #### Create environment & install dependencies
 ##### Ubuntu

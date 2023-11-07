@@ -3,11 +3,15 @@ Learning provably stable Deep Koopman model from time series data
 
 references Koopman control models:
 [1] https://arxiv.org/abs/2202.08004
-[2]
-[3]
+[2] https://iopscience.iop.org/article/10.1088/2632-2153/abf0f5
+[3] https://ieeexplore.ieee.org/document/9799788
+[4] https://ieeexplore.ieee.org/document/9022864
+[5] https://github.com/HaojieSHI98/DeepKoopmanWithControl
+[6] https://pubs.aip.org/aip/cha/article-abstract/22/4/047510/341880/Applied-Koopmanisma
+[7] https://arxiv.org/abs/1312.0041
 
 references stability:
-[4] https://ieeexplore.ieee.org/document/9482930
+[8] https://ieeexplore.ieee.org/document/9482930
 
 """
 
@@ -149,7 +153,7 @@ if __name__ == '__main__':
                      linear_map=torch.nn.Linear,
                      nonlin=torch.nn.ELU,
                      hsizes=n_layers*[n_hidden])
-    # initial condition encoder
+    # control action encoder
     encode_U = Node(f_u, ['U'], ['u_latent'], name='encoder_U')
 
     # instantiate state decoder neural net

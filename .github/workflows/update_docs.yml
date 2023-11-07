@@ -34,7 +34,7 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
       - name: Deploy to GitHub Pages
         #uses a github action "extension" called actions-gh-pages
         uses: peaceiris/actions-gh-pages@v3
-        #if: github.ref == 'refs/heads/master' #ensure that we are on the master branch
+        if: github.ref == 'refs/heads/bug/gha-docs-fix' #ensure that we are on the master branch
 
         #following is syntax for using actions-gh-pages action
         with:

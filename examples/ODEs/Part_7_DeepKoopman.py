@@ -6,9 +6,11 @@ references Koopman models:
 [2] https://ieeexplore.ieee.org/document/8815339
 [3] https://arxiv.org/abs/1710.04340
 [4] https://nicholasgeneva.com/deep-learning/koopman/dynamics/2020/05/30/intro-to-koopman.html
+[5] https://pubs.aip.org/aip/cha/article-abstract/22/4/047510/341880/Applied-Koopmanisma
+[6] https://arxiv.org/abs/1312.0041
 
 references stability:
-[5] https://ieeexplore.ieee.org/document/9482930
+[7] https://ieeexplore.ieee.org/document/9482930
 
 """
 

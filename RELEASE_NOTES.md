@@ -1,6 +1,15 @@
 
 ##  Release notes
 
+### Version 1.4.2 Release Notes 
++ New feature: Update violation energy for projected gradient #110 (based on idea #86).
++ Reverted `psl.nonautonomous.TwoTank` `(umin, umax)` bounds to `(0.5, 0.5)` for numerical stability #105
++ Added new unit tests for `problem.py` and `system.py` #107
++ Automated docs build from `master -> gh-pages` #107
++ Fixed positional arg error and added support for Time data in `file_emulator.py` #119
++ Fixed a bug in `System` which caused incorrect visualization of the computational graph
++ Minor updates to examples
+
 ### Version 1.4.1 Release Notes
 + To simplify integration, interpolation of control input is no longer supported in `integrators.py`
   + The `interp_u` parameter of `Integrator` and subclasses has been deprecated

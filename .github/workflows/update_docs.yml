@@ -1,0 +1,42 @@
+name: Automate Documentation Build #name of action
+
+on: #trigger event
+  push:
+    branches:
+      - master #execute on a push to master branch
+
+permissions:
+  contents: write #grant access to write to master branch
+
+jobs: #define set of jobs. Here there is only one job, each job is instantiated on a Github-hosted runner
+  docs: #name of the job
+    runs-on: ubuntu-latest #runner runs on latest version of Ubuntu
+    steps: #this job is associated with a series of steps
+
+      # step 1: syntax for telling GHA to use this repository's code as "root" directory. Rest of GHA is able to have access
+      - uses: actions/checkout@v3
+      # step 2: #syntax for telling GHA to set-up Python on this runner associated for this whole job
+      - uses: actions/setup-python@v3
+
+      # Step 3: define a step that install dependencies (Sphinx etc) for this runner
+      - name: Install dependencies #name of this step
+        run: | #indicate that following script is meant to be multi-line
+          pip install sphinx sphinx_rtd_theme myst_parser 
+
+      # Step 4: Build docs using sphinx. TZ=UTC needed to circumvent a nuance of running Sphinx on GHA runner
+      - name: Sphinx build
+        run: |
+          TZ=UTC sphinx-build docs html
+          
+      # Step 5: Deploy the newly built docs to gh-pages branch
+      - name: Deploy to GitHub Pages
+        #uses a github action "extension" called actions-gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/master' #ensure that we are on the master branch
+
+        #following is syntax for using actions-gh-pages action
+        with:
+          publish_branch: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: html/ #docs to publish to html directory
+          force_orphan: true #common command associated with deploying a GitHub Page

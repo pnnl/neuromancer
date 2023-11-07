@@ -57,7 +57,7 @@ Part 2: Learning to solve a quadratically-constrained optimization problem.
 Part 3: Learning to solve a set of 2D constrained optimization problems.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
-Part 4: Learning to solve a constrained optimization problem with the projected gradient method.
+Part 4: Learning to solve a constrained optimization problem with the projected gradient.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_5_cvxpy_layers.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
 Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasible set.  

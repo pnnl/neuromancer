@@ -17,7 +17,7 @@ differentiable models and algorithms embedded with prior knowledge and physics.
  ![PyPI - Version](https://img.shields.io/pypi/v/neuromancer)
 
 ### New in v1.4.2
-New feature: `GradientProjection` now supports updating violation energy at each gradient step, as in the original [DC3 paper] (https://arxiv.org/pdf/2104.12225.pdf). See the full [release notes](RELEASE_NOTES.md) for more information.
+New feature: `GradientProjection` now supports updating violation energy at each gradient step, as in the original [DC3 paper](https://arxiv.org/pdf/2104.12225.pdf). See the full [release notes](RELEASE_NOTES.md) for more information.
 
 **New Colab Examples:**  
 > ⭐ [Physics-Informed Neural Networks (PINNs) for solving partial differential equations (PDEs) in NeuroMANCER](#physics-informed-neural-networks-pinns-for-partial-differential-equations-pdes)

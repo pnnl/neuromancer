@@ -157,6 +157,9 @@ class Trainer:
 
         self.callback.end_train(self, output)  # write training visualizations
 
+        # Assign best weights to the model
+        self.model.load_state_dict(self.best_model)
+
         if self.logger is not None:
             self.logger.log_artifacts({
                 "best_model_state_dict.pth": self.best_model,

@@ -13,7 +13,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../neuromancer'))
-sys.path.insert(0, os.path.abspath('../neuromancer/src/neuromancer'))
+sys.path.insert(0, os.path.abspath('../src/neuromancer'))
 
 
 # -- Project information -----------------------------------------------------

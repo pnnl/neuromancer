@@ -1,36 +1,32 @@
-name: Publish to PyPI
+name: PublishToTestPyPI
 
 on: #trigger event
-  push:
+  pull_request:
     branches:
-      - master #execute on a push to master branch
+      - dev/update_to_1.4.2_automate_publishing
 
 jobs:
   build:
-    name: Build distribution 📦
-    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+    name: Builddistribution
+    #if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v3
     - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.9
+      uses: actions/setup-python@v3
 
-    - name: Extract Version from tag
-      id: extract_version
-      run: echo ::set-output name=VERSION::${{ steps.get_tag.outputs.TAG | sed 's/v//' }}
+
+    - name: Get the latest tag
+      id: get_tag
+      run: echo ::set-output name=VERSION::$(git describe --tags --abbrev=0 | sed 's/^v//')
 
     - name: Update version in pyproject.toml
-      run: sed -i "s/version = .*/version = \"${{ steps.extract_version.outputs.VERSION }}\"/" pyproject.toml
+      run: sed -i "s/version = .*/version = \"${{ steps.get_tag.outputs.VERSION }}\"/" pyproject.toml
 
     - name: Install pypa/build
       run: | 
-        python3 -m
-        pip install
-        build
-        --user
+        pip install build --user
     - name: Build a binary wheel and a source tarball
       run: python3 -m build
     - name: Store the distribution packages
@@ -40,8 +36,8 @@ jobs:
         path: dist/
 
   publish-to-testpypi:
-    name: Publish Python 🐍 distribution 📦 to TestPyPI
-    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+    name: Publish
+    #if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
     needs:
     - build
     runs-on: ubuntu-latest
@@ -59,31 +55,9 @@ jobs:
       with:
         name: python-package-distributions
         path: dist/
-    - name: Publish distribution 📦 to TestPyPI
+    - name: Publish distribution 
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         repository-url: https://test.pypi.org/legacy/
-
-   publish-to-pypi:
-    name: >-
-      Publish Python 🐍 distribution 📦 to PyPI
-    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
-    needs:
-    - build
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/<package-name>  # Replace <package-name> with your PyPI project name
-    permissions:
-      id-token: write  # IMPORTANT: mandatory for trusted publishing
-
-    steps:
-    - name: Download all the dists
-      uses: actions/download-artifact@v3
-      with:
-        name: python-package-distributions
-        path: dist/
-    - name: Publish distribution 📦 to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
 
   

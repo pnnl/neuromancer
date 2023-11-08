@@ -17,7 +17,7 @@ differentiable models and algorithms embedded with prior knowledge and physics.
  ![PyPI - Version](https://img.shields.io/pypi/v/neuromancer)
 
 ### New in v1.4.2
-New feature: `GradientProjection` now supports updating violation energy at each gradient step, as in the original [DC3 paper] (https://arxiv.org/pdf/2104.12225.pdf). See the full [release notes](RELEASE_NOTES.md) for more information.
+New feature: `GradientProjection` now supports updating violation energy at each gradient step, as in the original [DC3 paper](https://arxiv.org/pdf/2104.12225.pdf). See the full [release notes](RELEASE_NOTES.md) for more information.
 
 **New Colab Examples:**  
 > ⭐ [Physics-Informed Neural Networks (PINNs) for solving partial differential equations (PDEs) in NeuroMANCER](#physics-informed-neural-networks-pinns-for-partial-differential-equations-pdes)
@@ -57,7 +57,11 @@ Part 2: Learning to solve a quadratically-constrained optimization problem.
 Part 3: Learning to solve a set of 2D constrained optimization problems.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
-Part 4: Learning to solve a constrained optimization problem with projected gradient method.
+Part 4: Learning to solve a constrained optimization problem with the projected gradient.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_5_cvxpy_layers.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
+Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasible set.  
+
 
 ### Ordinary Differential Equations (ODEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_1_NODE.ipynb">

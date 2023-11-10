@@ -51,8 +51,8 @@ class LinearBase(nn.Module, ABC):
         self.use_bias = bias 
         if bias: 
             bound = 1 / math.sqrt(insize)
-            torch.nn.init.uniform_(self.bias, -bound, bound)
             self.bias = nn.Parameter(torch.zeros(1, outsize), requires_grad=bias)
+            torch.nn.init.uniform_(self.bias, -bound, bound)
         else: 
             self.register_parameter('bias', None)
 

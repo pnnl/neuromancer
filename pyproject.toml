@@ -48,7 +48,9 @@ dependencies = [
     "pyts",
     "torch",
     "torchdiffeq",
-    "toml"
+    "toml", 
+    "cvxpy", 
+    "cvxpylayers"
 ]
 
 version = "1.4.2"

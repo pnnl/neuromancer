@@ -329,8 +329,8 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 ## Development team
 
-**Lead developers**: Jan Drgona, Aaron Tuor   
-**Active core developers**: James Koch, Madelyn Shapiro  
+**Lead developers**: [Jan Drgona](https://drgona.github.io/), [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/)   
+**Active core developers**: Madelyn Shapiro, James Koch, Rahul Birmiwal  
 **Scientific advisors**: Draguna Vrabie  
 **Notable contributors**: Seth Briney, Bo Tang, Ethan King, Shrirang Abhyankar, 
 Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard

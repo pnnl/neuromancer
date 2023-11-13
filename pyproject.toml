@@ -50,7 +50,8 @@ dependencies = [
     "torchdiffeq",
     "toml", 
     "cvxpy", 
-    "cvxpylayers"
+    "cvxpylayers", 
+    "casadi"
 ]
 
 version = "1.4.2"

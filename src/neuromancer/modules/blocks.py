@@ -606,6 +606,105 @@ class RNN(Block):
         self.init_states = hiddens
         return self.output(hiddens[-1])
 
+class SquashMod(torch.nn.Module):
+    '''
+    x -> (0,1)
+    '''
+    def __init__(self, low, high, squash:str, device: torch.device=None, dtype: torch.dtype=torch.float32):
+        self.dtype = dtype
+        self.device = device
+        self.low = low
+        self.high = high
+        super(SquashMod, self).__init__()
+        self.squash = squash
+
+    def forward(self, x):
+        x.to(dtype=self.dtype, device=self.device)
+        x = (torch.tanh(x)+1)/2 if self.squash == 'tanh' else \
+            torch.sigmoid(x)
+        x = self.low + (self.high - self.low) * x
+        return x
+
+class LSTM(blocks.Block):
+    """
+
+    """
+    def __init__(
+        self,
+        insize,
+        outsize,
+        hidden_size,
+        num_layers=1,
+        bias=True,
+        dropout=0.0,
+        squash_fn: str=None, # 'tanh' or 'sigmoid'
+        low=None,
+        high=None
+    ):
+        """
+
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Linear map class from neuromancer.slim.linear
+        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape
+        :param hsizes: (list of ints) List of hidden layer sizes
+        :param linargs: (dict) Arguments for instantiating linear layer
+        """
+        super().__init__()
+        self.in_features, self.out_features = insize, outsize
+
+        self.output = torch.nn.Identity if squash_fn is None else \
+            SquashMod(low=low, high=high, squash=squash_fn)
+            # FIXME
+            # blocks.MLP_bounds(
+            #     insize=hidden_size,
+            #     outsize=outsize,
+            #     bias=True,
+            #     linear_map=slim.Linear,
+            #     nonlin=SoftExponential,
+            #     hsizes=[64],
+            #     linargs=dict(),
+            #     min=0.0,
+            #     max=1.0,
+            #     method='sigmoid_scale',
+            # )
+
+        self.lstm = torch.nn.LSTM(
+            input_size=insize,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            bias=bias,
+            batch_first=False,
+            dropout=0.0,
+            bidirectional=False,
+            proj_size=outsize,
+            device=None,
+            dtype=None)
+
+        self.reset()
+
+    def reset(self):
+        self.h, self.c = None, None
+
+    def block_eval(self, x, h=None, c=None):
+        """
+        There is some logic here so that the RNN will still get context from state in open loop simulation.
+
+        :param x: (torch.Tensor, shape=[nsteps, batchsize, dim]) Input sequence is expanded for order 2 tensors
+        :return: (torch.Tensor, shape=[batchsize, outsize]) Returns linear transform of final hidden state of RNN.
+        """
+        if len(x.shape) == 2:
+            x = x.reshape(1, *x.shape)
+        elif len(x.shape) == 3:
+            x = x.permute(1, 0, 2)
+
+        x, (self.h, self.c) = self.lstm(x, (h, c)) if h is not None else \
+            self.lstm(x)
+        self.h, self.c = self.h.detach(), self.c.detach()
+        x = x[-1]
+        self.x = self.output(x)
+        return x
 
 class BilinearTorch(Block):
     """

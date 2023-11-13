@@ -46,6 +46,53 @@ class DictDataset(Dataset):
         batch['name'] = self.name
         return batch
 
+def remainder(n, d):
+    """ use the remainder algorithm to index sequences
+    :param i (int) index of subsequence
+    """
+    i_sim = n // d
+    i = n % d
+    return i_sim, i
+
+class DictDataset_L(Dataset):
+    """
+    Lke DictDataset, but with sliding window with stride parameter
+    """
+
+    def __init__(self, datadict, L=32, stride=1, name='train'):
+        """
+
+        :rtype: object
+        :param datadict: (dict {str: Tensor})
+        :param name: (str) Name of dataset
+        :param L (int) prediction horizion
+        """
+        super().__init__()
+        self.datadict = datadict
+        self.L = L
+        self.name = name
+        self.nsim, self.nsteps =  next(iter(datadict.values())).shape
+        self.seqs_per_sim = self.nsteps - self.L + 1
+        self.length = (self.nsim * self.seqs_per_sim) // stride
+        self.stride = stride
+
+    def __getitem__(self, i):
+        """Fetch a single item from the dataset."""
+        i_sim, i = remainder(self.stride*i, self.seqs_per_sim)
+        return {k: v[i_sim][i: i+self.L] for k, v in self.datadict.items()}
+
+    def __len__(self):
+        return self.length
+
+    def collate_fn(self, batch):
+        """Wraps the default PyTorch batch collation function and adds a name field.
+
+        :param batch: (dict str: torch.Tensor) dataset sample.
+        """
+        batch = default_collate(batch)
+        batch['name'] = self.name
+        return batch
+
 
 def _is_multisequence_data(data):
     return isinstance(data, list) and all([isinstance(x, dict) for x in data])

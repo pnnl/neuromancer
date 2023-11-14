@@ -1,19 +1,14 @@
-.. SLiM documentation master file, created by
-   sphinx-quickstart on Sat Nov  7 06:40:51 2020.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-.. _Aaron Tuor: http://sw.cs.wwu.edu/~tuora/aarontuor/
-
-
-
-
 
 NeuroMANCER
 ============================
 
 .. image:: _static/class_diagram.png
 
-NeuroMANCER v1.4.2
+
+   
+
+
+NeuroMANCER v1.4.27
 ------------------------
 **Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
 is an open-source differentiable programming (DP) library for solving parametric constrained optimization problems,
@@ -285,46 +280,12 @@ Acknowledgements
 This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research's “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects.
 PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.
 
-Documentation
-------------------------
-.. image:: _static/class_diagram.png
 
+
+Welcome to My Project's Documentation
+------------------------------------
 .. toctree::
    :maxdepth: 2
-   :caption: Modules:
+   :hidden: 
 
-   dynamics.rst
-   activations.rst
-   blocks.rst
-   dataset.rst
-   estimators.rst
-   loggers.rst
-   operators.rst
-   plot.rst
-   problem.rst
-   rnn.rst
-   simulators.rst
-   trainer.rst
-   visuals.rst
-   arg.rst
-   callbacks.rst
-   component.rst
-   constraint.rst
-   gradients.rst
-   bounds.rst
-   gnn.rst
-   integrators.rst
-   interpolation.rst
-   loss.rst
-   maps.rst
-   ode.rst
-   pwa_maps.rst
-   solvers.rst
-   simulator.rst
-   physics.rst
-
-   psl/index.rst
-   slim/index.rst
-
-
-
+   neuromancer

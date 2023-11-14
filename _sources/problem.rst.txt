@@ -1,7 +1,7 @@
 Problem
 =======
 
-.. automodule:: neuromancer.problem
+.. autoclass:: neuromancer.problem
    :members:
    :undoc-members:
    :special-members: __call__

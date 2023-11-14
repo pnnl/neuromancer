@@ -1,13 +1,96 @@
-.. SLiM documentation master file, created by
-   sphinx-quickstart on Sat Nov  7 06:40:51 2020.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-.. _Aaron Tuor: http://sw.cs.wwu.edu/~tuora/aarontuor/
 
 NeuroMANCER
 ============================
 
 .. image:: _static/class_diagram.png
+
+
+   
+
+
+NeuroMANCER v1.4.27
+------------------------
+**Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
+is an open-source differentiable programming (DP) library for solving parametric constrained optimization problems,
+physics-informed system identification, and parametric model-based optimal control.
+NeuroMANCER is written in [PyTorch](https://pytorch.org/) and allows for systematic
+integration of machine learning with scientific computing for creating end-to-end
+differentiable models and algorithms embedded with prior knowledge and physics.
+
+Pip Installation (Recommended)
+------------------------
+Now available on PyPI!
+
+.. code:: bash
+
+   pip install neuromancer
+
+Features and Examples
+------------------------
+Extensive set of tutorials can be found in the
+(https://github.com/pnnl/neuromancer/tree/master/examples) folder.
+Interactive notebook versions of examples are available on Google Colab!
+Test out NeuroMANCER functionality before cloning the repository and setting up an
+environment.
+
+Introduction to NeuroMANCER
+
+`Part 1: Linear regression in PyTorch vs NeuroMANCER. <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_1_linear_regression.ipynb>`_
+
+`Part 2: NeuroMANCER syntax tutorial: variables, constraints, and objectives. <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_2_variable.ipynb>`_
+
+`Part 3: NeuroMANCER syntax tutorial: modules, Node, and System class. <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_3_node.ipynb>`_
+
+Parametric Programming
+
+`Part 1: Learning to solve a constrained optimization problem. <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb>`_
+
+`Part 2: Learning to solve a quadratically-constrained optimization problem. <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_2_pQP.ipynb>`_
+
+`Part 3: Learning to solve a set of 2D constrained optimization problems. <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_3_pNLP.ipynb>`_
+
+`Part 4: Learning to solve a constrained optimization problem with projected gradient method. <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb>`_
+
+Ordinary Differential Equations (ODEs)
+
+1. `Part 1: Neural Ordinary Differential Equations (NODEs) <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_1_NODE.ipynb>`_
+
+2. `Part 2: Parameter estimation of ODE system <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_2_param_estim_ODE.ipynb>`_
+
+3. `Part 3: Universal Differential Equations (UDEs) <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_3_UDE.ipynb>`_
+
+4. `Part 4: NODEs with exogenous inputs <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_4_nonauto_NODE.ipynb>`_
+
+5. `Part 5: Neural State Space Models (NSSMs) with exogenous inputs <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_5_nonauto_NSSM.ipynb>`_
+
+6. `Part 6: Data-driven modeling of resistance-capacitance (RC) network ODEs <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_6_NetworkODE.ipynb>`_
+
+7. `Part 7: Deep Koopman operator <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_7_DeepKoopman.ipynb>`_
+
+8. `Part 8: Control-oriented Deep Koopman operator <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_8_nonauto_DeepKoopman.ipynb>`_
+
+### Physics-Informed Neural Networks (PINNs) for Partial Differential Equations (PDEs)
+
+1. `Part 1: Diffusion Equation <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb>`_
+
+2. `Part 2: Burgers' Equation <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_2_PINN_BurgersEquation.ipynb>`_
+
+3. `Part 3: Burgers' Equation w/ Parameter Estimation (Inverse Problem) <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_3_PINN_BurgersEquation_inverse.ipynb>`_
+
+Here are the converted lines for the provided examples:
+
+### Control
+
+1. `Part 1: Learning to stabilize a linear dynamical system. <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb>`_
+
+2. `Part 2: Learning to stabilize a nonlinear differential equation. <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_2_stabilize_ODE.ipynb>`_
+
+3. `Part 3: Learning to control a nonlinear differential equation. <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_3_ref_tracking_ODE.ipynb>`_
+
+4. `Part 4: Learning neural ODE model and control policy for an unknown dynamical system. <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_4_NODE_control.ipynb>`_
+
+5. `Part 5: Learning neural Lyapunov function for a nonlinear dynamical system. <https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_5_neural_Lyapunov.ipynb>`_
+
 
 Additional Documentation
 ------------------------
@@ -58,92 +141,6 @@ Below is a Neuromancer syntax example for differentiable parametric programming
    components = [sol_map]
    problem = nm.problem.Problem(components, loss)
 
-Conda install
--------------
-
-First clone the neuromancer library.
-Conda install is recommended for GPU acceleration.
-In many cases the following simple install should work for the specified OS
-
-
-.. code:: bash
-
-
-   user@machine:~$ git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
-
-Install dependencies
---------------------
-
-Ubuntu
-~~~~~~
-
-.. code:: bash
-
-   $ conda env create -f linux_env.yml
-   $ conda activate neuromancer
-
-Windows
-~~~~~~~
-
-.. code:: bash
-
-   $ conda env create -f windows_env.yml
-   $ conda activate neuromancer
-   (neuromancer) $ conda install -c defaults intel-openmp -f
-
-MacOS (Apple M1)
-~~~~~~~~~~~~~~~~
-
-.. code:: bash
-
-   $ conda env create -f osxarm64_env.yml
-   $ conda activate neuromancer
-
-Other operating system
-~~~~~~~~~~~~~~~~~~~~~~
-
-.. code:: bash
-
-   $ conda create -n neuromancer python=3.10.4
-   $ conda activate neuromancer
-   (neuromancer) $ conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
-   ## OR (for Mac): conda install pytorch -c pytorch
-   (neuromancer) $ conda config --append channels conda-forge
-   (neuromancer) $ conda install scipy numpy matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba
-   (neuromancer) $ conda install networkx=3.0 plum-dispatch
-   (neuromancer) $ conda install -c anaconda pytest hypothesis
-   (neuromancer) $ conda install cvxpy cvxopt casadi seaborn imageio
-   (neuromancer) $ conda install tqdm torchdiffeq toml
-   ## (for Windows): conda install -c defaults intel-openmp -f
-
-Install neuromancer ecosystem
------------------------------
-
-.. code:: bash
-
-   (neuromancer) $ pip install -e . --no-deps
-
-Pip install
------------
-
-.. code :: bash
-
-   python3 -m pip install -e.[docs,tests,examples]
-
-See the `pyproject.toml` file for reference.
-
-.. code::
-   [project.optional-dependencies]
-   tests = ["pytest", "hypothesis"]
-   examples = ["casadi", "cvxpy", "imageio"]
-   docs = ["sphinx", "sphinx-rtd-theme"]
-
-Test NeuroMANCER install
-------------------------
-
-Run pytest on the test folder. It should take about 2 minutes to run the
-tests on CPU. There will be a lot of warnings that you can safely
-ignore. These warnings will be cleaned up in a future release.
 
 Examples
 --------
@@ -154,6 +151,7 @@ basic usage, see the scripts in the examples folder.
 
 Community
 ---------
+We welcome contributions and feedback from the open-source community!
 
 Contributing examples
 ~~~~~~~~~~~~~~~~~~~~~
@@ -235,11 +233,11 @@ Publications
    (2021) <https://www.sciencedirect.com/science/article/pii/S0378778821002760>`__
 -  `E. Skomski, S. Vasisht, C. Wight, A. Tuor, J. Drgoňa and D. Vrabie,
    “Constrained Block Nonlinear Neural Dynamical Models,” 2021 American
-   Control Conference (ACC), 2021, pp. 3993-4000, doi:
+   Control Conference (ACC), 2021, pp. 3993-4000, doi:
    10.23919/ACC50511.2021.9482930. <https://ieeexplore.ieee.org/document/9482930>`__
 -  `Skomski, E., Drgoňa, J., & Tuor, A. (2021, May). Automating
    Discovery of Physics-Informed Neural State Space Models via Learning
-   and Evolution. In Learning for Dynamics and Control (pp. 980-991).
+   and Evolution. In Learning for Dynamics and Control (pp. 980-991).
    PMLR. <https://proceedings.mlr.press/v144/skomski21a.html>`__
 -  `Drgoňa, J., Tuor, A., Skomski, E., Vasisht, S., & Vrabie, D. (2021).
    Deep Learning Explicit Differentiable Predictive Control Laws for
@@ -248,13 +246,13 @@ Publications
 -  `Tuor, A., Drgona, J., & Vrabie, D. (2020). Constrained neural
    ordinary differential equations with stability guarantees. arXiv
    preprint arXiv:2004.10883. <https://arxiv.org/abs/2004.10883>`__
--  `Drgona, Jan, et al. “Differentiable Predictive Control: An MPC
+-  `Drgona, Jan, et al. “Differentiable Predictive Control: An MPC
    Alternative for Unknown Nonlinear Systems using Constrained Deep
    Learning.” Journal of Process Control Volume 116, August 2022, Pages
    80-92 <https://www.sciencedirect.com/science/article/pii/S0959152422000981>`__
 -  `Drgona, J., Skomski, E., Vasisht, S., Tuor, A., & Vrabie, D. (2020).
    Dissipative Deep Neural Dynamical Systems, in IEEE Open Journal of
-   Control Systems, vol. 1, pp. 100-112,
+   Control Systems, vol. 1, pp. 100-112,
    2022 <https://ieeexplore.ieee.org/document/9809789>`__
 -  `Drgona, J., Tuor, A., & Vrabie, D., Learning Constrained Adaptive
    Differentiable Predictive Control Policies With Guarantees, arXiv
@@ -282,46 +280,12 @@ Acknowledgements
 This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research's “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects.
 PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.
 
-Documentation
-------------------------
-.. image:: _static/class_diagram.png
 
+
+Welcome to My Project's Documentation
+------------------------------------
 .. toctree::
    :maxdepth: 2
-   :caption: Modules:
+   :hidden: 
 
-   dynamics.rst
-   activations.rst
-   blocks.rst
-   dataset.rst
-   estimators.rst
-   loggers.rst
-   operators.rst
-   plot.rst
-   problem.rst
-   rnn.rst
-   simulators.rst
-   trainer.rst
-   visuals.rst
-   arg.rst
-   callbacks.rst
-   component.rst
-   constraint.rst
-   gradients.rst
-   bounds.rst
-   gnn.rst
-   integrators.rst
-   interpolation.rst
-   loss.rst
-   maps.rst
-   ode.rst
-   pwa_maps.rst
-   solvers.rst
-   simulator.rst
-   physics.rst
-
-   psl/index.rst
-   slim/index.rst
-
-
-
+   neuromancer

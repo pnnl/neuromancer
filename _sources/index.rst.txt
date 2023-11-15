@@ -8,7 +8,7 @@ NeuroMANCER
    
 
 
-NeuroMANCER v1.4.27
+NeuroMANCER v1.4.2
 ------------------------
 **Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
 is an open-source differentiable programming (DP) library for solving parametric constrained optimization problems,

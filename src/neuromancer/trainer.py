@@ -6,15 +6,123 @@ from copy import deepcopy
 
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+import pytorch_lightning as pl
+
 import numpy as np
 
 from neuromancer.loggers import BasicLogger
 from neuromancer.problem import Problem
 from neuromancer.callbacks import Callback
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 
 def move_batch_to_device(batch, device="cpu"):
     return {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+
+
+class LitProblem(pl.LightningModule): 
+    def __init__(self, problem, train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss'): 
+        super().__init__()
+        self.problem = problem 
+        self.train_metric = train_metric
+        self.dev_metric = dev_metric
+        self.test_metric = test_metric
+        
+        self.training_step_outputs = []
+    
+    def training_step(self, batch): 
+        output = self.problem(batch)
+        loss = output[self.train_metric]
+        self.training_step_outputs.append(loss)
+        self.log('train_loss', loss, on_epoch=True, enable_graph=True, prog_bar=False)
+        return loss 
+    
+    def on_train_epoch_end(self):
+        epoch_average = torch.stack(self.training_step_outputs).mean()
+        print("EPOCH AVERAGE ", epoch_average)
+        self.log("training_epoch_average", epoch_average)
+        self.training_step_outputs.clear()  # free memory
+
+    """
+    def validation_step(self, batch): 
+        output = self.problem(batch)
+        assert self.dev_metric in output, f"Error: {self.dev_metric} not found in problem output"
+        loss = output[self.dev_metric]
+        self.log('dev_loss', loss)
+    """
+    def configure_optimizers(self): 
+      
+        optimizer = torch.optim.Adam(self.problem.parameters(), 0.001, betas=(0.0, 0.9))
+        return optimizer 
+
+
+
+class LightningTrainer(pl.Trainer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.lit_problem = None 
+
+        self.epochs = 1000
+        self.train_metric = 'train_loss'
+        self.dev_metric = 'dev_loss'
+        self.test_metric = 'test_loss'
+        self.eval_metric = 'dev_loss'
+        self.patience = 5 
+        self.warmup = 0 
+        self.clip = 100.0
+
+        self.setup_attributes(*args, **kwargs)
+
+        self.model_checkpoint = ModelCheckpoint(
+            save_weights_only=True,
+            monitor=self.dev_metric,
+            mode='min',
+            save_top_k=1,
+            verbose=True
+        )
+
+    def setup_attributes(self, *args, **kwargs): 
+        if 'epoch' in kwargs:
+            self.epoch = kwargs['epoch']
+     
+        if 'train_metric' in kwargs:
+            self.train_metric = kwargs['train_metric']
+
+        if 'dev_metric' in kwargs:
+            self.dev_metric = kwargs['dev_metric']
+
+        if 'test_metric' in kwargs:
+            self.test_metric = kwargs['test_metric']
+
+        if 'eval_metric' in kwargs:
+            self.eval_metric = kwargs['eval_metric']
+
+        if 'patience' in kwargs:
+            self.patience = kwargs['patience']
+
+        if 'warmup' in kwargs:
+            self.warmup = kwargs['warmup']
+
+        if 'clip' in kwargs:
+            self.clip = kwargs['clip']
+
+
+    def get_weights(self):
+        # Implement your custom method logic here
+        best_model = self.model_checkpoint.best_model_path
+        return best_model.state_dict()
+
+    def fit(self, problem, datamodule):
+
+        if self.lit_problem is None: 
+            self.lit_problem = LitProblem(problem,self.train_metric, self.dev_metric, self.test_metric )
+        # Override the fit method if needed
+        super().fit(problem, datamodule)
+        # Add custom logic here if necessary
+
+    
+    
 
 
 class Trainer:

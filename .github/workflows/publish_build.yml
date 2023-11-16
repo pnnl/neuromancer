@@ -1,13 +1,16 @@
 name: Publish to PyPI
 
 on: #trigger event
-  push:
+  pull_request:
     branches:
-      - dev/update_to_1.4.2_automate_publishing 
+      - master
+
+permissions:
+  contents: write #grant access to write to master branch
 
 jobs:
   build:
-    name: Build distribution 📦
+    name: Build distribution
     
     #if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
     runs-on: ubuntu-latest
@@ -17,11 +20,19 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v3
 
-    - name: Extract Version from tag
+    - name: Get latest tag
+      id: get_tag
+      run: |
+        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+        echo "::set-output name=tag::$latest_tag"
+
+    - name: Extract version from tag
       id: extract_version
       run: |
-        echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
-        echo "Tag name from github.ref_name: ${{  github.ref_name }}"
+        tag=${{ steps.get_tag.outputs.tag }}
+        echo $tag
+        version=$(echo $tag | cut -d'v' -f2) # Assuming the tag follows a "vX.X.X" format
+        echo "::set-output name=version::$version"
 
     - name: Update version in pyproject.toml
       run: sed -i "s/version = .*/version = \"${{ steps.extract_version.outputs.VERSION }}\"/" pyproject.toml

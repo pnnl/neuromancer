@@ -19,7 +19,7 @@ jobs:
 
     - name: Extract Version from tag
       id: extract_version
-      run: echo ::set-output name=VERSION::${{ git describe --tags --abbrev=0 | sed 's/^v//'}}
+      run: echo ::set-output name=VERSION::${{ github.event.release.tag_name }}
 
     - name: Update version in pyproject.toml
       run: sed -i "s/version = .*/version = \"${{ steps.extract_version.outputs.VERSION }}\"/" pyproject.toml

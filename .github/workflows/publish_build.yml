@@ -23,8 +23,9 @@ jobs:
     - name: Get latest tag
       id: get_tag
       run: |
-        echo "latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)" >> $GITHUB_OUTPUT
-        echo "${{ steps.get_tag.outputs.latest_tag }}"
+        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+        echo $latest_tag
+        echo "::set-output name=tag::$latest_tag"
 
     - name: Extract version from tag
       id: extract_version

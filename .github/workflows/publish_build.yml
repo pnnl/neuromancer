@@ -1,9 +1,9 @@
 name: Publish to PyPI
 
 on: #trigger event
-  pull_request:
+  push:
     branches:
-      - master
+      - dev/update_to_1.4.2_automate_publishing
 
 permissions:
   contents: write #grant access to write to master branch

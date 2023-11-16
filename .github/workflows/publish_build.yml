@@ -20,12 +20,17 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v3
 
-    - name: Get latest tag
-      id: get_tag
+    - name: Get latest tag And version
+      id: get_tag_and_version
       run: |
         git fetch -a
-        echo "latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)" >> $GITHUB_ENV
-        echo "$env:$latest_tag"
+        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+        
+        echo "latest_tag=$latest_tag" >> $GITHUB_ENV
+        echo "ello worldD"
+        echo "$latest_tag"
+        
+        version = $(latest_tag | cut -d'v' -f2)
 
     - name: Extract version from tag
       id: extract_version

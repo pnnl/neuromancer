@@ -3,7 +3,7 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "neuromancer"
+name = "neuromancer_test"
 authors = [
     { name = "Aaron Tuor", email = "aaron.tuor@pnnl.gov" },
     { name = "Jan Drgona", email = "jan.drgona@pnnl.gov" },
@@ -51,7 +51,7 @@ dependencies = [
     "toml"
 ]
 
-version = "1.4.2"
+version = "1.4.2b"
 
 [project.urls]
 homepage = "https://github.com/pnnl/neuromancer/"

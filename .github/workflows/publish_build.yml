@@ -38,7 +38,6 @@ jobs:
   publish-to-testpypi:
     name: Publish
     #if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
-    name: Publish Python 
     
     #if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
     needs:
@@ -62,3 +61,5 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         repository-url: https://test.pypi.org/legacy/
+        with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}

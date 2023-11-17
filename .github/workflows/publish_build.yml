@@ -32,16 +32,8 @@ jobs:
         echo "The version is $version"
         
 
-    - name: Extract version from tag
-      id: extract_version
-      run: |
-        tag=${{ steps.get_tag.outputs.tag }}
-        echo $tag
-        version=$(echo $tag | cut -d'v' -f2) # Assuming the tag follows a "vX.X.X" format
-        echo "::set-output name=version::$version"
-
     - name: Update version in pyproject.toml
-      run: sed -i "s/version = .*/version = \"${{ steps.extract_version.outputs.VERSION }}\"/" pyproject.toml
+      run: sed -i "s/version = .*/version = \"${{ $version }}\"/" pyproject.toml
 
     - name: Install pypa/build
       run: | 

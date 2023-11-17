@@ -1,7 +1,7 @@
 name: Publish to PyPI
 
 on: #trigger event
-  push:
+  pull_request:
     branches:
       - dev/update_to_1.4.2_automate_publishing
 
@@ -27,10 +27,10 @@ jobs:
         latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
         
         echo "latest_tag=$latest_tag" >> $GITHUB_ENV
-        echo "ello worldD"
-        echo "$latest_tag"
-        
-        version = $(latest_tag | cut -d'v' -f2)
+  
+        version = $($latest_tag | cut -d'v' -f2)
+        echo "version " 
+        echo "$version"
 
     - name: Extract version from tag
       id: extract_version

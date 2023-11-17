@@ -1,7 +1,7 @@
 name: Publish to PyPI
 
 on: #trigger event
-  pull_request:
+  push:
     branches:
       - dev/update_to_1.4.2_automate_publishing
 

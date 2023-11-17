@@ -33,7 +33,10 @@ jobs:
         
 
     - name: Update version in pyproject.toml
-      run: sed -i "s/version = .*/version = \"${{ $version }}\"/" pyproject.toml
+      run: sed -i "s/version = .*/version = \"\${{ env.VERSION }}\"/" pyproject.toml
+      env:
+        VERSION: ${{ env.version }}
+
 
     - name: Install pypa/build
       run: | 

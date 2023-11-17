@@ -27,7 +27,8 @@ jobs:
         latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
         
         echo "latest_tag=$latest_tag" >> $GITHUB_ENV
-        echo "version=${latest_tag#v}" >> $GITHUB_ENV
+        version=$(echo "$latest_tag" | cut -d'v' -f2)
+        echo "version=$version" >> $GITHUB_ENV
         echo "The version is $version"
         
 

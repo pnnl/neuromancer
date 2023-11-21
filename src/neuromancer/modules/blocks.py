@@ -37,6 +37,16 @@ class Block(nn.Module, ABC):
             x = inputs[0]
         return self.block_eval(x)
 
+class Drain(nn.Module, ABC):
+    """
+    Canonical abstract class of the block function approximator
+    """
+    def __init__(self):
+        super().__init__()
+        self.coeff = torch.nn.Parameter(torch.tensor(1.0), requires_grad=True)
+
+    def forward(self, x):
+        return torch.abs(self.coeff)*torch.sqrt(torch.abs(x))
 
 class Linear(Block):
     """

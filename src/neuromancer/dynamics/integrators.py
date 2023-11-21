@@ -97,7 +97,35 @@ class Euler(Integrator):
         k1 = self.block(*[x, *args])        # k1 = f(x_i, t_i)
         return x + h*k1
 
+class EulerDAE(Integrator):
+    def __init__(self, block, algebra=None, interp_u=None, h=1.0):
+        """
 
+        :param block: (nn.Module) A state transition model.
+        :param algebra: (nn.Module) Model for evolving algebraic states.
+        :param interp_u: Function for interpolating control input values for intermediate integration steps.
+                         If you assume a constant control sequence over the time intervals of the samples then
+                         lambda u, t: u will work.
+                         See interpolation.py and neuromancer/examples/system_identifcation/duffing_parameter.py for
+                         more sophisticated interpolation schemes.
+        :param h: (float) integration step size
+        """
+        super().__init__(block=block, interp_u=interp_u, h=h)
+        self.algebra = algebra
+
+    def integrate(self, x, *args):
+        """_summary_
+
+        :param x: (torch.Tensor, shape=[batchsize, SysDim])
+        :param u: (torch.Tensor, shape=[batchsize, nu])
+        :param t: (torch.Tensor, shape=[batchsize, 1])
+        :return x_{t+1}: (torch.Tensor, shape=[batchsize, SysDim])
+        """
+        x = self.algebra(x, *args)
+        h = self.h
+        k1 = self.block(x, *args)
+        return x + h*k1
+    
 class Euler_Trap(Integrator):
     def __init__(self, block, interp_u=None, h=1.0):
         """

@@ -288,4 +288,4 @@ Welcome to My Project's Documentation
    :maxdepth: 2
    :hidden: 
 
-   neuromancer
+   neuromancer.activations

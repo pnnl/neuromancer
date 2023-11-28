@@ -285,7 +285,7 @@ PNNL is a multi-program national laboratory operated for the U.S. Department of 
 Welcome to My Project's Documentation
 ------------------------------------
 .. toctree::
-   :maxdepth: 2
-   :hidden: 
+   :maxdepth: 4
 
    neuromancer.activations
+   neuromancer.problem

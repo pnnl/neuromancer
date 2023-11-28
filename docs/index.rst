@@ -288,4 +288,4 @@ Welcome to My Project's Documentation
    :maxdepth: 4
 
    neuromancer.activations
-   neuromancer.problem
+   neuromancer.blocks

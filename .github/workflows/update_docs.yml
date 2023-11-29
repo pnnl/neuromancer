@@ -40,5 +40,6 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
         with:
           publish_branch: gh-pages
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: html
+          publish_dir: ./html
+          keep_files: true 
 

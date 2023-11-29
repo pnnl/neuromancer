@@ -30,6 +30,13 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
         run: |
           TZ=UTC sphinx-build docs html
           ls
+          echo "running git commands"
+          git config --local user.email "rahul.birmiwal@pnnl.gov"
+          git config --local user.name "RBirmiwal"
+          git add html
+          git commit -m "adding built html files to this branch"
+          git push 
+
           
       # Step 5: Deploy the newly built docs to gh-pages branch
       - name: Deploy to GitHub Pages

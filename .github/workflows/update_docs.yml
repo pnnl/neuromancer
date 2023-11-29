@@ -29,6 +29,7 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
       - name: Sphinx build
         run: |
           TZ=UTC sphinx-build docs html
+          ls
           
       # Step 5: Deploy the newly built docs to gh-pages branch
       - name: Deploy to GitHub Pages

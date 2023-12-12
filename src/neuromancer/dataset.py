@@ -10,7 +10,45 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.dataloader import default_collate
 
+import lightning.pytorch as pl 
+from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 
+class LitDataModule(pl.LightningDataModule):
+    def __init__(self,data_setup_function, **kwargs):
+        super().__init__()
+        self.data_setup_function = data_setup_function
+
+        self.data_setup_kwargs = kwargs
+        print(self.data_setup_kwargs)
+
+        self.train_data = None
+        self.dev_data = None
+        self.test_data = None
+
+
+    def setup(self, stage=None):
+        train_data, dev_data, test_data, batch_size = self.data_setup_function(**self.data_setup_kwargs)
+
+        self.train_data = train_data
+        self.dev_data = dev_data
+        self.test_data = test_data
+        self.batch_size = batch_size
+
+    def train_dataloader(self):
+        return DataLoader(self.train_data, batch_size=self.batch_size, collate_fn=self.train_data.collate_fn)
+
+    def val_dataloader(self):
+        if self.dev_data is not None:
+            return DataLoader(self.dev_data, batch_size=self.batch_size, collate_fn=self.dev_data.collate_fn)
+        else:
+            # Return an empty DataLoader if dev_data is None
+            return DataLoader(dataset=[], batch_size=self.batch_size)
+
+    def test_dataloader(self):
+        return DataLoader(self.test_data, batch_size=self.batch_size, collate_fn=self.dev_data.collate_fn)
+    
+    
 class DictDataset(Dataset):
     """
     Basic dataset compatible with neuromancer Trainer

@@ -18,7 +18,7 @@ import torch.nn as nn
 
 
 
-class Problem(pl.LightningModule):
+class LitProblem(pl.LightningModule):
     """
     This class is similar in spirit to a nn.Sequential module. However,
     by concatenating input and output dictionaries for each node

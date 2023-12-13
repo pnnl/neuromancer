@@ -15,6 +15,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from neuromancer.gradients import gradient
+import lightning.pytorch as pl
 
 
 class Loss(nn.Module):
@@ -128,7 +129,7 @@ class GT(nn.Module):
         return loss, value, penalty
 
 
-class Eq(nn.Module):
+class Eq(pl.LightningModule):
     """
     Equality constraint penalizing difference between left and right hand side.
     Used for defining infix operator for the Variable class and calculating constraint
@@ -154,6 +155,7 @@ class Eq(nn.Module):
         :param right: torch.Tensor
         :return: zero dimensional torch.Tensor, torch.Tensor, torch.Tensor
         """
+        right = right.type_as(left)
         value = left - right
         if self.norm == 1:
             penalty = torch.abs(value)

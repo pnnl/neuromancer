@@ -13,9 +13,11 @@ import numpy as np
 from neuromancer.loggers import BasicLogger
 from neuromancer.problem import Problem
 from neuromancer.callbacks import Callback
+from neuromancer.problem import LitProblem
 import lightning.pytorch as pl 
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
+
 
 
 def move_batch_to_device(batch, device="cpu"):
@@ -23,7 +25,7 @@ def move_batch_to_device(batch, device="cpu"):
 
 class LitTrainer(pl.Trainer):
     def __init__(self, epochs=1000, monitor_metric='dev_loss', train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss', eval_metric='train_loss',
-                 patience=5, warmup=0, clip=100.0, save_weights=True, weight_path='./', devices='auto', strategy='auto', accelerator='auto'):
+                 patience=5, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', devices='auto', strategy='auto', accelerator='auto'):
 
 
         self.lit_problem = None
@@ -40,6 +42,7 @@ class LitTrainer(pl.Trainer):
         self.save_weights = save_weights
         self.weight_path = weight_path
         self.devices = devices
+        self.custom_optimizer = custom_optimizer
 
 
         # early stopping disabled for now

@@ -9,6 +9,7 @@ from scipy.io import loadmat
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.dataloader import default_collate
+import sys 
 
 import lightning.pytorch as pl 
 from lightning.pytorch.callbacks import ModelCheckpoint
@@ -29,6 +30,19 @@ class LitDataModule(pl.LightningDataModule):
 
     def setup(self, stage=None):
         train_data, dev_data, test_data, batch_size = self.data_setup_function(**self.data_setup_kwargs)
+
+        try:
+            assert dev_data is None or dev_data.name == 'dev', f"Invalid name '{dev_data.name}' for dev_data DictDataset. Expected 'train'."
+        except AssertionError as e:
+            print("AssertionError:", e)
+            sys.exit(1) 
+
+        try:
+            assert train_data is None or train_data.name == 'train', f"Invalid name '{train_data.name}' for train_data DictDataset. Expected 'dev'."
+        except AssertionError as e:
+            print("AssertionError:", e)
+            sys.exit(1) 
+
 
         self.train_data = train_data
         self.dev_data = dev_data

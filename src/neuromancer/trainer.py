@@ -25,9 +25,32 @@ def move_batch_to_device(batch, device="cpu"):
 
 class LitTrainer(pl.Trainer):
     def __init__(self, epochs=1000, monitor_metric='dev_loss', train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss', eval_metric='train_loss',
-                 patience=5, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', devices='auto', strategy='auto', accelerator='auto'):
+                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', weight_name=None, devices='auto', strategy='auto', accelerator='auto', profiler=None):
+        
+        """
+        A Neuromancer-specific custom trainer class inheriting from PyTorch Lightning's Trainer. 
 
+        For more information please see: https://lightning.ai/docs/pytorch/stable/common/trainer.html
 
+        :param epochs: Number of epochs for training. Defaults to 1000.
+        :param monitor_metric: Metric used for model checkpointing. Defaults to 'dev_loss'.
+        :param train_metric: Metric for training. Defaults to 'train_loss'.
+        :param dev_metric: Metric for development/validation. Defaults to 'dev_loss'.
+        :param test_metric: Metric for testing. Defaults to 'test_loss'. Currently unused
+        :param eval_metric: Metric for evaluation. Defaults to 'train_loss'.Currently unused
+        :param patience: Number of epochs to wait for improvement before early stopping. Defaults to None (no patience)
+        :param warmup: Number of warmup epochs. Defaults to 0.
+        :param clip: Gradient clipping value, by norm. Defaults to 100.0.
+        :param custom_optimizer: Optimizer to be used during training. If None (default), an Adam optimizer with learning rate of 0.001 will be used. 
+        :param save_weights: Whether to save weights. Defaults to True.
+        :param weight_path: Path to save weights. Defaults to './'.
+        :param weight_name: Name of the weight file. By default, filename is None and will be set to '{epoch}-{step}', where “epoch” and “step” match the number of finished epoch and optimizer steps respectively.
+        :param devices: Device assignment strategy. Defaults to 'auto'.
+        :param strategy: Strategy for distributed training. Defaults to 'auto'.
+        :param accelerator: Accelerator type. Defaults to 'auto'.
+        :param profiler: Profiler to use. Defaults to None (no profiling)
+
+        """
         self.lit_problem = None
 
         self.epochs = epochs
@@ -41,46 +64,44 @@ class LitTrainer(pl.Trainer):
         self.clip = clip
         self.save_weights = save_weights
         self.weight_path = weight_path
+        self.weight_name = weight_name
         self.devices = devices
         self.custom_optimizer = custom_optimizer
+        self.profiler = profiler 
 
+        if self.patience: 
+            self.early_stopping = EarlyStopping(monitor=self.monitor_metric, patience=self.patience)
 
-        # early stopping disabled for now
-        if self.patience is not None:
-            self.early_stopping = EarlyStopping(
-                monitor=self.monitor_metric,
-                patience=self.patience
+        self.model_checkpoint = ModelCheckpoint(save_weights_only=True, monitor=self.monitor_metric, dirpath=self.weight_path, mode='min', every_n_epochs=1, verbose=True)
 
-            )
-
-        self.model_checkpoint = ModelCheckpoint(
-            save_weights_only=True,
-            monitor=self.monitor_metric,
-            dirpath=self.weight_path,
-            mode='min',
-            save_top_k=1,
-            verbose=True
-        )
-
-        super().__init__(max_epochs=self.epochs, callbacks=[self.model_checkpoint], devices=self.devices, strategy=strategy, accelerator=accelerator)
-
+        if self.patience and self.save_weights: 
+            super().__init__(max_epochs=self.epochs, callbacks=[self.model_checkpoint, self.early_stopping], devices=self.devices, strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
+        elif self.patience is None and self.save_weights: 
+            super().__init__(max_epochs=self.epochs, callbacks=[self.model_checkpoint], devices=self.devices, strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
+        elif self.patience and self.save_weights is False: 
+            super().__init__(max_epochs=self.epochs, callbacks=[self.early_stopping], devices=self.devices, strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
+        else: 
+            super().__init__(max_epochs=self.epochs, devices=self.devices, strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
 
     def get_weights(self):
-        # Implement your custom method logic here
-        best_model = self.lit_problem.state_dict()
-        dev_loss_weights = self.model_checkpoint.best_model_path
-        return dev_loss_weights
 
-    def get_problem(self):
-        return self.lit_problem.problem
+        best_model = self.lit_problem.problem.state_dict()
+        return best_model
 
     def fit(self, problem, datamodule):
+        """
+        Fits (trains) a base neuromancer Problem to a data defined by a LightningDataModule (LitDataModule). 
+        This function will also instantiate a Lightning version of the provided Problem 
+
+        :param problem: A Neuromancer Problem() we want to train/fit
+        :param datamodule: A LightningDataModule (LitDataModule class) containing the data we want to fit to
+        """
 
         if self.lit_problem is None:
             self.lit_problem = LitProblem(problem,self.train_metric, self.dev_metric, self.test_metric )
-        # Override the fit method if needed
+
         super().fit(self.lit_problem, datamodule)
-        return self.get_weights()
+
 
 
 class Trainer:

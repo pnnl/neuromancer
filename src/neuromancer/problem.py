@@ -18,7 +18,20 @@ import torch.nn as nn
 
 
 class LitProblem(pl.LightningModule):
+    """
+    A PyTorch-Lightning Module wrapper for the Neuromancer Problem class. 
+    As is customary with LightningModules, steps for training and validation are outlined here, as well as the optimizer
+    Logging metrics are also defined here, such as 'train_loss'
+    """
     def __init__(self, problem, train_metric='train_loss', dev_metric='train_loss', test_metric='train_loss', custom_optimizer=None):
+        """
+        :param problem: A Neuromancer Problem()
+        :param train_metric: metric to be used during training step 
+        :param dev_metric: metric to be used during validation step
+        :param test_metric: metric to be used during testing step (currently not supported yet)
+        :param custom_optimizer: Optimizer to be used during training. Default is None, in which an 
+                                 Adam optimizer is used with learning rate = 0.001
+        """
         super().__init__()
         self.problem = problem
         self.train_metric = train_metric
@@ -33,31 +46,31 @@ class LitProblem(pl.LightningModule):
         output = self.problem(batch)
         loss = output[self.train_metric]
         self.training_step_outputs.append(loss)
-        self.log('train_loss', loss, on_epoch=True, enable_graph=True, prog_bar=False)
+        self.log('train_loss', loss, on_epoch=True, enable_graph=True, prog_bar=True)
         return loss
 
     def on_train_epoch_end(self):
         epoch_average = torch.stack(self.training_step_outputs).mean()
-        print("EPOCH AVERAGE ", epoch_average)
+        #print("EPOCH AVERAGE ", epoch_average)
         self.log("training_epoch_average", epoch_average)
         self.training_step_outputs.clear()  # free memory
 
-    """
+    
     def on_validation_epoch_end(self):
         epoch_average = torch.stack(self.validation_step_outputs).mean()
-        print("VAL EPOCH AVERAGE ", epoch_average)
+        #print("VAL EPOCH AVERAGE ", epoch_average)
         self.log("validation_epoch_average", epoch_average)
         self.validation_step_outputs.clear()  # free memory
 
 
     def validation_step(self, batch):
+        torch.set_grad_enabled(True)
         output = self.problem(batch)
         #assert self.dev_metric in output, f"Error: {self.dev_metric} not found in problem output"
         loss = output[self.dev_metric]
         self.validation_step_outputs.append(loss)
-        print("hello")
-        self.log('dev_loss', loss)
-    """
+        self.log('dev_loss', loss, prog_bar=True)
+    
     def configure_optimizers(self):
         if self.custom_optimizer is None: 
             optimizer = torch.optim.Adam(self.problem.parameters(), 0.001, betas=(0.0, 0.9))

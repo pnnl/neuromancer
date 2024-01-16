@@ -16,19 +16,30 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 
 class LitDataModule(pl.LightningDataModule):
+    """
+    A Neuromancer-specific class inheriting from PyTorch Lightning LightningDataModule
+    This class converts a data_setup_function (which yields Neuromancer DictDatasets associated with a Neuromancer Problem)
+    to a LightningDataModule such that it integrates with LitProblem and LitTrainer
+    """
     def __init__(self,data_setup_function, **kwargs):
+        """
+        Minimial required input is the data_setup_function (callable) (see README.md as well as examples)
+        If the data_setup_function requires any arguments, they should also be passed in here as keyword arguments
+
+        :param data_setup_function: Function that generates Neuromancer DictDatasets
+        """
         super().__init__()
         self.data_setup_function = data_setup_function
-
         self.data_setup_kwargs = kwargs
-        print(self.data_setup_kwargs)
-
         self.train_data = None
         self.dev_data = None
         self.test_data = None
 
-
     def setup(self, stage=None):
+        """
+        Setup is a preprecessing stage required by LightningDataModules. Here we create the data splits from the data setup function, 
+        and we do data splitting and check that the user has properly named the DictDatasets
+        """
         train_data, dev_data, test_data, batch_size = self.data_setup_function(**self.data_setup_kwargs)
 
         try:
@@ -42,7 +53,6 @@ class LitDataModule(pl.LightningDataModule):
         except AssertionError as e:
             print("AssertionError:", e)
             sys.exit(1) 
-
 
         self.train_data = train_data
         self.dev_data = dev_data
@@ -59,6 +69,7 @@ class LitDataModule(pl.LightningDataModule):
             # Return an empty DataLoader if dev_data is None
             return DataLoader(dataset=[], batch_size=self.batch_size)
 
+    # currently unused
     def test_dataloader(self):
         return DataLoader(self.test_data, batch_size=self.batch_size, collate_fn=self.dev_data.collate_fn)
     

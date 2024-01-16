@@ -14,6 +14,7 @@ from neuromancer.loggers import BasicLogger
 from neuromancer.problem import Problem
 from neuromancer.callbacks import Callback
 from neuromancer.problem import LitProblem
+from neuromancer.dataset import LitDataModule
 import lightning.pytorch as pl 
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
@@ -23,12 +24,15 @@ from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 def move_batch_to_device(batch, device="cpu"):
     return {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
+
 class LitTrainer(pl.Trainer):
     def __init__(self, epochs=1000, monitor_metric='dev_loss', train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss', eval_metric='train_loss',
-                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', weight_name=None, devices='auto', strategy='auto', accelerator='auto', profiler=None):
+                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', weight_name=None, devices='auto', strategy='auto', accelerator='auto', profiler=None, \
+                    custom_training_step=None):
         
         """
         A Neuromancer-specific custom trainer class inheriting from PyTorch Lightning's Trainer. 
+        This class is mainly a wrapper to interface with the user through fit()
 
         For more information please see: https://lightning.ai/docs/pytorch/stable/common/trainer.html
 
@@ -49,10 +53,9 @@ class LitTrainer(pl.Trainer):
         :param strategy: Strategy for distributed training. Defaults to 'auto'.
         :param accelerator: Accelerator type. Defaults to 'auto'.
         :param profiler: Profiler to use. Defaults to None (no profiling)
+        :param custom_training_step: Custom training step function, if desired. Defaults to None, in which case the standard training step procedure is executed
 
         """
-        self.lit_problem = None
-
         self.epochs = epochs
         self.monitor_metric = monitor_metric
         self.train_metric = train_metric
@@ -68,10 +71,13 @@ class LitTrainer(pl.Trainer):
         self.devices = devices
         self.custom_optimizer = custom_optimizer
         self.profiler = profiler 
+        self.custom_training_step = custom_training_step
 
-        if self.patience: 
-            self.early_stopping = EarlyStopping(monitor=self.monitor_metric, patience=self.patience)
+        self.lit_problem = None
+        self.lit_data_module = None 
 
+        
+        self.early_stopping = EarlyStopping(monitor=self.monitor_metric, patience=self.patience)
         self.model_checkpoint = ModelCheckpoint(save_weights_only=True, monitor=self.monitor_metric, dirpath=self.weight_path, mode='min', every_n_epochs=1, verbose=True)
 
         if self.patience and self.save_weights: 
@@ -84,23 +90,23 @@ class LitTrainer(pl.Trainer):
             super().__init__(max_epochs=self.epochs, devices=self.devices, strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
 
     def get_weights(self):
-
+        # Get state dict of best model
         best_model = self.lit_problem.problem.state_dict()
         return best_model
 
-    def fit(self, problem, datamodule):
+    def fit(self, problem, data_setup_function, **kwargs):
         """
-        Fits (trains) a base neuromancer Problem to a data defined by a LightningDataModule (LitDataModule). 
+        Fits (trains) a base neuromancer Problem to a data defined by a data setup function). 
         This function will also instantiate a Lightning version of the provided Problem 
+        and LightningDataModule associated with the data setup function
 
         :param problem: A Neuromancer Problem() we want to train/fit
-        :param datamodule: A LightningDataModule (LitDataModule class) containing the data we want to fit to
+        :param data_setup_function: A function that returns train/dev/test Neuromancer DictDatasets as well as batch_size to use
         """
 
-        if self.lit_problem is None:
-            self.lit_problem = LitProblem(problem,self.train_metric, self.dev_metric, self.test_metric )
-
-        super().fit(self.lit_problem, datamodule)
+        self.lit_problem = LitProblem(problem,self.train_metric, self.dev_metric, self.test_metric, custom_training_step=self.custom_training_step )
+        self.lit_data_module = LitDataModule(data_setup_function, **kwargs)
+        super().fit(self.lit_problem, self.lit_data_module)
 
 
 

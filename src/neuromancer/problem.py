@@ -38,7 +38,6 @@ class LitProblem(pl.LightningModule):
         self.test_metric = test_metric
         self.custom_optimizer=custom_optimizer
         self.custom_training_step = custom_training_step
-        self.custom_validation_step = custom_validation_step
 
         self.training_step_outputs = []
         self.validation_step_outputs = []

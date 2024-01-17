@@ -4,6 +4,30 @@ from hypothesis import given, settings, strategies as st
 import torch
 
 
+
+@given(constraint_class = st.sampled_from[cn.LT, cn.EQ, cn.GT], device=st.sampled_from(['cpu', 'cuda:1']))
+def test_constraint_device_placement(constraint_class, device):
+    left_tensor = torch.tensor(10.)
+    right_tensor = torch.tensor(7.)
+    left_tensor = left_tensor.to(device=device)
+    right_tensor = right_tensor.to('cpu')
+
+    test_constraint = constraint_class()
+    loss, value, penalty = test_constraint(left_tensor, right_tensor)
+    if device == 'cuda:1':
+        assert value.device.type == 'cuda'
+        assert value.get_device() == 1
+    else: 
+        assert value.device.type == 'cpu'
+
+    loss, value, penalty = test_constraint(right_tensor, left_tensor)
+    if device == 'cuda:1':
+        assert value.device.type == 'cuda'
+        assert value.get_device() == 1
+    else: 
+        assert value.device.type == 'cpu'
+
+
 @given(st.lists(st.integers(1, 100), min_size=1, max_size=4))
 @settings(max_examples=10, deadline=None)
 def test_add_two_variables(shape):
@@ -661,3 +685,5 @@ def test_variable_expression_slicing_shape(shape):
     x = cn.variable('x')
     data = {'x': torch.rand(shape)}
     assert (x+x)[1:](data).shape[0] == (x + x)(data).shape[0] - 1
+
+

@@ -21,9 +21,9 @@ from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from torch.utils.data import Dataset, DataLoader
 
 from neuromancer.trainer import Trainer, LitTrainer
-from neuromancer.problem import Problem, LitProblem
+from neuromancer.problem import Problem
 from neuromancer.constraint import variable
-from neuromancer.dataset import DictDataset, LitDataModule
+from neuromancer.dataset import DictDataset
 from neuromancer.loss import PenaltyLoss
 from neuromancer.modules import blocks
 from neuromancer.system import Node
@@ -37,8 +37,7 @@ def data_setup_function(exp_returns):
         data_dev = DictDataset({"p": torch.FloatTensor(100, 1).uniform_(p_low, p_high)})
         return data_train, data_dev, data_test, 32
 
-
-if __name__ == "__main__": 
+def main(): 
         num_vars = 5
 
         # expected returns
@@ -93,13 +92,13 @@ if __name__ == "__main__":
         # set adamW as optimizer
         optimizer = torch.optim.AdamW(problem.parameters(), lr=lr)
 
-
-        # Define lightning data module
-        lit_data_module = LitDataModule(data_setup_function=data_setup_function, exp_returns=exp_returns)
-
         # Define lightning trainer. We use GPU acceleration utilizing 2 GPUS. We tell Lightning to 
         # distribute training parallely (strategy=ddp)
-        lit_trainer = LitTrainer(epochs=10, accelerator="gpu", devices=2, strategy="ddp", dev_metric='train_loss')
+        lit_trainer = LitTrainer(epochs=10, accelerator="gpu", devices=[1,2], strategy="ddp", dev_metric='train_loss')
 
-        # Train problem to the data module
-        best_problem_weights = lit_trainer.fit(problem, lit_data_module)
+        # Train problem to the data_setup_function
+        lit_trainer.fit(problem, data_setup_function, exp_returns=exp_returns)
+
+if __name__ == "__main__": 
+        main()
+        

@@ -15,7 +15,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from neuromancer.gradients import gradient
+from neuromancer.utils import handle_device_placement
 import lightning.pytorch as pl
+
+
 
 
 class Loss(nn.Module):
@@ -78,6 +81,7 @@ class LT(nn.Module):
     def __str__(self):
         return 'lt'
 
+    @handle_device_placement
     def forward(self, left, right):
         """
 
@@ -114,6 +118,7 @@ class GT(nn.Module):
     def __str__(self):
         return 'gt'
 
+    @handle_device_placement
     def forward(self, left, right):
         """
 
@@ -129,7 +134,7 @@ class GT(nn.Module):
         return loss, value, penalty
 
 
-class Eq(pl.LightningModule):
+class Eq(nn.Module):
     """
     Equality constraint penalizing difference between left and right hand side.
     Used for defining infix operator for the Variable class and calculating constraint
@@ -148,6 +153,7 @@ class Eq(pl.LightningModule):
     def __str__(self):
         return 'eq'
 
+    @handle_device_placement
     def forward(self, left, right):
         """
 
@@ -155,7 +161,8 @@ class Eq(pl.LightningModule):
         :param right: torch.Tensor
         :return: zero dimensional torch.Tensor, torch.Tensor, torch.Tensor
         """
-        right = right.type_as(left)
+        #right = right.type_as(left)
+        
         value = left - right
         if self.norm == 1:
             penalty = torch.abs(value)
@@ -349,7 +356,7 @@ class Variable(nn.Module):
         self._is_input = key is not None
         self.key = key
         self._display_name = display_name
-
+    
     def make_graph(self, input_variables):
         """
         This is the function that composes the graph of the Variable from constituent input variables which
@@ -392,7 +399,10 @@ class Variable(nn.Module):
         # self Can't be part of ordered nodes since this will make a loop when retrieving parameters
         ordered_nodes = nn.ModuleList(nx.topological_sort(g))[:-1]
         return g, ordered_nodes
+   
 
+    
+            
     @property
     def display_name(self):
         name = self._display_name

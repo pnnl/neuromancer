@@ -1,8 +1,8 @@
 
-
+import torch
 import functools
 import lightning.pytorch as pl
-
+from collections import OrderedDict
 
 def handle_device_placement(func):
     """
@@ -21,3 +21,16 @@ def handle_device_placement(func):
         return func(self, left, right)
     
     return wrapper
+
+def load_state_dict_lightning(problem, weight_path): 
+    """
+    This function handles loading problem weights when said problem was trained using 
+    LitTrainer method
+
+    :param problem: A Neuromancer Problem
+    :param weight_path: (str) Path to weights saved by LitTrainer method
+    """
+    weights = torch.load(weight_path)['state_dict']
+    weights = OrderedDict({key.replace('problem.', '', 1): value for key, value in weights.items()})
+    problem.load_state_dict(weights)
+    return problem

@@ -78,16 +78,21 @@ class LitTrainer(pl.Trainer):
 
         
         self.early_stopping = EarlyStopping(monitor=self.monitor_metric, patience=self.patience)
-        self.model_checkpoint = ModelCheckpoint(save_weights_only=True, monitor=self.monitor_metric, dirpath=self.weight_path, mode='min', every_n_epochs=1, verbose=True)
+        self.model_checkpoint = ModelCheckpoint(save_weights_only=True, monitor=self.monitor_metric, dirpath=self.weight_path, filename=self.weight_name, \
+                                                mode='min', every_n_epochs=1, verbose=True)
 
         if self.patience and self.save_weights: 
-            super().__init__(max_epochs=self.epochs, callbacks=[self.model_checkpoint, self.early_stopping], devices=self.devices, strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
+            super().__init__(max_epochs=self.epochs, callbacks=[self.model_checkpoint, self.early_stopping], \
+                             devices=self.devices, strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
         elif self.patience is None and self.save_weights: 
-            super().__init__(max_epochs=self.epochs, callbacks=[self.model_checkpoint], devices=self.devices, strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
+            super().__init__(max_epochs=self.epochs, callbacks=[self.model_checkpoint], devices=self.devices, \
+                             strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
         elif self.patience and self.save_weights is False: 
-            super().__init__(max_epochs=self.epochs, callbacks=[self.early_stopping], devices=self.devices, strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
+            super().__init__(max_epochs=self.epochs, callbacks=[self.early_stopping], devices=self.devices, \
+                             strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
         else: 
-            super().__init__(max_epochs=self.epochs, devices=self.devices, strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
+            super().__init__(max_epochs=self.epochs, devices=self.devices, strategy=strategy, accelerator=accelerator, \
+                             gradient_clip_val=clip, profiler=self.profiler)
 
     def get_weights(self):
         # Get state dict of best model

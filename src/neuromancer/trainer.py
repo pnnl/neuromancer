@@ -26,9 +26,9 @@ def move_batch_to_device(batch, device="cpu"):
 
 
 class LitTrainer(pl.Trainer):
-    def __init__(self, epochs=1000, monitor_metric='dev_loss', train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss', eval_metric='train_loss',
-                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', weight_name=None, devices='auto', strategy='auto', accelerator='auto', profiler=None, \
-                    custom_training_step=None):
+    def __init__(self, epochs=1000, train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss', eval_metric='dev_loss',
+                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', weight_name=None, devices='auto', strategy='auto', \
+                    accelerator='auto', profiler=None, custom_training_step=None, epoch_verbose=1):
         
         """
         A Neuromancer-specific custom trainer class inheriting from PyTorch Lightning's Trainer. 
@@ -37,11 +37,10 @@ class LitTrainer(pl.Trainer):
         For more information please see: https://lightning.ai/docs/pytorch/stable/common/trainer.html
 
         :param epochs: Number of epochs for training. Defaults to 1000.
-        :param monitor_metric: Metric used for model checkpointing. Defaults to 'dev_loss'.
         :param train_metric: Metric for training. Defaults to 'train_loss'.
         :param dev_metric: Metric for development/validation. Defaults to 'dev_loss'.
         :param test_metric: Metric for testing. Defaults to 'test_loss'. Currently unused
-        :param eval_metric: Metric for evaluation. Defaults to 'train_loss'.Currently unused
+        :param eval_metric: Metric for model checkpointing. Defaults to 'dev_loss'.
         :param patience: Number of epochs to wait for improvement before early stopping. Defaults to None (no patience)
         :param warmup: Number of warmup epochs. Defaults to 0.
         :param clip: Gradient clipping value, by norm. Defaults to 100.0.
@@ -57,7 +56,6 @@ class LitTrainer(pl.Trainer):
 
         """
         self.epochs = epochs
-        self.monitor_metric = monitor_metric
         self.train_metric = train_metric
         self.dev_metric = dev_metric
         self.test_metric = test_metric
@@ -76,23 +74,16 @@ class LitTrainer(pl.Trainer):
         self.lit_problem = None
         self.lit_data_module = None 
 
-        
-        self.early_stopping = EarlyStopping(monitor=self.monitor_metric, patience=self.patience)
-        self.model_checkpoint = ModelCheckpoint(save_weights_only=True, monitor=self.monitor_metric, dirpath=self.weight_path, filename=self.weight_name, \
-                                                mode='min', every_n_epochs=1, verbose=True)
 
-        if self.patience and self.save_weights: 
-            super().__init__(max_epochs=self.epochs, callbacks=[self.model_checkpoint, self.early_stopping], \
-                             devices=self.devices, strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
-        elif self.patience is None and self.save_weights: 
-            super().__init__(max_epochs=self.epochs, callbacks=[self.model_checkpoint], devices=self.devices, \
-                             strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
-        elif self.patience and self.save_weights is False: 
-            super().__init__(max_epochs=self.epochs, callbacks=[self.early_stopping], devices=self.devices, \
-                             strategy=strategy, accelerator=accelerator, gradient_clip_val=clip, profiler=self.profiler)
-        else: 
-            super().__init__(max_epochs=self.epochs, devices=self.devices, strategy=strategy, accelerator=accelerator, \
-                             gradient_clip_val=clip, profiler=self.profiler)
+        callbacks = []
+        if self.save_weights:
+            callbacks.append(ModelCheckpoint(save_weights_only=True, monitor=self.eval_metric, dirpath=self.weight_path, filename=self.weight_name, \
+                                             mode='min', every_n_epochs=1, verbose=True))
+        if self.patience:
+            callbacks.append(EarlyStopping(monitor=self.eval_metric, patience=self.patience))
+
+        super().__init__(max_epochs=self.epochs, callbacks=callbacks, devices=self.devices, strategy=strategy, accelerator=accelerator, \
+                         gradient_clip_val=clip, profiler=self.profiler)
 
     def get_weights(self):
         # Get state dict of best model
@@ -108,7 +99,7 @@ class LitTrainer(pl.Trainer):
         :param problem: A Neuromancer Problem() we want to train/fit
         :param data_setup_function: A function that returns train/dev/test Neuromancer DictDatasets as well as batch_size to use
         """
-
+        
         self.lit_problem = LitProblem(problem,self.train_metric, self.dev_metric, self.test_metric, custom_training_step=self.custom_training_step )
         self.lit_data_module = LitDataModule(data_setup_function, **kwargs)
         super().fit(self.lit_problem, self.lit_data_module)

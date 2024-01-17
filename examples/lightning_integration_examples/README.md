@@ -117,15 +117,65 @@ For more information please see: https://lightning.ai/docs/pytorch/stable/common
 
 
 ## Saving and Loading Problem Weights
-foo
+By default, Problems() passed into LitTrainer (as well as base Neuromancer trainer) will automatically have the best weights at end of training, so there should be no need to manually load best_weights at the end of training.
+
+That said, we can save and load weights as follows: 
+* Set save_weights argument to True (this is default)
+* Specify directory where to save weights (optional, by default is the current working directory)
+* Use *load_state_dict_lightning()* function to properly ingest weights into Problem
+
+By default, weights will be saved with the following convention: '{epoch}-{step}.ckpt', where “epoch” and “step” match the number of finished epoch and optimizer steps respectively. The weights file can be given a custom name by changing the "weight_name" argument to LiTrainer. E.g. "test_weights" will save to "test_weights.ckpt"
+
+For example, the following code would save the weights to ./test_weights.ckpt. It then loads the weights into a desired Problem using load_state_dict_lightning()
+```
+lit_trainer = LitTrainer(epochs=200, accelerator='cpu', custom_optimizer=optimizer, monitor_metric='dev_loss', weight_name='test_weights')
+lit_trainer.fit(problem, data_setup_function)
+```
+
+Load weights. Note that unless the problem specified here is untrained, this step is redundant
+```
+load_state_dict_lightning(problem, 'test_weights.ckpt')
+```
 
 ## Other Features 
 
 ### Tensorboard
-
+Lightning automatically will log training history to a *lightning_logs* found in the current working direcotyr. The latest "version" should correspond to the most current training run. As a result it is easy to view training progress, etc. with Tensorboard. For example, assuming one is in VS Code environment with Tensorboard plug-in installed, one can launch a Tensorboard session to view latest training progress with: 
+```
+%reload_ext tensorboard
+%tensorboard --logdir=lightning_logs/
+``````
 ### Profiling 
+One can profile training run easily by passing in the "profiler" keyword argument to LitTrainer, for example: 
+
+```
+lit_trainer = LitTrainer(profiler='simple)
+```
+
+Will output profiling report at end of training. 
+Profiling options include "simple", "pytorch" and "advanced". For more information please see https://pytorch-lightning.readthedocs.io/en/1.5.10/advanced/profiler.html#pytorch-profiling
 
 ### Custom Training Logic
+Training within PyTorch Lightning framework is defined by a `training_step` function, which defines the logic going from a data batch to loss. For example, the default training_step used is shown below (other extraneous details removed for simplicity). Here, we get the problem output for the given batch and return the loss associated with that output.
 
+```
+def training_step(self, batch):
+    output = self.problem(batch)
+    loss = output[self.train_metric]
+    return loss
+```
+While rare, there may be instances where the user might want to define their own training logic. Potential cases include test-time data augmentation (e.g. operations on/w.r.t the data rollout), other domain augmentations, or modifications to how the output and/or loss is handled. 
 
+The user can pass in their own "training_step" by supplying an equivalent function handler to the "custom_training_step" keyword of LitTrainer, for example: 
 
+```
+def custom_training_step(model, batch): 
+    output = model.problem(batch)
+    Q_con = 1
+    if model.current_epoch > 1: 
+        Q_con = 1 
+    loss = Q_con*(output[model.train_metric])
+    return loss
+```
+
+The signature of this function should be `custom_training_step(model, batch)` where model is a Neuromancer Problem

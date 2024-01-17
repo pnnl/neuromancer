@@ -45,9 +45,10 @@ class LitProblem(pl.LightningModule):
     # Defines training step logic for a Neuromancer problem. Registers train_loss
     def training_step(self, batch):
         if self.custom_training_step is not None: 
-            return self.custom_training_step(self, batch)
-        output = self.problem(batch)
-        loss = output[self.train_metric]
+            loss = self.custom_training_step(self, batch)
+        else: 
+            output = self.problem(batch)
+            loss = output[self.train_metric]
         self.training_step_outputs.append(loss)
         self.log('train_loss', loss, on_epoch=True, enable_graph=True, prog_bar=True)
         return loss

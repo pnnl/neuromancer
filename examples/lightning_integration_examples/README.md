@@ -31,7 +31,7 @@ def data_setup_function(*kwargs):
     # insert data generation code here
 ```
 
-#### Problem Formulation
+## Problem Formulation
 
 For almost all use cases, there is no change in how NeuroMANCER problems are defined when using Lightning. There may be a minor change in how hardcoded tensors need to be handled in the event the user wants to utilize GPU training. For more information on this please refer to the example found in the notebook "Part_2_lightning_advanced_and_gpu_tutorial.ipynb". 
 
@@ -51,20 +51,47 @@ Which will then train that particular Problem to data governed by the data_setup
 
 ## Tutorials 
 
-The user will find several Lightning-Neuromancer tutorials in this folder. We describe the purpose of each here:
+The user will find several Lightning-Neuromancer tutorials in this folder. There are two main tutorials
 * Part 1: Goes over how basics on how a Neuromancer set-up can be converted into the Lightning version
-* Part 2: Goes over more advanced / nuanced cases when migrating towards Lightning. Also showcases automated GPU support 
+* Part 2: Goes over more advanced / nuanced cases when migrating towards Lightning. Also showcases automated GPU support, loading/saving weights
+
+Other domain-specific examples can be found in the "other_examples" folder: 
+
 * Part 3: Goes over solving a PINN with the Lightning workflow 
-* Part 4: Goes over using Koopman Operators with the Lightning workflow. Also showcases how to easily visualize training progress with Tensorboard
-* Part 5: Goes over using cvxpy with Lightning workflow. 
-* Part 6: Is a Python script that demonstrates solving a computationally expensive problem with automated multi-GPU distributed training 
-* Part 7: Demonstrates how to easily profile/benchmark  
+* lightning_nonauto_DeepKoopman: Goes over using Koopman Operators with the Lightning workflow. Also showcases how to easily visualize training progress with Tensorboard
+* lightning_cvxpy_layers: Goes over using cvxpy with Lightning workflow. 
+* complex_objective_function_multi_GPU.py: Is a Python script that demonstrates solving a computationally expensive problem with automated multi-GPU distributed training 
+* lighting_custom_training_example: Demonstrates how the user can define their own training logic to replace default training logic, if desired
+
+
+:param epochs: Number of epochs for training. Defaults to 1000.
+        :param train_metric: Metric for training. Defaults to 'train_loss'.
+        :param dev_metric: Metric for development/validation. Defaults to 'dev_loss'.
+        :param test_metric: Metric for testing. Defaults to 'test_loss'. Currently unused
+        :param eval_metric: Metric for model checkpointing. Defaults to 'dev_loss'.
+        :param patience: Number of epochs to wait for improvement before early stopping. Defaults to None (no patience)
+        :param warmup: Number of warmup epochs. Defaults to 0.
+        :param clip: Gradient clipping value, by norm. Defaults to 100.0.
+        :param custom_optimizer: Optimizer to be used during training. If None (default), an Adam optimizer with learning rate of 0.001 will be used. 
+        :param save_weights: Whether to save weights. Defaults to True.
+        :param weight_path: Path to save weights. Defaults to './'.
+        :param weight_name: Name of the weight file. By default, filename is None and will be set to '{epoch}-{step}', where “epoch” and “step” match the number of finished epoch and optimizer steps respectively.
+        :param devices: Device assignment strategy. Defaults to 'auto'.
+        :param strategy: Strategy for distributed training. Defaults to 'auto'.
+        :param accelerator: Accelerator type. Defaults to 'auto'.
+        :param profiler: Profiler to use. Defaults to None (no profiling)
+        :param custom_training_step: Custom training step function, if desired. Defaults to None, in which case the standard training step procedure is executed
 
 
 ## LitTrainer Parameters
 * epochs: Number of training epochs 
-* monitor_metric: One of 'train_loss', 'dev_loss', 'test_loss'. This metric will be monitored every epoch during training and will save the best weights accordingly. 
-* dev_metric: 
+* eval_metric: This metric will be monitored every epoch during training and will save the best weights accordingly. Default 'dev_loss'
+* train_metric: Metric for training. Defaults to 'train_loss'.
+* dev_metric: Metric for development/validation. Defaults to 'dev_loss'.
+* test_metric: Metric for testing. Defaults to 'test_loss'. Currently unused
+* patience: Number of epochs to wait for improvement before early stopping. Defaults to None (no patience)
+* warmup: Number of warmup epochs. Defaults to 0.
+* clip: Gradient clipping value, by norm. Defaults to 100.0
 * custom_optimizer: 
     * If the user wants to pass in their own optimizer. For example: 
     ```
@@ -73,10 +100,14 @@ The user will find several Lightning-Neuromancer tutorials in this folder. We de
     ```
     By default the optimizer used is: `torch.optim.Adam(self.problem.parameters(), 0.001, betas=(0.0, 0.9))`
 
+* save_weights: Set to True if best Problem weights should be saved to disk. Default true 
+* weight_path: Folder to save weights, defaults to ./
+* weight_name: Name of the weight file. By default, filename is None and will be set to '{epoch}-{step}', where “epoch” and “step” match the number of finished epoch and optimizer steps respectively.
 * devices: Please refer to "Device Management" below
 * strategy: Please refer to "Device Management" below 
 * accelerator: Please refer to "Device Management" below. 
 * profiler: Lightning integrates easily with PyTorch profilers such as "simple" or "pytorch"
+* custom_training_step: Custom training step function, if desired. Defaults to None, in which case the standard training step procedure is executed. See Custom Training Logic section below
 
 ## Example
 The following is basic pseudocode that outlines the steps required to utilize this Lightning integration. In this example, we define a data_setup_function (DSF) that takes in "nsim" as an argument and returns the Neuromancer DictDatasets (which take in nsim as a parameter) and a batch_size. We then instantiate a LitTrainer to run for 10 epochs on the GPU with device=1 (akin to cuda:1) and train it on a problem and DSF
@@ -92,10 +123,6 @@ lit_trainer = LitTrainer(epochs=10, accelerator='gpu', devices=[1])
 lit_trainer.fit(problem, data_setup_function, nsim=100)
 ```
 
-
-
-
-
 ## Device Management
 #### To Run on CPU: 
 * accelerator = "cpu" is all that is necessary
@@ -109,10 +136,9 @@ lit_trainer.fit(problem, data_setup_function, nsim=100)
 * strategy is either "auto", "ddp" or "ddp_notebook"
     * "auto" will utilize a single GPU 
     * "ddp" will run distributed training across devices desginated under "devices" assuming len(devices) > 1. This keyword should *NOT* be used in notebooks, only scripts 
-    * "ddp_notebook" is akin to "ddp" and should only be used in notebook environments. Note this feature is currently unstable according to Lightning developers and should be avoided. For safety, please only use "ddp" strategy
+    * "ddp_notebook" is akin to "ddp" and should only be used in notebook environments
     
     
-
 For more information please see: https://lightning.ai/docs/pytorch/stable/common/trainer.html#trainer-class-api
 
 

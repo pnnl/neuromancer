@@ -49,6 +49,7 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
       # Step 4: Build docs using sphinx. TZ=UTC needed to circumvent a nuance of running Sphinx on GHA runner
       - name: Fix gh-pages directory structure
         run: |
+          cd 
           cd gh-pages 
           mkdir docs
           cp -r html docs

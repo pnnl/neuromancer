@@ -5,7 +5,7 @@ NeuroMANCER
 .. image:: _static/class_diagram.png
 
 
-
+   
 
 
 NeuroMANCER v1.4.2

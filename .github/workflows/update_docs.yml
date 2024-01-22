@@ -28,7 +28,7 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
       # Step 4: Build docs using sphinx. TZ=UTC needed to circumvent a nuance of running Sphinx on GHA runner
       - name: Sphinx build
         run: |
-          TZ=UTC sphinx-build docs html
+          make html
           ls
 
           
@@ -42,6 +42,6 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
         with:
           publish_branch: gh-pages
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./html
+          publish_dir: ./build
           keep_files: true 
 

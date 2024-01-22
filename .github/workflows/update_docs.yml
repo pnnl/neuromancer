@@ -28,6 +28,7 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
       # Step 4: Build docs using sphinx. TZ=UTC needed to circumvent a nuance of running Sphinx on GHA runner
       - name: Sphinx build
         run: |
+          cd docs 
           TZ=UTC sphinx-build source build
           ls
 

@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.dynamics package &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=02f2166e"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="neuromancer.modules package" href="neuromancer.modules.html" />
+    <link rel="prev" title="neuromancer package" href="neuromancer.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Neuromancer
+              <img src="_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="neuromancer.html">neuromancer package</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="neuromancer.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">neuromancer.dynamics package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-neuromancer.dynamics.integrators">neuromancer.dynamics.integrators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-neuromancer.dynamics.interpolation">neuromancer.dynamics.interpolation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-neuromancer.dynamics.ode">neuromancer.dynamics.ode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-neuromancer.dynamics.physics">neuromancer.dynamics.physics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-neuromancer.dynamics">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.modules.html">neuromancer.modules package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.psl.html">neuromancer.psl package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.slim.html">neuromancer.slim package</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.arg">neuromancer.arg module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.callbacks">neuromancer.callbacks module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.constraint">neuromancer.constraint module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.dataset">neuromancer.dataset module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.gradients">neuromancer.gradients module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.loggers">neuromancer.loggers module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.loss">neuromancer.loss module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.plot">neuromancer.plot module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.problem">neuromancer.problem module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.system">neuromancer.system module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.trainer">neuromancer.trainer module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer">Module contents</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="neuromancer.html">neuromancer package</a></li>
+      <li class="breadcrumb-item active">neuromancer.dynamics package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/neuromancer.dynamics.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="neuromancer-dynamics-package">
+<h1>neuromancer.dynamics package<a class="headerlink" href="#neuromancer-dynamics-package" title="Link to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-neuromancer.dynamics.integrators">
+<span id="neuromancer-dynamics-integrators-module"></span><h2>neuromancer.dynamics.integrators module<a class="headerlink" href="#module-neuromancer.dynamics.integrators" title="Link to this heading"></a></h2>
+<p>Single-step integrators for first-order nonautomonomous ODEs</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.DiffEqIntegrator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">DiffEqIntegrator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'euler'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#DiffEqIntegrator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.DiffEqIntegrator" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.integrators.Integrator" title="neuromancer.dynamics.integrators.Integrator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Integrator</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.DiffEqIntegrator.integrate">
+<span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#DiffEqIntegrator.integrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.DiffEqIntegrator.integrate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Euler">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">Euler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Euler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Euler" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.integrators.Integrator" title="neuromancer.dynamics.integrators.Integrator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Integrator</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Euler.integrate">
+<span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Euler.integrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Euler.integrate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Euler_Trap">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">Euler_Trap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Euler_Trap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Euler_Trap" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.integrators.Integrator" title="neuromancer.dynamics.integrators.Integrator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Integrator</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Euler_Trap.integrate">
+<span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Euler_Trap.integrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Euler_Trap.integrate" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[batchsize, SysDim])</p>
+</dd>
+<dt class="field-even">Return x_{t+1}<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, SysDim])</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Integrator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">Integrator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Integrator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Integrator" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Integrator.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Integrator.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Integrator.forward" title="Link to this definition"></a></dt>
+<dd><p>This function needs x only for autonomous systems. x is 2D.
+It needs x and u for nonautonomous system w/ online interpolation. x and u are 2D tensors.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Integrator.integrate">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Integrator.integrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Integrator.integrate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Integrator.reg_error">
+<span class="sig-name descname"><span class="pre">reg_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Integrator.reg_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Integrator.reg_error" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.LeapFrog">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">LeapFrog</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#LeapFrog"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.LeapFrog" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.integrators.Integrator" title="neuromancer.dynamics.integrators.Integrator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Integrator</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.LeapFrog.integrate">
+<span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#LeapFrog.integrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.LeapFrog.integrate" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>X</strong> – (torch.Tensor, shape=[batchsize, 2*SysDim]) where X[:, :SysDim] = x_t and X[:, SysDim:] = dot{x}_t</p>
+</dd>
+<dt class="field-even">Return X_{t+1}<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, 2*SysDim]) where X_{t+1}[:, :SysDim] = x_{t+1} and X_{t+1}[:, SysDim:] = dot{x}_{t+1}</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Luther">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">Luther</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Luther"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Luther" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.integrators.Integrator" title="neuromancer.dynamics.integrators.Integrator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Integrator</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Luther.integrate">
+<span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Luther.integrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Luther.integrate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.MultiStep_PredictorCorrector">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">MultiStep_PredictorCorrector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#MultiStep_PredictorCorrector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.MultiStep_PredictorCorrector" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.integrators.Integrator" title="neuromancer.dynamics.integrators.Integrator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Integrator</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.MultiStep_PredictorCorrector.integrate">
+<span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#MultiStep_PredictorCorrector.integrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.MultiStep_PredictorCorrector.integrate" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[batchsize, nsteps, SysDim]) where
+x[0:1, :, :] = x_{t-3},
+x[1:2, :, :] = x_{t-2},
+x[2:3, :, :] = x_{t-1},
+x[3:4, :, :] = x_{t}</p>
+</dd>
+<dt class="field-even">Return x_{t+1}<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, SysDim])</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.RK2">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">RK2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#RK2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.RK2" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.integrators.Integrator" title="neuromancer.dynamics.integrators.Integrator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Integrator</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.RK2.integrate">
+<span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#RK2.integrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.RK2.integrate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.RK4">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">RK4</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#RK4"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.RK4" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.integrators.Integrator" title="neuromancer.dynamics.integrators.Integrator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Integrator</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.RK4.integrate">
+<span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#RK4.integrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.RK4.integrate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.RK4_Trap">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">RK4_Trap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#RK4_Trap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.RK4_Trap" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.integrators.Integrator" title="neuromancer.dynamics.integrators.Integrator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Integrator</span></code></a></p>
+<p>predictor-corrector integrator for dx = f(x)
+predictor: explicit RK4
+corrector: implicit trapezoidal rule</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.RK4_Trap.integrate">
+<span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#RK4_Trap.integrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.RK4_Trap.integrate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Runge_Kutta_Fehlberg">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">Runge_Kutta_Fehlberg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Runge_Kutta_Fehlberg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Runge_Kutta_Fehlberg" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.integrators.Integrator" title="neuromancer.dynamics.integrators.Integrator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Integrator</span></code></a></p>
+<p>The Runge–Kutta–Fehlberg method has two methods of orders 5 and 4. Therefore, we can calculate the local truncation error to
+determine if current time step size is suitable or not.
+# <a class="reference external" href="https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods#Adaptive_Runge%E2%80%93Kutta_methods">https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods#Adaptive_Runge%E2%80%93Kutta_methods</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Runge_Kutta_Fehlberg.integrate">
+<span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Runge_Kutta_Fehlberg.integrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Runge_Kutta_Fehlberg.integrate" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[batchsize, SysDim])</p>
+</dd>
+<dt class="field-even">Return x_{t+1}<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, SysDim])</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Yoshida4">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">Yoshida4</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Yoshida4"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Yoshida4" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.integrators.Integrator" title="neuromancer.dynamics.integrators.Integrator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Integrator</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.Yoshida4.integrate">
+<span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#Yoshida4.integrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.Yoshida4.integrate" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>X</strong> – (torch.Tensor, shape=[batchsize, 2*SysDim]) where X[:, :SysDim] = x_t and X[:, SysDim:] = dot{x}_t</p>
+</dd>
+<dt class="field-even">Return X_{t+1}<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, 2*SysDim]) where X_{t+1}[:, :SysDim] = x_{t+1} and X_{t+1}[:, SysDim:] = dot{x}_{t+1}</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.make_norm">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">make_norm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#make_norm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.make_norm" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.dynamics.integrators.rms_norm">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.integrators.</span></span><span class="sig-name descname"><span class="pre">rms_norm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/integrators.html#rms_norm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.integrators.rms_norm" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-neuromancer.dynamics.interpolation">
+<span id="neuromancer-dynamics-interpolation-module"></span><h2>neuromancer.dynamics.interpolation module<a class="headerlink" href="#module-neuromancer.dynamics.interpolation" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.interpolation.Interpolation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.interpolation.</span></span><span class="sig-name descname"><span class="pre">Interpolation</span></span><a class="reference internal" href="_modules/neuromancer/dynamics/interpolation.html#Interpolation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.interpolation.Interpolation" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.interpolation.Interpolation.interpolation">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">interpolation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tq</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/interpolation.html#Interpolation.interpolation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.interpolation.Interpolation.interpolation" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.interpolation.LinInterp_Offline">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.interpolation.</span></span><span class="sig-name descname"><span class="pre">LinInterp_Offline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/interpolation.html#LinInterp_Offline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.interpolation.LinInterp_Offline" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.interpolation.Interpolation" title="neuromancer.dynamics.interpolation.Interpolation"><code class="xref py py-class docutils literal notranslate"><span class="pre">Interpolation</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.interpolation.LinInterp_Offline.interpolation">
+<span class="sig-name descname"><span class="pre">interpolation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tq</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/interpolation.html#LinInterp_Offline.interpolation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.interpolation.LinInterp_Offline.interpolation" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>tq</strong> – torch.Tensor (# of timesteps, 1),
+The unit of tq is actual temporal unit, e.g. second, not index.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>torch.Tensor (# of timesteps, state dim)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.interpolation.LinInterp_Online">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.interpolation.</span></span><span class="sig-name descname"><span class="pre">LinInterp_Online</span></span><a class="reference internal" href="_modules/neuromancer/dynamics/interpolation.html#LinInterp_Online"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.interpolation.LinInterp_Online" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.interpolation.Interpolation" title="neuromancer.dynamics.interpolation.Interpolation"><code class="xref py py-class docutils literal notranslate"><span class="pre">Interpolation</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.interpolation.LinInterp_Online.interpolation">
+<span class="sig-name descname"><span class="pre">interpolation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tq</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/interpolation.html#LinInterp_Online.interpolation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.interpolation.LinInterp_Online.interpolation" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.dynamics.ode">
+<span id="neuromancer-dynamics-ode-module"></span><h2>neuromancer.dynamics.ode module<a class="headerlink" href="#module-neuromancer.dynamics.ode" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.BrusselatorHybrid">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">BrusselatorHybrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">insize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#BrusselatorHybrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.BrusselatorHybrid" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.ode.ODESystem" title="neuromancer.dynamics.ode.ODESystem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ODESystem</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.BrusselatorHybrid.ode_equations">
+<span class="sig-name descname"><span class="pre">ode_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#BrusselatorHybrid.ode_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.BrusselatorHybrid.ode_equations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.BrusselatorParam">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">BrusselatorParam</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">insize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#BrusselatorParam"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.BrusselatorParam" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.ode.ODESystem" title="neuromancer.dynamics.ode.ODESystem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ODESystem</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.BrusselatorParam.ode_equations">
+<span class="sig-name descname"><span class="pre">ode_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#BrusselatorParam.ode_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.BrusselatorParam.ode_equations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.CSTR_Param">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">CSTR_Param</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">insize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#CSTR_Param"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.CSTR_Param" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.ode.ODESystem" title="neuromancer.dynamics.ode.ODESystem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ODESystem</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.CSTR_Param.ode_equations">
+<span class="sig-name descname"><span class="pre">ode_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#CSTR_Param.ode_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.CSTR_Param.ode_equations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.DuffingParam">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">DuffingParam</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">insize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#DuffingParam"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.DuffingParam" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.ode.ODESystem" title="neuromancer.dynamics.ode.ODESystem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ODESystem</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.DuffingParam.ode_equations">
+<span class="sig-name descname"><span class="pre">ode_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#DuffingParam.ode_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.DuffingParam.ode_equations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.GeneralNetworkedODE">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">GeneralNetworkedODE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">agents</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">couplings</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">insize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inductive_bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'additive'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#GeneralNetworkedODE"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.GeneralNetworkedODE" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.ode.ODESystem" title="neuromancer.dynamics.ode.ODESystem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ODESystem</span></code></a></p>
+<p>Coupled nonlinear dynamical system with heterogeneous agents. This class acts as an
+aggregator for multiple interacting physics that contribute to the dynamics of one
+or more agents.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.GeneralNetworkedODE.coupling_physics">
+<span class="sig-name descname"><span class="pre">coupling_physics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#GeneralNetworkedODE.coupling_physics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.GeneralNetworkedODE.coupling_physics" title="Link to this definition"></a></dt>
+<dd><p>This coupling physics assumes that each coupling physics nn.Module contains the
+connection information, including what agents are connected and if the connection
+is symmetric.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.GeneralNetworkedODE.intrinsic_physics">
+<span class="sig-name descname"><span class="pre">intrinsic_physics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#GeneralNetworkedODE.intrinsic_physics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.GeneralNetworkedODE.intrinsic_physics" title="Link to this definition"></a></dt>
+<dd><p>Calculate and return the contribution from all agents’ intrinsic physics</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.GeneralNetworkedODE.ode_equations">
+<span class="sig-name descname"><span class="pre">ode_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#GeneralNetworkedODE.ode_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.GeneralNetworkedODE.ode_equations" title="Link to this definition"></a></dt>
+<dd><dl class="simple">
+<dt>Select the inductive bias to use for the problem:</dt><dd><ul class="simple">
+<li><p>Additive: f(x_i) + sum(g(x_i,x_j))</p></li>
+<li><p>General: f(x_i, sum(g(x_i,x_j)))</p></li>
+<li><p>Composed: f(sum(g(x_i,x_j)))</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.LorenzControl">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">LorenzControl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">insize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#LorenzControl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.LorenzControl" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.ode.ODESystem" title="neuromancer.dynamics.ode.ODESystem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ODESystem</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.LorenzControl.ode_equations">
+<span class="sig-name descname"><span class="pre">ode_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#LorenzControl.ode_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.LorenzControl.ode_equations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.LorenzParam">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">LorenzParam</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">insize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#LorenzParam"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.LorenzParam" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.ode.ODESystem" title="neuromancer.dynamics.ode.ODESystem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ODESystem</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.LorenzParam.ode_equations">
+<span class="sig-name descname"><span class="pre">ode_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#LorenzParam.ode_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.LorenzParam.ode_equations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.LotkaVolterraHybrid">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">LotkaVolterraHybrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">insize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#LotkaVolterraHybrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.LotkaVolterraHybrid" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.ode.ODESystem" title="neuromancer.dynamics.ode.ODESystem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ODESystem</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.LotkaVolterraHybrid.ode_equations">
+<span class="sig-name descname"><span class="pre">ode_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#LotkaVolterraHybrid.ode_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.LotkaVolterraHybrid.ode_equations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.LotkaVolterraParam">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">LotkaVolterraParam</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">insize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#LotkaVolterraParam"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.LotkaVolterraParam" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.ode.ODESystem" title="neuromancer.dynamics.ode.ODESystem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ODESystem</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.LotkaVolterraParam.ode_equations">
+<span class="sig-name descname"><span class="pre">ode_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#LotkaVolterraParam.ode_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.LotkaVolterraParam.ode_equations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.ODESystem">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">ODESystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">insize</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#ODESystem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.ODESystem" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<p>Class for defining RHS of arbitrary ODE functions,
+can be mix-and-matched according to expert knowledge.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.ODESystem.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#ODESystem.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.ODESystem.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.ODESystem.ode_equations">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ode_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#ODESystem.ode_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.ODESystem.ode_equations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.SSM">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">SSM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#SSM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.SSM" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Baseline class for (neural) state space model (SSM)
+Implements discrete-time dynamical system:</p>
+<blockquote>
+<div><p>x_k+1 = fx(x_k) + fu(u_k) + fd(d_k)</p>
+</div></blockquote>
+<dl class="simple">
+<dt>with variables:</dt><dd><p>x_k - states
+u_k - control inputs
+d_k - disturbances</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.SSM.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#SSM.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.SSM.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> – (torch.Tensor, shape=[batchsize, nx])</p></li>
+<li><p><strong>u</strong> – (torch.Tensor, shape=[batchsize, nu])</p></li>
+<li><p><strong>d</strong> – (torch.Tensor, shape=[batchsize, nd])</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, outsize])</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.TwoTankParam">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">TwoTankParam</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">insize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#TwoTankParam"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.TwoTankParam" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.ode.ODESystem" title="neuromancer.dynamics.ode.ODESystem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ODESystem</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.TwoTankParam.ode_equations">
+<span class="sig-name descname"><span class="pre">ode_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#TwoTankParam.ode_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.TwoTankParam.ode_equations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.VanDerPolControl">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.ode.</span></span><span class="sig-name descname"><span class="pre">VanDerPolControl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">insize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#VanDerPolControl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.VanDerPolControl" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.ode.ODESystem" title="neuromancer.dynamics.ode.ODESystem"><code class="xref py py-class docutils literal notranslate"><span class="pre">ODESystem</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.ode.VanDerPolControl.ode_equations">
+<span class="sig-name descname"><span class="pre">ode_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/ode.html#VanDerPolControl.ode_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.ode.VanDerPolControl.ode_equations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.dynamics.physics">
+<span id="neuromancer-dynamics-physics-module"></span><h2>neuromancer.dynamics.physics module<a class="headerlink" href="#module-neuromancer.dynamics.physics" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.Agent">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.physics.</span></span><span class="sig-name descname"><span class="pre">Agent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state_names</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#Agent"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.Agent" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<p>An agent is an object in a networked or otherwise distributed system that can:
+- have some intrinsic physics
+- serve as anchor for connections (pins)</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.Agent.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#Agent.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.Agent.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.Agent.intrinsic">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">intrinsic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#Agent.intrinsic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.Agent.intrinsic" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.DeltaTemp">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.physics.</span></span><span class="sig-name descname"><span class="pre">DeltaTemp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">R=Parameter</span> <span class="pre">containing:</span> <span class="pre">tensor(1.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requires_grad=True)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_name='T'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">symmetric=False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pins=[]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#DeltaTemp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.DeltaTemp" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.physics.Interaction" title="neuromancer.dynamics.physics.Interaction"><code class="xref py py-class docutils literal notranslate"><span class="pre">Interaction</span></code></a></p>
+<p>Interaction physics for difference in temperature (assumed) between agents.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.DeltaTemp.interact">
+<span class="sig-name descname"><span class="pre">interact</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#DeltaTemp.interact"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.DeltaTemp.interact" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.DeltaTempSwitch">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.physics.</span></span><span class="sig-name descname"><span class="pre">DeltaTempSwitch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">R=Parameter</span> <span class="pre">containing:</span> <span class="pre">tensor([1.],</span> <span class="pre">requires_grad=True),</span> <span class="pre">feature_name='T',</span> <span class="pre">symmetric=False,</span> <span class="pre">pins=[]</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#DeltaTempSwitch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.DeltaTempSwitch" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.physics.Interaction" title="neuromancer.dynamics.physics.Interaction"><code class="xref py py-class docutils literal notranslate"><span class="pre">Interaction</span></code></a></p>
+<p>Interaction physics for difference in temperature (assumed) between agents. Switched on/off
+depending on agent values (zero or nonzero).</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.DeltaTempSwitch.interact">
+<span class="sig-name descname"><span class="pre">interact</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#DeltaTempSwitch.interact"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.DeltaTempSwitch.interact" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.HVACConnection">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.physics.</span></span><span class="sig-name descname"><span class="pre">HVACConnection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feature_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'T'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">symmetric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#HVACConnection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.HVACConnection" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.physics.Interaction" title="neuromancer.dynamics.physics.Interaction"><code class="xref py py-class docutils literal notranslate"><span class="pre">Interaction</span></code></a></p>
+<p>Imposition of a source term as an interaction.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.HVACConnection.interact">
+<span class="sig-name descname"><span class="pre">interact</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#HVACConnection.interact"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.HVACConnection.interact" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.Interaction">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.physics.</span></span><span class="sig-name descname"><span class="pre">Interaction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feature_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pins</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">symmetric</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#Interaction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.Interaction" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<p>An interaction is a physical connection between agents:
+- interactions are pairwise
+- interactions can be one-sided or symmetric (influence both agents)</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.Interaction.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#Interaction.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.Interaction.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.Interaction.interact">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">interact</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#Interaction.interact"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.Interaction.interact" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.RCNode">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.physics.</span></span><span class="sig-name descname"><span class="pre">RCNode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">C=Parameter</span> <span class="pre">containing:</span> <span class="pre">tensor([1.],</span> <span class="pre">requires_grad=True),</span> <span class="pre">state_names=['T'],</span> <span class="pre">scaling=1.0</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#RCNode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.RCNode" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.physics.Agent" title="neuromancer.dynamics.physics.Agent"><code class="xref py py-class docutils literal notranslate"><span class="pre">Agent</span></code></a></p>
+<p>RCNode agent. The intrinsic action of the agent is to effectively scale the interaction physics
+according to the capacitance of the agent. Examples include lumped volumes, rooms, etc.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.RCNode.intrinsic">
+<span class="sig-name descname"><span class="pre">intrinsic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#RCNode.intrinsic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.RCNode.intrinsic" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.SourceSink">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.physics.</span></span><span class="sig-name descname"><span class="pre">SourceSink</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['T']</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#SourceSink"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.SourceSink" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.dynamics.physics.Agent" title="neuromancer.dynamics.physics.Agent"><code class="xref py py-class docutils literal notranslate"><span class="pre">Agent</span></code></a></p>
+<p>Generic Source / Sink agent. Useful for ‘dummy’ agents to which one can attach external signals.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.SourceSink.intrinsic">
+<span class="sig-name descname"><span class="pre">intrinsic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#SourceSink.intrinsic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.SourceSink.intrinsic" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.dynamics.physics.map_from_agents">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.dynamics.physics.</span></span><span class="sig-name descname"><span class="pre">map_from_agents</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intrinsic_list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/dynamics/physics.html#map_from_agents"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.dynamics.physics.map_from_agents" title="Link to this definition"></a></dt>
+<dd><p>Quick helper function to construct state mappings:</p>
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.dynamics">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-neuromancer.dynamics" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="neuromancer.html" class="btn btn-neutral float-left" title="neuromancer package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="neuromancer.modules.html" class="btn btn-neutral float-right" title="neuromancer.modules package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

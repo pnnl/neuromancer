@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.psl.signals &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.psl.signals</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.psl.signals</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Random signals to simulate arbitrary sequence of control actions or disturbances.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">numpy</span> <span class="kn">import</span> <span class="n">dtype</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">interpolate</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">signal</span> <span class="k">as</span> <span class="n">sig</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="n">_float_or_npd</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="n">EPS</span> <span class="o">=</span> <span class="mf">1e-6</span>
+
+<span class="k">def</span> <span class="nf">_zero_one</span><span class="p">(</span><span class="n">signal</span><span class="p">):</span>
+    <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">signal</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">signal</span> <span class="o">-</span> <span class="nb">min</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="nb">max</span> <span class="o">-</span> <span class="nb">min</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_vectorize_and_check</span><span class="p">(</span><span class="n">arrays</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">arrays</span><span class="p">)):</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">arrays</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">arrays</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">d</span><span class="p">,),</span> <span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">==</span> <span class="n">d</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Should be a float or 1d array of length d&quot;</span>
+    <span class="k">return</span> <span class="n">arrays</span>
+
+
+<div class="viewcode-block" id="walk">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.walk">[docs]</a>
+<span class="k">def</span> <span class="nf">walk</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">()):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gaussian random walk for arbitrary number of dimensions scaled between min/max bounds</span>
+
+<span class="sd">    :param nsim: (int) Number of simulation steps</span>
+<span class="sd">    :param d: (int) Number of dimensions</span>
+<span class="sd">    :param min: (float or 1-d array) Lower bound on values</span>
+<span class="sd">    :param max: (float or 1-d array) Upper bound on values</span>
+<span class="sd">    :param sigma: (float or 1-d array) Variance of normal distribution</span>
+<span class="sd">    :param bound: (bool) Whether to scale signal to between min and max</span>
+<span class="sd">    :return: (np.array shape=(nsim, d)) Random walk time series of dimension d and length nsim</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">,</span> <span class="n">sigma</span> <span class="o">=</span> <span class="n">_vectorize_and_check</span><span class="p">([</span><span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">,</span> <span class="n">sigma</span><span class="p">],</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">origin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">),</span> <span class="mf">0.</span><span class="p">)</span>
+    <span class="n">steps</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">nsim</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span>
+    <span class="n">signal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">origin</span><span class="p">,</span> <span class="n">steps</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">min</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="nb">max</span> <span class="o">-</span> <span class="nb">min</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">_zero_one</span><span class="p">(</span><span class="n">signal</span><span class="p">)</span> <span class="k">if</span> <span class="n">bound</span> <span class="k">else</span> <span class="n">signal</span></div>
+
+
+
+<div class="viewcode-block" id="noise">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.noise">[docs]</a>
+<span class="k">def</span> <span class="nf">noise</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">()):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Independent Gaussian noise for arbitrary number of dimensions scaled between min/max bounds</span>
+
+<span class="sd">    :param nsim: (int) Number of simulation steps</span>
+<span class="sd">    :param d: (int) Number of dimensions</span>
+<span class="sd">    :param min: (float or 1-d array) Lower bound on values</span>
+<span class="sd">    :param max: (float or 1-d array) Upper bound on values</span>
+<span class="sd">    :param sigma: (float or 1-d array) Variance of normal distribution</span>
+<span class="sd">    :param bound: (bool) Whether to scale signal to between min and max</span>
+<span class="sd">    :return: (np.array shape=(nsim, d)) White noise time series of dimension d and length nsim</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">,</span> <span class="n">sigma</span> <span class="o">=</span> <span class="n">_vectorize_and_check</span><span class="p">([</span><span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">,</span> <span class="n">sigma</span><span class="p">],</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">signal</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">min</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="nb">max</span> <span class="o">-</span> <span class="nb">min</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">_zero_one</span><span class="p">(</span><span class="n">signal</span><span class="p">)</span> <span class="k">if</span> <span class="n">bound</span> <span class="k">else</span> <span class="n">signal</span></div>
+
+
+
+<div class="viewcode-block" id="step">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.step">[docs]</a>
+<span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">randsteps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">()):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Random step function for arbitrary number of dimensions</span>
+
+<span class="sd">    :param nsim: (int) Number of simulation steps</span>
+<span class="sd">    :param d: (int) Number of dimensions</span>
+<span class="sd">    :param min: (float or 1-d array) Lower bound on values</span>
+<span class="sd">    :param max: (float or 1-d array) Upper bound on values</span>
+<span class="sd">    :param randsteps: (int) Number of random steps in time series (will infer from values if values is not None)</span>
+<span class="sd">    :param values: (np.array) An ordered list of values for each step change</span>
+<span class="sd">    :return: (np.array shape=(nsim, d)) Time series of random steps</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span> <span class="o">=</span> <span class="n">_vectorize_and_check</span><span class="p">([</span><span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">],</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="nb">min</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="nb">max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">randsteps</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span> <span class="k">if</span> <span class="n">values</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">values</span>
+    <span class="n">step_length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">nsim</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)))</span>
+    <span class="n">signal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">step_length</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)[:</span><span class="n">nsim</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">signal</span></div>
+
+
+
+<span class="n">_periodic_functions</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;sin&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">,</span> <span class="s1">&#39;square&#39;</span><span class="p">:</span> <span class="n">sig</span><span class="o">.</span><span class="n">square</span><span class="p">,</span> <span class="s1">&#39;sawtooth&#39;</span><span class="p">:</span> <span class="n">sig</span><span class="o">.</span><span class="n">sawtooth</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="periodic">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.periodic">[docs]</a>
+<span class="k">def</span> <span class="nf">periodic</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">form</span><span class="o">=</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="n">phase_offset</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">()):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    periodic signals, sine, cosine</span>
+
+<span class="sd">    :param nsim: (int) Number of simulation steps</span>
+<span class="sd">    :param d: (int) Number of dimensions</span>
+<span class="sd">    :param min: (float or 1-d array) Lower bound on values</span>
+<span class="sd">    :param max: (float or 1-d array) Upper bound on values</span>
+<span class="sd">    :param periods: (int) Number of periods taking place across nsim</span>
+<span class="sd">    :return: (np.array shape=(nsim, d)) Periodic time-series</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span> <span class="o">=</span> <span class="n">_vectorize_and_check</span><span class="p">([</span><span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">],</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">_periodic_functions</span><span class="p">[</span><span class="n">form</span><span class="p">]</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">2.</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">nsim</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">offset</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span> <span class="k">if</span> <span class="n">phase_offset</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">t</span> <span class="o">+</span> <span class="n">offset</span>
+    <span class="n">signal</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">periods</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">min</span> <span class="o">+</span> <span class="p">(</span><span class="nb">max</span> <span class="o">-</span> <span class="nb">min</span><span class="p">)</span> <span class="o">*</span> <span class="n">_zero_one</span><span class="p">(</span><span class="n">signal</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="np_softmax">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.np_softmax">[docs]</a>
+<span class="k">def</span> <span class="nf">np_softmax</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="sines">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.sines">[docs]</a>
+<span class="k">def</span> <span class="nf">sines</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">nwaves</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">form</span><span class="o">=</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">()):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    sum of sines</span>
+
+<span class="sd">    :param nsim: (int) Number of simulation steps</span>
+<span class="sd">    :param d: (int) Number of dimensions</span>
+<span class="sd">    :param min: (float or 1-d array) Lower bound on values</span>
+<span class="sd">    :param max: (float or 1-d array) Upper bound on values</span>
+<span class="sd">    :param periods: (int) Number of periods taking place across nsim</span>
+<span class="sd">    :return: (np.array shape=(nsim, d)) Periodic time-series</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span> <span class="o">=</span> <span class="n">_vectorize_and_check</span><span class="p">([</span><span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">],</span> <span class="n">d</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">periods</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">:</span>
+       <span class="n">signal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">nsim</span><span class="p">,</span><span class="n">d</span><span class="p">))</span><span class="o">*</span><span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="nb">min</span><span class="p">,</span><span class="nb">max</span><span class="p">)</span>
+       <span class="k">return</span> <span class="n">signal</span>
+
+    <span class="n">f</span> <span class="o">=</span> <span class="n">_periodic_functions</span><span class="p">[</span><span class="n">form</span><span class="p">]</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">2.</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">nsim</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">2.</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span>
+    <span class="n">amps</span> <span class="o">=</span> <span class="n">np_softmax</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">((</span><span class="n">nwaves</span><span class="p">,</span> <span class="n">d</span><span class="p">)),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">/</span><span class="mf">2.</span>
+    <span class="n">signal</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="n">amps</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">f</span><span class="p">(</span><span class="n">periods</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">nwaves</span><span class="p">):</span>
+        <span class="n">periods</span> <span class="o">/=</span> <span class="mf">2.</span>
+        <span class="n">signal</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="n">amps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">f</span><span class="p">(</span><span class="n">periods</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">min</span> <span class="o">+</span> <span class="p">(</span><span class="nb">max</span> <span class="o">-</span> <span class="nb">min</span><span class="p">)</span> <span class="o">*</span> <span class="n">_zero_one</span><span class="p">(</span><span class="n">signal</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="spline">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.spline">[docs]</a>
+<span class="k">def</span> <span class="nf">spline</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_interpolants</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">()):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generates a smooth cubic spline trajectory by interpolating between data points</span>
+
+<span class="sd">    :param nsim: (int) Number of simulation steps</span>
+<span class="sd">    :param d: (int) Number of dimensions</span>
+<span class="sd">    :param min: (float or 1-d array) Lower bound on values</span>
+<span class="sd">    :param max: (float or 1-d array) Upper bound on values</span>
+<span class="sd">    :param n_interpolants: (int) Number of values to interpolate between</span>
+<span class="sd">    :return: (np.array shape=(nsim, d)) Periodic time-series</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span> <span class="o">=</span> <span class="n">_vectorize_and_check</span><span class="p">([</span><span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">],</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="p">(</span><span class="nb">min</span> <span class="o">+</span> <span class="nb">max</span><span class="p">)</span><span class="o">/</span><span class="mf">2.</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">triangular</span><span class="p">(</span><span class="nb">min</span><span class="p">,</span> <span class="n">mean</span><span class="p">,</span> <span class="nb">max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n_interpolants</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span> <span class="k">if</span> <span class="n">values</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">values</span>
+    <span class="n">cs</span> <span class="o">=</span> <span class="n">interpolate</span><span class="o">.</span><span class="n">CubicSpline</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nsim</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)),</span> <span class="n">values</span><span class="p">,</span> <span class="n">extrapolate</span><span class="o">=</span><span class="s1">&#39;periodic&#39;</span><span class="p">)</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nsim</span><span class="p">,</span> <span class="n">nsim</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">cs</span><span class="p">(</span><span class="n">time</span><span class="p">),</span> <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="arma">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.arma">[docs]</a>
+<span class="k">def</span> <span class="nf">arma</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span>  <span class="n">q</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">()):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Random autoregressive moving average signal.</span>
+
+<span class="sd">    :param nsim: (int) Number of simulation steps</span>
+<span class="sd">    :param d: (int) Number of dimensions</span>
+<span class="sd">    :param min: (float or 1-d array) Lower bound on values</span>
+<span class="sd">    :param max: (float or 1-d array) Upper bound on values</span>
+<span class="sd">    :return: (np.array shape=(nsim, d)) ARMA time series</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span> <span class="o">=</span> <span class="n">_vectorize_and_check</span><span class="p">([</span><span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">],</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">nsim</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">([</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">]),</span> <span class="n">d</span><span class="p">))</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">np_softmax</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">q</span><span class="p">)),</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">MA</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">d</span> <span class="o">@</span> <span class="n">e</span><span class="p">[</span><span class="n">n</span><span class="p">:</span><span class="n">n</span><span class="o">+</span><span class="n">q</span><span class="p">]</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsim</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">np_softmax</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">p</span><span class="p">)),</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">AR</span> <span class="o">=</span> <span class="n">e</span><span class="p">[:</span><span class="n">p</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsim</span><span class="p">):</span>
+        <span class="n">AR</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">AR</span><span class="p">,</span> <span class="n">c</span> <span class="o">@</span> <span class="n">AR</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">p</span><span class="p">]])</span>
+    <span class="n">ARMA</span> <span class="o">=</span> <span class="n">AR</span><span class="p">[</span><span class="n">p</span><span class="p">:</span><span class="n">nsim</span><span class="o">+</span><span class="n">p</span><span class="p">]</span> <span class="o">+</span> <span class="n">MA</span>
+    <span class="n">ARMA</span> <span class="o">=</span> <span class="nb">min</span> <span class="o">+</span> <span class="p">(</span><span class="nb">max</span> <span class="o">-</span> <span class="nb">min</span><span class="p">)</span> <span class="o">*</span> <span class="n">_zero_one</span><span class="p">(</span><span class="n">ARMA</span><span class="p">)</span> <span class="k">if</span> <span class="n">bound</span> <span class="k">else</span> <span class="n">ARMA</span>
+    <span class="k">return</span> <span class="n">ARMA</span></div>
+
+
+
+<div class="viewcode-block" id="prbs">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.prbs">[docs]</a>
+<span class="k">def</span> <span class="nf">prbs</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mf">.9</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">()):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    pseudo-random binary signal taking values min or max.</span>
+
+<span class="sd">    :param nsim: (int) Number of simulation steps</span>
+<span class="sd">    :param d: (int) Number of dimensions</span>
+<span class="sd">    :param min: (float or 1-d array) Lower bound on values</span>
+<span class="sd">    :param max: (float or 1-d array) Upper bound on values</span>
+<span class="sd">    :param p: (float) probability of switching from min to max or vice versa.</span>
+<span class="sd">    :return: (np.array shape=(nsim, d)) PRBS time series</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span> <span class="o">=</span> <span class="n">_vectorize_and_check</span><span class="p">([</span><span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">],</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">signal</span> <span class="o">=</span> <span class="nb">min</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">other</span> <span class="o">=</span> <span class="nb">max</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsim</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">switch</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">d</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">p</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">[</span><span class="n">other</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="k">if</span> <span class="n">switch</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="k">else</span> <span class="n">signal</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">dim</span><span class="p">]</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">)]</span>
+        <span class="n">other</span> <span class="o">=</span> <span class="p">[</span><span class="n">signal</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">dim</span><span class="p">]</span> <span class="k">if</span> <span class="n">switch</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="k">else</span> <span class="n">other</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">)]</span>
+        <span class="n">signal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">signal</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">signal</span><span class="p">[:</span><span class="n">nsim</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="beta">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.beta">[docs]</a>
+<span class="k">def</span> <span class="nf">beta</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">beta</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">()):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39; </span>
+<span class="sd">    roughly upside down parabola shaped probability with a=b=2, support (0,1).</span>
+<span class="sd">    The beta distribution is flexible with parameters a,b. It always has support (0,1).</span>
+
+<span class="sd">    :param nsim: (int) Number of simulation steps</span>
+<span class="sd">    :param d: (int) Number of dimensions</span>
+<span class="sd">    :param min: (float or 1-d array) Lower bound on values</span>
+<span class="sd">    :param max: (float or 1-d array) Upper bound on values</span>
+<span class="sd">    :param alpha: (float) parameter of beta distribution</span>
+<span class="sd">    :param beta: (float) parameter of beta distribution</span>
+<span class="sd">    :param rng: (np.random.Generator) random number generator</span>
+<span class="sd">    :return: (np.array shape=(nsim, d)) scatter of beta distributed points</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">umin</span><span class="p">,</span> <span class="n">umax</span> <span class="o">=</span> <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="n">beta</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span><span class="n">d</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">umin</span><span class="o">+</span><span class="p">(</span><span class="n">umax</span><span class="o">-</span><span class="n">umin</span><span class="p">)</span><span class="o">*</span><span class="n">b</span> <span class="c1"># transform to bounds</span></div>
+
+
+<span class="k">def</span> <span class="nf">_ab</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="n">ab</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    ab is alpha or beta depending on if m&lt;.5,</span>
+<span class="sd">    to achieve a frown-like shape for the pdf</span>
+<span class="sd">    the other is set so the pdf of the beta</span>
+<span class="sd">    dist is m.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="n">m</span><span class="o">&lt;</span><span class="mf">.5</span><span class="p">:</span>
+        <span class="n">a</span><span class="o">=</span><span class="n">ab</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">a</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">m</span><span class="p">)</span><span class="o">/</span><span class="n">m</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">b</span><span class="o">=</span><span class="n">ab</span>
+        <span class="n">a</span><span class="o">=</span><span class="n">b</span><span class="o">*</span><span class="n">m</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">m</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">a</span><span class="p">,</span><span class="n">b</span>
+
+<span class="k">def</span> <span class="nf">_beta_step_mean</span><span class="p">(</span><span class="n">x0</span><span class="p">:</span><span class="nb">float</span><span class="p">,</span> <span class="n">lb</span><span class="p">:</span><span class="nb">float</span><span class="p">,</span> <span class="n">ub</span><span class="p">:</span><span class="nb">float</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span><span class="nb">float</span><span class="p">,</span> <span class="n">ab</span><span class="p">:</span><span class="nb">float</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                    <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">()):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a step from a beta distribution with mean x0</span>
+<span class="sd">    alpha is set so that the mean is x0 given beta or vice-versa</span>
+<span class="sd">        a/(a+b) = m</span>
+<span class="sd">        a = m(a+b)</span>
+<span class="sd">        a = ma+mb</span>
+<span class="sd">        a-ma = mb</span>
+<span class="sd">        (a-ma)/m = b</span>
+<span class="sd">        a(1-m)/m = b</span>
+<span class="sd">        a = bm/(1-m)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span><span class="o">&lt;</span><span class="n">q</span><span class="p">:</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="p">(</span><span class="n">ub</span><span class="o">-</span><span class="n">lb</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="o">-</span><span class="n">lb</span><span class="p">)</span><span class="o">/</span><span class="n">w</span> <span class="c1"># get x in 0-1 range</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="mf">.1</span><span class="p">,</span><span class="mf">.9</span><span class="p">)</span> <span class="c1"># don&#39;t get stuck on edges</span>
+        <span class="n">a</span><span class="p">,</span><span class="n">b</span> <span class="o">=</span> <span class="n">_ab</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">ab</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">lb</span> <span class="o">+</span> <span class="n">w</span><span class="o">*</span><span class="n">rng</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="o">=</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span>
+
+<div class="viewcode-block" id="beta_walk_mean">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.beta_walk_mean">[docs]</a>
+<span class="k">def</span> <span class="nf">beta_walk_mean</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="nb">min</span><span class="p">:</span><span class="n">_float_or_npd</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="nb">max</span><span class="p">:</span><span class="n">_float_or_npd</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">max_step</span><span class="p">:</span><span class="n">_float_or_npd</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">x0</span><span class="p">:</span><span class="n">_float_or_npd</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+              <span class="n">dtype</span><span class="p">:</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">ab</span><span class="p">:</span><span class="nb">float</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span><span class="nb">float</span><span class="o">=</span><span class="mf">.5</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span><span class="nb">float</span><span class="o">=</span><span class="mf">.5</span><span class="p">,</span> \
+              <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">())</span><span class="o">-&gt;</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a random walk from a beta distribution with parameters alpha beta set so that</span>
+<span class="sd">    the mean is the current position and the pdf is frown-like when the other parameter is 2. </span>
+
+<span class="sd">    :param nsim: (int) Number of simulation steps</span>
+<span class="sd">    :param d: (int) Number of dimensions</span>
+<span class="sd">    :param min: (float or 1-d array) Lower bound on values</span>
+<span class="sd">    :param max: (float or 1-d array) Upper bound on values</span>
+<span class="sd">    :param max_step: (float or 1-d array) Maximum step size</span>
+<span class="sd">    :param x0: (float or 1-d array) Initial value</span>
+<span class="sd">    :param dtype: (dtype) Data type of output</span>
+<span class="sd">    :param ab: (float) alpha or beta parameter of beta distribution</span>
+<span class="sd">    :param p: (float) probability of any step</span>
+<span class="sd">    :param q: (float) probability of individual beta step</span>
+<span class="sd">    :param rng: (np.random.Generator) Random number generator</span>
+<span class="sd">    :return: (np.array shape=(nsim, d)) Random walk</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">umin</span><span class="p">,</span> <span class="n">umax</span> <span class="o">=</span> <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span>
+    <span class="c1"># make sure everything is an ndarray of dtype</span>
+    <span class="n">umin</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">umin</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">umax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">umax</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="p">(</span><span class="n">umax</span><span class="o">-</span><span class="n">umin</span><span class="p">)</span> <span class="o">*</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">d</span><span class="p">,))</span> <span class="o">+</span> <span class="n">umin</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> \
+        <span class="n">x0</span>
+    <span class="n">x0</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">x0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">max_step</span> <span class="o">=</span> <span class="p">(</span><span class="n">umax</span><span class="o">-</span><span class="n">umin</span><span class="p">)</span><span class="o">/</span><span class="mi">10</span> <span class="k">if</span> <span class="n">max_step</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> \
+        <span class="n">max_step</span>
+    <span class="n">max_step</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">max_step</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">x0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">nsim</span><span class="p">,</span><span class="n">d</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">,:]</span> <span class="o">=</span> <span class="n">x0</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">nsim</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span><span class="o">&lt;</span><span class="n">p</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+                <span class="n">X</span><span class="p">[</span><span class="n">t</span><span class="p">,</span><span class="n">zone</span><span class="p">]</span> <span class="o">=</span> <span class="n">_beta_step_mean</span><span class="p">(</span><span class="n">x0</span><span class="o">=</span><span class="n">X</span><span class="p">[</span><span class="n">t</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">zone</span><span class="p">],</span> <span class="n">lb</span><span class="o">=</span><span class="n">umin</span><span class="p">[</span><span class="n">zone</span><span class="p">],</span> <span class="n">ub</span><span class="o">=</span><span class="n">umax</span><span class="p">[</span><span class="n">zone</span><span class="p">],</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">ab</span><span class="o">=</span><span class="n">ab</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">X</span><span class="p">[</span><span class="n">t</span><span class="p">,:]</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">t</span><span class="o">-</span><span class="mi">1</span><span class="p">,:]</span>
+
+    <span class="k">return</span> <span class="n">X</span></div>
+
+
+<span class="k">def</span> <span class="nf">_beta_max_step</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">lb</span><span class="p">,</span> <span class="n">ub</span><span class="p">,</span> <span class="n">max_step</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">rng</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a step from a beta distribution with parameters (alpha, beta)</span>
+<span class="sd">    between lb and ub, with a maximum step size of max_step</span>
+<span class="sd">    -&gt; x</span>
+<span class="sd">        lb &lt; x &lt; ub</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">lb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">lb</span><span class="p">,</span> <span class="n">x</span><span class="o">-</span><span class="n">max_step</span><span class="p">)</span>
+    <span class="n">ub</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">ub</span><span class="p">,</span> <span class="n">x</span><span class="o">+</span><span class="n">max_step</span><span class="p">)</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="p">(</span><span class="n">ub</span><span class="o">-</span><span class="n">lb</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">lb</span> <span class="o">+</span> <span class="n">w</span><span class="o">*</span><span class="n">rng</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span><span class="n">b</span><span class="o">=</span><span class="n">beta</span><span class="p">,</span><span class="n">size</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">x</span>
+
+<span class="n">_float_or_npd</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+
+<div class="viewcode-block" id="beta_walk_max_step">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.beta_walk_max_step">[docs]</a>
+<span class="k">def</span> <span class="nf">beta_walk_max_step</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="nb">min</span><span class="p">:</span><span class="n">_float_or_npd</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="nb">max</span><span class="p">:</span><span class="n">_float_or_npd</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">max_step</span><span class="p">:</span><span class="n">_float_or_npd</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">x0</span><span class="p">:</span><span class="n">_float_or_npd</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+              <span class="n">dtype</span><span class="p">:</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span><span class="nb">float</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">beta</span><span class="p">:</span><span class="nb">float</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span><span class="nb">float</span><span class="o">=</span><span class="mf">.3</span><span class="p">,</span> \
+              <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">())</span><span class="o">-&gt;</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a random walk from a beta distribution with parameters (2,2).</span>
+<span class="sd">    between min and max, with a maximum step size of max_step.</span>
+<span class="sd">    No truncation is necessary, beta distro is bounded.</span>
+
+<span class="sd">    :param nsim: (int) Number of simulation steps</span>
+<span class="sd">    :param d: (int) Number of dimensions</span>
+<span class="sd">    :param min: (float or 1-d array) Lower bound on values</span>
+<span class="sd">    :param max: (float or 1-d array) Upper bound on values</span>
+<span class="sd">    :param max_step: (float or 1-d array) Maximum step size</span>
+<span class="sd">    :param x0: (float or 1-d array) Initial value</span>
+<span class="sd">    :param dtype: (dtype) Data type of output</span>
+<span class="sd">    :param alpha: (float) alpha parameter of beta distribution</span>
+<span class="sd">    :param beta: (float) beta parameter of beta distribution</span>
+<span class="sd">    :param p: (float) probability of stepping</span>
+<span class="sd">    :param rng: (np.random.Generator) Random number generator</span>
+<span class="sd">    :return: (np.ndarray) Random walk</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">umin</span><span class="p">,</span> <span class="n">umax</span> <span class="o">=</span> <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span>
+    <span class="c1"># make sure everything is an ndarray of dtype</span>
+    <span class="n">umin</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">umin</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">umax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">umax</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="p">(</span><span class="n">umax</span><span class="o">-</span><span class="n">umin</span><span class="p">)</span> <span class="o">*</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">d</span><span class="p">,))</span> <span class="o">+</span> <span class="n">umin</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> \
+        <span class="n">x0</span>
+    <span class="n">x0</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">x0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">max_step</span> <span class="o">=</span> <span class="p">(</span><span class="n">umax</span><span class="o">-</span><span class="n">umin</span><span class="p">)</span><span class="o">/</span><span class="mi">10</span> <span class="k">if</span> <span class="n">max_step</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> \
+        <span class="n">max_step</span>
+    <span class="n">max_step</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">max_step</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">x0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">nsim</span><span class="p">,</span><span class="n">d</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">,:]</span> <span class="o">=</span> <span class="n">x0</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">nsim</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span><span class="o">&lt;</span><span class="n">p</span><span class="p">:</span>
+            <span class="n">X</span><span class="p">[</span><span class="n">t</span><span class="p">,:]</span> <span class="o">=</span> <span class="n">_beta_max_step</span><span class="p">(</span><span class="n">x0</span><span class="o">=</span><span class="n">X</span><span class="p">[</span><span class="n">t</span><span class="o">-</span><span class="mi">1</span><span class="p">,:],</span> <span class="n">lb</span><span class="o">=</span><span class="n">umin</span><span class="p">,</span> <span class="n">ub</span><span class="o">=</span><span class="n">umax</span><span class="p">,</span> <span class="n">max_step</span><span class="o">=</span><span class="n">max_step</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="n">beta</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">X</span><span class="p">[</span><span class="n">t</span><span class="p">,:]</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">t</span><span class="o">-</span><span class="mi">1</span><span class="p">,:]</span>
+    <span class="k">return</span> <span class="n">X</span></div>
+
+
+
+<span class="k">def</span> <span class="nf">_eq</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="o">-</span><span class="n">y</span><span class="p">)</span><span class="o">&lt;</span><span class="mi">10</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="mi">4</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_1d_walk</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">lb</span><span class="p">,</span> <span class="n">ub</span><span class="p">,</span> <span class="n">max_step</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">avoid_edge</span><span class="p">,</span> <span class="n">granularity</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">rng</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">x0</span>
+    <span class="n">ts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">nsim</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">step_len</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">granularity</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">max_step</span><span class="o">*</span><span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">granularity</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">max_step</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">granularity</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">max_step</span><span class="o">*</span><span class="n">r</span><span class="o">/</span><span class="n">granularity</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsim</span><span class="p">):</span>
+        <span class="n">ts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="k">if</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span><span class="o">&lt;</span><span class="n">p</span><span class="p">:</span> <span class="c1"># take a step with probability p</span>
+            <span class="c1"># check if near edge and reduce chance of getting stuck there</span>
+            <span class="k">if</span> <span class="n">_eq</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">lb</span><span class="p">):</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">step_len</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">_eq</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">ub</span><span class="p">):</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">step_len</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span> <span class="c1"># not stuck at edge</span>
+                <span class="k">if</span> <span class="n">avoid_edge</span><span class="p">:</span>
+                    <span class="n">q</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="p">(</span><span class="n">x</span><span class="o">-</span><span class="n">lb</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">ub</span><span class="o">-</span><span class="n">lb</span><span class="p">)</span> <span class="c1"># prob of stepping right</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">q</span> <span class="o">=</span> <span class="mf">.5</span>
+
+                <span class="k">if</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span><span class="o">&lt;</span><span class="n">q</span><span class="p">:</span> <span class="c1"># step right</span>
+                    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">((</span><span class="n">x</span><span class="o">+</span><span class="n">step_len</span><span class="p">(),</span><span class="n">ub</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span> <span class="c1"># step left</span>
+                    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">((</span><span class="n">x</span><span class="o">-</span><span class="n">step_len</span><span class="p">(),</span><span class="n">lb</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">ts</span>
+
+
+<div class="viewcode-block" id="nd_walk">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.signals.nd_walk">[docs]</a>
+<span class="k">def</span> <span class="nf">nd_walk</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="nb">min</span><span class="p">:</span><span class="n">_float_or_npd</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="nb">max</span><span class="p">:</span><span class="n">_float_or_npd</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">x0</span><span class="p">:</span><span class="n">_float_or_npd</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> \
+              <span class="n">max_step</span><span class="p">:</span><span class="n">_float_or_npd</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">.3</span><span class="p">,</span> <span class="n">avoid_edge</span><span class="p">:</span> <span class="nb">bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">granularity</span><span class="p">:</span> <span class="nb">int</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> \
+              <span class="n">dtype</span><span class="p">:</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">())</span><span class="o">-&gt;</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    random walk which avoids the edge by default. If granularity is 0 takes</span>
+<span class="sd">    uniform random steps, if granularity is 1 always takes max_step.</span>
+
+<span class="sd">    :param nsim: (int) Number of simulation steps</span>
+<span class="sd">    :param d: (int) Number of dimensions</span>
+<span class="sd">    :param min: (float or 1-d array) Lower bound on values</span>
+<span class="sd">    :param max: (float or 1-d array) Upper bound on values</span>
+<span class="sd">    :param x0: (float or 1-d array) Initial value</span>
+<span class="sd">    :param max_step: (float or 1-d array) Maximum step size</span>
+<span class="sd">    :param p: (float) probability of stepping</span>
+<span class="sd">    :param avoid_edge: (bool) whether to avoid the edge</span>
+<span class="sd">    :param granularity: (int) granularity of steps (0 is uniform random, 1 is max_step, </span>
+<span class="sd">        &gt;1 takes a step of length n*max_step/granularity where n is random int 1&lt;=n&lt;=granularity.</span>
+<span class="sd">    :param dtype: (dtype) Data type of output</span>
+<span class="sd">    :param rng: (np.random.Generator) Random number generator</span>
+<span class="sd">    :return: (np.ndarray) Random walk</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">umin</span><span class="p">,</span> <span class="n">umax</span> <span class="o">=</span> <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span>
+    <span class="c1"># make sure everything is an ndarray of dtype</span>
+    <span class="n">umin</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">umin</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">umax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">umax</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">avoid_edge</span><span class="p">:</span>
+            <span class="n">x0</span> <span class="o">=</span> <span class="p">(</span><span class="n">umax</span><span class="o">-</span><span class="n">umin</span><span class="p">)</span> <span class="o">*</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">d</span><span class="p">,))</span> <span class="o">+</span> <span class="n">umin</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x0</span> <span class="o">=</span> <span class="n">umin</span> <span class="o">+</span> <span class="p">(</span><span class="n">umax</span><span class="o">-</span><span class="n">umin</span><span class="p">)</span><span class="o">*</span><span class="n">rng</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span><span class="n">b</span><span class="o">=</span><span class="n">beta</span><span class="p">,</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">d</span><span class="p">,))</span>
+    <span class="n">x0</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">x0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">max_step</span> <span class="o">=</span> <span class="p">(</span><span class="n">umax</span><span class="o">-</span><span class="n">umin</span><span class="p">)</span><span class="o">/</span><span class="mi">10</span> <span class="k">if</span> <span class="n">max_step</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> \
+        <span class="n">max_step</span>
+    <span class="n">max_step</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="n">max_step</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">nsim</span><span class="p">,</span> <span class="n">d</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">_1d_walk</span><span class="p">(</span> \
+                <span class="n">nsim</span><span class="o">=</span><span class="n">nsim</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">[</span><span class="n">zone</span><span class="p">],</span> <span class="n">lb</span><span class="o">=</span><span class="n">umin</span><span class="p">[</span><span class="n">zone</span><span class="p">],</span> <span class="n">ub</span><span class="o">=</span><span class="n">umax</span><span class="p">[</span><span class="n">zone</span><span class="p">],</span> <span class="n">max_step</span><span class="o">=</span><span class="n">max_step</span><span class="p">[</span><span class="n">zone</span><span class="p">],</span> <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">,</span>\
+                 <span class="n">avoid_edge</span><span class="o">=</span><span class="n">avoid_edge</span><span class="p">,</span> <span class="n">granularity</span><span class="o">=</span><span class="n">granularity</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">rng</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">X</span><span class="p">[:,</span><span class="n">zone</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+    <span class="k">return</span> <span class="n">X</span>
+
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+
+
+<span class="n">periodic_signals</span> <span class="o">=</span> <span class="p">{</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">stype</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">:</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">periodic</span><span class="p">,</span> <span class="n">form</span><span class="o">=</span><span class="n">stype</span><span class="p">)</span> <span class="k">for</span> <span class="n">stype</span> <span class="ow">in</span> <span class="n">_periodic_functions</span><span class="p">}</span>
+<span class="n">signals</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">periodic_signals</span><span class="p">,</span> <span class="s1">&#39;walk&#39;</span><span class="p">:</span> <span class="n">walk</span><span class="p">,</span> <span class="s1">&#39;noise&#39;</span><span class="p">:</span> <span class="n">noise</span><span class="p">,</span> <span class="s1">&#39;step&#39;</span><span class="p">:</span> <span class="n">step</span><span class="p">,</span> <span class="s1">&#39;spline&#39;</span><span class="p">:</span> <span class="n">spline</span><span class="p">,</span>
+           <span class="s1">&#39;sines&#39;</span><span class="p">:</span> <span class="n">sines</span><span class="p">,</span>  <span class="s1">&#39;arma&#39;</span><span class="p">:</span> <span class="n">arma</span><span class="p">,</span> <span class="s1">&#39;prbs&#39;</span><span class="p">:</span> <span class="n">prbs</span><span class="p">,</span> <span class="s1">&#39;beta&#39;</span><span class="p">:</span><span class="n">beta</span><span class="p">,</span> <span class="s1">&#39;beta_walk_mean&#39;</span><span class="p">:</span><span class="n">beta_walk_mean</span><span class="p">,</span> <span class="s1">&#39;beta_walk_max_step&#39;</span><span class="p">:</span><span class="n">beta_walk_max_step</span><span class="p">}</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">signals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">s</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="nb">min</span><span class="o">=-</span><span class="mf">2.</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1.5</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s1">.png&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

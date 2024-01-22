@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.loss &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.loss</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.loss</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Loss function aggregators that create physics-informed loss functions</span>
+<span class="sd">from the list of defined objective terms and constraints.</span>
+
+<span class="sd">Currently supported loss functions:</span>
+
+<span class="sd">* `PenaltyLoss &lt;https://en.wikipedia.org/wiki/Penalty_method&gt;`_</span>
+<span class="sd">* `BarrierLoss &lt;https://en.wikipedia.org/wiki/Barrier_function&gt;`_</span>
+<span class="sd">* `AugmentedLagrangeLoss &lt;https://en.wikipedia.org/wiki/Augmented_Lagrangian_method&gt;`_</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+
+<span class="kn">from</span> <span class="nn">neuromancer.constraint</span> <span class="kn">import</span> <span class="n">Constraint</span>
+
+
+<div class="viewcode-block" id="AggregateLoss">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.loss.AggregateLoss">[docs]</a>
+<span class="k">class</span> <span class="nc">AggregateLoss</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abstract aggregate loss class for calculating constraints, objectives, and aggegate loss values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param objectives: (list (Objective)) list of neuromancer objective classes</span>
+<span class="sd">        :param constraints: (list (Constraint)) list of neuromancer constraint classes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">objectives</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span><span class="n">objectives</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">constraints</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Constraint</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span><span class="n">constraints</span><span class="p">)</span>
+
+        <span class="n">input_keys</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">objectives</span><span class="p">:</span>
+            <span class="n">input_keys</span> <span class="o">+=</span> <span class="n">obj</span><span class="o">.</span><span class="n">input_keys</span>
+        <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">:</span>
+            <span class="n">input_keys</span> <span class="o">+=</span> <span class="n">con</span><span class="o">.</span><span class="n">input_keys</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">input_keys</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;loss&#39;</span><span class="p">,</span> <span class="s1">&#39;objective_loss&#39;</span><span class="p">,</span> <span class="s1">&#39;penalty_loss&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;C_violations&#39;</span><span class="p">,</span> <span class="s1">&#39;C_values&#39;</span><span class="p">,</span> <span class="s1">&#39;C_eq_violations&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;C_ineq_violations&#39;</span><span class="p">,</span> <span class="s1">&#39;C_eq_values&#39;</span><span class="p">,</span> <span class="s1">&#39;C_ineq_values&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_keys</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_check_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">loss</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">objectives</span><span class="p">)</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">):</span>
+            <span class="n">keys</span> <span class="o">|=</span> <span class="nb">set</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">input_keys</span><span class="p">)</span>
+            <span class="n">new_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">output_keys</span><span class="p">)</span>
+            <span class="n">same</span> <span class="o">=</span> <span class="n">new_keys</span> <span class="o">&amp;</span> <span class="n">keys</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">same</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> \
+                <span class="sa">f</span><span class="s1">&#39;Keys </span><span class="si">{</span><span class="n">same</span><span class="si">}</span><span class="s1"> are being overwritten by the loss term </span><span class="si">{</span><span class="n">loss</span><span class="si">}</span><span class="s1">.&#39;</span>
+            <span class="n">keys</span> <span class="o">|=</span> <span class="n">new_keys</span>
+
+<div class="viewcode-block" id="AggregateLoss.calculate_objectives">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.loss.AggregateLoss.calculate_objectives">[docs]</a>
+    <span class="k">def</span> <span class="nf">calculate_objectives</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the value of the objective function for SGD</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">output_dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">objective</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">objectives</span><span class="p">:</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">objective</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="p">{</span><span class="n">objective</span><span class="o">.</span><span class="n">output_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">output</span><span class="p">}</span>
+            <span class="n">output_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">output_dict</span><span class="p">,</span> <span class="o">**</span><span class="n">output</span><span class="p">}</span>
+            <span class="n">loss</span> <span class="o">+=</span> <span class="n">output_dict</span><span class="p">[</span><span class="n">objective</span><span class="o">.</span><span class="n">output_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;objective_loss&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">loss</span>
+        <span class="k">return</span> <span class="n">output_dict</span></div>
+
+
+<div class="viewcode-block" id="AggregateLoss.calculate_constraints">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.loss.AggregateLoss.calculate_constraints">[docs]</a>
+    <span class="k">def</span> <span class="nf">calculate_constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the values of constraints and constraints violations</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">output_dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">C_values</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">C_violations</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">eq_flags</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">:</span>
+            <span class="c1"># get loss, values, and violations of constraint via its forward pass</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">c</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
+            <span class="n">output_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">output_dict</span><span class="p">,</span> <span class="o">**</span><span class="n">output</span><span class="p">}</span>
+            <span class="n">loss</span> <span class="o">+=</span> <span class="n">output</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">output_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+            <span class="n">cvalue</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">output_keys</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+            <span class="n">cviolation</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">output_keys</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span>
+            <span class="n">nr_constr</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">cvalue</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+            <span class="n">eq_flags</span> <span class="o">+=</span> <span class="n">nr_constr</span><span class="o">*</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">comparator</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;eq&#39;</span><span class="p">]</span>
+            <span class="n">C_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cvalue</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cvalue</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+            <span class="n">C_violations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cviolation</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cviolation</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">:</span>
+            <span class="n">equalities_flags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">eq_flags</span><span class="p">)</span>
+            <span class="c1"># get aggregated constraints</span>
+            <span class="n">C_violations</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">C_violations</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">C_values</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">C_values</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;C_violations&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">C_violations</span>
+            <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;C_values&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">C_values</span>
+            <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;C_eq_violations&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">C_violations</span><span class="p">[:,</span> <span class="n">equalities_flags</span><span class="p">]</span>
+            <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;C_ineq_violations&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">C_violations</span><span class="p">[:,</span> <span class="o">~</span><span class="n">equalities_flags</span><span class="p">]</span>
+            <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;C_eq_values&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">C_values</span><span class="p">[:,</span> <span class="n">equalities_flags</span><span class="p">]</span>
+            <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;C_ineq_values&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">C_values</span><span class="p">[:,</span> <span class="o">~</span><span class="n">equalities_flags</span><span class="p">]</span>
+        <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;penalty_loss&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">loss</span>
+        <span class="k">return</span> <span class="n">output_dict</span></div>
+
+
+<div class="viewcode-block" id="AggregateLoss.forward">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.loss.AggregateLoss.forward">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Overload the + operator to aggregate objective functions and constraints</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only instances of the same loss can be added&quot;</span><span class="p">)</span>
+        <span class="c1"># unique names</span>
+        <span class="n">obj1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">objectives</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">obj1</span><span class="p">:</span>
+            <span class="n">obj</span><span class="o">.</span><span class="n">name</span> <span class="o">+=</span> <span class="s2">&quot;_</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+        <span class="n">obj2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">other</span><span class="o">.</span><span class="n">objectives</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">obj2</span><span class="p">:</span>
+            <span class="n">obj</span><span class="o">.</span><span class="n">name</span> <span class="o">+=</span> <span class="s2">&quot;_</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">other</span><span class="p">))</span>
+        <span class="n">cons1</span> <span class="o">=</span>  <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">con</span><span class="p">)</span> <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="n">cons1</span><span class="p">:</span>
+            <span class="n">con</span><span class="o">.</span><span class="n">name</span> <span class="o">+=</span> <span class="s2">&quot;_</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+        <span class="n">cons2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">con</span><span class="p">)</span> <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="n">other</span><span class="o">.</span><span class="n">constraints</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="n">cons2</span><span class="p">:</span>
+            <span class="n">con</span><span class="o">.</span><span class="n">name</span> <span class="o">+=</span> <span class="s2">&quot;_</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">other</span><span class="p">))</span>
+        <span class="c1"># combine objectives and constraints from both instances</span>
+        <span class="n">new_objectives</span> <span class="o">=</span> <span class="n">obj1</span> <span class="o">+</span> <span class="n">obj2</span>
+        <span class="n">new_constraints</span> <span class="o">=</span> <span class="n">cons1</span> <span class="o">+</span> <span class="n">cons2</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">new_objectives</span><span class="p">,</span> <span class="n">new_constraints</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Overload the * operator to change the scale of objective functions and constraints</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">new_objectives</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">weight</span> <span class="o">*</span> <span class="n">obj</span> <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">objectives</span><span class="p">])</span>
+        <span class="n">new_constraints</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">weight</span> <span class="o">*</span> <span class="n">con</span> <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">])</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">new_objectives</span><span class="p">,</span> <span class="n">new_constraints</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Overload the * operator to change the scale of objective functions and constraints</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">new_objectives</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">weight</span> <span class="o">*</span> <span class="n">obj</span> <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">objectives</span><span class="p">])</span>
+        <span class="n">new_constraints</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">weight</span> <span class="o">*</span> <span class="n">con</span> <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">])</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">new_objectives</span><span class="p">,</span> <span class="n">new_constraints</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="PenaltyLoss">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.loss.PenaltyLoss">[docs]</a>
+<span class="k">class</span> <span class="nc">PenaltyLoss</span><span class="p">(</span><span class="n">AggregateLoss</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Penalty loss function.</span>
+<span class="sd">        https://en.wikipedia.org/wiki/Penalty_method</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param objectives: (list (Objective)) list of neuromancer objective classes</span>
+<span class="sd">        :param constraints: (list (Constraint)) list of neuromancer constraint classes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PenaltyLoss.forward">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.loss.PenaltyLoss.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param input_dict: (dict {str: torch.Tensor}) Values from forward pass calculations</span>
+<span class="sd">        :return: (dict {str: torch.Tensor}) input_dict appended with calculated loss values</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">objectives_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_objectives</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
+        <span class="n">input_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">input_dict</span><span class="p">,</span> <span class="o">**</span><span class="n">objectives_dict</span><span class="p">}</span>
+        <span class="n">fx</span> <span class="o">=</span> <span class="n">objectives_dict</span><span class="p">[</span><span class="s1">&#39;objective_loss&#39;</span><span class="p">]</span>
+        <span class="n">penalties_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_constraints</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
+        <span class="n">input_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">input_dict</span><span class="p">,</span> <span class="o">**</span><span class="n">penalties_dict</span><span class="p">}</span>
+        <span class="n">penalties</span> <span class="o">=</span> <span class="n">penalties_dict</span><span class="p">[</span><span class="s1">&#39;penalty_loss&#39;</span><span class="p">]</span>
+        <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;loss&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fx</span> <span class="o">+</span> <span class="n">penalties</span>
+        <span class="k">return</span> <span class="n">input_dict</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="BarrierLoss">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.loss.BarrierLoss">[docs]</a>
+<span class="k">class</span> <span class="nc">BarrierLoss</span><span class="p">(</span><span class="n">PenaltyLoss</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Barrier loss function.</span>
+<span class="sd">    * https://en.wikipedia.org/wiki/Barrier_function</span>
+<span class="sd">    Available barrier functions are defined in the self.barriers dictionary.</span>
+<span class="sd">    References for relaxed barrier functions:</span>
+<span class="sd">    * https://arxiv.org/abs/1602.01321</span>
+<span class="sd">    * https://arxiv.org/abs/1904.04205v2</span>
+<span class="sd">    * https://ieeexplore.ieee.org/document/7493643/</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">barrier</span><span class="o">=</span><span class="s1">&#39;log10&#39;</span><span class="p">,</span> <span class="n">upper_bound</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span>
+                 <span class="n">shift</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param objectives: (list (Objective)) list of neuromancer objective classes</span>
+<span class="sd">        :param constraints: (list (Constraint)) list of neuromancer constraint classes</span>
+<span class="sd">        :param barrier: (string) type of the barrier function</span>
+<span class="sd">        :param upper_bound (scalar) upper bound for the barrier function value</span>
+<span class="sd">        :param shift (scalar) shift of the expshift barrier function towards the left</span>
+<span class="sd">        :param alpha (scalar) bending of the soft exponential function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
+
+        <span class="c1"># choices of barrier functions</span>
+        <span class="c1">#   warning: log10, log, inverse, and softlog might get numerically unstable</span>
+        <span class="c1">#   softexp is numerically stable and thus a prefered option</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shift</span> <span class="o">=</span> <span class="n">shift</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">barriers</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;log10&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">value</span><span class="p">:</span> <span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="o">-</span><span class="n">value</span><span class="p">),</span>
+                    <span class="s1">&#39;log&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">value</span><span class="p">:</span> <span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="o">-</span><span class="n">value</span><span class="p">),</span>
+                    <span class="s1">&#39;inverse&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">value</span><span class="p">:</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="o">-</span><span class="n">value</span><span class="p">),</span>
+                    <span class="s1">&#39;softexp&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">value</span><span class="p">:</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">value</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>
+                    <span class="s1">&#39;softlog&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">value</span><span class="p">:</span> <span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="n">value</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">))</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>
+                    <span class="s1">&#39;expshift&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">value</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">shift</span><span class="p">)</span>
+                    <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">barrier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_barrier</span><span class="p">(</span><span class="n">barrier</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">upper_bound</span> <span class="o">=</span> <span class="n">upper_bound</span>
+
+    <span class="k">def</span> <span class="nf">_set_barrier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">barrier</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">barrier</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">barriers</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">barriers</span><span class="p">[</span><span class="n">barrier</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">callable</span><span class="p">(</span><span class="n">barrier</span><span class="p">),</span> \
+                <span class="sa">f</span><span class="s1">&#39;The barrier, </span><span class="si">{</span><span class="n">barrier</span><span class="si">}</span><span class="s1"> must be a key in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">barriers</span><span class="si">}</span><span class="s1"> or a callable.&#39;</span>
+            <span class="k">return</span> <span class="n">barrier</span>
+
+<div class="viewcode-block" id="BarrierLoss.calculate_constraints">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.loss.BarrierLoss.calculate_constraints">[docs]</a>
+    <span class="k">def</span> <span class="nf">calculate_constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the magnitudes of constraint violations via log barriers</span>
+<span class="sd">            cviolation &gt; 0 -&gt; penalty</span>
+<span class="sd">            cviolation &lt;= 0 -&gt; barrier</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">b_loss</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">output_dict</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">calculate_constraints</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">:</span>
+            <span class="n">cvalue</span> <span class="o">=</span> <span class="n">output_dict</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">output_keys</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+            <span class="n">cviolation</span> <span class="o">=</span> <span class="n">output_dict</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">output_keys</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span>
+            <span class="n">penalty_mask</span> <span class="o">=</span> <span class="n">cvalue</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+            <span class="n">cbarrier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">barrier</span><span class="p">(</span><span class="n">cvalue</span><span class="p">)</span>
+            <span class="n">cbarrier</span><span class="p">[</span><span class="n">cbarrier</span> <span class="o">!=</span> <span class="n">cbarrier</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># replacing nan with 0 -&gt; infeasibility</span>
+            <span class="n">cbarrier</span><span class="p">[</span><span class="n">cbarrier</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;Inf&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># replacing inf with 0 -&gt; active constraints</span>
+            <span class="n">cbarrier</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">cbarrier</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">upper_bound</span><span class="p">)</span>
+            <span class="n">output_dict</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">_barrier&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cbarrier</span>
+            <span class="k">if</span> <span class="n">penalty_mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="n">penalty_loss</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">weight</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">penalty_mask</span> <span class="o">*</span> <span class="n">cviolation</span><span class="p">)</span>
+                <span class="n">loss</span> <span class="o">+=</span> <span class="n">penalty_loss</span>
+            <span class="k">if</span> <span class="p">(</span><span class="o">~</span><span class="n">penalty_mask</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="n">barrier_loss</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">weight</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="o">~</span><span class="n">penalty_mask</span> <span class="o">*</span> <span class="n">cbarrier</span><span class="p">)</span>
+                <span class="n">b_loss</span> <span class="o">+=</span> <span class="n">barrier_loss</span>
+                <span class="n">loss</span> <span class="o">+=</span> <span class="n">barrier_loss</span>
+        <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;barrier_loss&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_loss</span>
+        <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;penalty_loss&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">loss</span>
+        <span class="k">return</span> <span class="n">output_dict</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="AugmentedLagrangeLoss">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.loss.AugmentedLagrangeLoss">[docs]</a>
+<span class="k">class</span> <span class="nc">AugmentedLagrangeLoss</span><span class="p">(</span><span class="n">AggregateLoss</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Augmented Lagrangian method loss function.</span>
+<span class="sd">        https://en.wikipedia.org/wiki/Augmented_Lagrangian_method</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">train_data</span><span class="p">,</span> <span class="n">inner_loop</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">2.</span><span class="p">,</span>
+                 <span class="n">mu_max</span><span class="o">=</span><span class="mf">1000.</span><span class="p">,</span> <span class="n">mu_init</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param objectives: (list (Objective)) list of neuromancer objective classes</span>
+<span class="sd">        :param constraints: (list (Constraint)) list of neuromancer constraint classes</span>
+<span class="sd">        :param train_data: (torch DataLoader)</span>
+<span class="sd">        :param inner_loop: (int) Number of iterations for the inner loop optimization. Lagrange multipliers</span>
+<span class="sd">                                 are updated in the outer loop every inner_loop iterations.</span>
+<span class="sd">        :param sigma: (float) Scaling factor for adaptive mu value. Shoud be &gt; 1.0</span>
+<span class="sd">        :param mu_max: (float) Maximum weight on constraint violations for optimization</span>
+<span class="sd">        :param mu_init: (float) Initial weight on constraint violations for optimization</span>
+<span class="sd">        :param eta: (float) Expected proportion of reduction in constraints violation. Should be &lt;= 1.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inner_loop</span> <span class="o">=</span> <span class="n">inner_loop</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;nsamples&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">train_data</span><span class="o">.</span><span class="n">dataset</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;sigma&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">sigma</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;mu_max&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">mu_max</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;mu&#39;</span><span class="p">,</span> <span class="n">mu_init</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nsamples</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;lm&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">eta</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;penalty_best&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span> <span class="o">+=</span> <span class="p">[</span><span class="s1">&#39;2norm_unscaled_penalty_loss&#39;</span><span class="p">,</span> <span class="s1">&#39;unscaled_penalty_loss&#39;</span><span class="p">,</span> <span class="s1">&#39;scaled_performance&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;con_lagrangian&#39;</span><span class="p">,</span> <span class="s1">&#39;mu_scaled_penalty_loss&#39;</span><span class="p">,</span> <span class="s1">&#39;mu&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_keys</span><span class="p">()</span>
+
+<div class="viewcode-block" id="AugmentedLagrangeLoss.forward">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.loss.AugmentedLagrangeLoss.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
+        <span class="n">objectives_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_objectives</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
+        <span class="n">input_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">input_dict</span><span class="p">,</span> <span class="o">**</span><span class="n">objectives_dict</span><span class="p">}</span>
+        <span class="n">fx</span> <span class="o">=</span> <span class="n">objectives_dict</span><span class="p">[</span><span class="s1">&#39;objective_loss&#39;</span><span class="p">]</span>
+        <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;loss&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fx</span>
+
+        <span class="n">con_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_constraints</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
+        <span class="n">input_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">input_dict</span><span class="p">,</span> <span class="o">**</span><span class="n">con_dict</span><span class="p">}</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="n">con_dict</span><span class="p">[</span><span class="s1">&#39;C_values&#39;</span><span class="p">]</span>
+        <span class="n">C_violations</span> <span class="o">=</span> <span class="n">con_dict</span><span class="p">[</span><span class="s1">&#39;C_violations&#39;</span><span class="p">]</span>
+        <span class="n">scaled_penalty_loss</span> <span class="o">=</span> <span class="n">con_dict</span><span class="p">[</span><span class="s1">&#39;penalty_loss&#39;</span><span class="p">]</span>
+        <span class="n">penalties</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">C_violations</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">penalties_sqrt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">penalties</span><span class="p">)</span>
+        <span class="n">unscaled_penalty_loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">penalties</span><span class="p">)</span>
+        <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;2norm_unscaled_penalty_loss&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">penalties_sqrt</span><span class="p">)</span>
+        <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;unscaled_penalty_loss&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">unscaled_penalty_loss</span>
+        <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;scaled_performance&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fx</span> <span class="o">+</span> <span class="n">scaled_penalty_loss</span>
+
+        <span class="c1"># perform Lagrangian update only during the training phase</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">init</span><span class="p">:</span>
+                <span class="c1"># initialize lagrange multipliers only at the beginning of the training</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">lm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nsamples</span><span class="p">,</span> <span class="n">C</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">init</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">penalty_best</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nsamples</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;epoch&#39;</span><span class="p">]</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_loop</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;epoch&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Then do outer loop&quot;&quot;&quot;</span>
+                <span class="c1"># check which constraints improved to obtain binary flags in update_lm</span>
+                <span class="n">update_lm</span> <span class="o">=</span> <span class="n">penalties_sqrt</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">eta</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">penalty_best</span><span class="p">[</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]]</span>
+                <span class="c1"># lm update for ineq constraints</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">lm</span><span class="p">[</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lm</span><span class="p">[</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]]</span> <span class="o">+</span> \
+                                                      <span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">[</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]]</span> <span class="o">*</span> <span class="n">C</span> <span class="o">*</span> <span class="n">update_lm</span><span class="p">)</span>
+                <span class="c1"># update best penalty</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">penalty_best</span><span class="p">[</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">penalty_best</span><span class="p">[</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]]</span> <span class="o">*</span> <span class="o">~</span><span class="n">update_lm</span> \
+                                                         <span class="o">+</span> <span class="n">penalties_sqrt</span> <span class="o">*</span> <span class="n">update_lm</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">lm</span><span class="o">.</span><span class="n">detach_</span><span class="p">()</span>
+                <span class="n">sigma_update</span> <span class="o">=</span> <span class="o">~</span><span class="n">update_lm</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span> <span class="o">+</span> <span class="n">update_lm</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">[</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">sigma_update</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">[</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]],</span> <span class="nb">max</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_max</span><span class="p">)</span>
+
+            <span class="n">mu_scaled_penalty_loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">*</span> <span class="n">penalties</span><span class="p">)</span>
+            <span class="c1"># con_lagrangian for ineq constraints</span>
+            <span class="n">con_lagrangian</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lm</span><span class="p">[</span><span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">C</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)))</span>
+            <span class="c1"># calculate total augmented lagrangian loss</span>
+            <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;loss&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">con_lagrangian</span> <span class="o">+</span> <span class="n">mu_scaled_penalty_loss</span>
+            <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;con_lagrangian&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">con_lagrangian</span>
+            <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;mu_scaled_penalty_loss&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mu_scaled_penalty_loss</span>
+            <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;mu&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;loss&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">scaled_penalty_loss</span>
+
+        <span class="k">return</span> <span class="n">input_dict</span></div>
+</div>
+
+
+
+<span class="n">losses</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;penalty&#39;</span><span class="p">:</span> <span class="n">PenaltyLoss</span><span class="p">,</span>
+          <span class="s1">&#39;barrier&#39;</span><span class="p">:</span> <span class="n">BarrierLoss</span><span class="p">,</span>
+          <span class="s1">&#39;augmented_lagrange&#39;</span><span class="p">:</span> <span class="n">AugmentedLagrangeLoss</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="get_loss">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.loss.get_loss">[docs]</a>
+<span class="k">def</span> <span class="nf">get_loss</span><span class="p">(</span><span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">train_data</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">loss</span> <span class="o">==</span> <span class="s1">&#39;penalty&#39;</span><span class="p">:</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">PenaltyLoss</span><span class="p">(</span><span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">loss</span> <span class="o">==</span> <span class="s1">&#39;barrier&#39;</span><span class="p">:</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">BarrierLoss</span><span class="p">(</span><span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span>
+                           <span class="n">barrier</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">barrier_type</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">loss</span> <span class="o">==</span> <span class="s1">&#39;augmented_lagrange&#39;</span><span class="p">:</span>
+        <span class="n">optimizer_args</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;inner_loop&#39;</span><span class="p">:</span> <span class="n">args</span><span class="o">.</span><span class="n">inner_loop</span><span class="p">,</span> <span class="s2">&quot;eta&quot;</span><span class="p">:</span> <span class="n">args</span><span class="o">.</span><span class="n">eta</span><span class="p">,</span> <span class="s1">&#39;sigma&#39;</span><span class="p">:</span> <span class="n">args</span><span class="o">.</span><span class="n">sigma</span><span class="p">,</span>
+                          <span class="s1">&#39;mu_init&#39;</span><span class="p">:</span> <span class="n">args</span><span class="o">.</span><span class="n">mu_init</span><span class="p">,</span> <span class="s2">&quot;mu_max&quot;</span><span class="p">:</span> <span class="n">args</span><span class="o">.</span><span class="n">mu_max</span><span class="p">}</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">AugmentedLagrangeLoss</span><span class="p">(</span><span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">train_data</span><span class="p">,</span> <span class="o">**</span><span class="n">optimizer_args</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">loss</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.arg &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.arg</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.arg</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module contains an extension of the argparse.ArgumentParser class and some</span>
+<span class="sd">parsers that are generally useful for writing training scripts using the neuromancer library.</span>
+<span class="sd">ArgumentParser is extended to take advantage of grouped arguments when passing</span>
+<span class="sd">command line arguments to functions and to abbreviate argparse&#39;s verbose method names.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">from</span> <span class="nn">argparse</span> <span class="kn">import</span> <span class="n">ArgumentParser</span>
+
+<span class="kn">from</span> <span class="nn">neuromancer.modules.activations</span> <span class="kn">import</span> <span class="n">activations</span>
+
+
+<div class="viewcode-block" id="add">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.add">[docs]</a>
+<span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">argname</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Monkey patch for argument group objects.</span>
+
+<span class="sd">    :param self: Refers to instantiated object of class being patched</span>
+<span class="sd">    :param argname: (str) Command line argument</span>
+<span class="sd">    :param kwargs: Whatever keyword args this thing accepts</span>
+<span class="sd">    :return: Whatever add_argument returns (I think it is an Action object)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">argname</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;--&#39;</span><span class="p">):</span>
+        <span class="n">argname</span> <span class="o">=</span> <span class="n">argname</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="n">argname</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+    <span class="k">elif</span> <span class="n">argname</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">):</span>
+        <span class="n">argname</span> <span class="o">=</span> <span class="n">argname</span><span class="p">[:</span><span class="mi">1</span><span class="p">],</span> <span class="n">argname</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">argname</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">argname</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">argname</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">prefix</span><span class="si">}{</span><span class="n">argname</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+
+<span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="o">.</span><span class="n">add</span> <span class="o">=</span> <span class="n">add</span>
+<span class="n">argparse</span><span class="o">.</span><span class="n">_ArgumentGroup</span><span class="o">.</span><span class="n">add</span> <span class="o">=</span> <span class="n">add</span>
+
+
+<div class="viewcode-block" id="ArgParser">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.ArgParser">[docs]</a>
+<span class="k">class</span> <span class="nc">ArgParser</span><span class="p">(</span><span class="n">ArgumentParser</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Subclass argparser for abbreviated method calls, separate namespaces for argument groups, and optional command line</span>
+<span class="sd">    prefix so that we can reuse parser definitions. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prefix</span> <span class="o">=</span> <span class="n">prefix</span>
+
+<div class="viewcode-block" id="ArgParser.check_for_group">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.ArgParser.check_for_group">[docs]</a>
+    <span class="k">def</span> <span class="nf">check_for_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will return the argument group if it exists</span>
+
+<span class="sd">        :param group_name: (str) Name of the argument group</span>
+<span class="sd">        :return: (argparse._ArgumentGroup or None)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">gp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_action_groups</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">gp</span><span class="o">.</span><span class="n">title</span> <span class="o">==</span> <span class="n">group_name</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">gp</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="ArgParser.group">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.ArgParser.group">[docs]</a>
+    <span class="k">def</span> <span class="nf">group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Monkey patch to abbreviate verbose call to add_argument_group. If an argument group exists by</span>
+<span class="sd">        the name group_name it will be returned, otherwise a new argument group will be created and returned.</span>
+<span class="sd">        </span>
+<span class="sd">        :param group_name: (str) Name of the argument group</span>
+<span class="sd">        :return: argparse._ArgumentGroup</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">gp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_for_group</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">gp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">gp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">prefix</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">gp</span><span class="o">.</span><span class="n">prefix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prefix</span>
+        <span class="k">return</span> <span class="n">gp</span></div>
+
+
+<div class="viewcode-block" id="ArgParser.parse_arg_groups">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.ArgParser.parse_arg_groups">[docs]</a>
+    <span class="k">def</span> <span class="nf">parse_arg_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :return: (Namespace, List(Namespace))</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+        <span class="n">arg_groups</span> <span class="o">=</span> <span class="p">{}</span>
+    
+        <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_action_groups</span><span class="p">:</span>
+            <span class="n">group_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">a</span><span class="o">.</span><span class="n">dest</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">dest</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">group</span><span class="o">.</span><span class="n">_group_actions</span><span class="p">}</span>
+            <span class="n">arg_groups</span><span class="p">[</span><span class="n">group</span><span class="o">.</span><span class="n">title</span><span class="p">]</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">(</span><span class="o">**</span><span class="n">group_dict</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">args</span><span class="p">,</span> <span class="n">arg_groups</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="log">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.log">[docs]</a>
+<span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Command line parser for logging arguments</span>
+
+<span class="sd">    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers</span>
+<span class="sd">    are bundled as parents.</span>
+<span class="sd">    :return: (arg.ArgParse) A command line parser</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">ArgParser</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-gpu&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;GPU to use&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-seed&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">408</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Random seed used for weight initialization.&quot;</span><span class="p">)</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;LOGGING&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-savedir&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;test&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Where should your trained model and plots be saved (temp)&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-verbosity&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;How many epochs in between status updates&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-exp&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;test&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Will group all run under this experiment name.&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-location&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;mlruns&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Where to write mlflow experiment tracking stuff&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-run&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;neuromancer&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Some name to tell what the experiment run was about.&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-logger&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mlflow&quot;</span><span class="p">,</span> <span class="s2">&quot;stdout&quot;</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;stdout&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Logging setup to use&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="opt">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.opt">[docs]</a>
+<span class="k">def</span> <span class="nf">opt</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Command line parser for optimization arguments</span>
+
+<span class="sd">    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers are bundled as parents.</span>
+<span class="sd">    :return: (arg.ArgParse) A command line parser</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">ArgParser</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;OPTIMIZATION&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-epochs&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Number of training epochs&#39;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-lr&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Step size for gradient descent.&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-patience&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;How many epochs to allow for no improvement in eval metric before early stopping.&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-warmup&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of epochs to wait before enacting early stopping policy.&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-skip_eval_sim&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Whether to run simulator during evaluation phase of training.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="data">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.data">[docs]</a>
+<span class="k">def</span> <span class="nf">data</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="s1">&#39;CSTR&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Command line parser for data arguments</span>
+
+<span class="sd">    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers are bundled as parents.</span>
+<span class="sd">    :return: (arg.ArgParse) A command line parser</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">ArgParser</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;DATA&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-nsteps&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of steps for open loop during training.&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-dataset&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">system</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;select particular dataset with keyword&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-nsim&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of time steps for full dataset. (ntrain + ndev + ntest)&quot;</span>
+                <span class="s2">&quot;train, dev, and test will be split evenly from contiguous, sequential, &quot;</span>
+                <span class="s2">&quot;non-overlapping chunks of nsim datapoints, e.g. first nsim/3 art train,&quot;</span>
+                <span class="s2">&quot;next nsim/3 are dev and next nsim/3 simulation steps are test points.&quot;</span>
+                <span class="s2">&quot;None will use a default nsim from the selected dataset or emulator&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-norm&quot;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="s2">&quot;Y&quot;</span><span class="p">],</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="s2">&quot;Y&quot;</span><span class="p">,</span> <span class="s2">&quot;X&quot;</span><span class="p">],</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;List of sequences to max-min normalize&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-data_seed&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">408</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Random seed used for simulated data&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="lin">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.lin">[docs]</a>
+<span class="k">def</span> <span class="nf">lin</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Command line parser for linear map arguments</span>
+
+<span class="sd">    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers are bundled as parents.</span>
+<span class="sd">    :return: (arg.ArgParse) A command line parser</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">ArgParser</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;LINEAR&quot;</span><span class="p">)</span>
+    
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-linear_map&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;linear&quot;</span><span class="p">,</span> <span class="s2">&quot;softSVD&quot;</span><span class="p">,</span> <span class="s2">&quot;pf&quot;</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Choice of map from SLiM package&#39;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-sigma_min&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Minimum singular value (for maps with singular value constraints)&#39;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-sigma_max&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Maximum singular value (for maps with singular value constraints)&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="loss">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.loss">[docs]</a>
+<span class="k">def</span> <span class="nf">loss</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Command line parser for loss function arguments</span>
+
+<span class="sd">    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers are bundled as parents.</span>
+<span class="sd">    :return: (arg.ArgParse) A command line parser</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">ArgParser</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;LOSS&quot;</span><span class="p">)</span>
+    
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-Q_con_x&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Hidden state constraints penalty weight.&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-Q_dx&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Penalty weight on hidden state difference in one time step.&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-Q_sub&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Linear maps regularization weight.&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-Q_y&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output tracking penalty weight&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-Q_e&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;State estimator hidden prediction penalty weight&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-Q_con_fdu&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Penalty weight on control actions and disturbances.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="freeze">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.freeze">[docs]</a>
+<span class="k">def</span> <span class="nf">freeze</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Command line parser for weight freezing arguments</span>
+
+<span class="sd">    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers are bundled as parents.</span>
+<span class="sd">    :return: (arg.ArgParse) A command line parser</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">ArgParser</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s1">&#39;FREEZE&#39;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-freeze&quot;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">],</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;sets requires grad to False&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-unfreeze&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;components.2&quot;</span><span class="p">],</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;sets requires grad to True&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="ctrl_loss">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.ctrl_loss">[docs]</a>
+<span class="k">def</span> <span class="nf">ctrl_loss</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Command line parser for special control loss arguments</span>
+
+<span class="sd">    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers are bundled as parents.</span>
+<span class="sd">    :return: (arg.ArgParse) A command line parser</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">ArgParser</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s1">&#39;LOSS&#39;</span><span class="p">)</span>
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-Q_con_u&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Input constraints penalty weight.&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-Q_r&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Reference tracking penalty weight&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-Q_du&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;control action difference penalty weight&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-con_tighten&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Tighten constraints&#39;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-tighten&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.00</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;control action difference penalty weight&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-loss_clip&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Clip loss terms to avoid terms taking over at beginning of training&#39;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-noise&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Whether to add noise to control actions during training.&#39;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-Q_con_y&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Observable constraints penalty weight.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="ssm">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.ssm">[docs]</a>
+<span class="k">def</span> <span class="nf">ssm</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Command line parser for state space model arguments</span>
+
+<span class="sd">    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers are bundled as parents.</span>
+<span class="sd">    :return: (arg.ArgParse) A command line parser</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">ArgParser</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s1">&#39;SSM&#39;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-ssm_type&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;blackbox&quot;</span><span class="p">,</span> <span class="s2">&quot;hw&quot;</span><span class="p">,</span> <span class="s2">&quot;hammerstein&quot;</span><span class="p">,</span> <span class="s2">&quot;blocknlin&quot;</span><span class="p">,</span> <span class="s2">&quot;linear&quot;</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;hammerstein&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Choice of block structure for system identification model&#39;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-nx_hidden&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of hidden states per output&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-n_layers&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of hidden layers of single time-step state transition&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-state_estimator&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;rnn&quot;</span><span class="p">,</span> <span class="s2">&quot;mlp&quot;</span><span class="p">,</span> <span class="s2">&quot;linear&quot;</span><span class="p">,</span> <span class="s2">&quot;residual_mlp&quot;</span><span class="p">,</span> <span class="s2">&quot;fully_observable&quot;</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;mlp&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Choice of model architecture for state estimator.&#39;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-estimator_input_window&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of previous time steps measurements to include in state estimator input&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-nonlinear_map&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;mlp&quot;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mlp&quot;</span><span class="p">,</span> <span class="s2">&quot;rnn&quot;</span><span class="p">,</span> <span class="s2">&quot;pytorch_rnn&quot;</span><span class="p">,</span> <span class="s2">&quot;linear&quot;</span><span class="p">,</span> <span class="s2">&quot;residual_mlp&quot;</span><span class="p">],</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Choice of architecture for component blocks in state space model.&#39;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-bias&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Whether to use bias in the neural network block component models.&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-activation&quot;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="n">activations</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;gelu&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Activation function for component block neural networks&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="policy">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.arg.policy">[docs]</a>
+<span class="k">def</span> <span class="nf">policy</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Command line parser for control policy arguments</span>
+
+<span class="sd">    :param prefix: (str) Optional prefix for command line arguments to resolve naming conflicts when multiple parsers are bundled as parents.</span>
+<span class="sd">    :return: (arg.ArgParse) A command line parser</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">ArgParser</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;POLICY&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-policy&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mlp&quot;</span><span class="p">,</span> <span class="s2">&quot;linear&quot;</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;mlp&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Choice of architecture for modeling control policy.&#39;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-controlled_outputs&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;list of indices of controlled outputs len(default)&lt;=ny&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-n_hidden&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of hidden states&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-n_layers&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of hidden layers of single time-step state transition&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-bias&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Whether to use bias in the neural network models.&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-policy_features&quot;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Y_ctrl_p&#39;</span><span class="p">,</span> <span class="s1">&#39;Rf&#39;</span><span class="p">,</span> <span class="s1">&#39;Y_maxf&#39;</span><span class="p">,</span> <span class="s1">&#39;Y_minf&#39;</span><span class="p">],</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Policy features&quot;</span><span class="p">)</span>  <span class="c1"># reference tracking option</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-activation&quot;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;gelu&quot;</span><span class="p">,</span> <span class="s2">&quot;softexp&quot;</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;gelu&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Activation function for neural networks&quot;</span><span class="p">)</span>
+
+    <span class="n">gp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;-perturbation&quot;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;white_noise_sine_wave&quot;</span><span class="p">,</span> <span class="s2">&quot;white_noise&quot;</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;white_noise&quot;</span><span class="p">,</span>
+           <span class="n">help</span><span class="o">=</span><span class="s1">&#39;System perturbation method.&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

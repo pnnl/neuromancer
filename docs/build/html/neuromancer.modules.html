@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.modules package &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=02f2166e"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="neuromancer.psl package" href="neuromancer.psl.html" />
+    <link rel="prev" title="neuromancer.dynamics package" href="neuromancer.dynamics.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Neuromancer
+              <img src="_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="neuromancer.html">neuromancer package</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="neuromancer.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.dynamics.html">neuromancer.dynamics package</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">neuromancer.modules package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-neuromancer.modules.activations">neuromancer.modules.activations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-neuromancer.modules.blocks">neuromancer.modules.blocks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-neuromancer.modules.functions">neuromancer.modules.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-neuromancer.modules.rnn">neuromancer.modules.rnn module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-neuromancer.modules.solvers">neuromancer.modules.solvers module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-neuromancer.modules">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.psl.html">neuromancer.psl package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.slim.html">neuromancer.slim package</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.arg">neuromancer.arg module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.callbacks">neuromancer.callbacks module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.constraint">neuromancer.constraint module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.dataset">neuromancer.dataset module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.gradients">neuromancer.gradients module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.loggers">neuromancer.loggers module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.loss">neuromancer.loss module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.plot">neuromancer.plot module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.problem">neuromancer.problem module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.system">neuromancer.system module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.trainer">neuromancer.trainer module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer">Module contents</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="neuromancer.html">neuromancer package</a></li>
+      <li class="breadcrumb-item active">neuromancer.modules package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/neuromancer.modules.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="neuromancer-modules-package">
+<h1>neuromancer.modules package<a class="headerlink" href="#neuromancer-modules-package" title="Link to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-neuromancer.modules.activations">
+<span id="neuromancer-modules-activations-module"></span><h2>neuromancer.modules.activations module<a class="headerlink" href="#module-neuromancer.modules.activations" title="Link to this heading"></a></h2>
+<p>Elementwise nonlinear tensor operations.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.APLU">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.activations.</span></span><span class="sig-name descname"><span class="pre">APLU</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nsegments</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_reg_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_reg_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tune_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tune_beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#APLU"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.APLU" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Adaptive Piecewise Linear Units: <a class="reference external" href="https://arxiv.org/pdf/1412.6830.pdf">https://arxiv.org/pdf/1412.6830.pdf</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.APLU.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#APLU.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.APLU.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor) Arbitrary shaped tensor</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor) Tensor same shape as input after elementwise application of piecewise linear activation</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.APLU.reg_error">
+<span class="sig-name descname"><span class="pre">reg_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#APLU.reg_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.APLU.reg_error" title="Link to this definition"></a></dt>
+<dd><p>L2 regularization on parameters of piecewise linear activation
+:return: (float) Regularization penalty</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.BLU">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.activations.</span></span><span class="sig-name descname"><span class="pre">BLU</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tune_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tune_beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#BLU"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.BLU" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Bendable Linear Units: <a class="reference external" href="https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&amp;arnumber=8913972">https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&amp;arnumber=8913972</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.BLU.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#BLU.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.BLU.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor) Arbitrary shaped input tensor</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor) Tensor same shape as input after bendable linear unit adaptation</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.PELU">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.activations.</span></span><span class="sig-name descname"><span class="pre">PELU</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tune_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tune_beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#PELU"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.PELU" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Parametric Exponential Linear Units: <a class="reference external" href="https://arxiv.org/pdf/1605.09332.pdf">https://arxiv.org/pdf/1605.09332.pdf</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.PELU.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#PELU.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.PELU.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor) Arbitrary shaped input tensor</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor) Tensor same shape as input after parametric ELU activation.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.PReLU">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.activations.</span></span><span class="sig-name descname"><span class="pre">PReLU</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tune_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tune_beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#PReLU"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.PReLU" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Parametric ReLU: <a class="reference external" href="https://arxiv.org/pdf/1502.01852.pdf">https://arxiv.org/pdf/1502.01852.pdf</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.PReLU.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#PReLU.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.PReLU.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor) Arbitrary shaped input tensor</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor) Tensor same shape as input after parametric ReLU activation.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.RectifiedSoftExp">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.activations.</span></span><span class="sig-name descname"><span class="pre">RectifiedSoftExp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tune_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#RectifiedSoftExp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.RectifiedSoftExp" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Mysterious unexplained implementation of Soft Exponential ported from author’s Keras code:
+<a class="reference external" href="https://github.com/thelukester92/2019-blu/blob/master/python/activations/softexp.py">https://github.com/thelukester92/2019-blu/blob/master/python/activations/softexp.py</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.RectifiedSoftExp.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#RectifiedSoftExp.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.RectifiedSoftExp.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor) Arbitrary shaped tensor</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor) Tensor same shape as input after elementwise application of soft exponential function</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.SmoothedReLU">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.activations.</span></span><span class="sig-name descname"><span class="pre">SmoothedReLU</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">d</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tune_d</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#SmoothedReLU"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.SmoothedReLU" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>ReLU with a quadratic region in [0,d]; Rectified Huber Unit;
+Used to make the Lyapunov function continuously differentiable
+<a class="reference external" href="https://arxiv.org/pdf/2001.06116.pdf">https://arxiv.org/pdf/2001.06116.pdf</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.SmoothedReLU.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#SmoothedReLU.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.SmoothedReLU.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.SoftExponential">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.activations.</span></span><span class="sig-name descname"><span class="pre">SoftExponential</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tune_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#SoftExponential"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.SoftExponential" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Soft exponential activation: <a class="reference external" href="https://arxiv.org/pdf/1602.01321.pdf">https://arxiv.org/pdf/1602.01321.pdf</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.SoftExponential.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#SoftExponential.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.SoftExponential.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor) Arbitrary shaped tensor</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor) Tensor same shape as input after elementwise application of soft exponential function</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.modules.activations.soft_exp">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.modules.activations.</span></span><span class="sig-name descname"><span class="pre">soft_exp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/activations.html#soft_exp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.activations.soft_exp" title="Link to this definition"></a></dt>
+<dd><p>Helper function for SoftExponential learnable activation class. Also used in neuromancer.operators.InterpolateAddMultiply
+:param alpha: (float) Parameter controlling shape of the function.
+:param x: (torch.Tensor) Arbitrary shaped tensor input
+:return: (torch.Tensor) Result of the function applied elementwise on the tensor.</p>
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.modules.blocks">
+<span id="neuromancer-modules-blocks-module"></span><h2>neuromancer.modules.blocks module<a class="headerlink" href="#module-neuromancer.modules.blocks" title="Link to this heading"></a></h2>
+<p>Function approximators of various degrees of generality which implement a consistent block interface.
+Neural network module building blocks for neural state space models, state estimators and control policies.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.BasisLinear">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">BasisLinear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">insize,</span> <span class="pre">outsize,</span> <span class="pre">bias=True,</span> <span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;,</span> <span class="pre">nonlin=&lt;class</span> <span class="pre">'neuromancer.modules.activations.SoftExponential'&gt;,</span> <span class="pre">hsizes=[64],</span> <span class="pre">linargs={},</span> <span class="pre">expand=Poly2()</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#BasisLinear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.BasisLinear" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.Block" title="neuromancer.modules.blocks.Block"><code class="xref py py-class docutils literal notranslate"><span class="pre">Block</span></code></a></p>
+<p>For mapping inputs to functional basis feature expansion. This could implement a dictionary of lifting functions.
+Takes a linear combination of the expanded features.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.BasisLinear.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#BasisLinear.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.BasisLinear.block_eval" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[batchsize, insize])</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, outsize])</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.BasisLinear.reg_error">
+<span class="sig-name descname"><span class="pre">reg_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#BasisLinear.reg_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.BasisLinear.reg_error" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.BilinearTorch">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">BilinearTorch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">insize,</span> <span class="pre">outsize,</span> <span class="pre">bias=True,</span> <span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;,</span> <span class="pre">nonlin=&lt;class</span> <span class="pre">'neuromancer.modules.activations.SoftExponential'&gt;,</span> <span class="pre">hsizes=[64],</span> <span class="pre">linargs={}</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#BilinearTorch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.BilinearTorch" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.Block" title="neuromancer.modules.blocks.Block"><code class="xref py py-class docutils literal notranslate"><span class="pre">Block</span></code></a></p>
+<p>Wraps torch.nn.Bilinear to be consistent with the blocks interface</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.BilinearTorch.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#BilinearTorch.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.BilinearTorch.block_eval" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.BilinearTorch.reg_error">
+<span class="sig-name descname"><span class="pre">reg_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#BilinearTorch.reg_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.BilinearTorch.reg_error" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.Block">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">Block</span></span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#Block"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.Block" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<p>Canonical abstract class of the block function approximator</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.Block.block_eval">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#Block.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.Block.block_eval" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.Block.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">inputs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#Block.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.Block.forward" title="Link to this definition"></a></dt>
+<dd><p>Handling varying number of tensor inputs</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>inputs</strong> – (list(torch.Tensor, shape=[batchsize, insize]) or torch.Tensor, shape=[batchsize, insize])</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, outsize])</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.Dropout">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">Dropout</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">at_train</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">at_test</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#Dropout"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.Dropout" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.Block" title="neuromancer.modules.blocks.Block"><code class="xref py py-class docutils literal notranslate"><span class="pre">Block</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.Dropout.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#Dropout.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.Dropout.block_eval" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.InputConvexNN">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">InputConvexNN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">insize,</span> <span class="pre">outsize,</span> <span class="pre">bias=True,</span> <span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;,</span> <span class="pre">nonlin=&lt;class</span> <span class="pre">'torch.nn.modules.activation.ReLU'&gt;,</span> <span class="pre">hsizes=[64],</span> <span class="pre">linargs={}</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#InputConvexNN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.InputConvexNN" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.MLP" title="neuromancer.modules.blocks.MLP"><code class="xref py py-class docutils literal notranslate"><span class="pre">MLP</span></code></a></p>
+<p>Input convex neural network
+z1 =  sig(W0(x) + b0)
+z_i+1 = sig_i(Ui(zi) + Wi(x) + bi),  i = 1, …, k-1
+V = g(x) = zk</p>
+<p>Equation 11 from <a class="reference external" href="https://arxiv.org/abs/2001.06116">https://arxiv.org/abs/2001.06116</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.InputConvexNN.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#InputConvexNN.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.InputConvexNN.block_eval" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[batchsize, insize])</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, outsize])</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.InteractionEmbeddingMLP">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">InteractionEmbeddingMLP</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">insize,</span> <span class="pre">outsize,</span> <span class="pre">bias=True,</span> <span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;,</span> <span class="pre">nonlin=&lt;class</span> <span class="pre">'neuromancer.modules.activations.SoftExponential'&gt;,</span> <span class="pre">hsizes=[64],</span> <span class="pre">linargs={},</span> <span class="pre">n_interactors=9</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#InteractionEmbeddingMLP"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.InteractionEmbeddingMLP" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Multi-Layer Perceptron which is a hypernetwork hidden state embeddings decided by interaction type and concatenated
+to hidden state.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.InteractionEmbeddingMLP.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">j</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#InteractionEmbeddingMLP.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.InteractionEmbeddingMLP.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[batchsize, insize])</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, outsize])</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.InteractionEmbeddingMLP.reg_error">
+<span class="sig-name descname"><span class="pre">reg_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#InteractionEmbeddingMLP.reg_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.InteractionEmbeddingMLP.reg_error" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.InterpolateAddMultiply">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">InterpolateAddMultiply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tune_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#InterpolateAddMultiply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.InterpolateAddMultiply" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Implementation of smooth interpolation between addition and multiplication
+using soft exponential activation: <a class="reference external" href="https://arxiv.org/pdf/1602.01321.pdf">https://arxiv.org/pdf/1602.01321.pdf</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.InterpolateAddMultiply.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#InterpolateAddMultiply.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.InterpolateAddMultiply.forward" title="Link to this definition"></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.Linear">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">Linear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">insize</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outsize</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nonlin=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hsizes=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linargs={}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#Linear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.Linear" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.Block" title="neuromancer.modules.blocks.Block"><code class="xref py py-class docutils literal notranslate"><span class="pre">Block</span></code></a></p>
+<p>Linear map consistent with block interface</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.Linear.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#Linear.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.Linear.block_eval" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[batchsize, insize])</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, outsize])</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.Linear.reg_error">
+<span class="sig-name descname"><span class="pre">reg_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#Linear.reg_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.Linear.reg_error" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.MLP">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">MLP</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">insize,</span> <span class="pre">outsize,</span> <span class="pre">bias=True,</span> <span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;,</span> <span class="pre">nonlin=&lt;class</span> <span class="pre">'neuromancer.modules.activations.SoftExponential'&gt;,</span> <span class="pre">hsizes=[64],</span> <span class="pre">linargs={}</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#MLP"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.MLP" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.Block" title="neuromancer.modules.blocks.Block"><code class="xref py py-class docutils literal notranslate"><span class="pre">Block</span></code></a></p>
+<p>Multi-Layer Perceptron consistent with blocks interface</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.MLP.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#MLP.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.MLP.block_eval" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[batchsize, insize])</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, outsize])</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.MLP.reg_error">
+<span class="sig-name descname"><span class="pre">reg_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#MLP.reg_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.MLP.reg_error" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.MLPDropout">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">MLPDropout</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">insize,</span> <span class="pre">outsize,</span> <span class="pre">bias=True,</span> <span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;,</span> <span class="pre">nonlin=&lt;class</span> <span class="pre">'neuromancer.modules.activations.SoftExponential'&gt;,</span> <span class="pre">hsizes=[64],</span> <span class="pre">linargs={},</span> <span class="pre">dropout=0.0</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#MLPDropout"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.MLPDropout" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.Block" title="neuromancer.modules.blocks.Block"><code class="xref py py-class docutils literal notranslate"><span class="pre">Block</span></code></a></p>
+<p>Multi-Layer Perceptron with dropout consistent with blocks interface</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.MLPDropout.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#MLPDropout.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.MLPDropout.block_eval" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[batchsize, insize])</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, outsize])</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.MLPDropout.reg_error">
+<span class="sig-name descname"><span class="pre">reg_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#MLPDropout.reg_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.MLPDropout.reg_error" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.MLP_bounds">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">MLP_bounds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">insize,</span> <span class="pre">outsize,</span> <span class="pre">bias=True,</span> <span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;,</span> <span class="pre">nonlin=&lt;class</span> <span class="pre">'neuromancer.modules.activations.SoftExponential'&gt;,</span> <span class="pre">hsizes=[64],</span> <span class="pre">linargs={},</span> <span class="pre">min=0.0,</span> <span class="pre">max=1.0,</span> <span class="pre">method='sigmoid_scale'</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#MLP_bounds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.MLP_bounds" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.MLP" title="neuromancer.modules.blocks.MLP"><code class="xref py py-class docutils literal notranslate"><span class="pre">MLP</span></code></a></p>
+<p>Multi-Layer Perceptron consistent with blocks interface</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.MLP_bounds.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#MLP_bounds.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.MLP_bounds.block_eval" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[batchsize, insize])</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, outsize])</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.MLP_bounds.bound_methods">
+<span class="sig-name descname"><span class="pre">bound_methods</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'relu_clamp':</span> <span class="pre">&lt;function</span> <span class="pre">relu_clamp&gt;,</span> <span class="pre">'sigmoid_scale':</span> <span class="pre">&lt;function</span> <span class="pre">sigmoid_scale&gt;}</span></em><a class="headerlink" href="#neuromancer.modules.blocks.MLP_bounds.bound_methods" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.Poly2">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">Poly2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#Poly2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.Poly2" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.Block" title="neuromancer.modules.blocks.Block"><code class="xref py py-class docutils literal notranslate"><span class="pre">Block</span></code></a></p>
+<p>Feature expansion of network to include pairwise multiplications of features.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.Poly2.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#Poly2.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.Poly2.block_eval" title="Link to this definition"></a></dt>
+<dd><blockquote>
+<div><dl class="field-list simple">
+<dt class="field-odd">param x<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(torch.Tensor, shape=[batchsize, N]) Input tensor</p>
+</dd>
+<dt class="field-even">return<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, :math:<a href="#id1"><span class="problematic" id="id2">`</span></a></p>
+</dd>
+</dl>
+</div></blockquote>
+<p>rac{N(N+1)}{2} + N`]) Feature expanded tensor</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.PosDef">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">PosDef</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#PosDef"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.PosDef" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.Block" title="neuromancer.modules.blocks.Block"><code class="xref py py-class docutils literal notranslate"><span class="pre">Block</span></code></a></p>
+<p>Enforce positive-definiteness of lyapunov function ICNN, V = g(x)
+Equation 12 from <a class="reference external" href="https://arxiv.org/abs/2001.06116">https://arxiv.org/abs/2001.06116</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.PosDef.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#PosDef.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.PosDef.block_eval" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.PytorchRNN">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">PytorchRNN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">insize,</span> <span class="pre">outsize,</span> <span class="pre">bias=True,</span> <span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;,</span> <span class="pre">nonlin=&lt;class</span> <span class="pre">'neuromancer.modules.activations.SoftExponential'&gt;,</span> <span class="pre">hsizes=[10],</span> <span class="pre">linargs={}</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#PytorchRNN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.PytorchRNN" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.Block" title="neuromancer.modules.blocks.Block"><code class="xref py py-class docutils literal notranslate"><span class="pre">Block</span></code></a></p>
+<p>This wraps the torch.nn.RNN class consistent with the blocks interface
+to give output which is a linear map from final hidden state.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.PytorchRNN.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#PytorchRNN.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.PytorchRNN.block_eval" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[nsteps, batchsize, dim]) Input sequence is expanded for order 2 tensors</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, outsize]) Returns linear transform of final hidden state of RNN.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.PytorchRNN.reg_error">
+<span class="sig-name descname"><span class="pre">reg_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#PytorchRNN.reg_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.PytorchRNN.reg_error" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.RNN">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">RNN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">insize,</span> <span class="pre">outsize,</span> <span class="pre">bias=True,</span> <span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;,</span> <span class="pre">nonlin=&lt;class</span> <span class="pre">'neuromancer.modules.activations.SoftExponential'&gt;,</span> <span class="pre">hsizes=[1],</span> <span class="pre">linargs={}</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#RNN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.RNN" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.Block" title="neuromancer.modules.blocks.Block"><code class="xref py py-class docutils literal notranslate"><span class="pre">Block</span></code></a></p>
+<p>This wraps the rnn.RNN class consistent with blocks interface to give output which is a linear map from final hidden state.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.RNN.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#RNN.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.RNN.block_eval" title="Link to this definition"></a></dt>
+<dd><p>There is some logic here so that the RNN will still get context from state in open loop simulation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[nsteps, batchsize, dim]) Input sequence is expanded for order 2 tensors</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, outsize]) Returns linear transform of final hidden state of RNN.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.RNN.reg_error">
+<span class="sig-name descname"><span class="pre">reg_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#RNN.reg_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.RNN.reg_error" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.RNN.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#RNN.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.RNN.reset" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.ResMLP">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">ResMLP</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">insize,</span> <span class="pre">outsize,</span> <span class="pre">bias=True,</span> <span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;,</span> <span class="pre">nonlin=&lt;class</span> <span class="pre">'neuromancer.modules.activations.SoftExponential'&gt;,</span> <span class="pre">hsizes=[64],</span> <span class="pre">linargs={},</span> <span class="pre">skip=1</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#ResMLP"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.ResMLP" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.blocks.MLP" title="neuromancer.modules.blocks.MLP"><code class="xref py py-class docutils literal notranslate"><span class="pre">MLP</span></code></a></p>
+<p>Residual MLP consistent with the block interface.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.ResMLP.block_eval">
+<span class="sig-name descname"><span class="pre">block_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#ResMLP.block_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.ResMLP.block_eval" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – (torch.Tensor, shape=[batchsize, insize])</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, outsize])</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.relu_clamp">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">relu_clamp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#relu_clamp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.relu_clamp" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.set_model_dropout_mode">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">set_model_dropout_mode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">at_train</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">at_test</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#set_model_dropout_mode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.set_model_dropout_mode" title="Link to this definition"></a></dt>
+<dd><p>Change dropout mode, useful for enabling MC sampling during inference time.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.modules.blocks.sigmoid_scale">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.modules.blocks.</span></span><span class="sig-name descname"><span class="pre">sigmoid_scale</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/blocks.html#sigmoid_scale"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.blocks.sigmoid_scale" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-neuromancer.modules.functions">
+<span id="neuromancer-modules-functions-module"></span><h2>neuromancer.modules.functions module<a class="headerlink" href="#module-neuromancer.modules.functions" title="Link to this heading"></a></h2>
+<p>Set of useful function transformations</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.modules.functions.bounds_clamp">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.modules.functions.</span></span><span class="sig-name descname"><span class="pre">bounds_clamp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/functions.html#bounds_clamp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.functions.bounds_clamp" title="Link to this definition"></a></dt>
+<dd><p>hard bounds on variable x via ReLU clamping between xmin and xmax values
+:param x:
+:param xmin:
+:param xmax:
+:return:</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.modules.functions.bounds_scaling">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.modules.functions.</span></span><span class="sig-name descname"><span class="pre">bounds_scaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xmin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xmax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/functions.html#bounds_scaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.functions.bounds_scaling" title="Link to this definition"></a></dt>
+<dd><p>hard bounds on variable x via sigmoid scaling between xmin and xmax values
+:param x:
+:param xmin:
+:param xmax:
+:param scaling:
+:return:</p>
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.modules.rnn">
+<span id="neuromancer-modules-rnn-module"></span><h2>neuromancer.modules.rnn module<a class="headerlink" href="#module-neuromancer.modules.rnn" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.rnn.RNN">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.rnn.</span></span><span class="sig-name descname"><span class="pre">RNN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hsizes=(16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias=False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nonlin=&lt;class</span> <span class="pre">'torch.nn.modules.activation.GELU'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linargs={}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/rnn.html#RNN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.rnn.RNN" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.rnn.RNN.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequence</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_states</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/rnn.html#RNN.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.rnn.RNN.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sequence</strong> – a tensor(s) of shape (seq_len, batch, input_size)</p></li>
+<li><p><strong>init_state</strong> – h_0 (num_layers, batch, hidden_size)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p></p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p>output: (seq_len, batch, hidden_size)</p></li>
+<li><p>h_n: (num_layers, batch, hidden_size)</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.rnn.RNN.reg_error">
+<span class="sig-name descname"><span class="pre">reg_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/rnn.html#RNN.reg_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.rnn.RNN.reg_error" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.rnn.RNNCell">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.rnn.</span></span><span class="sig-name descname"><span class="pre">RNNCell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias=False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nonlin=&lt;class</span> <span class="pre">'torch.nn.modules.activation.GELU'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linear_map=&lt;class</span> <span class="pre">'neuromancer.slim.linear.Linear'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linargs={}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/rnn.html#RNNCell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.rnn.RNNCell" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.rnn.RNNCell.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/rnn.html#RNNCell.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.rnn.RNNCell.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input</strong> – (torch.Tensor, shape=[batchsize, input_size])</p></li>
+<li><p><strong>hidden</strong> – (torch.Tensor, shape=[batchsize, hidden_size])</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor, shape=[batchsize, hidden_size])</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.rnn.RNNCell.reg_error">
+<span class="sig-name descname"><span class="pre">reg_error</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/rnn.html#RNNCell.reg_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.rnn.RNNCell.reg_error" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.modules.solvers">
+<span id="neuromancer-modules-solvers-module"></span><h2>neuromancer.modules.solvers module<a class="headerlink" href="#module-neuromancer.modules.solvers" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.solvers.GradientProjection">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.solvers.</span></span><span class="sig-name descname"><span class="pre">GradientProjection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">constraints</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_keys</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">energy_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/solvers.html#GradientProjection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.solvers.GradientProjection" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#neuromancer.modules.solvers.Solver" title="neuromancer.modules.solvers.Solver"><code class="xref py py-class docutils literal notranslate"><span class="pre">Solver</span></code></a></p>
+<p>Implementation of projected gradient method for gradient-based corrections of constraints violations
+Abstract steps of the gradient projection method:</p>
+<blockquote>
+<div><p>1, compute aggregated constraints violation penalties (con_viol_energy method)
+2, compute gradient of the constraints violations w.r.t. variables in input_keys (forward method)
+3, update the variable values with the negative gradient scaled by step_size (forward method)</p>
+</div></blockquote>
+<p class="rubric">References</p>
+<p>method: <a class="reference external" href="https://neos-guide.org/guide/algorithms/gradient-projection/">https://neos-guide.org/guide/algorithms/gradient-projection/</a>
+DC3 paper: <a class="reference external" href="https://arxiv.org/abs/2104.12225">https://arxiv.org/abs/2104.12225</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.solvers.GradientProjection.con_viol_energy">
+<span class="sig-name descname"><span class="pre">con_viol_energy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/solvers.html#GradientProjection.con_viol_energy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.solvers.GradientProjection.con_viol_energy" title="Link to this definition"></a></dt>
+<dd><p>Calculate the constraints violation potential energy over batches</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.solvers.GradientProjection.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/solvers.html#GradientProjection.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.solvers.GradientProjection.forward" title="Link to this definition"></a></dt>
+<dd><p>forward pass of the projected gradient solver
+:param data: (dict: {str: Tensor})
+:return: (dict: {str: Tensor})</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.solvers.IterativeSolver">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.solvers.</span></span><span class="sig-name descname"><span class="pre">IterativeSolver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">constraints</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_keys</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/solvers.html#IterativeSolver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.solvers.IterativeSolver" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>TODO: to debug</p>
+<dl class="simple">
+<dt>Class for a family of iterative solvers for root-finding solutions to the problem:</dt><dd><p><span class="math notranslate nohighlight">\(g(x) = 0\)</span></p>
+</dd>
+</dl>
+<p>general iterative solver update rules:
+<span class="math notranslate nohighlight">\(x_k+1 = phi(x_k)\)</span>
+<span class="math notranslate nohighlight">\(x_k+1 = x_k + phi(x_k)\)</span></p>
+<p><a class="reference external" href="https://en.wikipedia.org/wiki/Iterative_method">https://en.wikipedia.org/wiki/Iterative_method</a>
+<a class="reference external" href="https://en.wikipedia.org/wiki/Root-finding_algorithms">https://en.wikipedia.org/wiki/Root-finding_algorithms</a></p>
+<p>Newton’s method:
+<span class="math notranslate nohighlight">\(x_k+1 = x_k - J_g(x_k)^-1 g(x_k)\)</span>
+<span class="math notranslate nohighlight">\(J_g(x_k)\)</span>: Jacobian of <span class="math notranslate nohighlight">\(g(x_k)\)</span> w.r.t. :math:<a href="#id3"><span class="problematic" id="id4">`</span></a>x_k’</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.solvers.IterativeSolver.con_values">
+<span class="sig-name descname"><span class="pre">con_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/solvers.html#IterativeSolver.con_values"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.solvers.IterativeSolver.con_values" title="Link to this definition"></a></dt>
+<dd><p>Calculate values g(x) of the constraints expressions</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.solvers.IterativeSolver.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/solvers.html#IterativeSolver.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.solvers.IterativeSolver.forward" title="Link to this definition"></a></dt>
+<dd><p>foward pass of the Newton solver
+:param data: (dict: {str: Tensor})
+:return: (dict: {str: Tensor})</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.solvers.IterativeSolver.newton_step">
+<span class="sig-name descname"><span class="pre">newton_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/solvers.html#IterativeSolver.newton_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.solvers.IterativeSolver.newton_step" title="Link to this definition"></a></dt>
+<dd><p>Calculate the newton step for a given variable x</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="neuromancer.modules.solvers.IterativeSolver.num_steps">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">num_steps</span></span><a class="headerlink" href="#neuromancer.modules.solvers.IterativeSolver.num_steps" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.modules.solvers.Solver">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.modules.solvers.</span></span><span class="sig-name descname"><span class="pre">Solver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">objectives</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/solvers.html#Solver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.solvers.Solver" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<p>Abstract class for the differentiable solver implementation</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.modules.solvers.Solver.forward">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/modules/solvers.html#Solver.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.modules.solvers.Solver.forward" title="Link to this definition"></a></dt>
+<dd><p>differentiable solver update to be implemented here</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>datadict</strong> – (dict {str: Tensor}) input to solver with associated input_keys</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(dict {str: Tensor}) Output of solver with associated output_keys</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.modules">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-neuromancer.modules" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="neuromancer.dynamics.html" class="btn btn-neutral float-left" title="neuromancer.dynamics package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="neuromancer.psl.html" class="btn btn-neutral float-right" title="neuromancer.psl package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

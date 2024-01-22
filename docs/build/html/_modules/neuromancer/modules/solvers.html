@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.modules.solvers &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.modules.solvers</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.modules.solvers</h1><div class="highlight"><pre>
+<span></span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">from</span> <span class="nn">neuromancer.gradients</span> <span class="kn">import</span> <span class="n">gradient</span><span class="p">,</span> <span class="n">jacobian</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">functorch</span> <span class="kn">import</span> <span class="n">jacrev</span><span class="p">,</span> <span class="n">jacfwd</span>
+
+
+<div class="viewcode-block" id="Solver">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.solvers.Solver">[docs]</a>
+<span class="k">class</span> <span class="nc">Solver</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abstract class for the differentiable solver implementation</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">objectives</span><span class="o">=</span><span class="p">[],</span> <span class="n">constraints</span><span class="o">=</span><span class="p">[],</span>
+                 <span class="n">input_keys</span><span class="o">=</span><span class="p">[],</span> <span class="n">output_keys</span><span class="o">=</span><span class="p">[],</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param objectives: (list (Objective)) list of neuromancer objective classes</span>
+<span class="sd">        :param constraints: (list (Constraint)) list of neuromancer constraint classes</span>
+<span class="sd">        :param input_keys: (list of str) For gathering inputs from intermediary data dictionary</span>
+<span class="sd">        :param output_keys: (list of str) For sending inputs to other nodes through intermediary data dictionary</span>
+<span class="sd">        :param name: (str) Unique identifier</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># input_keys are keys of input variables to be updated by the solver</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span> <span class="o">=</span> <span class="n">input_keys</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_keys</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span><span class="n">input_keys</span><span class="p">]</span>
+        <span class="c1"># output_keys are keys associated with updated values of the input variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span> <span class="o">=</span> <span class="n">output_keys</span> <span class="k">if</span> <span class="n">output_keys</span> <span class="k">else</span> <span class="n">input_keys</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span><span class="p">),</span> \
+            <span class="sa">f</span><span class="s1">&#39;Length of input_keys </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="si">}</span><span class="s1"> must equal length of output_keys </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">objectives</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span><span class="n">objectives</span><span class="p">)</span>     <span class="c1"># list of neuromancer objectives</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span><span class="n">constraints</span><span class="p">)</span>   <span class="c1"># list of neuromancer constraints</span>
+
+<div class="viewcode-block" id="Solver.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.solvers.Solver.forward">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        differentiable solver update to be implemented here</span>
+
+<span class="sd">        :param datadict: (dict {str: Tensor}) input to solver with associated input_keys</span>
+<span class="sd">        :return: (dict {str: Tensor}) Output of solver with associated output_keys</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="GradientProjection">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.solvers.GradientProjection">[docs]</a>
+<span class="k">class</span> <span class="nc">GradientProjection</span><span class="p">(</span><span class="n">Solver</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implementation of projected gradient method for gradient-based corrections of constraints violations</span>
+<span class="sd">    Abstract steps of the gradient projection method:</span>
+<span class="sd">        1, compute aggregated constraints violation penalties (con_viol_energy method)</span>
+<span class="sd">        2, compute gradient of the constraints violations w.r.t. variables in input_keys (forward method)</span>
+<span class="sd">        3, update the variable values with the negative gradient scaled by step_size (forward method)</span>
+
+<span class="sd">    References:</span>
+<span class="sd">        method: https://neos-guide.org/guide/algorithms/gradient-projection/</span>
+<span class="sd">        DC3 paper: https://arxiv.org/abs/2104.12225</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">input_keys</span><span class="p">,</span> <span class="n">output_keys</span><span class="o">=</span><span class="p">[],</span> <span class="n">decay</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+                 <span class="n">num_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">energy_update</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param constraints:</span>
+<span class="sd">        :param input_keys: (List of str) List of input variable names</span>
+<span class="sd">        :param constraints: list of objects which implement the Loss interface (e.g. Objective, Loss, or Constraint)</span>
+<span class="sd">        :param num_steps: (int) number of iteration steps for the projected gradient method</span>
+<span class="sd">        :param step_size: (float) scaling factor for gradient update</span>
+<span class="sd">        :param decay: (float) decay factor of the step_size</span>
+<span class="sd">        :param energy_update: (bool) flag to update energy</span>
+<span class="sd">        :param name:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">constraints</span><span class="o">=</span><span class="n">constraints</span><span class="p">,</span>
+                         <span class="n">input_keys</span><span class="o">=</span><span class="n">input_keys</span><span class="p">,</span> <span class="n">output_keys</span><span class="o">=</span><span class="n">output_keys</span><span class="p">,</span>
+                         <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_steps</span> <span class="o">=</span> <span class="n">num_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">step_size</span> <span class="o">=</span> <span class="n">step_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span> <span class="o">=</span> <span class="n">input_keys</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">decay</span> <span class="o">=</span> <span class="n">decay</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">energy_update</span> <span class="o">=</span> <span class="n">energy_update</span>
+
+    <span class="k">def</span> <span class="nf">_constraints_check</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">con</span><span class="o">.</span><span class="n">comparator</span><span class="p">)</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;lt&#39;</span><span class="p">,</span> <span class="s1">&#39;gt&#39;</span><span class="p">],</span> \
+                <span class="sa">f</span><span class="s1">&#39;constraint </span><span class="si">{</span><span class="n">con</span><span class="si">}</span><span class="s1"> must be inequality (lt or gt), but it is </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">con</span><span class="o">.</span><span class="n">comparator</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span>
+
+<div class="viewcode-block" id="GradientProjection.con_viol_energy">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.solvers.GradientProjection.con_viol_energy">[docs]</a>
+    <span class="k">def</span> <span class="nf">con_viol_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the constraints violation potential energy over batches</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">C_violations</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">:</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">con</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
+            <span class="n">cviolation</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="n">con</span><span class="o">.</span><span class="n">output_keys</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span>
+            <span class="n">C_violations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cviolation</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cviolation</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">C_violations</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">C_violations</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">C_violations</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">energy</span></div>
+
+
+<div class="viewcode-block" id="GradientProjection.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.solvers.GradientProjection.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        forward pass of the projected gradient solver</span>
+<span class="sd">        :param data: (dict: {str: Tensor})</span>
+<span class="sd">        :return: (dict: {str: Tensor})</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># init output</span>
+        <span class="n">output_data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_update</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">output_data</span>
+        <span class="c1"># init decay rate</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="c1"># projected gradient</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_steps</span><span class="p">):</span>
+            <span class="c1"># update energy</span>
+            <span class="n">energy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">con_viol_energy</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">in_key</span><span class="p">,</span> <span class="n">out_key</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span><span class="p">):</span>
+                <span class="c1"># get grad</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">in_key</span><span class="p">]</span>
+                <span class="n">step</span> <span class="o">=</span> <span class="n">gradient</span><span class="p">(</span><span class="n">energy</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="n">step</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> \
+                    <span class="sa">f</span><span class="s1">&#39;Dimensions of gradient step </span><span class="si">{</span><span class="n">step</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1"> should be equal to dimensions &#39;</span> \
+                    <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1">  of a single variable </span><span class="si">{</span><span class="n">in_key</span><span class="si">}</span><span class="s1">&#39;</span>
+                <span class="c1"># update</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">d</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_size</span><span class="o">*</span><span class="n">step</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">d</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">decay</span> <span class="o">*</span> <span class="n">d</span>
+                <span class="n">output_data</span><span class="p">[</span><span class="n">out_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="k">return</span> <span class="n">output_data</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="IterativeSolver">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.solvers.IterativeSolver">[docs]</a>
+<span class="k">class</span> <span class="nc">IterativeSolver</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    TODO: to debug</span>
+
+<span class="sd">    Class for a family of iterative solvers for root-finding solutions to the problem:</span>
+<span class="sd">        :math:`g(x) = 0`</span>
+
+<span class="sd">    general iterative solver update rules:</span>
+<span class="sd">    :math:`x_k+1 = phi(x_k)`</span>
+<span class="sd">    :math:`x_k+1 = x_k + phi(x_k)`</span>
+
+<span class="sd">    https://en.wikipedia.org/wiki/Iterative_method</span>
+<span class="sd">    https://en.wikipedia.org/wiki/Root-finding_algorithms</span>
+
+<span class="sd">    Newton&#39;s method:</span>
+<span class="sd">    :math:`x_k+1 = x_k - J_g(x_k)^-1 g(x_k)`</span>
+<span class="sd">    :math:`J_g(x_k)`: Jacobian of :math:`g(x_k)` w.r.t. :math:`x_k&#39;</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">input_keys</span><span class="p">,</span> <span class="n">output_keys</span><span class="o">=</span><span class="p">[],</span>
+                 <span class="n">num_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param constraints:</span>
+<span class="sd">        :param input_keys: (List of str) List of input variable names</span>
+<span class="sd">        :param constraints: list of objects which implement the Loss interface (e.g. Objective, Loss, or Constraint)</span>
+<span class="sd">        :param num_steps: (int) number of iteration steps for the projected gradient method</span>
+<span class="sd">        :param step_size: (float) scaling factor for gradient update</span>
+<span class="sd">        :param name:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span> <span class="o">=</span> <span class="n">input_keys</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_keys</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span><span class="n">input_keys</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span> <span class="o">=</span> <span class="n">output_keys</span> <span class="k">if</span> <span class="n">output_keys</span> <span class="k">else</span> <span class="n">input_keys</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span><span class="p">),</span> \
+            <span class="sa">f</span><span class="s1">&#39;Length of input_keys </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="si">}</span><span class="s1"> must equal length of output_keys </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span><span class="n">constraints</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_steps</span> <span class="o">=</span> <span class="n">num_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span> <span class="o">=</span> <span class="n">input_keys</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">step_size</span> <span class="o">=</span> <span class="n">step_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_constraints_check</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_constraints_check</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">con</span><span class="o">.</span><span class="n">comparator</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;eq&#39;</span><span class="p">,</span> \
+                <span class="sa">f</span><span class="s1">&#39;constraint </span><span class="si">{</span><span class="n">con</span><span class="si">}</span><span class="s1"> must be equality (eq), but it is </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">con</span><span class="o">.</span><span class="n">comparator</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_steps</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_steps</span>
+
+<div class="viewcode-block" id="IterativeSolver.con_values">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.solvers.IterativeSolver.con_values">[docs]</a>
+    <span class="k">def</span> <span class="nf">con_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate values g(x) of the constraints expressions</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">g_values</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">:</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">con</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">cvalue</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="n">con</span><span class="o">.</span><span class="n">output_keys</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+            <span class="n">g_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cvalue</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cvalue</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">g_values</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+    <span class="c1"># TODO: debug this with functorch</span>
+<div class="viewcode-block" id="IterativeSolver.newton_step">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.solvers.IterativeSolver.newton_step">[docs]</a>
+    <span class="k">def</span> <span class="nf">newton_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the newton step for a given variable x</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">con_values</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="c1"># J_g = jacobian(g, x)</span>
+        <span class="n">J_g</span> <span class="o">=</span> <span class="n">jacfwd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">con_values</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">)(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">step</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">J_g</span><span class="o">.</span><span class="n">inverse</span><span class="p">(),</span> <span class="n">g</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">step</span></div>
+
+
+<div class="viewcode-block" id="IterativeSolver.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.solvers.IterativeSolver.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        foward pass of the Newton solver</span>
+<span class="sd">        :param data: (dict: {str: Tensor})</span>
+<span class="sd">        :return: (dict: {str: Tensor})</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_data</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">in_key</span><span class="p">,</span> <span class="n">out_key</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">in_key</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_steps</span><span class="p">):</span>
+                <span class="n">step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">newton_step</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="n">step</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> \
+                    <span class="sa">f</span><span class="s1">&#39;Dimensions of solver step </span><span class="si">{</span><span class="n">step</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1"> should be equal to dimensions &#39;</span> \
+                    <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1"> of a single variable </span><span class="si">{</span><span class="n">in_key</span><span class="si">}</span><span class="s1">&#39;</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_size</span><span class="o">*</span><span class="n">step</span>
+            <span class="n">output_data</span><span class="p">[</span><span class="n">out_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="k">return</span> <span class="n">output_data</span></div>
+</div>
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

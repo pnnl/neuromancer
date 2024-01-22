@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.slim.rnn &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.slim.rnn</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.slim.rnn</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Recurrent Neural Network implementation for use with structured linear maps.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="c1"># machine learning/data science imports</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+
+<span class="c1"># ecosystem imports</span>
+<span class="kn">import</span> <span class="nn">neuromancer.slim</span> <span class="k">as</span> <span class="nn">slim</span>
+
+
+<div class="viewcode-block" id="RNNCell">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.rnn.RNNCell">[docs]</a>
+<span class="k">class</span> <span class="nc">RNNCell</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">nonlin</span><span class="o">=</span><span class="n">F</span><span class="o">.</span><span class="n">gelu</span><span class="p">,</span>
+                 <span class="n">hidden_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span> <span class="n">input_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span> <span class="n">input_args</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span>
+                 <span class="n">hidden_args</span><span class="o">=</span><span class="nb">dict</span><span class="p">()):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param input_size: (int) Dimension of input to rnn cell.</span>
+<span class="sd">        :param hidden_size: (int) Dimension of output of rnn cell.</span>
+<span class="sd">        :param bias: (bool) Whether to use bias.</span>
+<span class="sd">        :param nonlinearity: (callable) Activation function</span>
+<span class="sd">        :param linear_map: (nn.Module) A module compatible with torch.nn.Linear</span>
+<span class="sd">        :param linargs: (dict) Arguments to instantiate linear layers</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_size</span> <span class="o">=</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span> <span class="o">=</span> <span class="n">nonlin</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lin_in</span> <span class="o">=</span> <span class="n">input_map</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">input_args</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lin_hidden</span> <span class="o">=</span> <span class="n">hidden_map</span><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">hidden_args</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RNNCell.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.rnn.RNNCell.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :return: (torch.float) Regularization error associated with linear maps.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lin_in</span><span class="o">.</span><span class="n">reg_error</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">lin_hidden</span><span class="o">.</span><span class="n">reg_error</span><span class="p">())</span><span class="o">/</span><span class="mf">2.0</span></div>
+
+
+<div class="viewcode-block" id="RNNCell.forward">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.rnn.RNNCell.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">hidden</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param input: (torch.Tensor, shape=[batch_size, input_size]) Input to cell</span>
+<span class="sd">        :param hidden: (torch.Tensor, shape=[batch_size, hidden_size]) Hidden state (typically previous output of cell)</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, hidden_size]) Cell output</span>
+
+<span class="sd">        .. doctest::</span>
+
+<span class="sd">            &gt;&gt;&gt; import neuromancer.slim as slim, torch</span>
+<span class="sd">            &gt;&gt;&gt; cell = slim.RNNCell(5, 8, input_map=slim.Linear, hidden_map=slim.PerronFrobeniusLinear)</span>
+<span class="sd">            &gt;&gt;&gt; x, h = torch.rand(20, 5), torch.rand(20, 8)</span>
+<span class="sd">            &gt;&gt;&gt; output = cell(x, h)</span>
+<span class="sd">            &gt;&gt;&gt; output.shape</span>
+<span class="sd">            torch.Size([20, 8])</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lin_hidden</span><span class="p">(</span><span class="n">hidden</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">lin_in</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="RNN">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.rnn.RNN">[docs]</a>
+<span class="k">class</span> <span class="nc">RNN</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cell_args</span><span class="o">=</span><span class="nb">dict</span><span class="p">()):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Has input and output corresponding to basic usage of torch.nn.RNN module.</span>
+<span class="sd">        No bidirectional, bias, nonlinearity, batch_first, and dropout args.</span>
+<span class="sd">        Cells can incorporate custom linear maps.</span>
+<span class="sd">        Bias and nonlinearity are included in cell args.</span>
+
+<span class="sd">        :param input_size: (int) Dimension of inputs</span>
+<span class="sd">        :param hidden_size: (int) Dimension of hidden states</span>
+<span class="sd">        :param num_layers: (int)  Number of recurrent layers. E.g., setting num_layers=2 would mean stacking two RNNs together</span>
+<span class="sd">                                  to form a stacked RNN, with the second RNN taking in outputs of the first RNN and</span>
+<span class="sd">                                  computing the final results. Default: 1</span>
+<span class="sd">        :param cell_args: (dict) Arguments to instantiate RNN cells (see :class:`rnn.RNNCell` for args).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="n">rnn_cells</span> <span class="o">=</span> <span class="p">[</span><span class="n">RNNCell</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="o">**</span><span class="n">cell_args</span><span class="p">)]</span>
+        <span class="n">rnn_cells</span> <span class="o">+=</span> <span class="p">[</span><span class="n">RNNCell</span><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="o">**</span><span class="n">cell_args</span><span class="p">)</span>
+                      <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="o">-</span><span class="mi">1</span><span class="p">)]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rnn_cells</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span><span class="n">rnn_cells</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_states</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ParameterList</span><span class="p">([</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">hidden_size</span><span class="p">))</span>
+                                             <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">rnn_cells</span><span class="p">])</span>
+
+<div class="viewcode-block" id="RNN.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.rnn.RNN.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :return: (torch.float) Regularization error associated with linear maps.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">cell</span><span class="o">.</span><span class="n">reg_error</span><span class="p">()</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">rnn_cells</span><span class="p">]))</span></div>
+
+
+<div class="viewcode-block" id="RNN.forward">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.rnn.RNN.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sequence</span><span class="p">,</span> <span class="n">init_states</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param sequence: (torch.Tensor, shape=[seq_len, batch, input_size]) Input sequence to RNN</span>
+<span class="sd">        :param init_state: (torch.Tensor, shape=[num_layers, batch, hidden_size]) :math:`h_0`, initial hidden states for stacked RNNCells</span>
+<span class="sd">        :returns:</span>
+
+<span class="sd">            - output: (seq_len, batch, hidden_size) Sequence of outputs</span>
+<span class="sd">            - :math:`h_n`: (num_layers, batch, hidden_size) Final hidden states for stack of RNN cells.</span>
+
+<span class="sd">        .. doctest::</span>
+
+<span class="sd">            &gt;&gt;&gt; import neuromancer.slim as slim, torch</span>
+<span class="sd">            &gt;&gt;&gt; rnn = slim.RNN(5, hidden_size=8, num_layers=3, cell_args={&#39;hidden_map&#39;: slim.PerronFrobeniusLinear})</span>
+<span class="sd">            &gt;&gt;&gt; x = torch.rand(20, 10, 5)</span>
+<span class="sd">            &gt;&gt;&gt; output, h_n = rnn(x)</span>
+<span class="sd">            &gt;&gt;&gt; output.shape, h_n.shape</span>
+<span class="sd">            (torch.Size([20, 10, 8]), torch.Size([3, 10, 8]))</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;RNN takes order 3 tensor with shape=(seq_len, nsamples, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">insize</span><span class="si">}</span><span class="s1">)&#39;</span>
+        <span class="k">if</span> <span class="n">init_states</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">init_states</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_states</span>
+        <span class="n">final_hiddens</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">h</span><span class="p">,</span> <span class="n">cell</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">init_states</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rnn_cells</span><span class="p">):</span>
+            <span class="c1"># loop over stack of cells</span>
+            <span class="n">states</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">seq_idx</span><span class="p">,</span> <span class="n">cell_input</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sequence</span><span class="p">):</span>
+                <span class="c1"># loop over sequence</span>
+                <span class="n">h</span> <span class="o">=</span> <span class="n">cell</span><span class="p">(</span><span class="n">cell_input</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span>
+                <span class="n">states</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+            <span class="n">sequence</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">states</span><span class="p">)</span>
+            <span class="n">final_hiddens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>  <span class="c1"># Save final hidden state for each cell in case need to do truncated back prop</span>
+        <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">equal</span><span class="p">(</span><span class="n">sequence</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="n">final_hiddens</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">sequence</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">final_hiddens</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">bias</span> <span class="ow">in</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">num_layers</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="nb">map</span> <span class="ow">in</span> <span class="n">slim</span><span class="o">.</span><span class="n">maps</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="nb">map</span><span class="p">)</span>
+                <span class="n">rnn</span> <span class="o">=</span> <span class="n">RNN</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="n">num_layers</span><span class="p">,</span> <span class="n">cell_args</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;bias&#39;</span><span class="p">:</span> <span class="n">bias</span><span class="p">,</span>
+                                                                              <span class="s1">&#39;nonlin&#39;</span><span class="p">:</span> <span class="n">F</span><span class="o">.</span><span class="n">gelu</span><span class="p">,</span>
+                                                                              <span class="s1">&#39;hidden_map&#39;</span><span class="p">:</span> <span class="nb">map</span><span class="p">,</span>
+                                                                              <span class="s1">&#39;input_map&#39;</span><span class="p">:</span> <span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">})</span>
+                <span class="n">out</span> <span class="o">=</span> <span class="n">rnn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">out</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="nb">map</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">slim</span><span class="o">.</span><span class="n">maps</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="o">-</span> <span class="n">slim</span><span class="o">.</span><span class="n">square_maps</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                <span class="n">rnn</span> <span class="o">=</span> <span class="n">RNN</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="n">num_layers</span><span class="p">,</span> <span class="n">cell_args</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;bias&#39;</span><span class="p">:</span> <span class="n">bias</span><span class="p">,</span>
+                                                                               <span class="s1">&#39;nonlin&#39;</span><span class="p">:</span> <span class="n">F</span><span class="o">.</span><span class="n">gelu</span><span class="p">,</span>
+                                                                               <span class="s1">&#39;hidden_map&#39;</span><span class="p">:</span> <span class="nb">map</span><span class="p">,</span>
+                                                                               <span class="s1">&#39;input_map&#39;</span><span class="p">:</span> <span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">})</span>
+                <span class="n">out</span> <span class="o">=</span> <span class="n">rnn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">out</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

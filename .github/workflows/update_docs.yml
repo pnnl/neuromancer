@@ -43,7 +43,7 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
         with:
           publish_branch: gh-pages
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: build
+          publish_dir: docs/build
           keep_files: true 
 
 

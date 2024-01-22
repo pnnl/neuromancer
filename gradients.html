@@ -1,15 +1,13 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" data-content_root="./">
+<html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gradients &mdash; Neuromancer 1.4.2 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
-      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=eafc0fe6" />
-
-  
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
     <link rel="shortcut icon" href="_static/tiny_dadaist.ico"/>
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
@@ -73,8 +71,30 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="gradients">
-<h1>Gradients<a class="headerlink" href="#gradients" title="Link to this heading"></a></h1>
+  <section id="module-neuromancer.gradients">
+<span id="gradients"></span><h1>Gradients<a class="headerlink" href="#module-neuromancer.gradients" title="Link to this heading"></a></h1>
+<p>Support functions and objects for differentiating neuromancer objects
+Computing gradients, jacobians, and PWA forms for components, variables, and constraints</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.gradients.gradient">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.gradients.</span></span><span class="sig-name descname"><span class="pre">gradient</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad_outputs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">create_graph</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/gradients.html#gradient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.gradients.gradient" title="Link to this definition"></a></dt>
+<dd><p>Compute gradients dy/dx
+:param y: [tensors] outputs
+:param x: [tensors] inputs
+:param grad_outputs:
+:return:</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.gradients.jacobian">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.gradients.</span></span><span class="sig-name descname"><span class="pre">jacobian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/gradients.html#jacobian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.gradients.jacobian" title="Link to this definition"></a></dt>
+<dd><p>Compute J = [dy_1/dx_1, …, dy_1/dx_n, dy_m/dx_1, …, dy_m/dx_n]
+computes gradients dy/dx at grad_outputs in [1, 0, …, 0], [0, 1, 0, …, 0], …., [0, …, 0, 1]
+:param y: [tensor] outputs
+:param x: tensor] inputs
+:return:</p>
+</dd></dl>
+
 </section>
 
 

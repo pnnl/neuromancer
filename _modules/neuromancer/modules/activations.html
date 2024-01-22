@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.modules.activations &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.modules.activations</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.modules.activations</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Elementwise nonlinear tensor operations.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+
+
+<div class="viewcode-block" id="soft_exp">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.soft_exp">[docs]</a>
+<span class="k">def</span> <span class="nf">soft_exp</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function for SoftExponential learnable activation class. Also used in neuromancer.operators.InterpolateAddMultiply</span>
+<span class="sd">    :param alpha: (float) Parameter controlling shape of the function.</span>
+<span class="sd">    :param x: (torch.Tensor) Arbitrary shaped tensor input</span>
+<span class="sd">    :return: (torch.Tensor) Result of the function applied elementwise on the tensor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">alpha</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span>
+    <span class="k">elif</span> <span class="n">alpha</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">alpha</span><span class="p">))</span> <span class="o">/</span> <span class="n">alpha</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">alpha</span> <span class="o">+</span> <span class="n">alpha</span></div>
+
+
+
+<div class="viewcode-block" id="SoftExponential">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.SoftExponential">[docs]</a>
+<span class="k">class</span> <span class="nc">SoftExponential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Soft exponential activation: https://arxiv.org/pdf/1602.01321.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">tune_alpha</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param alpha: (float) Value to initialize parameter controlling the shape of the function</span>
+<span class="sd">        :param tune_alpha: (bool) Whether alpha is a learnable parameter or fixed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">alpha</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">tune_alpha</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SoftExponential.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.SoftExponential.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor) Arbitrary shaped tensor</span>
+<span class="sd">        :return: (torch.Tensor) Tensor same shape as input after elementwise application of soft exponential function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">soft_exp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="BLU">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.BLU">[docs]</a>
+<span class="k">class</span> <span class="nc">BLU</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Bendable Linear Units: https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&amp;arnumber=8913972</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tune_alpha</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">tune_beta</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param tune_alpha: (bool) Whether alpha is learnable parameter or fixed</span>
+<span class="sd">        :param tune_beta: (bool) Whether beta is a learnable parameter of fixed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">tune_alpha</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span> <span class="o">=</span> <span class="mf">1e-7</span> <span class="k">if</span> <span class="n">tune_alpha</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">tune_beta</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BLU.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.BLU.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor) Arbitrary shaped input tensor</span>
+<span class="sd">        :return: (torch.Tensor) Tensor same shape as input after bendable linear unit adaptation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">beta</span>
+            <span class="o">*</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">+</span> <span class="mf">1e-7</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">x</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="APLU">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.APLU">[docs]</a>
+<span class="k">class</span> <span class="nc">APLU</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Adaptive Piecewise Linear Units: https://arxiv.org/pdf/1412.6830.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">nsegments</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="n">alpha_reg_weight</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>
+        <span class="n">beta_reg_weight</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>
+        <span class="n">tune_alpha</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">tune_beta</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param nsegments: (int) Number of segments in piecewise linear unit activation function</span>
+<span class="sd">        :param alpha_reg_weight: (float) Strength of regularization on alpha parameter vector</span>
+<span class="sd">        :param beta_reg_weight: (float) Strength of regularization on beta parameter vector</span>
+<span class="sd">        :param tune_alpha: (bool) Whether to tune alpha of piecewise linear functions</span>
+<span class="sd">        :param tune_beta: (bool) Whether to tune beta of piecewise linear functions</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nsegments</span> <span class="o">=</span> <span class="n">nsegments</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha_reg_weight</span> <span class="o">=</span> <span class="n">alpha_reg_weight</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beta_reg_weight</span> <span class="o">=</span> <span class="n">beta_reg_weight</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">nsegments</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">tune_alpha</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">nsegments</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">tune_beta</span><span class="p">)</span>
+
+<div class="viewcode-block" id="APLU.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.APLU.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        L2 regularization on parameters of piecewise linear activation</span>
+<span class="sd">        :return: (float) Regularization penalty</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha_reg_weight</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span>
+        <span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta_reg_weight</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="APLU.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.APLU.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor) Arbitrary shaped tensor</span>
+<span class="sd">        :return: (torch.Tensor) Tensor same shape as input after elementwise application of piecewise linear activation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nsegments</span><span class="p">):</span>
+            <span class="n">y</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="o">-</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PReLU">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.PReLU">[docs]</a>
+<span class="k">class</span> <span class="nc">PReLU</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parametric ReLU: https://arxiv.org/pdf/1502.01852.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tune_alpha</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tune_beta</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param tune_alpha: (bool) Whether to tune slope on negative range elements</span>
+<span class="sd">        :param tune_beta: (bool) Whether to tune slope on positive range elements</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">tune_alpha</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">tune_beta</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PReLU.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.PReLU.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor) Arbitrary shaped input tensor</span>
+<span class="sd">        :return: (torch.Tensor) Tensor same shape as input after parametric ReLU activation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">neg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="o">-</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">*</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">neg</span> <span class="o">+</span> <span class="n">pos</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PELU">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.PELU">[docs]</a>
+<span class="k">class</span> <span class="nc">PELU</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parametric Exponential Linear Units: https://arxiv.org/pdf/1605.09332.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tune_alpha</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tune_beta</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param tune_alpha: (bool) Whether to tune alpha of parametric ELU functions</span>
+<span class="sd">        :param tune_beta: (bool) Whether to tune beta of parametric ELU functions</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="o">-</span><span class="mf">1.</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">tune_alpha</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="o">-</span><span class="mf">1.</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">tune_beta</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PELU.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.PELU.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor) Arbitrary shaped input tensor</span>
+<span class="sd">        :return: (torch.Tensor) Tensor same shape as input after parametric ELU activation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">posx</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">negx</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="p">)</span> <span class="o">*</span> <span class="n">posx</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">negx</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="RectifiedSoftExp">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.RectifiedSoftExp">[docs]</a>
+<span class="k">class</span> <span class="nc">RectifiedSoftExp</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Mysterious unexplained implementation of Soft Exponential ported from author&#39;s Keras code:</span>
+<span class="sd">    https://github.com/thelukester92/2019-blu/blob/master/python/activations/softexp.py</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tune_alpha</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param tune_alpha: (bool) Whether alpha is a learnable parameter or fixed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">tune_alpha</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span> <span class="o">=</span> <span class="mf">1e-7</span>
+
+<div class="viewcode-block" id="RectifiedSoftExp.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.RectifiedSoftExp.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor) Arbitrary shaped tensor</span>
+<span class="sd">        :return: (torch.Tensor) Tensor same shape as input after elementwise application of soft exponential function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">neg_alpha</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">()</span>
+        <span class="n">pos_alpha</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">()</span>
+        <span class="n">pos_x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">()</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">neg_alpha</span> <span class="o">*</span> <span class="n">pos_x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">neg_alpha</span>
+        <span class="n">exp</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">pos_alpha</span> <span class="o">*</span> <span class="n">pos_x</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">pos_alpha</span>
+        <span class="k">return</span> <span class="n">log</span> <span class="o">+</span> <span class="n">exp</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SmoothedReLU">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.SmoothedReLU">[docs]</a>
+<span class="k">class</span> <span class="nc">SmoothedReLU</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ReLU with a quadratic region in [0,d]; Rectified Huber Unit;</span>
+<span class="sd">    Used to make the Lyapunov function continuously differentiable</span>
+<span class="sd">    https://arxiv.org/pdf/2001.06116.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">tune_d</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param d:</span>
+<span class="sd">        :param tune_d:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">d</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">tune_d</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SmoothedReLU.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.activations.SmoothedReLU.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">F</span><span class="o">.</span><span class="n">softplus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">)</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="o">-</span> <span class="n">F</span><span class="o">.</span><span class="n">softplus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">div</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="o">=-</span><span class="n">beta</span><span class="o">.</span><span class="n">item</span><span class="p">()),</span> <span class="n">x</span> <span class="o">+</span> <span class="n">beta</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="n">activations</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;softexp&quot;</span><span class="p">:</span> <span class="n">SoftExponential</span><span class="p">,</span>
+    <span class="s2">&quot;blu&quot;</span><span class="p">:</span> <span class="n">BLU</span><span class="p">,</span>
+    <span class="s2">&quot;aplu&quot;</span><span class="p">:</span> <span class="n">APLU</span><span class="p">,</span>
+    <span class="s2">&quot;prelu&quot;</span><span class="p">:</span> <span class="n">PReLU</span><span class="p">,</span>
+    <span class="s2">&quot;pelu&quot;</span><span class="p">:</span> <span class="n">PELU</span><span class="p">,</span>
+    <span class="s2">&quot;relu&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+    <span class="s2">&quot;gelu&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">GELU</span><span class="p">,</span>
+    <span class="s2">&quot;rrelu&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">RReLU</span><span class="p">,</span>
+    <span class="s2">&quot;hardtanh&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Hardtanh</span><span class="p">,</span>
+    <span class="s2">&quot;relu6&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU6</span><span class="p">,</span>
+    <span class="s2">&quot;sigmoid&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sigmoid</span><span class="p">,</span>
+    <span class="s2">&quot;hardsigmoid&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Hardsigmoid</span><span class="p">,</span>
+    <span class="s2">&quot;tanh&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Tanh</span><span class="p">,</span>
+    <span class="s2">&quot;hardswish&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Hardswish</span><span class="p">,</span>
+    <span class="s2">&quot;elu&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">ELU</span><span class="p">,</span>
+    <span class="s2">&quot;celu&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">CELU</span><span class="p">,</span>
+    <span class="s2">&quot;selu&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">SELU</span><span class="p">,</span>
+    <span class="s2">&quot;hardshrink&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Hardshrink</span><span class="p">,</span>
+    <span class="s2">&quot;leakyrelu&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">LeakyReLU</span><span class="p">,</span>
+    <span class="s2">&quot;logsigmoid&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">LogSigmoid</span><span class="p">,</span>
+    <span class="s2">&quot;softplus&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Softplus</span><span class="p">,</span>
+    <span class="s2">&quot;softshrink&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Softshrink</span><span class="p">,</span>
+    <span class="s2">&quot;softsign&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Softsign</span><span class="p">,</span>
+    <span class="s2">&quot;tanhshrink&quot;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Tanhshrink</span><span class="p">,</span>
+    <span class="s2">&quot;smoothedrelu&quot;</span><span class="p">:</span> <span class="n">SmoothedReLU</span>
+<span class="p">}</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

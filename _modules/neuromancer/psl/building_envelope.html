@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.psl.building_envelope &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.psl.building_envelope</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.psl.building_envelope</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">scipy.io</span> <span class="kn">import</span> <span class="n">loadmat</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">neuromancer.psl.base</span> <span class="kn">import</span> <span class="n">ODE_NonAutonomous</span><span class="p">,</span> <span class="n">cast_backend</span><span class="p">,</span> <span class="n">download</span>
+<span class="kn">from</span> <span class="nn">neuromancer.psl.signals</span> <span class="kn">import</span> <span class="n">periodic</span><span class="p">,</span> <span class="n">noise</span><span class="p">,</span> <span class="n">step</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+
+
+<div class="viewcode-block" id="BuildingEnvelope">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.BuildingEnvelope">[docs]</a>
+<span class="k">class</span> <span class="nc">BuildingEnvelope</span><span class="p">(</span><span class="n">ODE_NonAutonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    building envelope heat transfer model</span>
+<span class="sd">    linear building envelope dynamics and bilinear heat flow input dynamics for</span>
+<span class="sd">    different building types are downloaded as needed and stored at buildings_parameters/*.mat</span>
+<span class="sd">    Models obtained from: https://github.com/drgona/BeSim</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">systems</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;SimpleSingleZone&#39;</span><span class="p">,</span> <span class="s1">&#39;Reno_full&#39;</span><span class="p">,</span> <span class="s1">&#39;Reno_ROM40&#39;</span><span class="p">,</span> <span class="s1">&#39;RenoLight_full&#39;</span><span class="p">,</span>
+               <span class="s1">&#39;RenoLight_ROM40&#39;</span><span class="p">,</span> <span class="s1">&#39;Old_full&#39;</span><span class="p">,</span> <span class="s1">&#39;Old_ROM40&#39;</span><span class="p">,</span>
+               <span class="s1">&#39;HollandschHuys_full&#39;</span><span class="p">,</span> <span class="s1">&#39;HollandschHuys_ROM100&#39;</span><span class="p">]</span>
+
+    <span class="n">T_dist_idx</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;Reno_full&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">40</span><span class="p">],</span> <span class="s1">&#39;Reno_ROM40&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">40</span><span class="p">],</span>
+                  <span class="s1">&#39;RenoLight_full&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">40</span><span class="p">],</span> <span class="s1">&#39;RenoLight_ROM40&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">40</span><span class="p">],</span>
+                  <span class="s1">&#39;Old_full&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">40</span><span class="p">],</span> <span class="s1">&#39;Old_ROM40&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">40</span><span class="p">],</span>
+                  <span class="s1">&#39;HollandschHuys_full&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">221</span><span class="p">],</span> <span class="s1">&#39;HollandschHuys_ROM100&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">221</span><span class="p">],</span>
+                  <span class="s1">&#39;SimpleSingleZone&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">]}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :return: Four dicts (str: numeric)</span>
+<span class="sd">                              parameters (could be optimized),</span>
+<span class="sd">                              variables (exogenous inputs),</span>
+<span class="sd">                              constants (don&#39;t vary from system to system),</span>
+<span class="sd">                              Meta-data (physical units, system type, etc.)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">loadmat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">=</span> <span class="n">p</span>
+        <span class="n">nx</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;Ad&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;x0&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nx</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">system</span> <span class="o">==</span> <span class="s1">&#39;SimpleSingleZone&#39;</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nx</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dT_max</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;dT_max&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>  <span class="c1"># maximal temperature difference deg C</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dT_min</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;dT_min&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>  <span class="c1"># minimal temperature difference deg C</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nq</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;Bd&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mf_max</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;mf_max&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>  <span class="c1"># maximal nominal mass flow l/h</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mf_min</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;mf_min&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_dist_idx</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">system</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_mf</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;Bd&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_dT</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;dT_max&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="n">x0</span><span class="p">,</span>
+                     <span class="s1">&#39;U&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_U</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nsim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="c1"># control actions</span>
+                     <span class="s1">&#39;D&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;disturb&#39;</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">nsim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span>
+                     <span class="s1">&#39;_D&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;disturb&#39;</span><span class="p">],</span>
+                     <span class="s1">&#39;D_obs&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;disturb&#39;</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">nsim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">d_idx</span><span class="p">],</span>
+                     <span class="p">}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>
+                     <span class="c1"># Heat flow equation constants</span>
+                     <span class="s1">&#39;rho&#39;</span><span class="p">:</span> <span class="mf">0.997</span><span class="p">,</span>  <span class="c1"># density  of water kg/1l</span>
+                     <span class="s1">&#39;cp&#39;</span><span class="p">:</span> <span class="mf">4185.5</span><span class="p">,</span>  <span class="c1"># specific heat capacity of water J/(kg/K)</span>
+                     <span class="s1">&#39;time_reg&#39;</span><span class="p">:</span> <span class="mf">1.</span> <span class="o">/</span> <span class="mf">3600.</span><span class="p">,</span>  <span class="c1"># time regularization of the mass flow 1 hour = 3600 seconds</span>
+                     <span class="s1">&#39;nx&#39;</span><span class="p">:</span> <span class="n">nx</span><span class="p">,</span>
+                     <span class="s1">&#39;ny&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;Cd&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                     <span class="s1">&#39;nq&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;Bd&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                     <span class="s1">&#39;nd&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;Ed&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;A&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;Ad&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>  <span class="c1"># Linear system parameters</span>
+                      <span class="s1">&#39;Beta&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;Bd&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>  <span class="c1"># Variable B used by backend</span>
+                      <span class="s1">&#39;C&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;Cd&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+                      <span class="s1">&#39;E&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;Ed&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+                      <span class="s1">&#39;G&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;Gd&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+                      <span class="s1">&#39;F&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;Fd&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+                      <span class="s1">&#39;y_ss&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;y_ss&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>  <span class="c1"># Physical unit offset for observation</span>
+                      <span class="p">}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">],</span> <span class="s1">&#39;HC_system&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;HC_system&#39;</span><span class="p">]}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">umax</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        maximal nominal mass flow l/h, maximal temperature difference deg C</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">mf_max</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dT_max</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">umin</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        minimal nominal mass flow l/h, minimal temperature difference deg C</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">mf_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dT_min</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">59</span><span class="p">,</span> <span class="n">exclude_norms</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Time&#39;</span><span class="p">],</span>
+                 <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;numpy&#39;</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">system</span><span class="o">=</span><span class="s1">&#39;Reno_full&#39;</span><span class="p">,</span> <span class="n">set_stats</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nsim</span> <span class="o">=</span> <span class="mi">6000</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">system</span> <span class="o">=</span> <span class="n">system</span>
+        <span class="n">download</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span> <span class="n">exclude_norms</span><span class="o">=</span><span class="n">exclude_norms</span><span class="p">,</span>
+                         <span class="n">backend</span><span class="o">=</span><span class="n">backend</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">requires_grad</span><span class="p">,</span> <span class="n">set_stats</span><span class="o">=</span><span class="n">set_stats</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BuildingEnvelope.get_xy">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.BuildingEnvelope.get_xy">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_xy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">x0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x0</span>
+        <span class="n">y0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">C</span> <span class="o">@</span> <span class="n">x0</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">F</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_ss</span>
+        <span class="k">return</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">path</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Path where model parameter file is stored</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)),</span> <span class="s1">&#39;building_parameters&#39;</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">system</span><span class="si">}</span><span class="s1">.mat&#39;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">url</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Remote github location for model parameter data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;https://github.com/pnnl/psl/raw/master/psl/parameters/buildings/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">system</span><span class="si">}</span><span class="s1">.mat&#39;</span>
+
+<div class="viewcode-block" id="BuildingEnvelope.get_U">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.BuildingEnvelope.get_U">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">get_U</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nsim</span><span class="p">,</span> <span class="n">signal</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">signal_kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_U</span><span class="p">(</span><span class="n">nsim</span><span class="o">=</span><span class="n">nsim</span><span class="p">,</span> <span class="n">signal</span><span class="o">=</span><span class="n">signal</span><span class="p">,</span> <span class="o">**</span><span class="n">signal_kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">periodic</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">umin</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="nb">max</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">umax</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">umin</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">umin</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">nsim</span> <span class="o">/</span> <span class="mf">48.</span><span class="p">)),</span>
+                        <span class="n">form</span><span class="o">=</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span> <span class="o">+</span> <span class="n">noise</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">umin</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BuildingEnvelope.get_q">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.BuildingEnvelope.get_q">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">get_q</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="n">m_flow</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">n_mf</span><span class="p">]</span>
+        <span class="n">dT</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">n_mf</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">n_mf</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_dT</span><span class="p">]</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">m_flow</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">rho</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">cp</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_reg</span> <span class="o">*</span> <span class="n">dT</span>
+        <span class="k">return</span> <span class="n">q</span></div>
+
+
+<div class="viewcode-block" id="BuildingEnvelope.get_D">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.BuildingEnvelope.get_D">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">get_D</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nsim</span><span class="p">):</span>
+        <span class="n">start_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_D</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="o">-</span><span class="n">nsim</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_D</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">start_idx</span><span class="o">+</span><span class="n">nsim</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="BuildingEnvelope.get_D_obs">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.BuildingEnvelope.get_D_obs">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">get_D_obs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nsim</span><span class="p">):</span>
+        <span class="n">start_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_D</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">nsim</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_D</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">start_idx</span> <span class="o">+</span> <span class="n">nsim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">d_idx</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="BuildingEnvelope.get_R">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.BuildingEnvelope.get_R">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">get_R</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nsim</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">step</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ny</span><span class="p">,</span> <span class="n">randsteps</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">nsim</span> <span class="o">/</span> <span class="mf">24.</span><span class="p">)),</span> <span class="nb">min</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;Y&#39;</span><span class="p">][</span><span class="s1">&#39;min&#39;</span><span class="p">],</span>
+                 <span class="nb">max</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;Y&#39;</span><span class="p">][</span><span class="s1">&#39;max&#39;</span><span class="p">],</span> <span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="BuildingEnvelope.forward">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.BuildingEnvelope.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For compatibility with the System class for open/closed loop simulations</span>
+
+<span class="sd">        :param x: 2d Matrix (1, nx) # for torch backend generalize to (batchsize, nx)</span>
+<span class="sd">        :param u: (1, nu)</span>
+<span class="sd">        :param d: (1, nd)</span>
+<span class="sd">        :return: x_next (1, nx), y_next (1, ny)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_ss</span></div>
+
+
+<div class="viewcode-block" id="BuildingEnvelope.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.BuildingEnvelope.equations">[docs]</a>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+        <span class="n">G</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">G</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">G</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">F</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">F</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_q</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="o">@</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">Beta</span> <span class="o">@</span> <span class="n">q</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span> <span class="o">@</span> <span class="n">d</span> <span class="o">+</span> <span class="n">G</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">C</span> <span class="o">@</span> <span class="n">x</span> <span class="o">+</span> <span class="n">F</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="BuildingEnvelope.get_simulation_args">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.BuildingEnvelope.get_simulation_args">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_simulation_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nsim</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">D</span><span class="p">):</span>
+        <span class="n">nsim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nsim</span> <span class="k">if</span> <span class="n">nsim</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">nsim</span>
+        <span class="n">x0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_x0</span><span class="p">()</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x0</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_D</span><span class="p">(</span><span class="n">nsim</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">D</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">D</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_U</span><span class="p">(</span><span class="n">nsim</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">U</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">U</span>
+        <span class="n">Time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nsim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ts</span>
+        <span class="k">return</span> <span class="n">nsim</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">D</span><span class="p">,</span> <span class="n">Time</span></div>
+
+
+<div class="viewcode-block" id="BuildingEnvelope.simulate">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.BuildingEnvelope.simulate">[docs]</a>
+    <span class="k">def</span> <span class="nf">simulate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nsim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">U</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">D</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Simulate at a minimum needs the number of simulation steps. You can optionally supply U, D, and x0</span>
+<span class="sd">        with or without nsim. If supplying U and D need to supply an extra time step of data.</span>
+
+<span class="sd">        :param nsim: (int) Number of simulation steps</span>
+<span class="sd">        :param U: (2D array or tensor)</span>
+<span class="sd">        :param D:</span>
+<span class="sd">        :param x0:</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nsim</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">D</span><span class="p">,</span> <span class="n">Time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_simulation_args</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsim</span><span class="p">):</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">equations</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">U</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="p">:],</span> <span class="n">D</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="p">:])</span>
+            <span class="n">X</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="n">Y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_ss</span><span class="p">)</span>
+        <span class="n">Dhidden</span> <span class="o">=</span> <span class="n">D</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="n">Dout</span> <span class="o">=</span> <span class="n">D</span><span class="p">[</span><span class="mi">1</span><span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">d_idx</span><span class="p">]</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;X&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="s1">&#39;Y&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">Y</span><span class="p">),</span> <span class="s1">&#39;U&#39;</span><span class="p">:</span> <span class="n">U</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="s1">&#39;D&#39;</span><span class="p">:</span> <span class="n">Dout</span><span class="p">,</span> <span class="s1">&#39;Dhidden&#39;</span><span class="p">:</span> <span class="n">Dhidden</span><span class="p">,</span> <span class="s1">&#39;Time&#39;</span><span class="p">:</span> <span class="n">Time</span><span class="p">[</span><span class="mi">1</span><span class="p">:]}</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="LinearBuildingEnvelope">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.LinearBuildingEnvelope">[docs]</a>
+<span class="k">class</span> <span class="nc">LinearBuildingEnvelope</span><span class="p">(</span><span class="n">BuildingEnvelope</span><span class="p">):</span>
+
+<div class="viewcode-block" id="LinearBuildingEnvelope.get_U">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.LinearBuildingEnvelope.get_U">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">get_U</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nsim</span><span class="p">,</span> <span class="n">signal</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">signal_kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_U</span><span class="p">(</span><span class="n">nsim</span><span class="o">=</span><span class="n">nsim</span><span class="p">,</span> <span class="n">signal</span><span class="o">=</span><span class="n">signal</span><span class="p">,</span> <span class="o">**</span><span class="n">signal_kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">periodic</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">nq</span><span class="p">,</span>
+                        <span class="nb">max</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">umax</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">umin</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span>
+                        <span class="nb">min</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">umin</span><span class="p">,</span>
+                        <span class="n">periods</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">nsim</span> <span class="o">/</span> <span class="mf">48.</span><span class="p">)),</span>
+                        <span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span> <span class="o">+</span> <span class="n">noise</span><span class="p">(</span><span class="n">nsim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nq</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">umax</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="s1">&#39;umax&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>  <span class="c1"># max heat per zone</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">umin</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="s1">&#39;umin&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>  <span class="c1"># min heat per zone</span>
+
+<div class="viewcode-block" id="LinearBuildingEnvelope.get_q">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.building_envelope.LinearBuildingEnvelope.get_q">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_q</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">u</span></div>
+</div>
+
+
+
+<span class="n">bilinear_systems</span> <span class="o">=</span> <span class="p">{</span><span class="n">system</span><span class="p">:</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">BuildingEnvelope</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="n">system</span><span class="p">)</span> <span class="k">for</span> <span class="n">system</span> <span class="ow">in</span> <span class="n">BuildingEnvelope</span><span class="o">.</span><span class="n">systems</span><span class="p">}</span>
+<span class="n">linear_systems</span> <span class="o">=</span> <span class="p">{</span><span class="sa">f</span><span class="s1">&#39;Linear</span><span class="si">{</span><span class="n">system</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">:</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">LinearBuildingEnvelope</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="n">system</span><span class="p">)</span> <span class="k">for</span> <span class="n">system</span> <span class="ow">in</span> <span class="n">BuildingEnvelope</span><span class="o">.</span><span class="n">systems</span><span class="p">}</span>
+
+<span class="n">systems</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">bilinear_systems</span><span class="p">,</span> <span class="o">**</span><span class="n">linear_systems</span><span class="p">}</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">system</span> <span class="ow">in</span> <span class="n">systems</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">system</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="s1">&#39;torch&#39;</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span><span class="n">nsim</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+
+
+        <span class="nb">print</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">out</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+
+    <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">system</span> <span class="ow">in</span> <span class="n">systems</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">system</span><span class="p">()</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span><span class="n">nsim</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">out</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

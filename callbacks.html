@@ -1,15 +1,13 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" data-content_root="./">
+<html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Callbacks &mdash; Neuromancer 1.4.2 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
-      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=eafc0fe6" />
-
-  
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
     <link rel="shortcut icon" href="_static/tiny_dadaist.ico"/>
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
@@ -73,8 +71,60 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="callbacks">
-<h1>Callbacks<a class="headerlink" href="#callbacks" title="Link to this heading"></a></h1>
+  <section id="module-neuromancer.callbacks">
+<span id="callbacks"></span><h1>Callbacks<a class="headerlink" href="#module-neuromancer.callbacks" title="Link to this heading"></a></h1>
+<p>Callback classes for versatile behavior in the Trainer object at specified checkpoints.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.callbacks.Callback">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.callbacks.</span></span><span class="sig-name descname"><span class="pre">Callback</span></span><a class="reference internal" href="_modules/neuromancer/callbacks.html#Callback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.callbacks.Callback" title="Link to this definition"></a></dt>
+<dd><p>Callback base class which allows for bare functionality of Trainer</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.callbacks.Callback.begin_epoch">
+<span class="sig-name descname"><span class="pre">begin_epoch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/callbacks.html#Callback.begin_epoch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.callbacks.Callback.begin_epoch" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.callbacks.Callback.begin_eval">
+<span class="sig-name descname"><span class="pre">begin_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/callbacks.html#Callback.begin_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.callbacks.Callback.begin_eval" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.callbacks.Callback.begin_test">
+<span class="sig-name descname"><span class="pre">begin_test</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/callbacks.html#Callback.begin_test"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.callbacks.Callback.begin_test" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.callbacks.Callback.begin_train">
+<span class="sig-name descname"><span class="pre">begin_train</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/callbacks.html#Callback.begin_train"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.callbacks.Callback.begin_train" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.callbacks.Callback.end_batch">
+<span class="sig-name descname"><span class="pre">end_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/callbacks.html#Callback.end_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.callbacks.Callback.end_batch" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.callbacks.Callback.end_epoch">
+<span class="sig-name descname"><span class="pre">end_epoch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/callbacks.html#Callback.end_epoch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.callbacks.Callback.end_epoch" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.callbacks.Callback.end_eval">
+<span class="sig-name descname"><span class="pre">end_eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/callbacks.html#Callback.end_eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.callbacks.Callback.end_eval" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.callbacks.Callback.end_test">
+<span class="sig-name descname"><span class="pre">end_test</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/callbacks.html#Callback.end_test"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.callbacks.Callback.end_test" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.callbacks.Callback.end_train">
+<span class="sig-name descname"><span class="pre">end_train</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trainer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/callbacks.html#Callback.end_train"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.callbacks.Callback.end_train" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </section>
 
 

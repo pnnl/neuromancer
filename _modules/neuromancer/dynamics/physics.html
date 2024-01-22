@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.dynamics.physics &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.dynamics.physics</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.dynamics.physics</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+
+<span class="c1">######################## AGENT DEFINITIONS AND SPECIFICATIONS ######################</span>
+
+<div class="viewcode-block" id="Agent">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.Agent">[docs]</a>
+<span class="k">class</span> <span class="nc">Agent</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An agent is an object in a networked or otherwise distributed system that can:</span>
+<span class="sd">    - have some intrinsic physics</span>
+<span class="sd">    - serve as anchor for connections (pins)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_names</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_names</span> <span class="o">=</span> <span class="n">state_names</span>
+
+<div class="viewcode-block" id="Agent.intrinsic">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.Agent.intrinsic">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">intrinsic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="Agent.forward">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.Agent.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">x</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_names</span><span class="p">)</span> <span class="o">==</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">intrinsic</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+</div>
+
+
+<span class="c1">### Children:</span>
+
+<div class="viewcode-block" id="RCNode">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.RCNode">[docs]</a>
+<span class="k">class</span> <span class="nc">RCNode</span><span class="p">(</span><span class="n">Agent</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    RCNode agent. The intrinsic action of the agent is to effectively scale the interaction physics </span>
+<span class="sd">    according to the capacitance of the agent. Examples include lumped volumes, rooms, etc.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">C</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.0</span><span class="p">])),</span> 
+                <span class="n">state_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;T&quot;</span><span class="p">],</span>
+                <span class="n">scaling</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param C: capacitance</span>
+<span class="sd">        :param state_names: List of state names. Length should be same as dimension of state.</span>
+<span class="sd">        :param scaling: scale factor. Useful for expeceted multi-scale physics.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">state_names</span><span class="o">=</span><span class="n">state_names</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">C</span> <span class="o">=</span> <span class="n">C</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scaling</span> <span class="o">=</span> <span class="n">scaling</span>
+
+<div class="viewcode-block" id="RCNode.intrinsic">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.RCNode.intrinsic">[docs]</a>
+    <span class="k">def</span> <span class="nf">intrinsic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">1e-6</span><span class="p">),</span><span class="bp">self</span><span class="o">.</span><span class="n">C</span><span class="p">)</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">scaling</span><span class="o">*</span><span class="n">x</span></div>
+</div>
+
+
+<div class="viewcode-block" id="SourceSink">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.SourceSink">[docs]</a>
+<span class="k">class</span> <span class="nc">SourceSink</span><span class="p">(</span><span class="n">Agent</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generic Source / Sink agent. Useful for &#39;dummy&#39; agents to which one can attach external signals.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;T&quot;</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param state_names: List of state names. Length should be same as dimension of state.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">state_names</span> <span class="o">=</span> <span class="n">state_names</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SourceSink.intrinsic">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.SourceSink.intrinsic">[docs]</a>
+    <span class="k">def</span> <span class="nf">intrinsic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+</div>
+
+
+<span class="c1">####################### COUPLING DEFINITIONS AND SPECIFICATIONS ####################</span>
+
+<div class="viewcode-block" id="Interaction">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.Interaction">[docs]</a>
+<span class="k">class</span> <span class="nc">Interaction</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An interaction is a physical connection between agents:</span>
+<span class="sd">    - interactions are pairwise</span>
+<span class="sd">    - interactions can be one-sided or symmetric (influence both agents)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feature_name</span><span class="p">,</span> <span class="n">pins</span><span class="p">,</span> <span class="n">symmetric</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param feature_name: (str) Specification of correct state for interaction physics</span>
+<span class="sd">        :param pins: list of lists of pairwise connections between agents (e.g. pins=[[0,1],[0,2]])</span>
+<span class="sd">        :param symmetric: one-way ot two-way interaction</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">symmetric</span> <span class="o">=</span> <span class="n">symmetric</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature_name</span> <span class="o">=</span> <span class="n">feature_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pins</span> <span class="o">=</span> <span class="n">pins</span>
+
+<div class="viewcode-block" id="Interaction.interact">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.Interaction.interact">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">interact</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="Interaction.forward">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.Interaction.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">interact</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>    </div>
+</div>
+
+
+<span class="c1">### Children:</span>
+
+<div class="viewcode-block" id="DeltaTemp">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.DeltaTemp">[docs]</a>
+<span class="k">class</span> <span class="nc">DeltaTemp</span><span class="p">(</span><span class="n">Interaction</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Interaction physics for difference in temperature (assumed) between agents.   </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">R</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)),</span> 
+                <span class="n">feature_name</span> <span class="o">=</span> <span class="s2">&quot;T&quot;</span><span class="p">,</span> 
+                <span class="n">symmetric</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="n">pins</span> <span class="o">=</span> <span class="p">[]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param R: resistivity for connection</span>
+<span class="sd">        :param feature_name: (str) Specification of correct state for interaction physics</span>
+<span class="sd">        :param pins: list of lists of pairwise connections between agents (e.g. pins=[[0,1],[0,2]])</span>
+<span class="sd">        :param symmetric: one-way ot two-way interaction</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">feature_name</span><span class="o">=</span><span class="n">feature_name</span><span class="p">,</span> <span class="n">pins</span><span class="o">=</span><span class="n">pins</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">symmetric</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">R</span> <span class="o">=</span> <span class="n">R</span>
+
+<div class="viewcode-block" id="DeltaTemp.interact">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.DeltaTemp.interact">[docs]</a>
+    <span class="k">def</span> <span class="nf">interact</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">1e-2</span><span class="p">),</span><span class="bp">self</span><span class="o">.</span><span class="n">R</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[:,[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,[</span><span class="mi">0</span><span class="p">]])</span></div>
+</div>
+
+
+<div class="viewcode-block" id="DeltaTempSwitch">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.DeltaTempSwitch">[docs]</a>
+<span class="k">class</span> <span class="nc">DeltaTempSwitch</span><span class="p">(</span><span class="n">Interaction</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Interaction physics for difference in temperature (assumed) between agents. Switched on/off </span>
+<span class="sd">    depending on agent values (zero or nonzero).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">R</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.0</span><span class="p">])),</span> 
+                <span class="n">feature_name</span> <span class="o">=</span> <span class="s2">&quot;T&quot;</span><span class="p">,</span> 
+                <span class="n">symmetric</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="n">pins</span> <span class="o">=</span> <span class="p">[]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param R: resistivity for connection</span>
+<span class="sd">        :param feature_name: (str) Specification of correct state for interaction physics</span>
+<span class="sd">        :param pins: list of lists of pairwise connections between agents (e.g. pins=[[0,1],[0,2]])</span>
+<span class="sd">        :param symmetric: one-way ot two-way interaction</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">feature_name</span><span class="o">=</span><span class="n">feature_name</span><span class="p">,</span> <span class="n">pins</span><span class="o">=</span><span class="n">pins</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">symmetric</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">R</span> <span class="o">=</span> <span class="n">R</span>
+
+<div class="viewcode-block" id="DeltaTempSwitch.interact">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.DeltaTempSwitch.interact">[docs]</a>
+    <span class="k">def</span> <span class="nf">interact</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">1e-2</span><span class="p">),</span><span class="bp">self</span><span class="o">.</span><span class="n">R</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[:,[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,[</span><span class="mi">0</span><span class="p">]])</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[:,[</span><span class="mi">1</span><span class="p">]]</span><span class="o">&gt;=</span><span class="mf">0.0</span><span class="p">)</span></div>
+</div>
+
+
+<div class="viewcode-block" id="HVACConnection">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.HVACConnection">[docs]</a>
+<span class="k">class</span> <span class="nc">HVACConnection</span><span class="p">(</span><span class="n">Interaction</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Imposition of a source term as an interaction.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">feature_name</span> <span class="o">=</span> <span class="s2">&quot;T&quot;</span><span class="p">,</span>
+                <span class="n">symmetric</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> 
+                <span class="n">pins</span> <span class="o">=</span> <span class="p">[]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param feature_name: (str) Specification of correct state for interaction physics</span>
+<span class="sd">        :param pins: list of lists of pairwise connections between agents (e.g. pins=[[0,1],[0,2]])</span>
+<span class="sd">        :param symmetric: one-way ot two-way interaction</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">feature_name</span><span class="o">=</span><span class="n">feature_name</span><span class="p">,</span> <span class="n">pins</span><span class="o">=</span><span class="n">pins</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">symmetric</span><span class="p">)</span>
+
+<div class="viewcode-block" id="HVACConnection.interact">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.HVACConnection.interact">[docs]</a>
+    <span class="k">def</span> <span class="nf">interact</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">[:,[</span><span class="mi">1</span><span class="p">]]</span> </div>
+</div>
+
+
+<span class="c1">################################# HELPER FUNCTIONS #################################</span>
+
+<div class="viewcode-block" id="map_from_agents">
+<a class="viewcode-back" href="../../../neuromancer.dynamics.html#neuromancer.dynamics.physics.map_from_agents">[docs]</a>
+<span class="k">def</span> <span class="nf">map_from_agents</span><span class="p">(</span><span class="n">intrinsic_list</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Quick helper function to construct state mappings:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">agent_maps</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">agent_physics</span> <span class="ow">in</span> <span class="n">intrinsic_list</span><span class="p">:</span>
+        <span class="n">node_states</span> <span class="o">=</span> <span class="p">[(</span><span class="n">s</span><span class="p">,</span><span class="n">i</span><span class="o">+</span><span class="n">count</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">agent_physics</span><span class="o">.</span><span class="n">state_names</span><span class="p">)]</span>
+        <span class="n">count</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">node_states</span><span class="p">)</span>
+        <span class="n">agent_maps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">OrderedDict</span><span class="p">(</span><span class="n">node_states</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">agent_maps</span></div>
+
+
+<span class="c1">### Aggregate all in dicts:</span>
+
+<span class="n">agents</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;RCNode&#39;</span><span class="p">:</span> <span class="n">RCNode</span><span class="p">,</span>
+          <span class="s1">&#39;SourceSink&#39;</span><span class="p">:</span> <span class="n">SourceSink</span><span class="p">}</span>
+
+<span class="n">couplings</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;DeltaTemp&#39;</span><span class="p">:</span> <span class="n">DeltaTemp</span><span class="p">,</span>
+             <span class="s1">&#39;DeltaTempSwitch&#39;</span><span class="p">:</span> <span class="n">DeltaTempSwitch</span><span class="p">,</span>
+             <span class="s1">&#39;HVACConnection&#39;</span><span class="p">:</span> <span class="n">HVACConnection</span><span class="p">}</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

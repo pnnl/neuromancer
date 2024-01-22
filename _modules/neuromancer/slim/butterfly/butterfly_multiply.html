@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.slim.butterfly.butterfly_multiply &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.slim.butterfly.butterfly_multiply</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.slim.butterfly.butterfly_multiply</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">math</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">nn</span>
+
+<span class="kn">from</span> <span class="nn">.complex_utils</span> <span class="kn">import</span> <span class="n">complex_mul</span>
+
+<span class="n">use_extension</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">factor_multiply</span> <span class="kn">import</span> <span class="n">butterfly_multiply_intermediate</span><span class="p">,</span> <span class="n">butterfly_multiply_intermediate_backward</span>
+    <span class="kn">from</span> <span class="nn">factor_multiply</span> <span class="kn">import</span> <span class="n">butterfly_multiply_untied</span><span class="p">,</span> <span class="n">butterfly_multiply_untied_backward</span>
+    <span class="kn">from</span> <span class="nn">factor_multiply</span> <span class="kn">import</span> <span class="n">butterfly_multiply_inplace</span><span class="p">,</span> <span class="n">butterfly_multiply_inplace_backward</span>
+    <span class="kn">from</span> <span class="nn">factor_multiply</span> <span class="kn">import</span> <span class="n">butterfly_factor_multiply</span><span class="p">,</span> <span class="n">butterfly_factor_multiply_backward</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="n">use_extension</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="c1"># import warnings</span>
+    <span class="c1"># warnings.warn(&quot;C++/CUDA extension isn&#39;t installed. Will use butterfly multiply implemented in Pytorch, which is much slower.&quot;)</span>
+
+
+<div class="viewcode-block" id="butterfly_mult_torch">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult_torch">[docs]</a>
+<span class="k">def</span> <span class="nf">butterfly_mult_torch</span><span class="p">(</span><span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">increasing_stride</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">return_intermediates</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        twiddle: (nstack, n - 1, 2, 2) if real or (nstack, n - 1, 2, 2, 2) if complex</span>
+<span class="sd">        input: (batch_size, n) if real or (batch_size, n, 2) if complex</span>
+<span class="sd">        increasing_stride: whether to multiply with increasing stride (e.g. 2, 4, ..., n/2) or</span>
+<span class="sd">            decreasing stride (e.g., n/2, n/4, ..., 2).</span>
+<span class="sd">            Note that this only changes the order of multiplication, not how twiddle is stored.</span>
+<span class="sd">            In other words, twiddle[@log_stride] always stores the twiddle for @stride.</span>
+<span class="sd">        return_intermediates: whether to return all the intermediate values computed, for debugging</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        output: (batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">batch_size</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">nstack</span> <span class="o">=</span> <span class="n">twiddle</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="n">twiddle</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">nstack</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="nb">input</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">(</span><span class="n">nstack</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">m</span><span class="p">,</span> <span class="s2">&quot;size must be a power of 2&quot;</span>
+    <span class="k">if</span> <span class="nb">input</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># real</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+        <span class="n">intermediates</span> <span class="o">=</span> <span class="p">[</span><span class="n">output</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">log_stride</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">if</span> <span class="n">increasing_stride</span> <span class="k">else</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">stride</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">log_stride</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">twiddle</span><span class="p">[:,</span> <span class="p">(</span><span class="n">stride</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">stride</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># shape (nstack, 2, 2, stride)</span>
+            <span class="n">output_reshape</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span> <span class="o">//</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">stride</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">stride</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">output_reshape</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+            <span class="n">intermediates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">return_intermediates</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">intermediate</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">intermediate</span> <span class="ow">in</span> <span class="n">intermediates</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># complex</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">intermediates</span> <span class="o">=</span> <span class="p">[</span><span class="n">output</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">log_stride</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">if</span> <span class="n">increasing_stride</span> <span class="k">else</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">stride</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">log_stride</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">twiddle</span><span class="p">[:,</span> <span class="p">(</span><span class="n">stride</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">stride</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>  <span class="c1"># shape (nstack, 2, 2, stride, 2)</span>
+            <span class="n">output_reshape</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span> <span class="o">//</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">stride</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">stride</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">complex_mul</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">output_reshape</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+            <span class="n">intermediates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">return_intermediates</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">intermediate</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">intermediate</span> <span class="ow">in</span> <span class="n">intermediates</span><span class="p">])</span></div>
+
+
+
+<div class="viewcode-block" id="ButterflyMult">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMult">[docs]</a>
+<span class="k">class</span> <span class="nc">ButterflyMult</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+
+<div class="viewcode-block" id="ButterflyMult.forward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMult.forward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">increasing_stride</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            twiddle: (nstack, n - 1, 2, 2) if real or (nstack, n - 1, 2, 2, 2) if complex</span>
+<span class="sd">            input: (batch_size, n) if real or (batch_size, n, 2) if complex</span>
+<span class="sd">            increasing_stride: whether to multiply with increasing stride (e.g. 2, 4, ..., n/2) or</span>
+<span class="sd">                decreasing stride (e.g., n/2, n/4, ..., 2).</span>
+<span class="sd">                Note that this only changes the order of multiplication, not how twiddle is stored.</span>
+<span class="sd">                In other words, twiddle[@log_stride] always stores the twiddle for @stride.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            output: (batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_and_intermediate</span> <span class="o">=</span> <span class="n">butterfly_multiply_intermediate</span><span class="p">(</span><span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">increasing_stride</span><span class="p">)</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">twiddle</span><span class="p">,</span> <span class="n">output_and_intermediate</span><span class="p">)</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">_increasing_stride</span> <span class="o">=</span> <span class="n">increasing_stride</span>
+        <span class="k">return</span> <span class="n">output_and_intermediate</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="ButterflyMult.backward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMult.backward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            grad: (batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</span>
+<span class="sd">            twiddle: (nstack, n - 1, 2, 2) if real or (nstack, n - 1, 2, 2, 2) if complex</span>
+<span class="sd">            output + intermediate values for backward: (log n + 1, batch_size, nstack, n) if real or (log n + 1, batch_size, nstack, n, 2) if complex</span>
+<span class="sd">        Return:</span>
+<span class="sd">            d_twiddle: (nstack, n - 1, 2, 2) if real or (nstack, n - 1, 2, 2, 2) if complex</span>
+<span class="sd">            d_input: (batch_size, n) if real or (batch_size, n, 2) if complex</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">twiddle</span><span class="p">,</span> <span class="n">output_and_intermediate</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+        <span class="n">increasing_stride</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">_increasing_stride</span>
+        <span class="n">d_coefficients</span><span class="p">,</span> <span class="n">d_input</span> <span class="o">=</span> <span class="n">butterfly_multiply_intermediate_backward</span><span class="p">(</span><span class="n">grad</span><span class="p">,</span> <span class="n">twiddle</span><span class="p">,</span> <span class="n">output_and_intermediate</span><span class="p">,</span> <span class="n">increasing_stride</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">d_coefficients</span><span class="p">,</span> <span class="n">d_input</span><span class="p">,</span> <span class="kc">None</span>  <span class="c1"># Autograd requires 3 gradients</span></div>
+</div>
+
+
+<span class="n">butterfly_mult</span> <span class="o">=</span> <span class="n">ButterflyMult</span><span class="o">.</span><span class="n">apply</span> <span class="k">if</span> <span class="n">use_extension</span> <span class="k">else</span> <span class="n">butterfly_mult_torch</span>
+
+
+<div class="viewcode-block" id="butterfly_mult_untied_torch">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult_untied_torch">[docs]</a>
+<span class="k">def</span> <span class="nf">butterfly_mult_untied_torch</span><span class="p">(</span><span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">increasing_stride</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">return_intermediates</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        twiddle: (nstack, log n, n / 2, 2, 2) if real or (nstack, log n, n / 2, 2, 2, 2) if complex</span>
+<span class="sd">        input: (batch_size, n) if real or (batch_size, n, 2) if complex</span>
+<span class="sd">        increasing_stride: whether to multiply with increasing stride (e.g. 2, 4, ..., n/2) or</span>
+<span class="sd">            decreasing stride (e.g., n/2, n/4, ..., 2).</span>
+<span class="sd">            Note that this only changes the order of multiplication, not how twiddle is stored.</span>
+<span class="sd">            In other words, twiddle[@log_stride] always stores the twiddle for @stride.</span>
+<span class="sd">        return_intermediates: whether to return all the intermediate values computed, for debugging</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        output: (batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">batch_size</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">m</span><span class="p">,</span> <span class="s2">&quot;size must be a power of 2&quot;</span>
+    <span class="n">nstack</span> <span class="o">=</span> <span class="n">twiddle</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="n">twiddle</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">nstack</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">n</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="nb">input</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">(</span><span class="n">nstack</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">n</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">input</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># real</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+        <span class="n">intermediates</span> <span class="o">=</span> <span class="p">[</span><span class="n">output</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">log_stride</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">if</span> <span class="n">increasing_stride</span> <span class="k">else</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">stride</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">log_stride</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">twiddle</span><span class="p">[:,</span> <span class="n">log_stride</span><span class="p">]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">nstack</span><span class="p">,</span> <span class="n">n</span> <span class="o">//</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">stride</span><span class="p">),</span> <span class="n">stride</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># shape (nstack, n // (2 * stride, )2, 2, stride)</span>
+            <span class="n">output_reshape</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span> <span class="o">//</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">stride</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">stride</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span> <span class="o">*</span> <span class="n">output_reshape</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+            <span class="n">intermediates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">return_intermediates</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">intermediate</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">intermediate</span> <span class="ow">in</span> <span class="n">intermediates</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># complex</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">intermediates</span> <span class="o">=</span> <span class="p">[</span><span class="n">output</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">log_stride</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">if</span> <span class="n">increasing_stride</span> <span class="k">else</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">stride</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">log_stride</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">twiddle</span><span class="p">[:,</span> <span class="n">log_stride</span><span class="p">]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">nstack</span><span class="p">,</span> <span class="n">n</span> <span class="o">//</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">stride</span><span class="p">),</span> <span class="n">stride</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>  <span class="c1"># shape (nstack, n // (2 * stride, )2, 2, stride, 2)</span>
+            <span class="n">output_reshape</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span> <span class="o">//</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">stride</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">stride</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">complex_mul</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">output_reshape</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+            <span class="n">intermediates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">return_intermediates</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">intermediate</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">nstack</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">intermediate</span> <span class="ow">in</span> <span class="n">intermediates</span><span class="p">])</span></div>
+
+
+
+<div class="viewcode-block" id="ButterflyMultUntied">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultUntied">[docs]</a>
+<span class="k">class</span> <span class="nc">ButterflyMultUntied</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+
+<div class="viewcode-block" id="ButterflyMultUntied.forward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultUntied.forward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">increasing_stride</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            twiddle: (nstack, log 2, n / 2, 2, 2) if real or (nstack, log 2, n / 2, 2, 2, 2) if complex</span>
+<span class="sd">            input: (batch_size, n) if real or (batch_size, n, 2) if complex</span>
+<span class="sd">            increasing_stride: whether to multiply with increasing stride (e.g. 2, 4, ..., n/2) or</span>
+<span class="sd">                decreasing stride (e.g., n/2, n/4, ..., 2).</span>
+<span class="sd">                Note that this only changes the order of multiplication, not how twiddle is stored.</span>
+<span class="sd">                In other words, twiddle[@log_stride] always stores the twiddle for @stride.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            output: (batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_and_intermediate</span> <span class="o">=</span> <span class="n">butterfly_multiply_untied</span><span class="p">(</span><span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">increasing_stride</span><span class="p">)</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">twiddle</span><span class="p">,</span> <span class="n">output_and_intermediate</span><span class="p">)</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">_increasing_stride</span> <span class="o">=</span> <span class="n">increasing_stride</span>
+        <span class="k">return</span> <span class="n">output_and_intermediate</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="ButterflyMultUntied.backward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultUntied.backward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            grad: (batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</span>
+<span class="sd">            twiddle: (nstack, log 2, n / 2, 2, 2) if real or (nstack, log 2, n / 2, 2, 2, 2) if complex</span>
+<span class="sd">            output + intermediate values for backward: (log n + 1, batch_size, nstack, n) if real or (log n + 1, batch_size, nstack, n, 2) if complex</span>
+<span class="sd">        Return:</span>
+<span class="sd">            d_twiddle: (nstack, log 2, n / 2, 2, 2) if real or (nstack, log 2, n / 2, 2, 2, 2) if complex</span>
+<span class="sd">            d_input: (batch_size, n) if real or (batch_size, n, 2) if complex</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">twiddle</span><span class="p">,</span> <span class="n">output_and_intermediate</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+        <span class="n">increasing_stride</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">_increasing_stride</span>
+        <span class="n">d_coefficients</span><span class="p">,</span> <span class="n">d_input</span> <span class="o">=</span> <span class="n">butterfly_multiply_untied_backward</span><span class="p">(</span><span class="n">grad</span><span class="p">,</span> <span class="n">twiddle</span><span class="p">,</span> <span class="n">output_and_intermediate</span><span class="p">,</span> <span class="n">increasing_stride</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">d_coefficients</span><span class="p">,</span> <span class="n">d_input</span><span class="p">,</span> <span class="kc">None</span>  <span class="c1"># Autograd requires 3 gradients</span></div>
+</div>
+
+
+<span class="n">butterfly_mult_untied</span> <span class="o">=</span> <span class="n">ButterflyMultUntied</span><span class="o">.</span><span class="n">apply</span> <span class="k">if</span> <span class="n">use_extension</span> <span class="k">else</span> <span class="n">butterfly_mult_untied_torch</span>
+
+
+<div class="viewcode-block" id="ButterflyMultInplace">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace">[docs]</a>
+<span class="k">class</span> <span class="nc">ButterflyMultInplace</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+
+<div class="viewcode-block" id="ButterflyMultInplace.forward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.forward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">increasing_stride</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Experimental in-place implementation that does not store intermediate results.</span>
+<span class="sd">        Instead, the intermediate results are computed from the output during the backward pass.</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            twiddle: (n - 1, 2, 2) if real or (n - 1, 2, 2, 2) if complex</span>
+<span class="sd">            input: (batch_size, n) if real or (batch_size, n, 2) if complex</span>
+<span class="sd">            increasing_stride: whether to multiply with increasing stride (e.g. 2, 4, ..., n/2) or</span>
+<span class="sd">                decreasing stride (e.g., n/2, n/4, ..., 2).</span>
+<span class="sd">                Note that this only changes the order of multiplication, not how twiddle is stored.</span>
+<span class="sd">                In other words, twiddle[@log_stride] always stores the twiddle for @stride.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            output: (batch_size, n) if real or (batch_size, n, 2) if complex</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">increasing_stride</span><span class="p">,</span> <span class="s1">&#39;Decreasing stride not implemented&#39;</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">butterfly_multiply_inplace</span><span class="p">(</span><span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">)</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">twiddle</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output</span></div>
+
+
+<div class="viewcode-block" id="ButterflyMultInplace.backward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.backward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad</span><span class="p">):</span>
+        <span class="n">twiddle</span><span class="p">,</span> <span class="n">output</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+        <span class="n">d_coefficients</span><span class="p">,</span> <span class="n">d_input</span> <span class="o">=</span> <span class="n">butterfly_multiply_inplace_backward</span><span class="p">(</span><span class="n">grad</span><span class="p">,</span> <span class="n">twiddle</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">d_coefficients</span><span class="p">,</span> <span class="n">d_input</span></div>
+</div>
+
+
+<span class="n">butterfly_mult_inplace</span> <span class="o">=</span> <span class="n">ButterflyMultInplace</span><span class="o">.</span><span class="n">apply</span>
+
+
+<div class="viewcode-block" id="ButterflyFactorMult">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.ButterflyFactorMult">[docs]</a>
+<span class="k">class</span> <span class="nc">ButterflyFactorMult</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+
+<div class="viewcode-block" id="ButterflyFactorMult.forward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.ButterflyFactorMult.forward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Multiply by a single factor.</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            twiddle: (2, 2, n) if real or (2, 2, n, 2) if complex</span>
+<span class="sd">            input: (batch_size, 2, n) if real or (batch_size, 2, n, 2) if complex</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            output: (batch_size, 2, n) if real or (batch_size, 2, n, 2) if complex</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">butterfly_factor_multiply</span><span class="p">(</span><span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ButterflyFactorMult.backward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.ButterflyFactorMult.backward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            grad: (batch_size, 2, n) if real or (batch_size, 2, n, 2) if complex</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            d_twiddle: (2, 2, n) if real or (2, 2, n, 2) if complex</span>
+<span class="sd">            d_input: (batch_size, 2, n) if real or (batch_size, 2, n, 2) if complex</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+        <span class="n">d_twiddle</span><span class="p">,</span> <span class="n">d_input</span> <span class="o">=</span> <span class="n">butterfly_factor_multiply_backward</span><span class="p">(</span><span class="n">grad</span><span class="p">,</span> <span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">d_twiddle</span><span class="p">,</span> <span class="n">d_input</span></div>
+</div>
+
+
+<span class="n">butterfly_factor_mult</span> <span class="o">=</span> <span class="n">ButterflyFactorMult</span><span class="o">.</span><span class="n">apply</span>
+
+
+<div class="viewcode-block" id="butterfly_mult_factors">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult_factors">[docs]</a>
+<span class="k">def</span> <span class="nf">butterfly_mult_factors</span><span class="p">(</span><span class="n">twiddle</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">increasing_stride</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">return_intermediates</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Implementation that have separate kernels for each factor, for debugging.</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        twiddle: (n - 1, 2, 2) if real or (n - 1, 2, 2, 2) if complex</span>
+<span class="sd">        input: (batch_size, n) if real or (batch_size, n, 2) if complex</span>
+<span class="sd">        increasing_stride: whether to multiply with increasing stride (e.g. 2, 4, ..., n/2) or</span>
+<span class="sd">            decreasing stride (e.g., n/2, n/4, ..., 2).</span>
+<span class="sd">            Note that this only changes the order of multiplication, not how twiddle is stored.</span>
+<span class="sd">            In other words, twiddle[@log_stride] always stores the twiddle for @stride.</span>
+<span class="sd">        return_intermediates: whether to return all the intermediate values computed, for debugging</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        output: (batch_size, n) if real or (batch_size, n, 2) if complex</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">batch_size</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">m</span><span class="p">,</span> <span class="s2">&quot;size must be a power of 2&quot;</span>
+    <span class="k">assert</span> <span class="n">twiddle</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="nb">input</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span>
+    <span class="n">intermediates</span> <span class="o">=</span> <span class="p">[</span><span class="n">output</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">input</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># real</span>
+        <span class="k">for</span> <span class="n">log_stride</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">if</span> <span class="n">increasing_stride</span> <span class="k">else</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">stride</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">log_stride</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">twiddle</span><span class="p">[(</span><span class="n">stride</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">stride</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>  <span class="c1"># shape (2, 2, stride)</span>
+            <span class="n">output_reshape</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span> <span class="o">*</span> <span class="n">n</span> <span class="o">//</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">stride</span><span class="p">),</span> <span class="mi">2</span><span class="p">,</span> <span class="n">stride</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">butterfly_factor_mult</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">output_reshape</span><span class="p">)</span>
+            <span class="n">intermediates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">return_intermediates</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">intermediate</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">intermediate</span> <span class="ow">in</span> <span class="n">intermediates</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># complex</span>
+        <span class="k">for</span> <span class="n">log_stride</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">if</span> <span class="n">increasing_stride</span> <span class="k">else</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">stride</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">log_stride</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">twiddle</span><span class="p">[(</span><span class="n">stride</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">stride</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>  <span class="c1"># shape (2, 2, stride, 2)</span>
+            <span class="n">output_reshape</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span> <span class="o">*</span> <span class="n">n</span> <span class="o">//</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">stride</span><span class="p">),</span> <span class="mi">2</span><span class="p">,</span> <span class="n">stride</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">butterfly_factor_mult</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">output_reshape</span><span class="p">)</span>
+            <span class="n">intermediates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">return_intermediates</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">intermediate</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">intermediate</span> <span class="ow">in</span> <span class="n">intermediates</span><span class="p">])</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

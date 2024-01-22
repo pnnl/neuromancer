@@ -50,6 +50,7 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
       - name: Fix gh-pages directory structure
         run: |
           cd 
+          ls
           cd gh-pages 
           mkdir docs
           cp -r html docs

@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.modules.blocks &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.modules.blocks</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.modules.blocks</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Function approximators of various degrees of generality which implement a consistent block interface.</span>
+<span class="sd">Neural network module building blocks for neural state space models, state estimators and control policies.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+
+<span class="kn">import</span> <span class="nn">neuromancer.slim</span> <span class="k">as</span> <span class="nn">slim</span>
+<span class="kn">import</span> <span class="nn">neuromancer.modules.rnn</span> <span class="k">as</span> <span class="nn">rnn</span>
+<span class="kn">from</span> <span class="nn">neuromancer.modules.activations</span> <span class="kn">import</span> <span class="n">soft_exp</span><span class="p">,</span> <span class="n">SoftExponential</span><span class="p">,</span> <span class="n">SmoothedReLU</span>
+
+
+<div class="viewcode-block" id="Block">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.Block">[docs]</a>
+<span class="k">class</span> <span class="nc">Block</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Canonical abstract class of the block function approximator</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Block.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.Block.block_eval">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="Block.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.Block.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Handling varying number of tensor inputs</span>
+
+<span class="sd">        :param inputs: (list(torch.Tensor, shape=[batchsize, insize]) or torch.Tensor, shape=[batchsize, insize])</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, outsize])</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_eval</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Linear">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.Linear">[docs]</a>
+<span class="k">class</span> <span class="nc">Linear</span><span class="p">(</span><span class="n">Block</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Linear map consistent with block interface</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">insize</span><span class="p">,</span>
+        <span class="n">outsize</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">linear_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span>
+        <span class="n">nonlin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">hsizes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">linargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param insize: (int) dimensionality of input</span>
+<span class="sd">        :param outsize: (int) dimensionality of output</span>
+<span class="sd">        :param bias: (bool) Whether to use bias</span>
+<span class="sd">        :param linear_map: (class) Linear map class from neuromancer.slim.linear</span>
+<span class="sd">        :param nonlin: (callable) Not used in this module but included as argument for consistent interface</span>
+<span class="sd">        :param hsizes: (list of ints) Not used in this module but included as argument for consistent interface</span>
+<span class="sd">        :param linargs: (dict) Arguments for instantiating linear layer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">linear_map</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">linargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Linear.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.Linear.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">reg_error</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Linear.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.Linear.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor, shape=[batchsize, insize])</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, outsize])</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Dropout">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.Dropout">[docs]</a>
+<span class="k">class</span> <span class="nc">Dropout</span><span class="p">(</span><span class="n">Block</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">at_train</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">at_test</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wrapper for standard dropout that allows its use at test time.</span>
+<span class="sd">        By default, dropout is disabled during training as it appears difficult</span>
+<span class="sd">        to train models with it enabled.</span>
+
+<span class="sd">        :param p: probability that an input component will be set to zero</span>
+<span class="sd">        :param at_train: enable dropout during training</span>
+<span class="sd">        :param at_test: enable dropout during testing</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">=</span> <span class="n">p</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">at_train</span> <span class="o">=</span> <span class="n">at_train</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">at_test</span> <span class="o">=</span> <span class="n">at_test</span>
+
+<div class="viewcode-block" id="Dropout.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.Dropout.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">use_dropout</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">at_train</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">at_test</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="n">training</span><span class="o">=</span><span class="n">use_dropout</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="set_model_dropout_mode">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.set_model_dropout_mode">[docs]</a>
+<span class="k">def</span> <span class="nf">set_model_dropout_mode</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">at_train</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">at_test</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Change dropout mode, useful for enabling MC sampling during inference time.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_apply_fn</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">==</span> <span class="n">Dropout</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">at_test</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">at_test</span> <span class="o">=</span> <span class="n">at_test</span>
+            <span class="k">if</span> <span class="n">at_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">at_train</span> <span class="o">=</span> <span class="n">at_train</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_apply_fn</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="MLP">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.MLP">[docs]</a>
+<span class="k">class</span> <span class="nc">MLP</span><span class="p">(</span><span class="n">Block</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Multi-Layer Perceptron consistent with blocks interface</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">insize</span><span class="p">,</span>
+        <span class="n">outsize</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">linear_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span>
+        <span class="n">nonlin</span><span class="o">=</span><span class="n">SoftExponential</span><span class="p">,</span>
+        <span class="n">hsizes</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">],</span>
+        <span class="n">linargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param insize: (int) dimensionality of input</span>
+<span class="sd">        :param outsize: (int) dimensionality of output</span>
+<span class="sd">        :param bias: (bool) Whether to use bias</span>
+<span class="sd">        :param linear_map: (class) Linear map class from neuromancer.slim.linear</span>
+<span class="sd">        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape</span>
+<span class="sd">        :param hsizes: (list of ints) List of hidden layer sizes</span>
+<span class="sd">        :param linargs: (dict) Arguments for instantiating linear layer</span>
+<span class="sd">        :param dropout: (float) Dropout probability</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">hsizes</span><span class="p">)</span>
+        <span class="n">sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">insize</span><span class="p">]</span> <span class="o">+</span> <span class="n">hsizes</span> <span class="o">+</span> <span class="p">[</span><span class="n">outsize</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">nonlin</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">linear_map</span><span class="p">(</span><span class="n">sizes</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">sizes</span><span class="p">[</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">linargs</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="MLP.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.MLP.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">([</span><span class="n">k</span><span class="o">.</span><span class="n">reg_error</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="s2">&quot;reg_error&quot;</span><span class="p">)])</span></div>
+
+
+<div class="viewcode-block" id="MLP.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.MLP.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor, shape=[batchsize, insize])</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, outsize])</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">lin</span><span class="p">,</span> <span class="n">nlin</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">nlin</span><span class="p">(</span><span class="n">lin</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">x</span></div>
+</div>
+
+
+
+
+<div class="viewcode-block" id="sigmoid_scale">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.sigmoid_scale">[docs]</a>
+<span class="k">def</span> <span class="nf">sigmoid_scale</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="nb">max</span> <span class="o">-</span> <span class="nb">min</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="nb">min</span></div>
+
+
+<div class="viewcode-block" id="relu_clamp">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.relu_clamp">[docs]</a>
+<span class="k">def</span> <span class="nf">relu_clamp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="o">-</span><span class="n">x</span> <span class="o">+</span> <span class="nb">min</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">torch</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="nb">max</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span></div>
+
+
+
+<div class="viewcode-block" id="MLP_bounds">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.MLP_bounds">[docs]</a>
+<span class="k">class</span> <span class="nc">MLP_bounds</span><span class="p">(</span><span class="n">MLP</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Multi-Layer Perceptron consistent with blocks interface</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bound_methods</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;sigmoid_scale&#39;</span><span class="p">:</span> <span class="n">sigmoid_scale</span><span class="p">,</span>
+                    <span class="s1">&#39;relu_clamp&#39;</span><span class="p">:</span> <span class="n">relu_clamp</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">insize</span><span class="p">,</span>
+        <span class="n">outsize</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">linear_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span>
+        <span class="n">nonlin</span><span class="o">=</span><span class="n">SoftExponential</span><span class="p">,</span>
+        <span class="n">hsizes</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">],</span>
+        <span class="n">linargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span>
+        <span class="nb">min</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+        <span class="nb">max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">method</span><span class="o">=</span><span class="s1">&#39;sigmoid_scale&#39;</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param insize: (int) dimensionality of input</span>
+<span class="sd">        :param outsize: (int) dimensionality of output</span>
+<span class="sd">        :param bias: (bool) Whether to use bias</span>
+<span class="sd">        :param linear_map: (class) Linear map class from neuromancer.slim.linear</span>
+<span class="sd">        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape</span>
+<span class="sd">        :param hsizes: (list of ints) List of hidden layer sizes</span>
+<span class="sd">        :param linargs: (dict) Arguments for instantiating linear layer</span>
+<span class="sd">        :param dropout: (float) Dropout probability</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="o">=</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="o">=</span><span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span>
+                         <span class="n">linear_map</span><span class="o">=</span><span class="n">linear_map</span><span class="p">,</span> <span class="n">nonlin</span><span class="o">=</span><span class="n">nonlin</span><span class="p">,</span>
+                         <span class="n">hsizes</span><span class="o">=</span><span class="n">hsizes</span><span class="p">,</span> <span class="n">linargs</span><span class="o">=</span><span class="n">linargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min</span> <span class="o">=</span> <span class="nb">min</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max</span> <span class="o">=</span> <span class="nb">max</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_method</span><span class="p">(</span><span class="n">method</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_set_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bound_methods</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bound_methods</span><span class="p">[</span><span class="n">method</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">callable</span><span class="p">(</span><span class="n">method</span><span class="p">),</span> \
+                <span class="sa">f</span><span class="s1">&#39;Method, </span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s1"> must be a key in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">bound_methods</span><span class="si">}</span><span class="s1"> &#39;</span> \
+                <span class="sa">f</span><span class="s1">&#39;or a differentiable callable.&#39;</span>
+            <span class="k">return</span> <span class="n">method</span>
+
+<div class="viewcode-block" id="MLP_bounds.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.MLP_bounds.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor, shape=[batchsize, insize])</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, outsize])</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">lin</span><span class="p">,</span> <span class="n">nlin</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">nlin</span><span class="p">(</span><span class="n">lin</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="InteractionEmbeddingMLP">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.InteractionEmbeddingMLP">[docs]</a>
+<span class="k">class</span> <span class="nc">InteractionEmbeddingMLP</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Multi-Layer Perceptron which is a hypernetwork hidden state embeddings decided by interaction type and concatenated</span>
+<span class="sd">    to hidden state.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">insize</span><span class="p">,</span>
+        <span class="n">outsize</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">linear_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span>
+        <span class="n">nonlin</span><span class="o">=</span><span class="n">SoftExponential</span><span class="p">,</span>
+        <span class="n">hsizes</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">],</span>
+        <span class="n">linargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span>
+        <span class="n">n_interactors</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param insize: (int) dimensionality of input</span>
+<span class="sd">        :param outsize: (int) dimensionality of output</span>
+<span class="sd">        :param bias: (bool) Whether to use bias</span>
+<span class="sd">        :param linear_map: (class) Linear map class from neuromancer.slim.linear</span>
+<span class="sd">        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape</span>
+<span class="sd">        :param hsizes: (list of ints) List of hidden layer sizes</span>
+<span class="sd">        :param linargs: (dict) Arguments for instantiating linear layer</span>
+<span class="sd">        :param dropout: (float) Dropout probability</span>
+<span class="sd">        :param n_interactors: (int) Number of interacting entity types number of interactions is n_interactors squared.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">hsizes</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_interactors</span> <span class="o">=</span> <span class="n">n_interactors</span>
+        <span class="n">em_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">hsizes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">*</span><span class="n">hsizes</span><span class="p">]</span>
+        <span class="n">sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">insize</span><span class="p">]</span> <span class="o">+</span> <span class="n">hsizes</span>
+        <span class="n">sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">size</span> <span class="o">+</span> <span class="n">em_size</span> <span class="k">for</span> <span class="n">size</span><span class="p">,</span> <span class="n">em_size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">sizes</span><span class="p">,</span> <span class="n">em_sizes</span><span class="p">)]</span>
+        <span class="n">sizes</span> <span class="o">+=</span> <span class="p">[</span><span class="n">outsize</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">nonlin</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embeddings</span> <span class="o">=</span> <span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">n_interactors</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="n">n_embed</span><span class="p">)</span> <span class="k">for</span> <span class="n">n_embed</span> <span class="ow">in</span> <span class="n">em_sizes</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">linear_map</span><span class="p">(</span><span class="n">sizes</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">sizes</span><span class="p">[</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">linargs</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="InteractionEmbeddingMLP.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.InteractionEmbeddingMLP.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">([</span><span class="n">k</span><span class="o">.</span><span class="n">reg_error</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="s2">&quot;reg_error&quot;</span><span class="p">)])</span></div>
+
+
+<div class="viewcode-block" id="InteractionEmbeddingMLP.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.InteractionEmbeddingMLP.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor, shape=[batchsize, insize])</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, outsize])</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">lin</span><span class="p">,</span> <span class="n">nlin</span><span class="p">,</span> <span class="n">embedder</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">embeddings</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">embedder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_interactors</span><span class="o">*</span><span class="n">i</span> <span class="o">+</span> <span class="n">j</span><span class="p">)])</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">nlin</span><span class="p">(</span><span class="n">lin</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">x</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="MLPDropout">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.MLPDropout">[docs]</a>
+<span class="k">class</span> <span class="nc">MLPDropout</span><span class="p">(</span><span class="n">Block</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Multi-Layer Perceptron with dropout consistent with blocks interface</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">insize</span><span class="p">,</span>
+        <span class="n">outsize</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">linear_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span>
+        <span class="n">nonlin</span><span class="o">=</span><span class="n">SoftExponential</span><span class="p">,</span>
+        <span class="n">hsizes</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">],</span>
+        <span class="n">linargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span>
+        <span class="n">dropout</span><span class="o">=</span><span class="mf">0.0</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param insize: (int) dimensionality of input</span>
+<span class="sd">        :param outsize: (int) dimensionality of output</span>
+<span class="sd">        :param bias: (bool) Whether to use bias</span>
+<span class="sd">        :param linear_map: (class) Linear map class from neuromancer.slim.linear</span>
+<span class="sd">        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape</span>
+<span class="sd">        :param hsizes: (list of ints) List of hidden layer sizes</span>
+<span class="sd">        :param linargs: (dict) Arguments for instantiating linear layer</span>
+<span class="sd">        :param dropout: (float) Dropout probability</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">hsizes</span><span class="p">)</span>
+        <span class="n">sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">insize</span><span class="p">]</span> <span class="o">+</span> <span class="n">hsizes</span> <span class="o">+</span> <span class="p">[</span><span class="n">outsize</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">nonlin</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">linear_map</span><span class="p">(</span><span class="n">sizes</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">sizes</span><span class="p">[</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">linargs</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">Dropout</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="n">dropout</span><span class="p">)</span> <span class="k">if</span> <span class="n">dropout</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span><span class="p">)]</span>
+            <span class="o">+</span> <span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()]</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="MLPDropout.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.MLPDropout.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">([</span><span class="n">k</span><span class="o">.</span><span class="n">reg_error</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="s2">&quot;reg_error&quot;</span><span class="p">)])</span></div>
+
+
+<div class="viewcode-block" id="MLPDropout.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.MLPDropout.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor, shape=[batchsize, insize])</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, outsize])</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">lin</span><span class="p">,</span> <span class="n">nlin</span><span class="p">,</span> <span class="n">drop</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">drop</span><span class="p">(</span><span class="n">nlin</span><span class="p">(</span><span class="n">lin</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">x</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ResMLP">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.ResMLP">[docs]</a>
+<span class="k">class</span> <span class="nc">ResMLP</span><span class="p">(</span><span class="n">MLP</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Residual MLP consistent with the block interface.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">insize</span><span class="p">,</span>
+        <span class="n">outsize</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">linear_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span>
+        <span class="n">nonlin</span><span class="o">=</span><span class="n">SoftExponential</span><span class="p">,</span>
+        <span class="n">hsizes</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">],</span>
+        <span class="n">linargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span>
+        <span class="n">skip</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param insize: (int) dimensionality of input</span>
+<span class="sd">        :param outsize: (int) dimensionality of output</span>
+<span class="sd">        :param bias: (bool) Whether to use bias</span>
+<span class="sd">        :param linear_map: (class) Linear map class from neuromancer.slim.linear</span>
+<span class="sd">        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape</span>
+<span class="sd">        :param hsizes: (list of ints) List of hidden layer sizes</span>
+<span class="sd">        :param linargs: (dict) Arguments for instantiating linear layer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">insize</span><span class="p">,</span>
+            <span class="n">outsize</span><span class="p">,</span>
+            <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span>
+            <span class="n">linear_map</span><span class="o">=</span><span class="n">linear_map</span><span class="p">,</span>
+            <span class="n">nonlin</span><span class="o">=</span><span class="n">nonlin</span><span class="p">,</span>
+            <span class="n">hsizes</span><span class="o">=</span><span class="n">hsizes</span><span class="p">,</span>
+            <span class="n">linargs</span><span class="o">=</span><span class="n">linargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">hsizes</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="p">),</span> <span class="s2">&quot;All hidden sizes should be equal for residual network&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">skip</span> <span class="o">=</span> <span class="n">skip</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inmap</span> <span class="o">=</span> <span class="n">linear_map</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">hsizes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">linargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outmap</span> <span class="o">=</span> <span class="n">linear_map</span><span class="p">(</span><span class="n">hsizes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">linargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span>
+
+<div class="viewcode-block" id="ResMLP.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.ResMLP.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor, shape=[batchsize, insize])</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, outsize])</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">px</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inmap</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">layer</span><span class="p">,</span> <span class="p">(</span><span class="n">lin</span><span class="p">,</span> <span class="n">nlin</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">nlin</span><span class="p">(</span><span class="n">lin</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">layer</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">px</span>
+                <span class="n">px</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">](</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">outmap</span><span class="p">(</span><span class="n">px</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="InputConvexNN">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.InputConvexNN">[docs]</a>
+<span class="k">class</span> <span class="nc">InputConvexNN</span><span class="p">(</span><span class="n">MLP</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Input convex neural network</span>
+<span class="sd">    z1 =  sig(W0(x) + b0)</span>
+<span class="sd">    z_i+1 = sig_i(Ui(zi) + Wi(x) + bi),  i = 1, ..., k-1</span>
+<span class="sd">    V = g(x) = zk</span>
+
+<span class="sd">    Equation 11 from https://arxiv.org/abs/2001.06116</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">insize</span><span class="p">,</span>
+                 <span class="n">outsize</span><span class="p">,</span>
+                 <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">linear_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span>
+                 <span class="n">nonlin</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                 <span class="n">hsizes</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">],</span>
+                 <span class="n">linargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">()</span>
+                 <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">insize</span><span class="p">,</span>
+            <span class="n">outsize</span><span class="p">,</span>
+            <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span>
+            <span class="n">linear_map</span><span class="o">=</span><span class="n">linear_map</span><span class="p">,</span>
+            <span class="n">nonlin</span><span class="o">=</span><span class="n">nonlin</span><span class="p">,</span>
+            <span class="n">hsizes</span><span class="o">=</span><span class="n">hsizes</span><span class="p">,</span>
+            <span class="n">linargs</span><span class="o">=</span><span class="n">linargs</span><span class="p">,</span>
+
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span>
+                <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">hsizes</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="p">),</span> <span class="s2">&quot;All hidden sizes should be equal for residual network&quot;</span>
+
+        <span class="n">sizes</span> <span class="o">=</span> <span class="n">hsizes</span> <span class="o">+</span> <span class="p">[</span><span class="n">outsize</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">linear_map</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">sizes</span><span class="p">[</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">linargs</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">poslinear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">slim</span><span class="o">.</span><span class="n">NonNegativeLinear</span><span class="p">(</span><span class="n">sizes</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">sizes</span><span class="p">[</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">linargs</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">nonlin</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nhidden</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">inmap</span> <span class="o">=</span> <span class="n">linear_map</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">hsizes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">linargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span>
+
+<div class="viewcode-block" id="InputConvexNN.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.InputConvexNN.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">xi</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="n">px</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inmap</span><span class="p">(</span><span class="n">xi</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span><span class="p">[</span><span class="mi">0</span><span class="p">](</span><span class="n">px</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">layer</span><span class="p">,</span> <span class="p">(</span><span class="n">linU</span><span class="p">,</span> <span class="n">nlin</span><span class="p">,</span> <span class="n">linW</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poslinear</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlin</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">)):</span>
+            <span class="n">px</span> <span class="o">=</span> <span class="n">linW</span><span class="p">(</span><span class="n">xi</span><span class="p">)</span>
+            <span class="n">ux</span> <span class="o">=</span> <span class="n">linU</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">nlin</span><span class="p">(</span><span class="n">ux</span> <span class="o">+</span> <span class="n">px</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PosDef">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.PosDef">[docs]</a>
+<span class="k">class</span> <span class="nc">PosDef</span><span class="p">(</span><span class="n">Block</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enforce positive-definiteness of lyapunov function ICNN, V = g(x)</span>
+<span class="sd">    Equation 12 from https://arxiv.org/abs/2001.06116</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param g: (nn.Module) An ICNN network</span>
+<span class="sd">        :param eps: (float) quadratic form regularization weight</span>
+<span class="sd">        :param d: (float) d parameter for ReLU with a quadratic region in [0,d]</span>
+<span class="sd">        :param max: (float) max value of the output function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">g</span> <span class="o">=</span> <span class="n">g</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">g</span><span class="o">.</span><span class="n">in_features</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">g</span><span class="o">.</span><span class="n">out_features</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zero</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">g</span><span class="o">.</span><span class="n">in_features</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d</span> <span class="o">=</span> <span class="n">d</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">smReLU</span> <span class="o">=</span> <span class="n">SmoothedReLU</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max</span> <span class="o">=</span> <span class="nb">max</span>
+
+<div class="viewcode-block" id="PosDef.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.PosDef.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">shift_to_zero</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">smReLU</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">g</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">g</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zero</span><span class="p">))</span>
+        <span class="n">quad_psd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">shift_to_zero</span> <span class="o">+</span> <span class="n">quad_psd</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="n">z</span> <span class="o">-</span> <span class="n">torch</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">max</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">z</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PytorchRNN">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.PytorchRNN">[docs]</a>
+<span class="k">class</span> <span class="nc">PytorchRNN</span><span class="p">(</span><span class="n">Block</span><span class="p">):</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This wraps the torch.nn.RNN class consistent with the blocks interface</span>
+<span class="sd">    to give output which is a linear map from final hidden state.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">insize</span><span class="p">,</span>
+        <span class="n">outsize</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">linear_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span>
+        <span class="n">nonlin</span><span class="o">=</span><span class="n">SoftExponential</span><span class="p">,</span>
+        <span class="n">hsizes</span><span class="o">=</span><span class="p">[</span><span class="mi">10</span><span class="p">],</span>
+        <span class="n">linargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param insize: (int) dimensionality of input</span>
+<span class="sd">        :param outsize: (int) dimensionality of output</span>
+<span class="sd">        :param bias: (bool) Whether to use bias</span>
+<span class="sd">        :param linear_map: (class) Linear map class from neuromancer.slim.linear</span>
+<span class="sd">        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape</span>
+<span class="sd">        :param hsizes: (list of ints) List of hidden layer sizes</span>
+<span class="sd">        :param linargs: (dict) Arguments for instantiating linear layer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">hsizes</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rnn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">RNN</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">hsizes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">nonlinearity</span><span class="o">=</span><span class="s2">&quot;relu&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="n">linear_map</span><span class="p">(</span><span class="n">hsizes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">linargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PytorchRNN.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.PytorchRNN.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">reg_error</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PytorchRNN.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.PytorchRNN.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor, shape=[nsteps, batchsize, dim]) Input sequence is expanded for order 2 tensors</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, outsize]) Returns linear transform of final hidden state of RNN.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">hiddens</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rnn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="p">(</span><span class="n">hiddens</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="RNN">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.RNN">[docs]</a>
+<span class="k">class</span> <span class="nc">RNN</span><span class="p">(</span><span class="n">Block</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This wraps the rnn.RNN class consistent with blocks interface to give output which is a linear map from final hidden state.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">insize</span><span class="p">,</span>
+        <span class="n">outsize</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">linear_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span>
+        <span class="n">nonlin</span><span class="o">=</span><span class="n">SoftExponential</span><span class="p">,</span>
+        <span class="n">hsizes</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="n">linargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param insize: (int) dimensionality of input</span>
+<span class="sd">        :param outsize: (int) dimensionality of output</span>
+<span class="sd">        :param bias: (bool) Whether to use bias</span>
+<span class="sd">        :param linear_map: (class) Linear map class from neuromancer.slim.linear</span>
+<span class="sd">        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape</span>
+<span class="sd">        :param hsizes: (list of ints) List of hidden layer sizes</span>
+<span class="sd">        :param linargs: (dict) Arguments for instantiating linear layer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">hsizes</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rnn</span> <span class="o">=</span> <span class="n">rnn</span><span class="o">.</span><span class="n">RNN</span><span class="p">(</span>
+            <span class="n">insize</span><span class="p">,</span>
+            <span class="n">hsizes</span><span class="o">=</span><span class="n">hsizes</span><span class="p">,</span>
+            <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span>
+            <span class="n">nonlin</span><span class="o">=</span><span class="n">nonlin</span><span class="p">,</span>
+            <span class="n">linear_map</span><span class="o">=</span><span class="n">linear_map</span><span class="p">,</span>
+            <span class="n">linargs</span><span class="o">=</span><span class="n">linargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="n">linear_map</span><span class="p">(</span><span class="n">hsizes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">linargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_states</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rnn</span><span class="o">.</span><span class="n">init_states</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RNN.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.RNN.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">rnn</span><span class="o">.</span><span class="n">reg_error</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">reg_error</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="RNN.reset">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.RNN.reset">[docs]</a>
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_states</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="RNN.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.RNN.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">hx</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        There is some logic here so that the RNN will still get context from state in open loop simulation.</span>
+
+<span class="sd">        :param x: (torch.Tensor, shape=[nsteps, batchsize, dim]) Input sequence is expanded for order 2 tensors</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, outsize]) Returns linear transform of final hidden state of RNN.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">hiddens</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rnn</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">init_states</span><span class="o">=</span><span class="n">hx</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_states</span> <span class="o">=</span> <span class="n">hiddens</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="p">(</span><span class="n">hiddens</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="BilinearTorch">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.BilinearTorch">[docs]</a>
+<span class="k">class</span> <span class="nc">BilinearTorch</span><span class="p">(</span><span class="n">Block</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wraps torch.nn.Bilinear to be consistent with the blocks interface</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">insize</span><span class="p">,</span>
+        <span class="n">outsize</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">linear_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span>
+        <span class="n">nonlin</span><span class="o">=</span><span class="n">SoftExponential</span><span class="p">,</span>
+        <span class="n">hsizes</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">],</span>
+        <span class="n">linargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param insize: (int) dimensionality of input</span>
+<span class="sd">        :param outsize: (int) dimensionality of output</span>
+<span class="sd">        :param bias: (bool) Whether to use bias</span>
+<span class="sd">        :param linear_map: (class) Not used in this module</span>
+<span class="sd">        :param nonlin: (callable) Not used in this module</span>
+<span class="sd">        :param hsizes: (list of ints) Not used in this module</span>
+<span class="sd">        :param linargs: (dict) Not used in this module</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Bilinear</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="BilinearTorch.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.BilinearTorch.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">f</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BilinearTorch.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.BilinearTorch.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Poly2">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.Poly2">[docs]</a>
+<span class="k">class</span> <span class="nc">Poly2</span><span class="p">(</span><span class="n">Block</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Feature expansion of network to include pairwise multiplications of features.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Poly2.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.Poly2.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor, shape=[batchsize, N]) Input tensor</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, :math:`\frac{N(N+1)}{2} + N`]) Feature expanded tensor</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">row_idxs</span><span class="p">,</span> <span class="n">col_idxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">triu_indices</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">expansion</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>  <span class="c1"># outer product</span>
+        <span class="n">expansion</span> <span class="o">=</span> <span class="n">expansion</span><span class="p">[:,</span> <span class="n">row_idxs</span><span class="p">,</span> <span class="n">col_idxs</span><span class="p">]</span>  <span class="c1"># upper triangular</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">expansion</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># concatenate</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="BasisLinear">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.BasisLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">BasisLinear</span><span class="p">(</span><span class="n">Block</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    For mapping inputs to functional basis feature expansion. This could implement a dictionary of lifting functions.</span>
+<span class="sd">    Takes a linear combination of the expanded features.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">insize</span><span class="p">,</span>
+        <span class="n">outsize</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">linear_map</span><span class="o">=</span><span class="n">slim</span><span class="o">.</span><span class="n">Linear</span><span class="p">,</span>
+        <span class="n">nonlin</span><span class="o">=</span><span class="n">SoftExponential</span><span class="p">,</span>
+        <span class="n">hsizes</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">],</span>
+        <span class="n">linargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span>
+        <span class="n">expand</span><span class="o">=</span><span class="n">Poly2</span><span class="p">(),</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param insize: (int) dimensionality of input</span>
+<span class="sd">        :param outsize: (int) dimensionality of output</span>
+<span class="sd">        :param bias: (bool) Whether to use bias</span>
+<span class="sd">        :param linear_map: (class) Not used in this module</span>
+<span class="sd">        :param nonlin: (callable) Not used in this module</span>
+<span class="sd">        :param hsizes: (list of ints) Not used in this module</span>
+<span class="sd">        :param linargs: (dict) Not used in this module</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expand</span> <span class="o">=</span> <span class="n">expand</span>
+        <span class="n">inlin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">insize</span><span class="p">))</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">linear_map</span><span class="p">(</span><span class="n">inlin</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="o">**</span><span class="n">linargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bias</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">outsize</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="ow">not</span> <span class="n">bias</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BasisLinear.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.BasisLinear.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">reg_error</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="BasisLinear.block_eval">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.BasisLinear.block_eval">[docs]</a>
+    <span class="k">def</span> <span class="nf">block_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param x: (torch.Tensor, shape=[batchsize, insize])</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, outsize])</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">x</span><span class="p">))</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="InterpolateAddMultiply">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.InterpolateAddMultiply">[docs]</a>
+<span class="k">class</span> <span class="nc">InterpolateAddMultiply</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implementation of smooth interpolation between addition and multiplication</span>
+<span class="sd">    using soft exponential activation: https://arxiv.org/pdf/1602.01321.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">tune_alpha</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">alpha</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="n">tune_alpha</span><span class="p">)</span>
+
+<div class="viewcode-block" id="InterpolateAddMultiply.forward">
+<a class="viewcode-back" href="../../../neuromancer.modules.html#neuromancer.modules.blocks.InterpolateAddMultiply.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">soft_exp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span> <span class="n">soft_exp</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="o">+</span> <span class="n">soft_exp</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span> <span class="n">q</span><span class="p">))</span></div>
+</div>
+
+
+
+<span class="n">blocks</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;mlp&quot;</span><span class="p">:</span> <span class="n">MLP</span><span class="p">,</span>
+    <span class="s2">&quot;mlp_dropout&quot;</span><span class="p">:</span> <span class="n">MLPDropout</span><span class="p">,</span>
+    <span class="s2">&quot;mlp_bounds&quot;</span><span class="p">:</span> <span class="n">MLP_bounds</span><span class="p">,</span>
+    <span class="s2">&quot;rnn&quot;</span><span class="p">:</span> <span class="n">RNN</span><span class="p">,</span>
+    <span class="s2">&quot;pytorch_rnn&quot;</span><span class="p">:</span> <span class="n">PytorchRNN</span><span class="p">,</span>
+    <span class="s2">&quot;linear&quot;</span><span class="p">:</span> <span class="n">Linear</span><span class="p">,</span>
+    <span class="s2">&quot;residual_mlp&quot;</span><span class="p">:</span> <span class="n">ResMLP</span><span class="p">,</span>
+    <span class="s2">&quot;basislinear&quot;</span><span class="p">:</span> <span class="n">BasisLinear</span><span class="p">,</span>
+    <span class="s2">&quot;poly2&quot;</span><span class="p">:</span> <span class="n">Poly2</span><span class="p">,</span>
+    <span class="s2">&quot;bilinear&quot;</span><span class="p">:</span> <span class="n">BilinearTorch</span><span class="p">,</span>
+    <span class="s2">&quot;icnn&quot;</span><span class="p">:</span> <span class="n">InputConvexNN</span><span class="p">,</span>
+    <span class="s2">&quot;pos_def&quot;</span><span class="p">:</span> <span class="n">PosDef</span>
+<span class="p">}</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

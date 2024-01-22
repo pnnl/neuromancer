@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.slim.butterfly.complex_utils &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.slim.butterfly.complex_utils</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.slim.butterfly.complex_utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&#39;&#39;&#39; Utility functions for handling complex tensors: conjugate and complex_mul.</span>
+<span class="sd">Pytorch (as of 1.0) does not support complex tensors, so we store them as</span>
+<span class="sd">float tensors where the last dimension is 2 (real and imaginary parts).</span>
+<span class="sd">&#39;&#39;&#39;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">torch.utils.dlpack</span> <span class="kn">import</span> <span class="n">to_dlpack</span><span class="p">,</span> <span class="n">from_dlpack</span>
+
+<span class="c1"># For now, it seems that the overhead of converting to cupy makes the cupy</span>
+<span class="c1"># version slower than the torch version. So I&#39;ll just disable cupy.</span>
+
+<span class="c1"># # Check if cupy is available</span>
+<span class="c1"># if torch.cuda.is_available():</span>
+<span class="c1">#     use_cupy = True</span>
+<span class="c1">#     try:</span>
+<span class="c1">#         import cupy as cp</span>
+<span class="c1">#     except:</span>
+<span class="c1">#         use_cupy = False</span>
+<span class="c1">#         print(&quot;Cupy isn&#39;t installed or isn&#39;t working properly. Will use Pytorch&#39;s complex multiply, which is slower.&quot;)</span>
+<span class="c1"># else:</span>
+<span class="c1">#     use_cupy = False</span>
+<span class="n">use_cupy</span> <span class="o">=</span> <span class="kc">False</span>
+
+
+<div class="viewcode-block" id="torch2numpy">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.torch2numpy">[docs]</a>
+<span class="k">def</span> <span class="nf">torch2numpy</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a torch float32 tensor to a numpy array, sharing the same memory.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">X</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="torch2cupy">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.torch2cupy">[docs]</a>
+<span class="k">def</span> <span class="nf">torch2cupy</span><span class="p">(</span><span class="n">tensor</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">cp</span><span class="o">.</span><span class="n">fromDlpack</span><span class="p">(</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">cuda</span><span class="p">()))</span></div>
+
+
+
+<div class="viewcode-block" id="cupy2torch">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.cupy2torch">[docs]</a>
+<span class="k">def</span> <span class="nf">cupy2torch</span><span class="p">(</span><span class="n">tensor</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">from_dlpack</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">toDlpack</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="real_to_complex">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.real_to_complex">[docs]</a>
+<span class="k">def</span> <span class="nf">real_to_complex</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A version of X that&#39;s complex (i.e., last dimension is 2).</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        X: (...) tensor</span>
+<span class="sd">    Return:</span>
+<span class="sd">        X_complex: (..., 2) tensor</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">((</span><span class="n">X</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">X</span><span class="p">)),</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="conjugate_torch">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.conjugate_torch">[docs]</a>
+<span class="k">def</span> <span class="nf">conjugate_torch</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;Last dimension must be 2&#39;</span>
+    <span class="k">return</span> <span class="n">X</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">X</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">X</span><span class="o">.</span><span class="n">device</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Conjugate">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.Conjugate">[docs]</a>
+<span class="k">class</span> <span class="nc">Conjugate</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;X is a complex64 tensors but stored as float32 tensors, with last dimension = 2.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+<div class="viewcode-block" id="Conjugate.forward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.Conjugate.forward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;Last dimension must be 2&#39;</span>
+        <span class="k">if</span> <span class="n">X</span><span class="o">.</span><span class="n">is_cuda</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">use_cupy</span><span class="p">:</span>
+                <span class="c1"># TODO: do we need .contiguous here? I think it doesn&#39;t work if the last dimension isn&#39;t contiguous</span>
+                <span class="k">return</span> <span class="n">cupy2torch</span><span class="p">(</span><span class="n">torch2cupy</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">conjugate_torch</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">torch2numpy</span><span class="p">(</span><span class="n">X</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="Conjugate.backward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.Conjugate.backward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Conjugate</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">grad</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="n">conjugate</span> <span class="o">=</span> <span class="n">Conjugate</span><span class="o">.</span><span class="n">apply</span>
+
+
+<div class="viewcode-block" id="complex_mul_torch">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.complex_mul_torch">[docs]</a>
+<span class="k">def</span> <span class="nf">complex_mul_torch</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;Last dimension must be 2&#39;</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">Y</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">Y</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+         <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">Y</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">X</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">Y</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+        <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="complex_mul_numpy">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.complex_mul_numpy">[docs]</a>
+<span class="k">def</span> <span class="nf">complex_mul_numpy</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;Last dimension must be 2&#39;</span>
+    <span class="n">X_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">torch2numpy</span><span class="p">(</span><span class="n">X</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span>
+    <span class="n">Y_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">torch2numpy</span><span class="p">(</span><span class="n">Y</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">((</span><span class="n">X_np</span> <span class="o">*</span> <span class="n">Y_np</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="ComplexMul">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.ComplexMul">[docs]</a>
+<span class="k">class</span> <span class="nc">ComplexMul</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;X and Y are complex64 tensors but stored as float32 tensors, with last dimension = 2.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+<div class="viewcode-block" id="ComplexMul.forward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.ComplexMul.forward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;Last dimension must be 2&#39;</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">X</span><span class="o">.</span><span class="n">is_cuda</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">Y</span><span class="o">.</span><span class="n">is_cuda</span><span class="p">,</span> <span class="s1">&#39;X and Y must both be torch.cuda.FloatTensor&#39;</span>
+            <span class="k">if</span> <span class="n">use_cupy</span><span class="p">:</span>
+                <span class="c1"># TODO: do we need .contiguous here? I think it doesn&#39;t work if the last dimension isn&#39;t contiguous</span>
+                <span class="k">return</span> <span class="n">cupy2torch</span><span class="p">((</span><span class="n">torch2cupy</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch2cupy</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">complex_mul_torch</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="ow">not</span> <span class="n">Y</span><span class="o">.</span><span class="n">is_cuda</span><span class="p">,</span> <span class="s1">&#39;X and Y must both be torch.FloatTensor&#39;</span>
+            <span class="n">X_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">torch2numpy</span><span class="p">(</span><span class="n">X</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span>
+            <span class="n">Y_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">torch2numpy</span><span class="p">(</span><span class="n">Y</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">((</span><span class="n">X_np</span> <span class="o">*</span> <span class="n">Y_np</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="ComplexMul.backward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.ComplexMul.backward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad</span><span class="p">):</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+        <span class="n">grad_X</span><span class="p">,</span> <span class="n">grad_Y</span> <span class="o">=</span> <span class="n">ComplexMul</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">grad</span><span class="p">,</span> <span class="n">conjugate</span><span class="p">(</span><span class="n">Y</span><span class="p">)),</span> <span class="n">ComplexMul</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">grad</span><span class="p">,</span> <span class="n">conjugate</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
+        <span class="c1"># Need to sum over dimensions that were broadcasted</span>
+        <span class="n">dims_to_sum_X</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">X</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="n">i</span><span class="p">]</span> <span class="o">!=</span> <span class="n">grad</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="n">i</span><span class="p">]]</span>
+        <span class="n">dims_to_sum_Y</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">Y</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="n">i</span><span class="p">]</span> <span class="o">!=</span> <span class="n">grad</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="n">i</span><span class="p">]]</span>
+        <span class="k">if</span> <span class="n">dims_to_sum_X</span><span class="p">:</span>  <span class="c1"># If empty list is passed to sum, it sums all the dimensions</span>
+            <span class="n">grad_X</span> <span class="o">=</span> <span class="n">grad_X</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dims_to_sum_X</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dims_to_sum_Y</span><span class="p">:</span>  <span class="c1"># If empty list is passed to sum, it sums all the dimensions</span>
+            <span class="n">grad_Y</span> <span class="o">=</span> <span class="n">grad_Y</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dims_to_sum_Y</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">grad</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">X</span><span class="o">.</span><span class="n">dim</span><span class="p">():</span>
+            <span class="n">grad_X</span> <span class="o">=</span> <span class="n">grad_X</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">grad</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">-</span> <span class="n">X</span><span class="o">.</span><span class="n">dim</span><span class="p">())))</span>
+        <span class="k">if</span> <span class="n">grad</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">Y</span><span class="o">.</span><span class="n">dim</span><span class="p">():</span>
+            <span class="n">grad_Y</span> <span class="o">=</span> <span class="n">grad_Y</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">grad</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">-</span> <span class="n">Y</span><span class="o">.</span><span class="n">dim</span><span class="p">())))</span>
+        <span class="k">return</span> <span class="n">grad_X</span><span class="p">,</span> <span class="n">grad_Y</span></div>
+</div>
+
+
+
+<span class="n">complex_mul</span> <span class="o">=</span> <span class="n">ComplexMul</span><span class="o">.</span><span class="n">apply</span>
+
+
+<div class="viewcode-block" id="test_complex_mul">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.test_complex_mul">[docs]</a>
+<span class="k">def</span> <span class="nf">test_complex_mul</span><span class="p">():</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="mi">7</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># Transpose to test non-contiguous arrays</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">complex_mul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+    <span class="n">Z_torch</span> <span class="o">=</span> <span class="n">complex_mul_torch</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">Z</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">Z_torch</span><span class="p">)</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand_like</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span>
+    <span class="n">dX</span><span class="p">,</span> <span class="n">dY</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">),</span> <span class="n">g</span><span class="p">)</span>
+    <span class="n">dX_torch</span><span class="p">,</span> <span class="n">dY_torch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">Z_torch</span><span class="p">,</span> <span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">),</span> <span class="n">g</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">dX</span><span class="p">,</span> <span class="n">dX_torch</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">dY</span><span class="p">,</span> <span class="n">dY_torch</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">cuda</span><span class="p">(),</span> <span class="n">Y</span><span class="o">.</span><span class="n">cuda</span><span class="p">()</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">complex_mul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+        <span class="n">Z_torch</span> <span class="o">=</span> <span class="n">complex_mul_torch</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">Z</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">Z_torch</span><span class="p">)</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand_like</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span>
+        <span class="n">dX</span><span class="p">,</span> <span class="n">dY</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">),</span> <span class="n">g</span><span class="p">)</span>
+        <span class="n">dX_torch</span><span class="p">,</span> <span class="n">dY_torch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">Z_torch</span><span class="p">,</span> <span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">),</span> <span class="n">g</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">dX</span><span class="p">,</span> <span class="n">dX_torch</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">dY</span><span class="p">,</span> <span class="n">dY_torch</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="complex_matmul_torch">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.complex_matmul_torch">[docs]</a>
+<span class="k">def</span> <span class="nf">complex_matmul_torch</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Multiply two complex matrices.</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">       X: (..., n, m, 2)</span>
+<span class="sd">       Y: (..., m, p, 2)</span>
+<span class="sd">    Return:</span>
+<span class="sd">       Z: (..., n, p, 2)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">complex_mul_torch</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">),</span> <span class="n">Y</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">4</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">3</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="ComplexMatmulNp">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp">[docs]</a>
+<span class="k">class</span> <span class="nc">ComplexMatmulNp</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Multiply two complex matrices, in numpy.</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        X: (n, m, 2)</span>
+<span class="sd">        Y: (m, p, 2)</span>
+<span class="sd">    Return:</span>
+<span class="sd">        Z: (n, p, 2)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ComplexMatmulNp.forward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.forward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">):</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+        <span class="n">X_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">torch2numpy</span><span class="p">(</span><span class="n">X</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">Y_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">torch2numpy</span><span class="p">(</span><span class="n">Y</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">prod</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">((</span><span class="n">X_np</span> <span class="o">@</span> <span class="n">Y_np</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">prod</span></div>
+
+
+<div class="viewcode-block" id="ComplexMatmulNp.backward">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.backward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad</span><span class="p">):</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">Y</span>  <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+        <span class="n">X_np</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">Y_np</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">grad_np</span> <span class="o">=</span> <span class="n">grad</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">dX</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">grad_np</span> <span class="o">@</span> <span class="n">Y_np</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">))</span>
+        <span class="n">dY</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">X_np</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">grad_np</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">dX</span><span class="p">,</span> <span class="n">dY</span></div>
+</div>
+
+
+
+<span class="n">complex_matmul</span> <span class="o">=</span> <span class="n">ComplexMatmulNp</span><span class="o">.</span><span class="n">apply</span>
+
+
+<div class="viewcode-block" id="test_complex_mm">
+<a class="viewcode-back" href="../../../../neuromancer.slim.butterfly.html#neuromancer.slim.butterfly.complex_utils.test_complex_mm">[docs]</a>
+<span class="k">def</span> <span class="nf">test_complex_mm</span><span class="p">():</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="mi">7</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">complex_matmul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">Z</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">batch_size</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="c1"># X = torch.rand(batch_size, n, m, 2)</span>
+    <span class="c1"># Y = torch.rand(batch_size, m, p, 2)</span>
+    <span class="c1"># Z = complex_matmul(X, Y)</span>
+    <span class="c1"># assert Z.shape == (batch_size, n, p, 2)</span>
+    <span class="n">X_np</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">Y_np</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;complex64&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">Z_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">X_np</span> <span class="o">@</span> <span class="n">Y_np</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">Z</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">Z_np</span><span class="p">)</span>
+    <span class="n">Z_torch</span> <span class="o">=</span> <span class="n">complex_matmul_torch</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">Z_torch</span><span class="p">)</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand_like</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span>
+    <span class="n">dX</span><span class="p">,</span> <span class="n">dY</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">),</span> <span class="n">g</span><span class="p">)</span>
+    <span class="n">dX_torch</span><span class="p">,</span> <span class="n">dY_torch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">Z_torch</span><span class="p">,</span> <span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">),</span> <span class="n">g</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">dX</span><span class="p">,</span> <span class="n">dX_torch</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">dY</span><span class="p">,</span> <span class="n">dY_torch</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">test_complex_mul</span><span class="p">()</span>
+    <span class="n">test_complex_mm</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

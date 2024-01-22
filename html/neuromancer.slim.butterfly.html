@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.slim.butterfly package &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=02f2166e"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="neuromancer.slim package" href="neuromancer.slim.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Neuromancer
+              <img src="_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="neuromancer.html">neuromancer package</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="neuromancer.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.dynamics.html">neuromancer.dynamics package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.modules.html">neuromancer.modules package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.psl.html">neuromancer.psl package</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="neuromancer.slim.html">neuromancer.slim package</a><ul class="current">
+<li class="toctree-l4 current"><a class="reference internal" href="neuromancer.slim.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.slim.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.slim.html#neuromancer-slim-bench-module">neuromancer.slim.bench module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.slim.html#module-neuromancer.slim.linear">neuromancer.slim.linear module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.slim.html#module-neuromancer.slim.rnn">neuromancer.slim.rnn module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.slim.html#module-neuromancer.slim">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.arg">neuromancer.arg module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.callbacks">neuromancer.callbacks module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.constraint">neuromancer.constraint module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.dataset">neuromancer.dataset module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.gradients">neuromancer.gradients module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.loggers">neuromancer.loggers module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.loss">neuromancer.loss module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.plot">neuromancer.plot module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.problem">neuromancer.problem module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.system">neuromancer.system module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.trainer">neuromancer.trainer module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer">Module contents</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="neuromancer.html">neuromancer package</a></li>
+          <li class="breadcrumb-item"><a href="neuromancer.slim.html">neuromancer.slim package</a></li>
+      <li class="breadcrumb-item active">neuromancer.slim.butterfly package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/neuromancer.slim.butterfly.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="neuromancer-slim-butterfly-package">
+<h1>neuromancer.slim.butterfly package<a class="headerlink" href="#neuromancer-slim-butterfly-package" title="Link to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-neuromancer.slim.butterfly.benchmark">
+<span id="neuromancer-slim-butterfly-benchmark-module"></span><h2>neuromancer.slim.butterfly.benchmark module<a class="headerlink" href="#module-neuromancer.slim.butterfly.benchmark" title="Link to this heading"></a></h2>
+</section>
+<section id="module-neuromancer.slim.butterfly.butterfly">
+<span id="neuromancer-slim-butterfly-butterfly-module"></span><h2>neuromancer.slim.butterfly.butterfly module<a class="headerlink" href="#module-neuromancer.slim.butterfly.butterfly" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly.Butterfly">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.butterfly.</span></span><span class="sig-name descname"><span class="pre">Butterfly</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">in_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">complex</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tied_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ortho_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly.html#Butterfly"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly.Butterfly" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Product of log N butterfly factors, each is a block 2x2 of diagonal matrices.
+Compatible with torch.nn.Linear.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>in_size</strong> – size of input</p></li>
+<li><p><strong>out_size</strong> – size of output</p></li>
+<li><p><strong>bias</strong> – If set to False, the layer will not learn an additive bias.
+Default: <code class="docutils literal notranslate"><span class="pre">True</span></code></p></li>
+<li><p><strong>complex</strong> – whether complex or real</p></li>
+<li><p><strong>tied_weight</strong> – <dl class="simple">
+<dt>whether the weights in the butterfly factors are tied.</dt><dd><p>If True, will have 4N parameters, else will have 2 N log N parameters (not counting bias)</p>
+</dd>
+<dt>increasing_stride: whether to multiply with increasing stride (e.g. 2, 4, …, n/2) or</dt><dd><p>decreasing stride (e.g., n/2, n/4, …, 2).
+Note that this only changes the order of multiplication, not how twiddle is stored.
+In other words, twiddle[&#64;log_stride] always stores the twiddle for &#64;stride.</p>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>ortho_init</strong> – whether the weight matrix should be initialized to be orthogonal/unitary.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly.Butterfly.extra_repr">
+<span class="sig-name descname"><span class="pre">extra_repr</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly.html#Butterfly.extra_repr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly.Butterfly.extra_repr" title="Link to this definition"></a></dt>
+<dd><p>Set the extra representation of the module</p>
+<p>To print customized extra information, you should re-implement
+this method in your own modules. Both single-line and multi-line
+strings are acceptable.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly.Butterfly.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly.html#Butterfly.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly.Butterfly.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input</strong> – (batch, in_size) if real or (batch, in_size, 2) if complex</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch, out_size) if real or (batch, out_size, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly.Butterfly.reset_parameters">
+<span class="sig-name descname"><span class="pre">reset_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly.html#Butterfly.reset_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly.Butterfly.reset_parameters" title="Link to this definition"></a></dt>
+<dd><p>Initialize bias the same way as torch.nn.Linear.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.slim.butterfly.butterfly_multiply">
+<span id="neuromancer-slim-butterfly-butterfly-multiply-module"></span><h2>neuromancer.slim.butterfly.butterfly_multiply module<a class="headerlink" href="#module-neuromancer.slim.butterfly.butterfly_multiply" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.ButterflyFactorMult">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.butterfly_multiply.</span></span><span class="sig-name descname"><span class="pre">ButterflyFactorMult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#ButterflyFactorMult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyFactorMult" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.ButterflyFactorMult.backward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#ButterflyFactorMult.backward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyFactorMult.backward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>grad</strong> – (batch_size, 2, n) if real or (batch_size, 2, n, 2) if complex</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(2, 2, n) if real or (2, 2, n, 2) if complex
+d_input: (batch_size, 2, n) if real or (batch_size, 2, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>d_twiddle</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.ButterflyFactorMult.forward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">twiddle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#ButterflyFactorMult.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyFactorMult.forward" title="Link to this definition"></a></dt>
+<dd><p>Multiply by a single factor.
+:param twiddle: (2, 2, n) if real or (2, 2, n, 2) if complex
+:param input: (batch_size, 2, n) if real or (batch_size, 2, n, 2) if complex</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(batch_size, 2, n) if real or (batch_size, 2, n, 2) if complex</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMult">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.butterfly_multiply.</span></span><span class="sig-name descname"><span class="pre">ButterflyMult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#ButterflyMult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMult" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMult.backward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#ButterflyMult.backward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMult.backward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>grad</strong> – (batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</p></li>
+<li><p><strong>twiddle</strong> – (nstack, n - 1, 2, 2) if real or (nstack, n - 1, 2, 2, 2) if complex</p></li>
+<li><p><strong>backward</strong> (<em>output + intermediate values for</em>) – (log n + 1, batch_size, nstack, n) if real or (log n + 1, batch_size, nstack, n, 2) if complex</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(nstack, n - 1, 2, 2) if real or (nstack, n - 1, 2, 2, 2) if complex
+d_input: (batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>d_twiddle</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMult.forward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">twiddle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#ButterflyMult.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMult.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>twiddle</strong> – (nstack, n - 1, 2, 2) if real or (nstack, n - 1, 2, 2, 2) if complex</p></li>
+<li><p><strong>input</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p></li>
+<li><p><strong>increasing_stride</strong> – whether to multiply with increasing stride (e.g. 2, 4, …, n/2) or
+decreasing stride (e.g., n/2, n/4, …, 2).
+Note that this only changes the order of multiplication, not how twiddle is stored.
+In other words, twiddle[&#64;log_stride] always stores the twiddle for &#64;stride.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.butterfly_multiply.</span></span><span class="sig-name descname"><span class="pre">ButterflyMultInplace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#ButterflyMultInplace"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.backward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#ButterflyMultInplace.backward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.backward" title="Link to this definition"></a></dt>
+<dd><p>Defines a formula for differentiating the operation with backward mode
+automatic differentiation (alias to the vjp function).</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
+as many outputs as the <a class="reference internal" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.forward" title="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> returned (None will be passed in
+for non tensor outputs of the forward function),
+and it should return as many tensors, as there were inputs to
+<a class="reference internal" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.forward" title="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the gradient w.r.t the given output,
+and each returned value should be the gradient w.r.t. the
+corresponding input. If an input is not a Tensor or is a Tensor not
+requiring grads, you can just pass None as a gradient for that input.</p>
+<p>The context can be used to retrieve tensors saved during the forward
+pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
+of booleans representing whether each input needs gradient. E.g.,
+<a class="reference internal" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.backward" title="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
+first input to <a class="reference internal" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.forward" title="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computed w.r.t. the
+output.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.forward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">twiddle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#ButterflyMultInplace.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultInplace.forward" title="Link to this definition"></a></dt>
+<dd><p>Experimental in-place implementation that does not store intermediate results.
+Instead, the intermediate results are computed from the output during the backward pass.
+:param twiddle: (n - 1, 2, 2) if real or (n - 1, 2, 2, 2) if complex
+:param input: (batch_size, n) if real or (batch_size, n, 2) if complex
+:param increasing_stride: whether to multiply with increasing stride (e.g. 2, 4, …, n/2) or</p>
+<blockquote>
+<div><p>decreasing stride (e.g., n/2, n/4, …, 2).
+Note that this only changes the order of multiplication, not how twiddle is stored.
+In other words, twiddle[&#64;log_stride] always stores the twiddle for &#64;stride.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultUntied">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.butterfly_multiply.</span></span><span class="sig-name descname"><span class="pre">ButterflyMultUntied</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#ButterflyMultUntied"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultUntied" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultUntied.backward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#ButterflyMultUntied.backward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultUntied.backward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>grad</strong> – (batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</p></li>
+<li><p><strong>twiddle</strong> – (nstack, log 2, n / 2, 2, 2) if real or (nstack, log 2, n / 2, 2, 2, 2) if complex</p></li>
+<li><p><strong>backward</strong> (<em>output + intermediate values for</em>) – (log n + 1, batch_size, nstack, n) if real or (log n + 1, batch_size, nstack, n, 2) if complex</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(nstack, log 2, n / 2, 2, 2) if real or (nstack, log 2, n / 2, 2, 2, 2) if complex
+d_input: (batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>d_twiddle</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultUntied.forward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">twiddle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#ButterflyMultUntied.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.ButterflyMultUntied.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>twiddle</strong> – (nstack, log 2, n / 2, 2, 2) if real or (nstack, log 2, n / 2, 2, 2, 2) if complex</p></li>
+<li><p><strong>input</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p></li>
+<li><p><strong>increasing_stride</strong> – whether to multiply with increasing stride (e.g. 2, 4, …, n/2) or
+decreasing stride (e.g., n/2, n/4, …, 2).
+Note that this only changes the order of multiplication, not how twiddle is stored.
+In other words, twiddle[&#64;log_stride] always stores the twiddle for &#64;stride.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.butterfly_multiply.</span></span><span class="sig-name descname"><span class="pre">butterfly_mult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">twiddle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_intermediates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>twiddle</strong> – (nstack, n - 1, 2, 2) if real or (nstack, n - 1, 2, 2, 2) if complex</p></li>
+<li><p><strong>input</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p></li>
+<li><p><strong>increasing_stride</strong> – whether to multiply with increasing stride (e.g. 2, 4, …, n/2) or
+decreasing stride (e.g., n/2, n/4, …, 2).
+Note that this only changes the order of multiplication, not how twiddle is stored.
+In other words, twiddle[&#64;log_stride] always stores the twiddle for &#64;stride.</p></li>
+<li><p><strong>return_intermediates</strong> – whether to return all the intermediate values computed, for debugging</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult_factors">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.butterfly_multiply.</span></span><span class="sig-name descname"><span class="pre">butterfly_mult_factors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">twiddle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_intermediates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#butterfly_mult_factors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult_factors" title="Link to this definition"></a></dt>
+<dd><p>Implementation that have separate kernels for each factor, for debugging.
+:param twiddle: (n - 1, 2, 2) if real or (n - 1, 2, 2, 2) if complex
+:param input: (batch_size, n) if real or (batch_size, n, 2) if complex
+:param increasing_stride: whether to multiply with increasing stride (e.g. 2, 4, …, n/2) or</p>
+<blockquote>
+<div><p>decreasing stride (e.g., n/2, n/4, …, 2).
+Note that this only changes the order of multiplication, not how twiddle is stored.
+In other words, twiddle[&#64;log_stride] always stores the twiddle for &#64;stride.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>return_intermediates</strong> – whether to return all the intermediate values computed, for debugging</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult_torch">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.butterfly_multiply.</span></span><span class="sig-name descname"><span class="pre">butterfly_mult_torch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">twiddle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_intermediates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#butterfly_mult_torch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult_torch" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>twiddle</strong> – (nstack, n - 1, 2, 2) if real or (nstack, n - 1, 2, 2, 2) if complex</p></li>
+<li><p><strong>input</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p></li>
+<li><p><strong>increasing_stride</strong> – whether to multiply with increasing stride (e.g. 2, 4, …, n/2) or
+decreasing stride (e.g., n/2, n/4, …, 2).
+Note that this only changes the order of multiplication, not how twiddle is stored.
+In other words, twiddle[&#64;log_stride] always stores the twiddle for &#64;stride.</p></li>
+<li><p><strong>return_intermediates</strong> – whether to return all the intermediate values computed, for debugging</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult_untied">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.butterfly_multiply.</span></span><span class="sig-name descname"><span class="pre">butterfly_mult_untied</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">twiddle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_intermediates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult_untied" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>twiddle</strong> – (nstack, log n, n / 2, 2, 2) if real or (nstack, log n, n / 2, 2, 2, 2) if complex</p></li>
+<li><p><strong>input</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p></li>
+<li><p><strong>increasing_stride</strong> – whether to multiply with increasing stride (e.g. 2, 4, …, n/2) or
+decreasing stride (e.g., n/2, n/4, …, 2).
+Note that this only changes the order of multiplication, not how twiddle is stored.
+In other words, twiddle[&#64;log_stride] always stores the twiddle for &#64;stride.</p></li>
+<li><p><strong>return_intermediates</strong> – whether to return all the intermediate values computed, for debugging</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult_untied_torch">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.butterfly_multiply.</span></span><span class="sig-name descname"><span class="pre">butterfly_mult_untied_torch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">twiddle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_intermediates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/butterfly_multiply.html#butterfly_mult_untied_torch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.butterfly_multiply.butterfly_mult_untied_torch" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>twiddle</strong> – (nstack, log n, n / 2, 2, 2) if real or (nstack, log n, n / 2, 2, 2, 2) if complex</p></li>
+<li><p><strong>input</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p></li>
+<li><p><strong>increasing_stride</strong> – whether to multiply with increasing stride (e.g. 2, 4, …, n/2) or
+decreasing stride (e.g., n/2, n/4, …, 2).
+Note that this only changes the order of multiplication, not how twiddle is stored.
+In other words, twiddle[&#64;log_stride] always stores the twiddle for &#64;stride.</p></li>
+<li><p><strong>return_intermediates</strong> – whether to return all the intermediate values computed, for debugging</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, nstack, n) if real or (batch_size, nstack, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.slim.butterfly.complex_utils">
+<span id="neuromancer-slim-butterfly-complex-utils-module"></span><h2>neuromancer.slim.butterfly.complex_utils module<a class="headerlink" href="#module-neuromancer.slim.butterfly.complex_utils" title="Link to this heading"></a></h2>
+<p>Utility functions for handling complex tensors: conjugate and complex_mul.
+Pytorch (as of 1.0) does not support complex tensors, so we store them as
+float tensors where the last dimension is 2 (real and imaginary parts).</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">ComplexMatmulNp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#ComplexMatmulNp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></p>
+<p>Multiply two complex matrices, in numpy.
+:param X: (n, m, 2)
+:param Y: (m, p, 2)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(n, p, 2)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Z</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.backward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#ComplexMatmulNp.backward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.backward" title="Link to this definition"></a></dt>
+<dd><p>Defines a formula for differentiating the operation with backward mode
+automatic differentiation (alias to the vjp function).</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
+as many outputs as the <a class="reference internal" href="#neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.forward" title="neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> returned (None will be passed in
+for non tensor outputs of the forward function),
+and it should return as many tensors, as there were inputs to
+<a class="reference internal" href="#neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.forward" title="neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the gradient w.r.t the given output,
+and each returned value should be the gradient w.r.t. the
+corresponding input. If an input is not a Tensor or is a Tensor not
+requiring grads, you can just pass None as a gradient for that input.</p>
+<p>The context can be used to retrieve tensors saved during the forward
+pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
+of booleans representing whether each input needs gradient. E.g.,
+<a class="reference internal" href="#neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.backward" title="neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
+first input to <a class="reference internal" href="#neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.forward" title="neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computed w.r.t. the
+output.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.forward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#ComplexMatmulNp.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.ComplexMatmulNp.forward" title="Link to this definition"></a></dt>
+<dd><p>This function is to be overridden by all subclasses. There are two ways
+to define forward:</p>
+<p>Usage 1 (Combined forward and ctx):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>It must accept a context ctx as the first argument, followed by any
+number of arguments (tensors or other types).</p></li>
+<li><p>See <span class="xref std std-ref">combining-forward-context</span> for more details</p></li>
+</ul>
+<p>Usage 2 (Separate forward and ctx):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">pass</span>
+
+<span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">setup_context</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>The forward no longer accepts a ctx argument.</p></li>
+<li><p>Instead, you must also override the <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.autograd.Function.setup_context()</span></code>
+staticmethod to handle setting up the <code class="docutils literal notranslate"><span class="pre">ctx</span></code> object.
+<code class="docutils literal notranslate"><span class="pre">output</span></code> is the output of the forward, <code class="docutils literal notranslate"><span class="pre">inputs</span></code> are a Tuple of inputs
+to the forward.</p></li>
+<li><p>See <span class="xref std std-ref">extending-autograd</span> for more details</p></li>
+</ul>
+<p>The context can be used to store arbitrary data that can be then
+retrieved during the backward pass. Tensors should not be stored
+directly on <cite>ctx</cite> (though this is not currently enforced for
+backward compatibility). Instead, tensors should be saved either with
+<code class="xref py py-func docutils literal notranslate"><span class="pre">ctx.save_for_backward()</span></code> if they are intended to be used in
+<code class="docutils literal notranslate"><span class="pre">backward</span></code> (equivalently, <code class="docutils literal notranslate"><span class="pre">vjp</span></code>) or <code class="xref py py-func docutils literal notranslate"><span class="pre">ctx.save_for_forward()</span></code>
+if they are intended to be used for in <code class="docutils literal notranslate"><span class="pre">jvp</span></code>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.ComplexMul">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">ComplexMul</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#ComplexMul"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.ComplexMul" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></p>
+<p>X and Y are complex64 tensors but stored as float32 tensors, with last dimension = 2.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.ComplexMul.backward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#ComplexMul.backward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.ComplexMul.backward" title="Link to this definition"></a></dt>
+<dd><p>Defines a formula for differentiating the operation with backward mode
+automatic differentiation (alias to the vjp function).</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
+as many outputs as the <a class="reference internal" href="#neuromancer.slim.butterfly.complex_utils.ComplexMul.forward" title="neuromancer.slim.butterfly.complex_utils.ComplexMul.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> returned (None will be passed in
+for non tensor outputs of the forward function),
+and it should return as many tensors, as there were inputs to
+<a class="reference internal" href="#neuromancer.slim.butterfly.complex_utils.ComplexMul.forward" title="neuromancer.slim.butterfly.complex_utils.ComplexMul.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the gradient w.r.t the given output,
+and each returned value should be the gradient w.r.t. the
+corresponding input. If an input is not a Tensor or is a Tensor not
+requiring grads, you can just pass None as a gradient for that input.</p>
+<p>The context can be used to retrieve tensors saved during the forward
+pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
+of booleans representing whether each input needs gradient. E.g.,
+<a class="reference internal" href="#neuromancer.slim.butterfly.complex_utils.ComplexMul.backward" title="neuromancer.slim.butterfly.complex_utils.ComplexMul.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
+first input to <a class="reference internal" href="#neuromancer.slim.butterfly.complex_utils.ComplexMul.forward" title="neuromancer.slim.butterfly.complex_utils.ComplexMul.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computed w.r.t. the
+output.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.ComplexMul.forward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#ComplexMul.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.ComplexMul.forward" title="Link to this definition"></a></dt>
+<dd><p>This function is to be overridden by all subclasses. There are two ways
+to define forward:</p>
+<p>Usage 1 (Combined forward and ctx):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>It must accept a context ctx as the first argument, followed by any
+number of arguments (tensors or other types).</p></li>
+<li><p>See <span class="xref std std-ref">combining-forward-context</span> for more details</p></li>
+</ul>
+<p>Usage 2 (Separate forward and ctx):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">pass</span>
+
+<span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">setup_context</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>The forward no longer accepts a ctx argument.</p></li>
+<li><p>Instead, you must also override the <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.autograd.Function.setup_context()</span></code>
+staticmethod to handle setting up the <code class="docutils literal notranslate"><span class="pre">ctx</span></code> object.
+<code class="docutils literal notranslate"><span class="pre">output</span></code> is the output of the forward, <code class="docutils literal notranslate"><span class="pre">inputs</span></code> are a Tuple of inputs
+to the forward.</p></li>
+<li><p>See <span class="xref std std-ref">extending-autograd</span> for more details</p></li>
+</ul>
+<p>The context can be used to store arbitrary data that can be then
+retrieved during the backward pass. Tensors should not be stored
+directly on <cite>ctx</cite> (though this is not currently enforced for
+backward compatibility). Instead, tensors should be saved either with
+<code class="xref py py-func docutils literal notranslate"><span class="pre">ctx.save_for_backward()</span></code> if they are intended to be used in
+<code class="docutils literal notranslate"><span class="pre">backward</span></code> (equivalently, <code class="docutils literal notranslate"><span class="pre">vjp</span></code>) or <code class="xref py py-func docutils literal notranslate"><span class="pre">ctx.save_for_forward()</span></code>
+if they are intended to be used for in <code class="docutils literal notranslate"><span class="pre">jvp</span></code>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.Conjugate">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">Conjugate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#Conjugate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.Conjugate" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></p>
+<p>X is a complex64 tensors but stored as float32 tensors, with last dimension = 2.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.Conjugate.backward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#Conjugate.backward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.Conjugate.backward" title="Link to this definition"></a></dt>
+<dd><p>Defines a formula for differentiating the operation with backward mode
+automatic differentiation (alias to the vjp function).</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
+as many outputs as the <a class="reference internal" href="#neuromancer.slim.butterfly.complex_utils.Conjugate.forward" title="neuromancer.slim.butterfly.complex_utils.Conjugate.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> returned (None will be passed in
+for non tensor outputs of the forward function),
+and it should return as many tensors, as there were inputs to
+<a class="reference internal" href="#neuromancer.slim.butterfly.complex_utils.Conjugate.forward" title="neuromancer.slim.butterfly.complex_utils.Conjugate.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the gradient w.r.t the given output,
+and each returned value should be the gradient w.r.t. the
+corresponding input. If an input is not a Tensor or is a Tensor not
+requiring grads, you can just pass None as a gradient for that input.</p>
+<p>The context can be used to retrieve tensors saved during the forward
+pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
+of booleans representing whether each input needs gradient. E.g.,
+<a class="reference internal" href="#neuromancer.slim.butterfly.complex_utils.Conjugate.backward" title="neuromancer.slim.butterfly.complex_utils.Conjugate.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
+first input to <a class="reference internal" href="#neuromancer.slim.butterfly.complex_utils.Conjugate.forward" title="neuromancer.slim.butterfly.complex_utils.Conjugate.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computed w.r.t. the
+output.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.Conjugate.forward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#Conjugate.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.Conjugate.forward" title="Link to this definition"></a></dt>
+<dd><p>This function is to be overridden by all subclasses. There are two ways
+to define forward:</p>
+<p>Usage 1 (Combined forward and ctx):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>It must accept a context ctx as the first argument, followed by any
+number of arguments (tensors or other types).</p></li>
+<li><p>See <span class="xref std std-ref">combining-forward-context</span> for more details</p></li>
+</ul>
+<p>Usage 2 (Separate forward and ctx):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">pass</span>
+
+<span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">setup_context</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>The forward no longer accepts a ctx argument.</p></li>
+<li><p>Instead, you must also override the <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.autograd.Function.setup_context()</span></code>
+staticmethod to handle setting up the <code class="docutils literal notranslate"><span class="pre">ctx</span></code> object.
+<code class="docutils literal notranslate"><span class="pre">output</span></code> is the output of the forward, <code class="docutils literal notranslate"><span class="pre">inputs</span></code> are a Tuple of inputs
+to the forward.</p></li>
+<li><p>See <span class="xref std std-ref">extending-autograd</span> for more details</p></li>
+</ul>
+<p>The context can be used to store arbitrary data that can be then
+retrieved during the backward pass. Tensors should not be stored
+directly on <cite>ctx</cite> (though this is not currently enforced for
+backward compatibility). Instead, tensors should be saved either with
+<code class="xref py py-func docutils literal notranslate"><span class="pre">ctx.save_for_backward()</span></code> if they are intended to be used in
+<code class="docutils literal notranslate"><span class="pre">backward</span></code> (equivalently, <code class="docutils literal notranslate"><span class="pre">vjp</span></code>) or <code class="xref py py-func docutils literal notranslate"><span class="pre">ctx.save_for_forward()</span></code>
+if they are intended to be used for in <code class="docutils literal notranslate"><span class="pre">jvp</span></code>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.complex_matmul_torch">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">complex_matmul_torch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#complex_matmul_torch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.complex_matmul_torch" title="Link to this definition"></a></dt>
+<dd><p>Multiply two complex matrices.
+:param X: (…, n, m, 2)
+:param Y: (…, m, p, 2)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(…, n, p, 2)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Z</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.complex_mul_numpy">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">complex_mul_numpy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#complex_mul_numpy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.complex_mul_numpy" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.complex_mul_torch">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">complex_mul_torch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#complex_mul_torch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.complex_mul_torch" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.conjugate_torch">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">conjugate_torch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#conjugate_torch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.conjugate_torch" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.cupy2torch">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">cupy2torch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#cupy2torch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.cupy2torch" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.real_to_complex">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">real_to_complex</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#real_to_complex"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.real_to_complex" title="Link to this definition"></a></dt>
+<dd><p>A version of X that’s complex (i.e., last dimension is 2).
+:param X: (…) tensor</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(…, 2) tensor</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>X_complex</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.test_complex_mm">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">test_complex_mm</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#test_complex_mm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.test_complex_mm" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.test_complex_mul">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">test_complex_mul</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#test_complex_mul"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.test_complex_mul" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.torch2cupy">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">torch2cupy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#torch2cupy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.torch2cupy" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.complex_utils.torch2numpy">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.complex_utils.</span></span><span class="sig-name descname"><span class="pre">torch2numpy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/complex_utils.html#torch2numpy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.complex_utils.torch2numpy" title="Link to this definition"></a></dt>
+<dd><p>Convert a torch float32 tensor to a numpy array, sharing the same memory.</p>
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.slim.butterfly.permutation">
+<span id="neuromancer-slim-butterfly-permutation-module"></span><h2>neuromancer.slim.butterfly.permutation module<a class="headerlink" href="#module-neuromancer.slim.butterfly.permutation" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation.FixedPermutation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.permutation.</span></span><span class="sig-name descname"><span class="pre">FixedPermutation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">permutation</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation.html#FixedPermutation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation.FixedPermutation" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation.FixedPermutation.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation.html#FixedPermutation.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation.FixedPermutation.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input</strong> – (batch, size) if real or (batch, size, 2) if complex</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch, size) if real or (batch, size, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation.Permutation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.permutation.</span></span><span class="sig-name descname"><span class="pre">Permutation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">share_logit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation.html#Permutation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation.Permutation" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Product of log N permutation factors.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>size</strong> – size of input (and of output)</p></li>
+<li><p><strong>share_logit</strong> – whether the logits in the permutation factors are shared.
+If True, will have 4N parameters, else will have 2 N log N parameters (not counting bias)</p></li>
+<li><p><strong>increasing_stride</strong> – whether to multiply from smaller stride to larger stride, or in the reverse order.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation.Permutation.argmax">
+<span class="sig-name descname"><span class="pre">argmax</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation.html#Permutation.argmax"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation.Permutation.argmax" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(self.size, ) array of int, the most probable permutation.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>p</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation.Permutation.extra_repr">
+<span class="sig-name descname"><span class="pre">extra_repr</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation.html#Permutation.extra_repr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation.Permutation.extra_repr" title="Link to this definition"></a></dt>
+<dd><p>Set the extra representation of the module</p>
+<p>To print customized extra information, you should re-implement
+this method in your own modules. Both single-line and multi-line
+strings are acceptable.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation.Permutation.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation.html#Permutation.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation.Permutation.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input</strong> – (batch, size) if real or (batch, size, 2) if complex</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch, size) if real or (batch, size, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation.PermutationFactor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.permutation.</span></span><span class="sig-name descname"><span class="pre">PermutationFactor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation.html#PermutationFactor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation.PermutationFactor" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>A single permutation factor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>size</strong> – size of input (and of output)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation.PermutationFactor.argmax">
+<span class="sig-name descname"><span class="pre">argmax</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation.html#PermutationFactor.argmax"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation.PermutationFactor.argmax" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(self.size, ) array of int, the most probable permutation.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>p</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation.PermutationFactor.extra_repr">
+<span class="sig-name descname"><span class="pre">extra_repr</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation.html#PermutationFactor.extra_repr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation.PermutationFactor.extra_repr" title="Link to this definition"></a></dt>
+<dd><p>Set the extra representation of the module</p>
+<p>To print customized extra information, you should re-implement
+this method in your own modules. Both single-line and multi-line
+strings are acceptable.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation.PermutationFactor.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation.html#PermutationFactor.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation.PermutationFactor.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input</strong> – (batch, size) if real or (batch, size, 2) if complex</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch, size) if real or (batch, size, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.slim.butterfly.permutation_multiply">
+<span id="neuromancer-slim-butterfly-permutation-multiply-module"></span><h2>neuromancer.slim.butterfly.permutation_multiply module<a class="headerlink" href="#module-neuromancer.slim.butterfly.permutation_multiply" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation_multiply.PermutationFactorEvenOddMult">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.permutation_multiply.</span></span><span class="sig-name descname"><span class="pre">PermutationFactorEvenOddMult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation_multiply.html#PermutationFactorEvenOddMult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation_multiply.PermutationFactorEvenOddMult" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation_multiply.PermutationFactorEvenOddMult.backward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation_multiply.html#PermutationFactorEvenOddMult.backward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation_multiply.PermutationFactorEvenOddMult.backward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>grad</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>real number
+d_input: (batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>d_p</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation_multiply.PermutationFactorEvenOddMult.forward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation_multiply.html#PermutationFactorEvenOddMult.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation_multiply.PermutationFactorEvenOddMult.forward" title="Link to this definition"></a></dt>
+<dd><p>Multiply by a single permutation factor that separates the even and the odd (with weight).
+:param p: real number between 0.0 and 1.0
+:param input: (batch_size, n) if real or (batch_size, n, 2) if complex</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation_multiply.PermutationFactorReverseMult">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.permutation_multiply.</span></span><span class="sig-name descname"><span class="pre">PermutationFactorReverseMult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation_multiply.html#PermutationFactorReverseMult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation_multiply.PermutationFactorReverseMult" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation_multiply.PermutationFactorReverseMult.backward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation_multiply.html#PermutationFactorReverseMult.backward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation_multiply.PermutationFactorReverseMult.backward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>grad</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>real number
+d_input: (batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>d_p</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation_multiply.PermutationFactorReverseMult.forward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation_multiply.html#PermutationFactorReverseMult.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation_multiply.PermutationFactorReverseMult.forward" title="Link to this definition"></a></dt>
+<dd><p>Multiply by a single permutation factor that reverses the first and second halves (with weights).
+:param p: (2, ), must be between 0.0 and 1.0
+:param input: (batch_size, n) if real or (batch_size, n, 2) if complex</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation_multiply.permutation_mult">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.permutation_multiply.</span></span><span class="sig-name descname"><span class="pre">permutation_mult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prob</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_intermediates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#neuromancer.slim.butterfly.permutation_multiply.permutation_mult" title="Link to this definition"></a></dt>
+<dd><p>Multiply by permutation factors, parameterized by the probabilities.
+:param prob: (nsteps, 3), where prob[:, 0] is the probability of separating the even and odd indices,</p>
+<blockquote>
+<div><p>and prob[:, 1:3] are the probabilities of reversing the 1st and 2nd halves respectively.
+Note that stride starts at 4, not 2 (as permutations do nothing at stride 2).</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p></li>
+<li><p><strong>increasing_stride</strong> – whether to multiply with increasing stride (e.g. 4, 8, …, n/2) or
+decreasing stride (e.g., n/2, n/4, …, 4).
+Note that this only changes the order of multiplication, not how prob is stored.
+In other words, prob[&#64;log_stride - 1] always stores the probability for &#64;stride.</p></li>
+<li><p><strong>return_intermediates</strong> – whether to return all the intermediate values computed, for debugging</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation_multiply.permutation_mult_factors">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.permutation_multiply.</span></span><span class="sig-name descname"><span class="pre">permutation_mult_factors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prob</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_intermediates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation_multiply.html#permutation_mult_factors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation_multiply.permutation_mult_factors" title="Link to this definition"></a></dt>
+<dd><p>Multiply by permutation factors, parameterized by the probabilities.
+:param prob: (nsteps, 3), where prob[:, 0] is the probability of separating the even and odd indices,</p>
+<blockquote>
+<div><p>and prob[:, 1:3] are the probabilities of reversing the 1st and 2nd halves respectively.
+Note that stride starts at 4, not 2 (as permutations do nothing at stride 2).</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p></li>
+<li><p><strong>increasing_stride</strong> – whether to multiply with increasing stride (e.g. 4, 8, …, n/2) or
+decreasing stride (e.g., n/2, n/4, …, 4).
+Note that this only changes the order of multiplication, not how prob is stored.
+In other words, prob[&#64;log_stride - 1] always stores the probability for &#64;stride.</p></li>
+<li><p><strong>return_intermediates</strong> – whether to return all the intermediate values computed, for debugging</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation_multiply.permutation_mult_single">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.permutation_multiply.</span></span><span class="sig-name descname"><span class="pre">permutation_mult_single</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prob</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#neuromancer.slim.butterfly.permutation_multiply.permutation_mult_single" title="Link to this definition"></a></dt>
+<dd><p>Multiply by a single permutation factor.
+:param prob: (3, ), where prob[0] is the probability of separating the even and odd indices,</p>
+<blockquote>
+<div><p>and prob[1:3] are the probabilities of reversing the 1st and 2nd halves respectively.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation_multiply.permutation_mult_single_factor">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.permutation_multiply.</span></span><span class="sig-name descname"><span class="pre">permutation_mult_single_factor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prob</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation_multiply.html#permutation_mult_single_factor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation_multiply.permutation_mult_single_factor" title="Link to this definition"></a></dt>
+<dd><p>Multiply by a single permutation factor, parameterized by the probabilities.
+:param prob: (3, ), where prob[0] is the probability of separating the even and odd indices,</p>
+<blockquote>
+<div><p>and prob[1:3] are the probabilities of reversing the 1st and 2nd halves respectively.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation_multiply.permutation_mult_single_factor_torch">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.permutation_multiply.</span></span><span class="sig-name descname"><span class="pre">permutation_mult_single_factor_torch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prob</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation_multiply.html#permutation_mult_single_factor_torch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation_multiply.permutation_mult_single_factor_torch" title="Link to this definition"></a></dt>
+<dd><p>Multiply by a single permutation factor.
+:param prob: (3, ), where prob[0] is the probability of separating the even and odd indices,</p>
+<blockquote>
+<div><p>and prob[1:3] are the probabilities of reversing the 1st and 2nd halves respectively.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.permutation_multiply.permutation_mult_torch">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.permutation_multiply.</span></span><span class="sig-name descname"><span class="pre">permutation_mult_torch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prob</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increasing_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_intermediates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/permutation_multiply.html#permutation_mult_torch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.permutation_multiply.permutation_mult_torch" title="Link to this definition"></a></dt>
+<dd><p>Multiply by permutation factors, parameterized by the probabilities.
+:param prob: (nsteps, 3), where prob[:, 0] is the probability of separating the even and odd indices,</p>
+<blockquote>
+<div><p>and prob[:, 1:3] are the probabilities of reversing the 1st and 2nd halves respectively.
+Note that stride starts at 4, not 2 (as permutations do nothing at stride 2).</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input</strong> – (batch_size, n) if real or (batch_size, n, 2) if complex</p></li>
+<li><p><strong>increasing_stride</strong> – whether to multiply with increasing stride (e.g. 4, 8, …, n/2) or
+decreasing stride (e.g., n/2, n/4, …, 4).
+Note that this only changes the order of multiplication, not how prob is stored.
+In other words, prob[&#64;log_stride - 1] always stores the probability for &#64;stride.</p></li>
+<li><p><strong>return_intermediates</strong> – whether to return all the intermediate values computed, for debugging</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(batch_size, n) if real or (batch_size, n, 2) if complex</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>output</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.slim.butterfly.utils">
+<span id="neuromancer-slim-butterfly-utils-module"></span><h2>neuromancer.slim.butterfly.utils module<a class="headerlink" href="#module-neuromancer.slim.butterfly.utils" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.slim.butterfly.utils.bitreversal_permutation">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.slim.butterfly.utils.</span></span><span class="sig-name descname"><span class="pre">bitreversal_permutation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/slim/butterfly/utils.html#bitreversal_permutation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.slim.butterfly.utils.bitreversal_permutation" title="Link to this definition"></a></dt>
+<dd><p>Return the bit reversal permutation used in FFT.
+Parameter:</p>
+<blockquote>
+<div><p>n: integer, must be a power of 2.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bit reversal permutation, numpy array of size n</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>perm</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-neuromancer.slim.butterfly">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-neuromancer.slim.butterfly" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="neuromancer.slim.html" class="btn btn-neutral float-left" title="neuromancer.slim package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

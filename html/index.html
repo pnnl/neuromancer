@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeuroMANCER &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=02f2166e"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="neuromancer package" href="neuromancer.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            Neuromancer
+              <img src="_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">NeuroMANCER</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="neuromancer">
+<h1>NeuroMANCER<a class="headerlink" href="#neuromancer" title="Link to this heading"></a></h1>
+<img alt="_images/class_diagram.png" src="_images/class_diagram.png" />
+<section id="neuromancer-v1-4-2">
+<h2>NeuroMANCER v1.4.2<a class="headerlink" href="#neuromancer-v1-4-2" title="Link to this heading"></a></h2>
+<p><strong>Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)</strong>
+is an open-source differentiable programming (DP) library for solving parametric constrained optimization problems,
+physics-informed system identification, and parametric model-based optimal control.
+NeuroMANCER is written in [PyTorch](<a class="reference external" href="https://pytorch.org/">https://pytorch.org/</a>) and allows for systematic
+integration of machine learning with scientific computing for creating end-to-end
+differentiable models and algorithms embedded with prior knowledge and physics.</p>
+</section>
+<section id="pip-installation-recommended">
+<h2>Pip Installation (Recommended)<a class="headerlink" href="#pip-installation-recommended" title="Link to this heading"></a></h2>
+<p>Now available on PyPI!</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>neuromancer
+</pre></div>
+</div>
+</section>
+<section id="features-and-examples">
+<h2>Features and Examples<a class="headerlink" href="#features-and-examples" title="Link to this heading"></a></h2>
+<p>Extensive set of tutorials can be found in the
+(<a class="reference external" href="https://github.com/pnnl/neuromancer/tree/master/examples">https://github.com/pnnl/neuromancer/tree/master/examples</a>) folder.
+Interactive notebook versions of examples are available on Google Colab!
+Test out NeuroMANCER functionality before cloning the repository and setting up an
+environment.</p>
+<p>Introduction to NeuroMANCER</p>
+<p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_1_linear_regression.ipynb">Part 1: Linear regression in PyTorch vs NeuroMANCER.</a></p>
+<p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_2_variable.ipynb">Part 2: NeuroMANCER syntax tutorial: variables, constraints, and objectives.</a></p>
+<p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_3_node.ipynb">Part 3: NeuroMANCER syntax tutorial: modules, Node, and System class.</a></p>
+<p>Parametric Programming</p>
+<p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb">Part 1: Learning to solve a constrained optimization problem.</a></p>
+<p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_2_pQP.ipynb">Part 2: Learning to solve a quadratically-constrained optimization problem.</a></p>
+<p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_3_pNLP.ipynb">Part 3: Learning to solve a set of 2D constrained optimization problems.</a></p>
+<p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb">Part 4: Learning to solve a constrained optimization problem with projected gradient method.</a></p>
+<p>Ordinary Differential Equations (ODEs)</p>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_1_NODE.ipynb">Part 1: Neural Ordinary Differential Equations (NODEs)</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_2_param_estim_ODE.ipynb">Part 2: Parameter estimation of ODE system</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_3_UDE.ipynb">Part 3: Universal Differential Equations (UDEs)</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_4_nonauto_NODE.ipynb">Part 4: NODEs with exogenous inputs</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_5_nonauto_NSSM.ipynb">Part 5: Neural State Space Models (NSSMs) with exogenous inputs</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_6_NetworkODE.ipynb">Part 6: Data-driven modeling of resistance-capacitance (RC) network ODEs</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_7_DeepKoopman.ipynb">Part 7: Deep Koopman operator</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_8_nonauto_DeepKoopman.ipynb">Part 8: Control-oriented Deep Koopman operator</a></p></li>
+</ol>
+<p>### Physics-Informed Neural Networks (PINNs) for Partial Differential Equations (PDEs)</p>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb">Part 1: Diffusion Equation</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_2_PINN_BurgersEquation.ipynb">Part 2: Burgers’ Equation</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_3_PINN_BurgersEquation_inverse.ipynb">Part 3: Burgers’ Equation w/ Parameter Estimation (Inverse Problem)</a></p></li>
+</ol>
+<p>Here are the converted lines for the provided examples:</p>
+<p>### Control</p>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb">Part 1: Learning to stabilize a linear dynamical system.</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_2_stabilize_ODE.ipynb">Part 2: Learning to stabilize a nonlinear differential equation.</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_3_ref_tracking_ODE.ipynb">Part 3: Learning to control a nonlinear differential equation.</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_4_NODE_control.ipynb">Part 4: Learning neural ODE model and control policy for an unknown dynamical system.</a></p></li>
+<li><p><a class="reference external" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_5_neural_Lyapunov.ipynb">Part 5: Learning neural Lyapunov function for a nonlinear dynamical system.</a></p></li>
+</ol>
+</section>
+<section id="additional-documentation">
+<h2>Additional Documentation<a class="headerlink" href="#additional-documentation" title="Link to this heading"></a></h2>
+<p>Additional documentation for the library can be found in the <a class="reference external" href="https://github.com/pnnl/neuromancer/blob/master/Documentation.pdf">pdf
+form</a>.
+There is also an <a class="reference external" href="https://www.youtube.com/watch?v=YkFKz-DgC98">introduction
+video</a> covering core
+features of the library.</p>
+</section>
+<section id="getting-started">
+<h2>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h2>
+<p>Below is a Neuromancer syntax example for differentiable parametric programming</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">neuromancer</span> <span class="k">as</span> <span class="nn">nm</span>
+
+<span class="c1"># primal solution map to be trained</span>
+<span class="n">func</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">blocks</span><span class="o">.</span><span class="n">MLP</span><span class="p">(</span><span class="n">insize</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">outsize</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">hsizes</span><span class="o">=</span><span class="p">[</span><span class="mi">80</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">sol_map</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">maps</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span><span class="n">func</span><span class="p">,</span>
+        <span class="n">input_keys</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">],</span>
+        <span class="n">output_keys</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
+        <span class="n">name</span><span class="o">=</span><span class="s1">&#39;primal_map&#39;</span><span class="p">)</span>
+
+<span class="c1"># problem primal variables</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">constraints</span><span class="o">.</span><span class="n">variable</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)[:,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">constraints</span><span class="o">.</span><span class="n">variable</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)[:,</span> <span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+<span class="c1"># sampled problem parameters</span>
+<span class="n">p</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">constraints</span><span class="o">.</span><span class="n">variable</span><span class="p">(</span><span class="s1">&#39;p&#39;</span><span class="p">)</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">constraints</span><span class="o">.</span><span class="n">variable</span><span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">)</span>
+
+<span class="c1"># nonlinear objective function</span>
+<span class="n">f</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">a</span><span class="o">*</span><span class="p">(</span><span class="n">y</span><span class="o">-</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+<span class="n">obj</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">weight</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;obj&#39;</span><span class="p">)</span>
+
+<span class="c1"># constraints</span>
+<span class="n">con_1</span> <span class="o">=</span> <span class="mi">100</span><span class="o">*</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;=</span> <span class="n">y</span><span class="p">)</span>
+<span class="n">con_2</span> <span class="o">=</span> <span class="mi">100</span><span class="o">*</span><span class="p">((</span><span class="n">p</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">&lt;=</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">+</span><span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">con_3</span> <span class="o">=</span> <span class="mi">100</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">+</span><span class="n">y</span><span class="o">**</span><span class="mi">2</span> <span class="o">&lt;=</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="c1"># create constrained optimization loss</span>
+<span class="n">objectives</span> <span class="o">=</span> <span class="p">[</span><span class="n">obj</span><span class="p">]</span>
+<span class="n">constraints</span> <span class="o">=</span> <span class="p">[</span><span class="n">con_1</span><span class="p">,</span> <span class="n">con_2</span><span class="p">,</span> <span class="n">con_3</span><span class="p">]</span>
+<span class="n">loss</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">PenaltyLoss</span><span class="p">(</span><span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
+<span class="c1"># construct constrained optimization problem</span>
+<span class="n">components</span> <span class="o">=</span> <span class="p">[</span><span class="n">sol_map</span><span class="p">]</span>
+<span class="n">problem</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">Problem</span><span class="p">(</span><span class="n">components</span><span class="p">,</span> <span class="n">loss</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h2>
+<p>For detailed examples of NeuroMANCER usage for control, system
+identification, and parametric programming as well as tutorials for
+basic usage, see the scripts in the examples folder.</p>
+</section>
+<section id="community">
+<h2>Community<a class="headerlink" href="#community" title="Link to this heading"></a></h2>
+<p>We welcome contributions and feedback from the open-source community!</p>
+<section id="contributing-examples">
+<h3>Contributing examples<a class="headerlink" href="#contributing-examples" title="Link to this heading"></a></h3>
+<p>If you have an example of using NeuroMANCER to solve an interesting
+problem, or of using NeuroMANCER in a unique way, we would love to see
+it incorporated into our current library of examples. To submit an
+example, create a folder for your example/s in the example folder if
+there isn’t currently and applicable folder and place either your
+executable python file or notebook file there. Push your code back to
+github and then submit a pull request. Please make sure to note in a
+comment at the top of your code if there are additional dependencies to
+run your example and how to install those dependencies.</p>
+</section>
+<section id="contributing-code">
+<h3>Contributing code<a class="headerlink" href="#contributing-code" title="Link to this heading"></a></h3>
+<p>We welcome contributions to NeuroMANCER. Please accompany contributions
+with some lightweight unit tests via pytest (see test/ folder for some
+examples of easy to compose unit tests using pytest). In addition to
+unit tests a script utilizing introduced new classes or modules should
+be placed in the examples folder. To contribute a new feature please
+submit a pull request.</p>
+</section>
+<section id="reporting-issues-or-bugs">
+<h3>Reporting issues or bugs<a class="headerlink" href="#reporting-issues-or-bugs" title="Link to this heading"></a></h3>
+<p>If you find a bug in the code or want to request a new feature, please
+open an issue.</p>
+</section>
+<section id="neuromancer-development-plan">
+<h3>NeuroMANCER development plan<a class="headerlink" href="#neuromancer-development-plan" title="Link to this heading"></a></h3>
+<p>Here are some upcoming features we plan to develop. Please let us know
+if you would like to get involved and contribute so we may be able to
+coordinate on development. If there is a feature that you think would be
+highly valuable but not included below, please open an issue and let us
+know your thoughts.</p>
+<ul class="simple">
+<li><p>Faster dynamics modeling via Torchscript</p></li>
+<li><p>Control and modelling for networked systems</p></li>
+<li><p>Easy to implement modeling and control with uncertainty
+quantification</p></li>
+<li><p>Online learning examples</p></li>
+<li><p>Benchmark examples of DPC compared to deep RL</p></li>
+<li><p>Conda and pip package distribution</p></li>
+<li><p>CVXPY-like interface for optimization via Problem.solve method</p></li>
+<li><p>More versatile and simplified time series dataloading</p></li>
+<li><p>Pytorch Lightning trainer compatibility</p></li>
+</ul>
+</section>
+</section>
+<section id="publications">
+<h2>Publications<a class="headerlink" href="#publications" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://aps.arxiv.org/abs/2207.04962">James Koch, Zhao Chen, Aaron Tuor, Jan Drgona, Draguna Vrabie,
+Structural Inference of Networked Dynamical Systems with Universal
+Differential Equations, arXiv:2207.04962,
+(2022)</a></p></li>
+<li><p><a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S2405896322015877">Ján Drgoňa, Sayak Mukherjee, Aaron Tuor, Mahantesh Halappanavar,
+Draguna Vrabie, Learning Stochastic Parametric Differentiable
+Predictive Control Policies, IFAC ROCOND conference
+(2022)</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2205.10728">Sayak Mukherjee, Ján Drgoňa, Aaron Tuor, Mahantesh Halappanavar,
+Draguna Vrabie, Neural Lyapunov Differentiable Predictive Control,
+IEEE Conference on Decision and Control Conference
+2022</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2208.02319">Wenceslao Shaw Cortez, Jan Drgona, Aaron Tuor, Mahantesh
+Halappanavar, Draguna Vrabie, Differentiable Predictive Control with
+Safety Guarantees: A Control Barrier Function Approach, IEEE
+Conference on Decision and Control Conference
+2022</a></p></li>
+<li><p><a class="reference external" href="https://ieeexplore.ieee.org/document/9867379">Ethan King, Jan Drgona, Aaron Tuor, Shrirang Abhyankar, Craig
+Bakker, Arnab Bhattacharya, Draguna Vrabie, Koopman-based
+Differentiable Predictive Control for the Dynamics-Aware Economic
+Dispatch Problem, 2022 American Control Conference
+(ACC)</a></p></li>
+<li><p><a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S0378778821002760">Drgoňa, J., Tuor, A. R., Chandan, V., &amp; Vrabie, D. L.,
+Physics-constrained deep learning of multi-zone building thermal
+dynamics. Energy and Buildings, 243, 110992,
+(2021)</a></p></li>
+<li><p><a class="reference external" href="https://ieeexplore.ieee.org/document/9482930">E. Skomski, S. Vasisht, C. Wight, A. Tuor, J. Drgoňa and D. Vrabie,
+“Constrained Block Nonlinear Neural Dynamical Models,” 2021 American
+Control Conference (ACC), 2021, pp. 3993-4000, doi:
+10.23919/ACC50511.2021.9482930.</a></p></li>
+<li><p><a class="reference external" href="https://proceedings.mlr.press/v144/skomski21a.html">Skomski, E., Drgoňa, J., &amp; Tuor, A. (2021, May). Automating
+Discovery of Physics-Informed Neural State Space Models via Learning
+and Evolution. In Learning for Dynamics and Control (pp. 980-991).
+PMLR.</a></p></li>
+<li><p><a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S2405896321012933">Drgoňa, J., Tuor, A., Skomski, E., Vasisht, S., &amp; Vrabie, D. (2021).
+Deep Learning Explicit Differentiable Predictive Control Laws for
+Buildings. IFAC-PapersOnLine, 54(6),
+14-19.</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2004.10883">Tuor, A., Drgona, J., &amp; Vrabie, D. (2020). Constrained neural
+ordinary differential equations with stability guarantees. arXiv
+preprint arXiv:2004.10883.</a></p></li>
+<li><p><a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S0959152422000981">Drgona, Jan, et al. “Differentiable Predictive Control: An MPC
+Alternative for Unknown Nonlinear Systems using Constrained Deep
+Learning.” Journal of Process Control Volume 116, August 2022, Pages
+80-92</a></p></li>
+<li><p><a class="reference external" href="https://ieeexplore.ieee.org/document/9809789">Drgona, J., Skomski, E., Vasisht, S., Tuor, A., &amp; Vrabie, D. (2020).
+Dissipative Deep Neural Dynamical Systems, in IEEE Open Journal of
+Control Systems, vol. 1, pp. 100-112,
+2022</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2004.11184">Drgona, J., Tuor, A., &amp; Vrabie, D., Learning Constrained Adaptive
+Differentiable Predictive Control Policies With Guarantees, arXiv
+preprint arXiv:2004.11184,
+(2020)</a></p></li>
+</ul>
+</section>
+<section id="cite-as">
+<h2>Cite as<a class="headerlink" href="#cite-as" title="Link to this heading"></a></h2>
+<div class="highlight-bib notranslate"><div class="highlight"><pre><span></span><span class="nc">@article</span><span class="p">{</span><span class="nl">Neuromancer2022</span><span class="p">,</span>
+<span class="w">  </span><span class="na">title</span><span class="p">=</span><span class="s">{{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">author</span><span class="p">=</span><span class="s">{Tuor, Aaron and Drgona, Jan and Skomski, Mia and Koch, James and Chen, Zhao and Dernbach, Stefan and Legaard, Christian Møldrup and Vrabie, Draguna}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">Url</span><span class="p">=</span><span class="w"> </span><span class="s">{https://github.com/pnnl/neuromancer}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">year</span><span class="p">=</span><span class="s">{2022}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Authors: Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
+Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro</p>
+</section>
+<section id="acknowledgements">
+<h2>Acknowledgements<a class="headerlink" href="#acknowledgements" title="Link to this heading"></a></h2>
+<p>This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research’s “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects.
+PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.</p>
+</section>
+<section id="welcome-to-my-project-s-documentation">
+<h2>Welcome to My Project’s Documentation<a class="headerlink" href="#welcome-to-my-project-s-documentation" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="neuromancer.html">neuromancer package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.dynamics.html">neuromancer.dynamics package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.dynamics.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.dynamics.html#module-neuromancer.dynamics.integrators">neuromancer.dynamics.integrators module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.dynamics.html#module-neuromancer.dynamics.interpolation">neuromancer.dynamics.interpolation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.dynamics.html#module-neuromancer.dynamics.ode">neuromancer.dynamics.ode module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.dynamics.html#module-neuromancer.dynamics.physics">neuromancer.dynamics.physics module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.dynamics.html#module-neuromancer.dynamics">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.modules.html">neuromancer.modules package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.modules.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.modules.html#module-neuromancer.modules.activations">neuromancer.modules.activations module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.modules.html#module-neuromancer.modules.blocks">neuromancer.modules.blocks module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.modules.html#module-neuromancer.modules.functions">neuromancer.modules.functions module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.modules.html#module-neuromancer.modules.rnn">neuromancer.modules.rnn module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.modules.html#module-neuromancer.modules.solvers">neuromancer.modules.solvers module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.modules.html#module-neuromancer.modules">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.psl.html">neuromancer.psl package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#module-neuromancer.psl.autonomous">neuromancer.psl.autonomous module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#module-neuromancer.psl.base">neuromancer.psl.base module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#module-neuromancer.psl.building_envelope">neuromancer.psl.building_envelope module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#module-neuromancer.psl.coupled_systems">neuromancer.psl.coupled_systems module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#module-neuromancer.psl.file_emulator">neuromancer.psl.file_emulator module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#neuromancer-psl-gym-module">neuromancer.psl.gym module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#module-neuromancer.psl.nonautonomous">neuromancer.psl.nonautonomous module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#module-neuromancer.psl.norms">neuromancer.psl.norms module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#module-neuromancer.psl.perturb">neuromancer.psl.perturb module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#module-neuromancer.psl.plot">neuromancer.psl.plot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#module-neuromancer.psl.signals">neuromancer.psl.signals module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#module-neuromancer.psl.system_emulator">neuromancer.psl.system_emulator module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.psl.html#module-neuromancer.psl">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.slim.html">neuromancer.slim package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.slim.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.slim.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.slim.html#neuromancer-slim-bench-module">neuromancer.slim.bench module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.slim.html#module-neuromancer.slim.linear">neuromancer.slim.linear module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.slim.html#module-neuromancer.slim.rnn">neuromancer.slim.rnn module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.slim.html#module-neuromancer.slim">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.arg">neuromancer.arg module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.arg.ArgParser"><code class="docutils literal notranslate"><span class="pre">ArgParser</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.arg.ArgParser.check_for_group"><code class="docutils literal notranslate"><span class="pre">ArgParser.check_for_group()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.arg.ArgParser.group"><code class="docutils literal notranslate"><span class="pre">ArgParser.group()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.arg.ArgParser.parse_arg_groups"><code class="docutils literal notranslate"><span class="pre">ArgParser.parse_arg_groups()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.arg.add"><code class="docutils literal notranslate"><span class="pre">add()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.arg.ctrl_loss"><code class="docutils literal notranslate"><span class="pre">ctrl_loss()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.arg.data"><code class="docutils literal notranslate"><span class="pre">data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.arg.freeze"><code class="docutils literal notranslate"><span class="pre">freeze()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.arg.lin"><code class="docutils literal notranslate"><span class="pre">lin()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.arg.log"><code class="docutils literal notranslate"><span class="pre">log()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.arg.loss"><code class="docutils literal notranslate"><span class="pre">loss()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.arg.opt"><code class="docutils literal notranslate"><span class="pre">opt()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.arg.policy"><code class="docutils literal notranslate"><span class="pre">policy()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.arg.ssm"><code class="docutils literal notranslate"><span class="pre">ssm()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.callbacks">neuromancer.callbacks module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.callbacks.Callback"><code class="docutils literal notranslate"><span class="pre">Callback</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.callbacks.Callback.begin_epoch"><code class="docutils literal notranslate"><span class="pre">Callback.begin_epoch()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.callbacks.Callback.begin_eval"><code class="docutils literal notranslate"><span class="pre">Callback.begin_eval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.callbacks.Callback.begin_test"><code class="docutils literal notranslate"><span class="pre">Callback.begin_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.callbacks.Callback.begin_train"><code class="docutils literal notranslate"><span class="pre">Callback.begin_train()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.callbacks.Callback.end_batch"><code class="docutils literal notranslate"><span class="pre">Callback.end_batch()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.callbacks.Callback.end_epoch"><code class="docutils literal notranslate"><span class="pre">Callback.end_epoch()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.callbacks.Callback.end_eval"><code class="docutils literal notranslate"><span class="pre">Callback.end_eval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.callbacks.Callback.end_test"><code class="docutils literal notranslate"><span class="pre">Callback.end_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.callbacks.Callback.end_train"><code class="docutils literal notranslate"><span class="pre">Callback.end_train()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.constraint">neuromancer.constraint module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Constraint"><code class="docutils literal notranslate"><span class="pre">Constraint</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Constraint.forward"><code class="docutils literal notranslate"><span class="pre">Constraint.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Constraint.grad"><code class="docutils literal notranslate"><span class="pre">Constraint.grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Constraint.update_name"><code class="docutils literal notranslate"><span class="pre">Constraint.update_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Constraint.variable_names"><code class="docutils literal notranslate"><span class="pre">Constraint.variable_names</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Eq"><code class="docutils literal notranslate"><span class="pre">Eq</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Eq.forward"><code class="docutils literal notranslate"><span class="pre">Eq.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.GT"><code class="docutils literal notranslate"><span class="pre">GT</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.GT.forward"><code class="docutils literal notranslate"><span class="pre">GT.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.LT"><code class="docutils literal notranslate"><span class="pre">LT</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.LT.forward"><code class="docutils literal notranslate"><span class="pre">LT.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Loss"><code class="docutils literal notranslate"><span class="pre">Loss</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Loss.forward"><code class="docutils literal notranslate"><span class="pre">Loss.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Loss.grad"><code class="docutils literal notranslate"><span class="pre">Loss.grad()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Objective"><code class="docutils literal notranslate"><span class="pre">Objective</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Objective.forward"><code class="docutils literal notranslate"><span class="pre">Objective.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Objective.grad"><code class="docutils literal notranslate"><span class="pre">Objective.grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Objective.variable_names"><code class="docutils literal notranslate"><span class="pre">Objective.variable_names</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable"><code class="docutils literal notranslate"><span class="pre">Variable</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.T"><code class="docutils literal notranslate"><span class="pre">Variable.T</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.check_keys"><code class="docutils literal notranslate"><span class="pre">Variable.check_keys()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.display_name"><code class="docutils literal notranslate"><span class="pre">Variable.display_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.forward"><code class="docutils literal notranslate"><span class="pre">Variable.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.get_value"><code class="docutils literal notranslate"><span class="pre">Variable.get_value()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.grad"><code class="docutils literal notranslate"><span class="pre">Variable.grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.key"><code class="docutils literal notranslate"><span class="pre">Variable.key</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.keys"><code class="docutils literal notranslate"><span class="pre">Variable.keys</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.mT"><code class="docutils literal notranslate"><span class="pre">Variable.mT</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.make_graph"><code class="docutils literal notranslate"><span class="pre">Variable.make_graph()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.minimize"><code class="docutils literal notranslate"><span class="pre">Variable.minimize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.show"><code class="docutils literal notranslate"><span class="pre">Variable.show()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.training"><code class="docutils literal notranslate"><span class="pre">Variable.training</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.unpack"><code class="docutils literal notranslate"><span class="pre">Variable.unpack</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.Variable.value"><code class="docutils literal notranslate"><span class="pre">Variable.value</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.constraint.variable"><code class="docutils literal notranslate"><span class="pre">variable()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.dataset">neuromancer.dataset module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.DictDataset"><code class="docutils literal notranslate"><span class="pre">DictDataset</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.DictDataset.collate_fn"><code class="docutils literal notranslate"><span class="pre">DictDataset.collate_fn()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.GraphDataset"><code class="docutils literal notranslate"><span class="pre">GraphDataset</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.GraphDataset.build_graphs"><code class="docutils literal notranslate"><span class="pre">GraphDataset.build_graphs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.GraphDataset.collate_fn"><code class="docutils literal notranslate"><span class="pre">GraphDataset.collate_fn()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.GraphDataset.make_map"><code class="docutils literal notranslate"><span class="pre">GraphDataset.make_map()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.GraphDataset.shuffle"><code class="docutils literal notranslate"><span class="pre">GraphDataset.shuffle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.SequenceDataset"><code class="docutils literal notranslate"><span class="pre">SequenceDataset</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.SequenceDataset.collate_fn"><code class="docutils literal notranslate"><span class="pre">SequenceDataset.collate_fn()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.SequenceDataset.get_full_batch"><code class="docutils literal notranslate"><span class="pre">SequenceDataset.get_full_batch()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.SequenceDataset.get_full_sequence"><code class="docutils literal notranslate"><span class="pre">SequenceDataset.get_full_sequence()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.StaticDataset"><code class="docutils literal notranslate"><span class="pre">StaticDataset</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.StaticDataset.collate_fn"><code class="docutils literal notranslate"><span class="pre">StaticDataset.collate_fn()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.StaticDataset.get_full_batch"><code class="docutils literal notranslate"><span class="pre">StaticDataset.get_full_batch()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.batch_tensor"><code class="docutils literal notranslate"><span class="pre">batch_tensor()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.denormalize_01"><code class="docutils literal notranslate"><span class="pre">denormalize_01()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.denormalize_11"><code class="docutils literal notranslate"><span class="pre">denormalize_11()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.destandardize"><code class="docutils literal notranslate"><span class="pre">destandardize()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.get_sequence_dataloaders"><code class="docutils literal notranslate"><span class="pre">get_sequence_dataloaders()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.get_static_dataloaders"><code class="docutils literal notranslate"><span class="pre">get_static_dataloaders()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.normalize_01"><code class="docutils literal notranslate"><span class="pre">normalize_01()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.normalize_11"><code class="docutils literal notranslate"><span class="pre">normalize_11()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.normalize_data"><code class="docutils literal notranslate"><span class="pre">normalize_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.read_file"><code class="docutils literal notranslate"><span class="pre">read_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.split_sequence_data"><code class="docutils literal notranslate"><span class="pre">split_sequence_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.split_static_data"><code class="docutils literal notranslate"><span class="pre">split_static_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.standardize"><code class="docutils literal notranslate"><span class="pre">standardize()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.dataset.unbatch_tensor"><code class="docutils literal notranslate"><span class="pre">unbatch_tensor()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.gradients">neuromancer.gradients module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.gradients.gradient"><code class="docutils literal notranslate"><span class="pre">gradient()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.gradients.jacobian"><code class="docutils literal notranslate"><span class="pre">jacobian()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.loggers">neuromancer.loggers module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.loggers.BasicLogger"><code class="docutils literal notranslate"><span class="pre">BasicLogger</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loggers.BasicLogger.clean_up"><code class="docutils literal notranslate"><span class="pre">BasicLogger.clean_up()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loggers.BasicLogger.log_artifacts"><code class="docutils literal notranslate"><span class="pre">BasicLogger.log_artifacts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loggers.BasicLogger.log_metrics"><code class="docutils literal notranslate"><span class="pre">BasicLogger.log_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loggers.BasicLogger.log_parameters"><code class="docutils literal notranslate"><span class="pre">BasicLogger.log_parameters()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loggers.BasicLogger.log_weights"><code class="docutils literal notranslate"><span class="pre">BasicLogger.log_weights()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.loggers.MLFlowLogger"><code class="docutils literal notranslate"><span class="pre">MLFlowLogger</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loggers.MLFlowLogger.clean_up"><code class="docutils literal notranslate"><span class="pre">MLFlowLogger.clean_up()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loggers.MLFlowLogger.log_artifacts"><code class="docutils literal notranslate"><span class="pre">MLFlowLogger.log_artifacts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loggers.MLFlowLogger.log_metrics"><code class="docutils literal notranslate"><span class="pre">MLFlowLogger.log_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loggers.MLFlowLogger.log_parameters"><code class="docutils literal notranslate"><span class="pre">MLFlowLogger.log_parameters()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loggers.MLFlowLogger.log_weights"><code class="docutils literal notranslate"><span class="pre">MLFlowLogger.log_weights()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.loss">neuromancer.loss module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.loss.AggregateLoss"><code class="docutils literal notranslate"><span class="pre">AggregateLoss</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loss.AggregateLoss.calculate_constraints"><code class="docutils literal notranslate"><span class="pre">AggregateLoss.calculate_constraints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loss.AggregateLoss.calculate_objectives"><code class="docutils literal notranslate"><span class="pre">AggregateLoss.calculate_objectives()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loss.AggregateLoss.forward"><code class="docutils literal notranslate"><span class="pre">AggregateLoss.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.loss.AugmentedLagrangeLoss"><code class="docutils literal notranslate"><span class="pre">AugmentedLagrangeLoss</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loss.AugmentedLagrangeLoss.forward"><code class="docutils literal notranslate"><span class="pre">AugmentedLagrangeLoss.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.loss.BarrierLoss"><code class="docutils literal notranslate"><span class="pre">BarrierLoss</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loss.BarrierLoss.calculate_constraints"><code class="docutils literal notranslate"><span class="pre">BarrierLoss.calculate_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.loss.PenaltyLoss"><code class="docutils literal notranslate"><span class="pre">PenaltyLoss</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.loss.PenaltyLoss.forward"><code class="docutils literal notranslate"><span class="pre">PenaltyLoss.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.loss.get_loss"><code class="docutils literal notranslate"><span class="pre">get_loss()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.plot">neuromancer.plot module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.Animator"><code class="docutils literal notranslate"><span class="pre">Animator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.Animator.find_mat"><code class="docutils literal notranslate"><span class="pre">Animator.find_mat()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.Animator.make_and_save"><code class="docutils literal notranslate"><span class="pre">Animator.make_and_save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.Visualizer"><code class="docutils literal notranslate"><span class="pre">Visualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.Visualizer.eval"><code class="docutils literal notranslate"><span class="pre">Visualizer.eval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.Visualizer.train_output"><code class="docutils literal notranslate"><span class="pre">Visualizer.train_output()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.Visualizer.train_plot"><code class="docutils literal notranslate"><span class="pre">Visualizer.train_plot()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerClosedLoop"><code class="docutils literal notranslate"><span class="pre">VisualizerClosedLoop</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerClosedLoop.eval"><code class="docutils literal notranslate"><span class="pre">VisualizerClosedLoop.eval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerClosedLoop.plot_matrix"><code class="docutils literal notranslate"><span class="pre">VisualizerClosedLoop.plot_matrix()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerDobleIntegrator"><code class="docutils literal notranslate"><span class="pre">VisualizerDobleIntegrator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerDobleIntegrator.eval"><code class="docutils literal notranslate"><span class="pre">VisualizerDobleIntegrator.eval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerDobleIntegrator.train_output"><code class="docutils literal notranslate"><span class="pre">VisualizerDobleIntegrator.train_output()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerOpen"><code class="docutils literal notranslate"><span class="pre">VisualizerOpen</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerOpen.eval"><code class="docutils literal notranslate"><span class="pre">VisualizerOpen.eval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerOpen.plot_matrix"><code class="docutils literal notranslate"><span class="pre">VisualizerOpen.plot_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerOpen.plot_traj"><code class="docutils literal notranslate"><span class="pre">VisualizerOpen.plot_traj()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerOpen.train_output"><code class="docutils literal notranslate"><span class="pre">VisualizerOpen.train_output()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerOpen.train_plot"><code class="docutils literal notranslate"><span class="pre">VisualizerOpen.train_plot()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerTrajectories"><code class="docutils literal notranslate"><span class="pre">VisualizerTrajectories</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerTrajectories.eval"><code class="docutils literal notranslate"><span class="pre">VisualizerTrajectories.eval()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerUncertaintyOpen"><code class="docutils literal notranslate"><span class="pre">VisualizerUncertaintyOpen</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerUncertaintyOpen.eval"><code class="docutils literal notranslate"><span class="pre">VisualizerUncertaintyOpen.eval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.plot.VisualizerUncertaintyOpen.plot_traj"><code class="docutils literal notranslate"><span class="pre">VisualizerUncertaintyOpen.plot_traj()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.cl_simulate"><code class="docutils literal notranslate"><span class="pre">cl_simulate()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.get_colors"><code class="docutils literal notranslate"><span class="pre">get_colors()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.plot_cl"><code class="docutils literal notranslate"><span class="pre">plot_cl()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.plot_cl_train"><code class="docutils literal notranslate"><span class="pre">plot_cl_train()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.plot_loss_DPC"><code class="docutils literal notranslate"><span class="pre">plot_loss_DPC()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.plot_loss_mpp"><code class="docutils literal notranslate"><span class="pre">plot_loss_mpp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.plot_matrices"><code class="docutils literal notranslate"><span class="pre">plot_matrices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.plot_model_graph"><code class="docutils literal notranslate"><span class="pre">plot_model_graph()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.plot_policy"><code class="docutils literal notranslate"><span class="pre">plot_policy()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.plot_policy_train"><code class="docutils literal notranslate"><span class="pre">plot_policy_train()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.plot_solution_mpp"><code class="docutils literal notranslate"><span class="pre">plot_solution_mpp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.plot_traj"><code class="docutils literal notranslate"><span class="pre">plot_traj()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.plot_trajectories"><code class="docutils literal notranslate"><span class="pre">plot_trajectories()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.pltCL"><code class="docutils literal notranslate"><span class="pre">pltCL()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.pltCorrelate"><code class="docutils literal notranslate"><span class="pre">pltCorrelate()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.pltOL"><code class="docutils literal notranslate"><span class="pre">pltOL()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.pltPhase"><code class="docutils literal notranslate"><span class="pre">pltPhase()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.pltRecurrence"><code class="docutils literal notranslate"><span class="pre">pltRecurrence()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.plot.trajectory_movie"><code class="docutils literal notranslate"><span class="pre">trajectory_movie()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.problem">neuromancer.problem module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.problem.Problem"><code class="docutils literal notranslate"><span class="pre">Problem</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.problem.Problem.forward"><code class="docutils literal notranslate"><span class="pre">Problem.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.problem.Problem.graph"><code class="docutils literal notranslate"><span class="pre">Problem.graph()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.problem.Problem.show"><code class="docutils literal notranslate"><span class="pre">Problem.show()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.problem.Problem.step"><code class="docutils literal notranslate"><span class="pre">Problem.step()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.system">neuromancer.system module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.system.MovingHorizon"><code class="docutils literal notranslate"><span class="pre">MovingHorizon</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.system.MovingHorizon.forward"><code class="docutils literal notranslate"><span class="pre">MovingHorizon.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.system.Node"><code class="docutils literal notranslate"><span class="pre">Node</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.system.Node.forward"><code class="docutils literal notranslate"><span class="pre">Node.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.system.System"><code class="docutils literal notranslate"><span class="pre">System</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.system.System.cat"><code class="docutils literal notranslate"><span class="pre">System.cat()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.system.System.forward"><code class="docutils literal notranslate"><span class="pre">System.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.system.System.graph"><code class="docutils literal notranslate"><span class="pre">System.graph()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.system.System.init"><code class="docutils literal notranslate"><span class="pre">System.init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.system.System.show"><code class="docutils literal notranslate"><span class="pre">System.show()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer.trainer">neuromancer.trainer module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.trainer.Trainer"><code class="docutils literal notranslate"><span class="pre">Trainer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.trainer.Trainer.evaluate"><code class="docutils literal notranslate"><span class="pre">Trainer.evaluate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.trainer.Trainer.test"><code class="docutils literal notranslate"><span class="pre">Trainer.test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="neuromancer.html#neuromancer.trainer.Trainer.train"><code class="docutils literal notranslate"><span class="pre">Trainer.train()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="neuromancer.html#neuromancer.trainer.move_batch_to_device"><code class="docutils literal notranslate"><span class="pre">move_batch_to_device()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="neuromancer.html#module-neuromancer">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="neuromancer.html" class="btn btn-neutral float-right" title="neuromancer package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

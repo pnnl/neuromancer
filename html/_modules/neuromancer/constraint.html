@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.constraint &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.constraint</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.constraint</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Definition of neuromancer.Constraint class used in conjunction with neuromancer.Variable class. A Constraint has the</span>
+<span class="sd">same behavior as a Loss but with intuitive syntax for defining via Variable objects.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+
+<span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
+<span class="kn">from</span> <span class="nn">plum</span> <span class="kn">import</span> <span class="n">dispatch</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+<span class="kn">from</span> <span class="nn">neuromancer.gradients</span> <span class="kn">import</span> <span class="n">gradient</span>
+
+
+<div class="viewcode-block" id="Loss">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Loss">[docs]</a>
+<span class="k">class</span> <span class="nc">Loss</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Drop in replacement for a Constraint object but relies on a list of dictionary keys and a callable function</span>
+<span class="sd">    to instantiate.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_keys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">loss</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;loss&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param variable_names: List of str</span>
+<span class="sd">        :param loss: (callable) Number of arguments of the callable should equal the number of strings in variable names.</span>
+<span class="sd">                                Arguments to callable should be torch.Tensor and return type a 0-dimensional torch.Tensor</span>
+<span class="sd">        :param weight: (float) Weight of loss for calculating multi-term loss function</span>
+<span class="sd">        :param name: (str) Name for tracking output</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span> <span class="o">=</span> <span class="n">name</span><span class="p">,</span> <span class="n">input_keys</span><span class="p">,</span> <span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">weight</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loss</span> <span class="o">=</span> <span class="n">loss</span>
+
+<div class="viewcode-block" id="Loss.grad">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Loss.grad">[docs]</a>
+    <span class="k">def</span> <span class="nf">grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">,</span> <span class="n">input_key</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">         returns gradient of the loss w.r.t. input variables</span>
+
+<span class="sd">        :param variables:</span>
+<span class="sd">        :param input_key: string</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">gradient</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">variables</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">],</span> <span class="n">variables</span><span class="p">[</span><span class="n">input_key</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="Loss.forward">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Loss.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param variables: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names</span>
+<span class="sd">        :return: 0-dimensional torch.Tensor that can be cast as a floating point number</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">variables</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="p">])}</span></div>
+
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Loss: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="p">)</span><span class="si">}</span><span class="s2">) -&gt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="si">}</span><span class="s2"> * </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="LT">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.LT">[docs]</a>
+<span class="k">class</span> <span class="nc">LT</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Less than constraint for upper bounding the left hand side by the right hand side.</span>
+<span class="sd">    Used for defining infix operator for the Variable class and calculating constraint</span>
+<span class="sd">    violation losses for the forward pass of Constraint objects.</span>
+
+<span class="sd">    constraint: g(x) &lt;= b</span>
+<span class="sd">    forward pass returns:</span>
+<span class="sd">        value = g(x) - b</span>
+<span class="sd">        penalty = relu(g(x) - b)</span>
+<span class="sd">        loss = torch.mean(penalty)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">=</span> <span class="n">norm</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s1">&#39;lt&#39;</span>
+
+<div class="viewcode-block" id="LT.forward">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.LT.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param left: torch.Tensor</span>
+<span class="sd">        :param right: torch.Tensor</span>
+<span class="sd">        :return: zero dimensional torch.Tensor, torch.Tensor, torch.Tensor</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">value</span> <span class="o">=</span> <span class="n">left</span> <span class="o">-</span> <span class="n">right</span>
+        <span class="n">penalty</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">penalty</span> <span class="o">=</span> <span class="n">penalty</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">penalty</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">penalty</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="GT">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.GT">[docs]</a>
+<span class="k">class</span> <span class="nc">GT</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Greater than constraint for lower bounding the left hand side by the right hand side.</span>
+<span class="sd">    Used for defining infix operator for the Variable class and calculating constraint</span>
+<span class="sd">    violation losses for the forward pass of Constraint objects.</span>
+
+<span class="sd">    constraint: g(x) &gt;= b</span>
+<span class="sd">    forward pass returns:</span>
+<span class="sd">        value = b - g(x)</span>
+<span class="sd">        penalty = relu(b - g(x))</span>
+<span class="sd">        loss = torch.mean(penalty)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">=</span> <span class="n">norm</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s1">&#39;gt&#39;</span>
+
+<div class="viewcode-block" id="GT.forward">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.GT.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param left: torch.Tensor</span>
+<span class="sd">        :param right: torch.Tensor</span>
+<span class="sd">        :return: zero dimensional torch.Tensor, torch.Tensor, torch.Tensor</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">right</span> <span class="o">-</span> <span class="n">left</span>
+        <span class="n">penalty</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">penalty</span> <span class="o">=</span> <span class="n">penalty</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">penalty</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">penalty</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Eq">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Eq">[docs]</a>
+<span class="k">class</span> <span class="nc">Eq</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Equality constraint penalizing difference between left and right hand side.</span>
+<span class="sd">    Used for defining infix operator for the Variable class and calculating constraint</span>
+<span class="sd">    violation losses for the forward pass of Constraint objects.</span>
+
+<span class="sd">    constraint: g(x) == b</span>
+<span class="sd">    forward pass returns:</span>
+<span class="sd">        value = g(x) - b</span>
+<span class="sd">        penalty = g(x) - b</span>
+<span class="sd">        loss = torch.mean(penalty)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">=</span> <span class="n">norm</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s1">&#39;eq&#39;</span>
+
+<div class="viewcode-block" id="Eq.forward">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Eq.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param left: torch.Tensor</span>
+<span class="sd">        :param right: torch.Tensor</span>
+<span class="sd">        :return: zero dimensional torch.Tensor, torch.Tensor, torch.Tensor</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">left</span> <span class="o">-</span> <span class="n">right</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">penalty</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">l1_loss</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">penalty</span> <span class="o">=</span> <span class="n">value</span><span class="o">**</span><span class="mi">2</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">penalty</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Objective">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Objective">[docs]</a>
+<span class="k">class</span> <span class="nc">Objective</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Drop in replacement for a Loss object constructed via neuromancer Variable object</span>
+<span class="sd">    in the forward pass evaluates metric as torch function on Variable values</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param var: (nm.Variable) expression to be minimized</span>
+<span class="sd">        :param metric: (torch function) differentiable scalar valued function to penalize the expression</span>
+<span class="sd">        :param weight: (float, int, or zero-D torch.Tensor) For scaling calculated Constraint violation loss</span>
+<span class="sd">        :param name: (str) Optional intuitive name for storing in Problem&#39;s output dictionary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Variable</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s1"> must be Variable type&#39;</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">var</span><span class="o">.</span><span class="n">display_name</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">var</span><span class="o">.</span><span class="n">key</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">keys</span><span class="p">,</span> <span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">var</span> <span class="o">=</span> <span class="n">var</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metric</span> <span class="o">=</span> <span class="n">metric</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">weight</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">variable_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+
+<div class="viewcode-block" id="Objective.grad">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Objective.grad">[docs]</a>
+    <span class="k">def</span> <span class="nf">grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">,</span> <span class="n">input_key</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">         returns gradient of the loss w.r.t. input variables</span>
+
+<span class="sd">        :param input_dict:</span>
+<span class="sd">        :param input_key: string</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">gradient</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">],</span> <span class="n">input_dict</span><span class="p">[</span><span class="n">input_key</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="Objective.forward">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Objective.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param input_dict: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names</span>
+<span class="sd">        :return:  (dict, {str: 0-dimensional torch.Tensor}) tensor value can be cast as a floating point number</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">metric</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">input_dict</span><span class="p">))}</span></div>
+
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Objective: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="p">)</span><span class="si">}</span><span class="s2">) = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="si">}</span><span class="s2"> * </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">metric</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Objective</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">var</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">*</span><span class="n">weight</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Objective</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">var</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">*</span><span class="n">weight</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Constraint">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Constraint">[docs]</a>
+<span class="k">class</span> <span class="nc">Constraint</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Drop in replacement for a Loss object but constructed by a composition of Variable objects</span>
+<span class="sd">    using comparative infix operators, &#39;&lt;&#39;, &#39;&gt;&#39;, &#39;==&#39;, &#39;&lt;=&#39;, &#39;&gt;=&#39; and &#39;*&#39; to weight loss component and &#39;^&#39; to</span>
+<span class="sd">    determine l-norm of constraint violation in determining loss.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">comparator</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param left: (nm.Variable or numeric) Left hand side of equality or inequality constraint</span>
+<span class="sd">        :param right: (nm.Variable or numeric) Right hand side of equality or inequality constraint</span>
+<span class="sd">        :param comparator: (nn.Module) Intended to be LE, GE, LT, GT, or Eq object, but can be any nn.Module</span>
+<span class="sd">                                       which satisfies the Comparator interface (init function takes an integer norm and</span>
+<span class="sd">                                       object has an integer valued self.norm attribute.</span>
+<span class="sd">        :param weight: (float, int, or zero-D torch.Tensor) For scaling calculated Constraint violation loss</span>
+<span class="sd">        :param name: (str) Optional intuitive name for storing in Problem&#39;s output dictionary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">(</span><span class="n">left</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Variable</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">complex</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)):</span>
+                <span class="n">display_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">left</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">display_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">left</span><span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                <span class="n">left</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">left</span><span class="p">)</span>
+            <span class="n">left</span> <span class="o">=</span> <span class="n">variable</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">(</span><span class="n">right</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Variable</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">complex</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)):</span>
+                <span class="n">display_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">right</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">display_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">right</span><span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                <span class="n">right</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">right</span><span class="p">)</span>
+            <span class="n">right</span> <span class="o">=</span> <span class="n">variable</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">left</span><span class="o">.</span><span class="n">display_name</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">comparator</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">right</span><span class="o">.</span><span class="n">display_name</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">left</span><span class="o">.</span><span class="n">key</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">comparator</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">right</span><span class="o">.</span><span class="n">key</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="n">input_keys</span> <span class="o">=</span> <span class="n">left</span><span class="o">.</span><span class="n">keys</span> <span class="o">+</span> <span class="n">right</span><span class="o">.</span><span class="n">keys</span>
+        <span class="n">output_keys</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="si">}</span><span class="s1">_value&#39;</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="si">}</span><span class="s1">_violation&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">input_keys</span><span class="p">,</span> <span class="n">output_keys</span><span class="p">,</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">left</span> <span class="o">=</span> <span class="n">left</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">right</span> <span class="o">=</span> <span class="n">right</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">comparator</span> <span class="o">=</span> <span class="n">comparator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">weight</span>
+
+<div class="viewcode-block" id="Constraint.update_name">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Constraint.update_name">[docs]</a>
+    <span class="k">def</span> <span class="nf">update_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_value&#39;</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_violation&#39;</span><span class="p">]</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">variable_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">left</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">right</span><span class="o">.</span><span class="n">display_name</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__xor__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">norm</span><span class="p">):</span>
+        <span class="n">comparator</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">comparator</span><span class="p">)(</span><span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Constraint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">left</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">right</span><span class="p">,</span> <span class="n">comparator</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Constraint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">left</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">right</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">comparator</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">*</span><span class="n">weight</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Constraint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">left</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">right</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">comparator</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">*</span><span class="n">weight</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__bool__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">left</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">right</span>
+
+<div class="viewcode-block" id="Constraint.grad">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Constraint.grad">[docs]</a>
+    <span class="k">def</span> <span class="nf">grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">,</span> <span class="n">input_key</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">         returns gradient of the loss w.r.t. input key</span>
+
+<span class="sd">        :param input_dict: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names</span>
+<span class="sd">        :param input_key: (str) Name of variable in input dict to take gradient with respect to.</span>
+<span class="sd">        :return: (torch.Tensor)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">gradient</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">],</span> <span class="n">input_dict</span><span class="p">[</span><span class="n">input_key</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="Constraint.forward">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Constraint.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param input_dict: (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names</span>
+<span class="sd">        :return: 0-dimensional torch.Tensor that can be cast as a floating point number</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">left</span><span class="p">,</span> <span class="n">Variable</span><span class="p">):</span>
+            <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">left</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                <span class="n">left</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">left</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">right</span><span class="p">,</span> <span class="n">Variable</span><span class="p">):</span>
+            <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">right</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                <span class="n">right</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">right</span><span class="p">)</span>
+        <span class="n">loss</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">violation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">comparator</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">tensor</span> <span class="k">for</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">name</span>
+                  <span class="ow">in</span> <span class="nb">zip</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">*</span><span class="n">loss</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">violation</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span><span class="p">)}</span>
+        <span class="k">return</span> <span class="n">output</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Variable">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Variable">[docs]</a>
+<span class="k">class</span> <span class="nc">Variable</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Variable is an abstraction that allows for the definition of constraints and objectives with some nice</span>
+<span class="sd">    syntactic sugar. When a Variable object is called given a dictionary a pytorch tensor is returned, and when</span>
+<span class="sd">    a Variable object is subjected to a comparison operator a Constraint is returned. Mathematical operators return</span>
+<span class="sd">    Variables which will instantiate and perform the sequence of mathematical operations. PyTorch callables</span>
+<span class="sd">    called with variables as inputs return variables.</span>
+<span class="sd">    Supported infix operators (variable * variable, variable * numeric): +, -, *, @, **, /, &lt;, &lt;=, &gt;, &gt;=, ==, ^</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_variables</span><span class="o">=</span><span class="p">[],</span> <span class="n">func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param input_variables: (Variable or torch.Tensor) The Variable arguments to be used in the callable.</span>
+<span class="sd">        :param func: (Callable) Ideally this callable will take in Tensors and return Tensors</span>
+<span class="sd">        :param key: (str) Used for retrieving values from a dictionary of {str: Tensor}</span>
+<span class="sd">                    if key is provided _is_input set to True</span>
+<span class="sd">        :param display_name: (str) Used only in __repr__ and plotting the computational graph</span>
+<span class="sd">        :param value: (torch.Tensor, or numpy array, or other python float, int)</span>
+<span class="sd">                       Value for the node. Can be a trainable parameter</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_func</span> <span class="o">=</span> <span class="n">func</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="ow">and</span> <span class="n">value</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_g</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ordered_nodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_graph</span><span class="p">(</span><span class="n">input_variables</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_input</span> <span class="o">=</span> <span class="n">key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">=</span> <span class="n">key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_display_name</span> <span class="o">=</span> <span class="n">display_name</span>
+
+<div class="viewcode-block" id="Variable.make_graph">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Variable.make_graph">[docs]</a>
+    <span class="k">def</span> <span class="nf">make_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_variables</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This is the function that composes the graph of the Variable from constituent input variables which</span>
+<span class="sd">        are in-nodes to the Variable. It first builds an empty graph then adds itself to the graph.</span>
+<span class="sd">        Then it goes through the inputs and instantiates Variable objects for them if they are not</span>
+<span class="sd">        already a Variable. Then it combines the graphs of all Variables by unioning the sets of nodes and edges.</span>
+<span class="sd">        In the penultimate step edges are added to the graph from the inputs to the Variable being instantiated,</span>
+<span class="sd">        taking care to shallow copy nodes when there is more than one edge between nodes. Finally, the graph is</span>
+<span class="sd">        topologically sorted for swift evaluation of the directed acyclic graph.</span>
+
+<span class="sd">        :param input_variables: List of arbitrary inputs for self._func</span>
+<span class="sd">        :return: A topologically sorted list of Variable objects</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">DiGraph</span><span class="p">()</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="n">_input_variables</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">input_variables</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">Variable</span><span class="p">):</span>
+                <span class="n">_input_variables</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                <span class="n">_input_variables</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Variable</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">i</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">_input_variables</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[],</span>
+                                                 <span class="n">func</span><span class="o">=</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">),</span>
+                                                 <span class="n">display_name</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)))</span>
+        <span class="n">input_variables</span> <span class="o">=</span> <span class="n">_input_variables</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">compose_all</span><span class="p">([</span><span class="n">g</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">i</span><span class="o">.</span><span class="n">_g</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">input_variables</span><span class="p">])</span>
+
+        <span class="n">_input_variables</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># For operations on variables like (x + x)[1:] need to shallow copy nodes</span>
+        <span class="c1"># so we can have more that one edge between a node and itself (e.g., one for add and one for slice)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">input_variables</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_input_variables</span><span class="p">:</span>
+                <span class="n">_input_variables</span> <span class="o">+=</span> <span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">_input_variables</span> <span class="o">+=</span> <span class="p">[</span><span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span>
+        <span class="n">edges</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">_input_variables</span><span class="p">]</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">add_edges_from</span><span class="p">(</span><span class="n">edges</span><span class="p">)</span>
+        <span class="c1"># self Can&#39;t be part of ordered nodes since this will make a loop when retrieving parameters</span>
+        <span class="n">ordered_nodes</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span><span class="n">nx</span><span class="o">.</span><span class="n">topological_sort</span><span class="p">(</span><span class="n">g</span><span class="p">))[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">g</span><span class="p">,</span> <span class="n">ordered_nodes</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">display_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_display_name</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_display_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span>
+        <span class="k">return</span> <span class="n">name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Used by input Variables to retrieve Tensor values from a dictionary.</span>
+<span class="sd">        Will be used as a display_name if display_name is not provided to __init__</span>
+<span class="sd">        :return: (str) String intended to be a key in a dict {str: Tensor}</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key</span>
+
+    <span class="nd">@key</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_key</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">check_keys</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_key</span> <span class="o">=</span> <span class="n">k</span>
+
+<div class="viewcode-block" id="Variable.check_keys">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Variable.check_keys">[docs]</a>
+    <span class="k">def</span> <span class="nf">check_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="n">n</span><span class="o">.</span><span class="n">_key</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ordered_nodes</span><span class="p">},</span> <span class="sa">f</span><span class="s1">&#39;Key </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1"> repeats existing key. Keys should be unique.&#39;</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">keys</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_key</span><span class="p">]</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_input</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">n</span><span class="o">.</span><span class="n">_key</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ordered_nodes</span> <span class="k">if</span> <span class="n">n</span><span class="o">.</span><span class="n">_is_input</span><span class="p">]</span> <span class="o">+</span> <span class="n">keys</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function is needed for pytorch compatibility for some reason.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;+&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;+&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__neg__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;neg&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">-</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;-&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rsub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">-</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;-&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;∗&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;∗&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__matmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">@</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;@&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rmatmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">@</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;@&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__truediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">/</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rtruediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">/</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__floordiv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">//</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;//&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rfloordiv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">//</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;//&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;slice&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__pow__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span><span class="o">**</span><span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;pow&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rpow__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span><span class="o">**</span><span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;pow&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__abs__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;abs&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__mod__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">modulo</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">modulo</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">%</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;mod&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rmod__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">modulo</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="n">modulo</span><span class="p">,</span> <span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">%</span> <span class="n">y</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;mod&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Variable.show">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Variable.show">[docs]</a>
+    <span class="k">def</span> <span class="nf">show</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">figname</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plot and save computational graph</span>
+
+<span class="sd">        :param figname: (str) Name to save figure to.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nx</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_g</span><span class="p">,</span> <span class="n">with_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">figname</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">figname</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">T</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">mT</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="p">],</span> <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">mT</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;mT&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Constraint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">Eq</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Constraint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">LT</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="fm">__le__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Constraint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">LT</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="fm">__gt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Constraint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">GT</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="fm">__ge__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Constraint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">GT</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_name</span>
+
+<div class="viewcode-block" id="Variable.forward">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Variable.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datadict</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Forward pass goes through topologically sorted nodes calculating or retrieving values.</span>
+
+<span class="sd">        :param datadict: (dict, {str: Tensor}) Optional dictionary for Variable graphs which take input</span>
+<span class="sd">        :return: (torch.Tensor) Tensor value from evaluating the variable&#39;s computational graph.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">datadict</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">datadict</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">datadict</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ordered_nodes</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">datadict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datadict</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span></div>
+
+
+<div class="viewcode-block" id="Variable.get_value">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Variable.get_value">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">datadict</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">n</span><span class="o">.</span><span class="n">_is_input</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">n</span><span class="o">.</span><span class="n">_func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="n">src</span><span class="o">.</span><span class="n">_value</span> <span class="k">for</span> <span class="n">src</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_g</span><span class="o">.</span><span class="n">in_edges</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+                <span class="n">n</span><span class="o">.</span><span class="n">_value</span> <span class="o">=</span> <span class="n">n</span><span class="o">.</span><span class="n">_func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">n</span><span class="o">.</span><span class="n">_value</span> <span class="o">=</span> <span class="n">datadict</span><span class="p">[</span><span class="n">n</span><span class="o">.</span><span class="n">_key</span><span class="p">]</span>
+        <span class="n">datadict</span><span class="p">[</span><span class="n">n</span><span class="o">.</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span><span class="o">.</span><span class="n">_value</span></div>
+
+
+    <span class="nd">@dispatch</span>
+    <span class="k">def</span> <span class="nf">unpack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nret</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates new variables for a node that evaluates to multiple values.</span>
+<span class="sd">        This is useful for unpacking results of functions that return multiple values such as `torch.linalg.svd`:</span>
+
+<span class="sd">        :param nret: (int) Number of return values from the torch function</span>
+<span class="sd">        :return: [Variable] List of Variable objects for each value returned by the torch function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="n">variable</span><span class="p">([</span><span class="bp">self</span><span class="p">],</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">idx</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nret</span><span class="p">)]</span>
+
+<div class="viewcode-block" id="Variable.unpack">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Variable.unpack">[docs]</a>
+    <span class="nd">@dispatch</span>
+    <span class="k">def</span> <span class="nf">unpack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">names</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates new variables for a node that evaluates to multiple values.</span>
+<span class="sd">        This is useful for unpacking results of functions that return multiple values such as `torch.linalg.svd`:</span>
+
+<span class="sd">        ```</span>
+<span class="sd">        m = Variable(&quot;m&quot;, torch.ones(10,10))</span>
+<span class="sd">        u, s, v = torch.linalg.svd(m).unpack([&quot;u&quot;,&quot;s&quot;,&quot;v&quot;])</span>
+<span class="sd">        ```</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">variable</span><span class="p">([</span><span class="bp">self</span><span class="p">],</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">idx</span><span class="p">),</span> <span class="n">display_name</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">names</span><span class="p">)]</span></div>
+
+
+    <span class="c1"># Compatabiliy with PyTorch</span>
+    <span class="c1"># https://pytorch.org/docs/stable/notes/extending.html#extending-torch</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">__torch_function__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">types</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(),</span> <span class="n">kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">kwargs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">kwargs</span>
+
+        <span class="n">variables</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Variable</span><span class="p">)])</span>
+        <span class="n">non_variable_args</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Variable</span><span class="p">)])</span>
+
+        <span class="k">def</span> <span class="nf">wrapped</span><span class="p">(</span><span class="o">*</span><span class="n">call_args</span><span class="p">,</span> <span class="o">**</span><span class="n">call_kwargs</span><span class="p">):</span>
+            <span class="n">all_args</span> <span class="o">=</span> <span class="n">non_variable_args</span> <span class="o">+</span> <span class="n">call_args</span>
+            <span class="n">all_kwargs</span> <span class="o">=</span> <span class="n">kwargs</span> <span class="o">|</span> <span class="n">call_kwargs</span>
+            <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">all_args</span><span class="p">,</span> <span class="o">**</span><span class="n">all_kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">variable</span><span class="p">(</span><span class="n">variables</span><span class="p">,</span> <span class="n">wrapped</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Variable.grad">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Variable.grad">[docs]</a>
+    <span class="k">def</span> <span class="nf">grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">variable</span><span class="p">([</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">],</span> <span class="n">gradient</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;d</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">display_name</span><span class="si">}</span><span class="s1">/d</span><span class="si">{</span><span class="n">other</span><span class="o">.</span><span class="n">display_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span>
+
+<div class="viewcode-block" id="Variable.minimize">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.Variable.minimize">[docs]</a>
+    <span class="k">def</span> <span class="nf">minimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Objective</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">weight</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="n">_size</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>
+<span class="n">_name</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+<span class="n">_input</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">Variable</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span>
+
+
+<span class="nd">@dispatch</span>
+<span class="k">def</span> <span class="nf">variable</span><span class="p">(</span><span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>  <span class="c1"># pylint: disable=function-redefined</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    For instantiating a trainable Variable. returns Variable with trainable value = 0dim Tensor from std. normal dist.</span>
+
+<span class="sd">    :param display_name: (str) for plotting graph and __repr__</span>
+<span class="sd">    :return: Variable with value = 0 dimensional nn.Parameter with requires_grad=True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">t</span><span class="p">)</span>
+
+
+<span class="nd">@dispatch</span>
+<span class="k">def</span> <span class="nf">variable</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="n">_name</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Canonical way to instantiate an input Variable</span>
+
+<span class="sd">    :param key: (str) key for indexing value out of dictionary</span>
+<span class="sd">    :return: input Variable</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">raise_err</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;eval_node should never be called on an input_node&quot;</span><span class="p">)</span>
+    <span class="n">func</span> <span class="o">=</span> <span class="n">raise_err</span>
+    <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">func</span><span class="o">=</span><span class="n">func</span><span class="p">)</span>
+
+
+<span class="nd">@dispatch</span>
+<span class="k">def</span> <span class="nf">variable</span><span class="p">(</span><span class="o">*</span><span class="n">size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">display_name</span><span class="p">:</span> <span class="n">_name</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>  <span class="c1"># pylint: disable=function-redefined</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">    :param size: Sequence of integer arguments describing shape of parameter</span>
+<span class="sd">    :param display_name: (str) for plotting graph and __repr__</span>
+<span class="sd">    :return: Variable with value = nn.Parameter with shape=[size], with requires_grad=True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">t</span><span class="p">)</span>
+
+
+<span class="nd">@dispatch</span>
+<span class="k">def</span> <span class="nf">variable</span><span class="p">(</span><span class="n">size</span><span class="p">:</span> <span class="n">_size</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">_name</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>  <span class="c1"># pylint: disable=function-redefined</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">    :param size: Iterable of integer arguments describing shape of parameter</span>
+<span class="sd">    :param display_name: (str) for plotting graph and __repr__</span>
+<span class="sd">    :return: Variable with value = nn.Parameter with shape=size, with requires_grad=True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">t</span><span class="p">)</span>
+
+
+<span class="nd">@dispatch</span>
+<span class="k">def</span> <span class="nf">variable</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>  <span class="c1"># pylint: disable=function-redefined</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">    :param value: (Tensor) Value to be retrieved when called. Can be a trainable parameter.</span>
+<span class="sd">    :param display_name: (str) for plotting graph and __repr__</span>
+<span class="sd">    :return: Variable with value = value. Value will be wrapped with nn.Parameter if requires_grad=True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="variable">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.constraint.variable">[docs]</a>
+<span class="nd">@dispatch</span>
+<span class="k">def</span> <span class="nf">variable</span><span class="p">(</span><span class="n">inputs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">_input</span><span class="p">],</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>  <span class="c1"># pylint: disable=function-redefined</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a variable with arbitrary function and arbitrary inputs</span>
+
+<span class="sd">    :param inputs: (Iterable which can contain mix of integer, float, torch.Tensor, and Variable objects) Input to the function.</span>
+<span class="sd">    :param func: A Callable which returns torch.Tensor objects</span>
+<span class="sd">    :param display_name: (str) for plotting graph and __repr__</span>
+<span class="sd">    :return: Variable which will evaluate computational graph when called with dictionary containing input key:value pairs</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span><span class="n">input_variables</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">func</span><span class="o">=</span><span class="n">func</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

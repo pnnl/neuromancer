@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.problem &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.problem</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.problem</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="c1"># python base imports</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pydot</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">combinations</span>
+<span class="kn">import</span> <span class="nn">matplotlib.image</span> <span class="k">as</span> <span class="nn">mpimg</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Callable</span>
+
+<span class="c1"># machine learning/data science imports</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+
+
+<div class="viewcode-block" id="Problem">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.problem.Problem">[docs]</a>
+<span class="k">class</span> <span class="nc">Problem</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class is similar in spirit to a nn.Sequential module. However,</span>
+<span class="sd">    by concatenating input and output dictionaries for each node</span>
+<span class="sd">    module we can represent arbitrary directed acyclic computation graphs.</span>
+<span class="sd">    In addition the Problem module takes care of calculating loss functions</span>
+<span class="sd">    via given instantiated weighted multi-objective PenaltyLoss object which</span>
+<span class="sd">    calculate objective and constraints terms from aggregated input and set</span>
+<span class="sd">    of outputs from the node modules.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]],</span>
+                 <span class="n">loss</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]],</span>
+                 <span class="n">grad_inference</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">check_overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param nodes: (List[Node]) list of objects which implement the Node interface</span>
+<span class="sd">                                   (i.e. input and output are dicts of Tensors and</span>
+<span class="sd">                                   object has input_keys, output_keys, and name attributes)</span>
+<span class="sd">        :param loss: (PenaltyLoss) instantiated loss class</span>
+<span class="sd">        :param update: (Callable) problem will update the output dictionary and return new dictionary with the same keys</span>
+<span class="sd">                                but updated values. Example includes projected gradient method.</span>
+<span class="sd">        :param grad_inference: (boolean) flag for enabling computation of grdients during inference time, useful for techniques like projected gradient</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span><span class="n">nodes</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loss</span> <span class="o">=</span> <span class="n">loss</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grad_inference</span> <span class="o">=</span> <span class="n">grad_inference</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_overwrite</span> <span class="o">=</span> <span class="n">check_overwrite</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_keys</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">problem_graph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_check_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span><span class="o">+</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="p">]:</span>
+            <span class="n">keys</span> <span class="o">|=</span> <span class="nb">set</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">input_keys</span><span class="p">)</span>
+            <span class="n">new_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">output_keys</span><span class="p">)</span>
+            <span class="n">same</span> <span class="o">=</span> <span class="n">new_keys</span> <span class="o">&amp;</span> <span class="n">keys</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_overwrite</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">same</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Keys </span><span class="si">{</span><span class="n">same</span><span class="si">}</span><span class="s1"> are being overwritten by the node </span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+            <span class="n">keys</span> <span class="o">|=</span> <span class="n">new_keys</span>
+
+    <span class="k">def</span> <span class="nf">_check_unique_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">num_unique</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span><span class="n">o</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">objectives</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">constraints</span><span class="p">]</span>
+                             <span class="o">+</span> <span class="p">[</span><span class="n">comp</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">]))</span>
+        <span class="n">num_obj</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">objectives</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">constraints</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">num_unique</span> <span class="o">==</span> <span class="n">num_obj</span><span class="p">,</span> \
+            <span class="s2">&quot;All nodes, objectives and constraints must have unique names to construct a computational graph.&quot;</span>
+
+<div class="viewcode-block" id="Problem.forward">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.problem.Problem.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="n">output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">output_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="p">(</span><span class="n">output_dict</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">output_dict</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="n">output_dict</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">output_dict</span><span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">output_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
+
+
+<div class="viewcode-block" id="Problem.step">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.problem.Problem.step">[docs]</a>
+    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+            <span class="n">output_dict</span> <span class="o">=</span> <span class="n">node</span><span class="p">(</span><span class="n">input_dict</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">output_dict</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                <span class="n">output_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">output_dict</span><span class="p">}</span>
+            <span class="n">input_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">input_dict</span><span class="p">,</span> <span class="o">**</span><span class="n">output_dict</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">input_dict</span></div>
+
+
+<div class="viewcode-block" id="Problem.graph">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.problem.Problem.graph">[docs]</a>
+    <span class="k">def</span> <span class="nf">graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_objectives</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_unique_names</span><span class="p">()</span>
+        <span class="n">graph</span> <span class="o">=</span> <span class="n">pydot</span><span class="o">.</span><span class="n">Dot</span><span class="p">(</span><span class="s2">&quot;problem&quot;</span><span class="p">,</span> <span class="n">graph_type</span><span class="o">=</span><span class="s2">&quot;digraph&quot;</span><span class="p">,</span> <span class="n">splines</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">,</span> <span class="n">rankdir</span><span class="o">=</span><span class="s2">&quot;LR&quot;</span><span class="p">)</span>
+        <span class="n">graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">pydot</span><span class="o">.</span><span class="n">Node</span><span class="p">(</span><span class="s2">&quot;in&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;skyblue&#39;</span><span class="p">,</span>
+                                  <span class="n">style</span><span class="o">=</span><span class="s1">&#39;filled&#39;</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="s2">&quot;box&quot;</span><span class="p">))</span>
+        <span class="n">graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">pydot</span><span class="o">.</span><span class="n">Node</span><span class="p">(</span><span class="s2">&quot;out&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;loss&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;lightcoral&#39;</span><span class="p">,</span>
+                                  <span class="n">style</span><span class="o">=</span><span class="s1">&#39;filled&#39;</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="s2">&quot;box&quot;</span><span class="p">))</span>
+        <span class="c1"># plot clusters for nodes and loss terms</span>
+        <span class="n">node_cluster</span> <span class="o">=</span> <span class="n">pydot</span><span class="o">.</span><span class="n">Cluster</span><span class="p">(</span><span class="s1">&#39;nodes&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;cornsilk&#39;</span><span class="p">,</span>
+                                 <span class="n">style</span><span class="o">=</span><span class="s1">&#39;filled&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;nodes&#39;</span><span class="p">)</span>
+        <span class="n">obj_cluster</span> <span class="o">=</span> <span class="n">pydot</span><span class="o">.</span><span class="n">Cluster</span><span class="p">(</span><span class="s1">&#39;loss_term&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;cornsilk&#39;</span><span class="p">,</span>
+                                 <span class="n">style</span><span class="o">=</span><span class="s1">&#39;filled&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;loss terms&#39;</span><span class="p">)</span>
+
+        <span class="c1"># create nodes in the node cluster</span>
+        <span class="n">input_keys</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">output_keys</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">nonames</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">):</span>
+            <span class="n">input_keys</span> <span class="o">+=</span> <span class="n">node</span><span class="o">.</span><span class="n">input_keys</span>
+            <span class="n">output_keys</span> <span class="o">+=</span> <span class="n">node</span><span class="o">.</span><span class="n">output_keys</span>
+            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
+                <span class="n">node</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;node_</span><span class="si">{</span><span class="n">nonames</span><span class="si">}</span><span class="s1">&#39;</span>
+                <span class="n">nonames</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">node_cluster</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">pydot</span><span class="o">.</span><span class="n">Node</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;lavender&#39;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;filled&#39;</span><span class="p">,</span>
+                                         <span class="n">label</span><span class="o">=</span><span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="s2">&quot;box&quot;</span><span class="p">))</span>
+        <span class="n">graph</span><span class="o">.</span><span class="n">add_subgraph</span><span class="p">(</span><span class="n">node_cluster</span><span class="p">)</span>
+
+        <span class="c1"># get keys of recurrent nodes</span>
+        <span class="n">loop_keys</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+            <span class="n">loop_keys</span> <span class="o">+=</span> <span class="nb">set</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">input_keys</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">output_keys</span><span class="p">)</span>
+
+        <span class="c1"># build node connections in reverse order</span>
+        <span class="n">reverse_order_nodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">idx_dst</span><span class="p">,</span> <span class="n">dst</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">reverse_order_nodes</span><span class="p">):</span>
+            <span class="n">src_nodes</span> <span class="o">=</span> <span class="n">reverse_order_nodes</span><span class="p">[</span><span class="mi">1</span><span class="o">+</span><span class="n">idx_dst</span><span class="p">:]</span>
+            <span class="n">unique_common_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">idx_src</span><span class="p">,</span> <span class="n">src</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">src_nodes</span><span class="p">):</span>
+                <span class="n">common_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">output_keys</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">dst</span><span class="o">.</span><span class="n">input_keys</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">common_keys</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">unique_common_keys</span><span class="p">:</span>
+                        <span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">pydot</span><span class="o">.</span><span class="n">Edge</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">dst</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">key</span><span class="p">))</span>
+                        <span class="n">unique_common_keys</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+        <span class="c1"># get keys required as input and to initialize some nodes</span>
+        <span class="n">init_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">input_keys</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">output_keys</span><span class="p">)</span><span class="o">-</span><span class="nb">set</span><span class="p">(</span><span class="n">loop_keys</span><span class="p">))</span>
+        <span class="c1"># get keys required as input to nodes from the dataset</span>
+        <span class="n">data_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">input_keys</span><span class="p">)</span><span class="o">-</span><span class="nb">set</span><span class="p">(</span><span class="n">output_keys</span><span class="p">)</span>
+        <span class="c1"># create input connections to the dataset if not provided by previous node</span>
+        <span class="n">previous_output_keys</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">input_keys</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">init_keys</span><span class="o">-</span><span class="nb">set</span><span class="p">(</span><span class="n">previous_output_keys</span><span class="p">)):</span>
+                <span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">pydot</span><span class="o">.</span><span class="n">Edge</span><span class="p">(</span><span class="s2">&quot;in&quot;</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">key</span><span class="p">))</span>
+            <span class="n">previous_output_keys</span> <span class="o">+=</span> <span class="n">node</span><span class="o">.</span><span class="n">output_keys</span>
+
+        <span class="c1"># add objectives and constraints in the graph</span>
+        <span class="k">if</span> <span class="n">include_objectives</span><span class="p">:</span>
+            <span class="c1"># get keys required as input to objectives from the dataset</span>
+            <span class="n">obj_input_keys</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">obj</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">objectives</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">constraints</span><span class="p">):</span>
+                <span class="n">obj_input_keys</span> <span class="o">+=</span> <span class="n">obj</span><span class="o">.</span><span class="n">input_keys</span>
+            <span class="n">obj_data_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">obj_input_keys</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">output_keys</span><span class="p">)</span>
+            <span class="c1"># create connections</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">obj</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">objectives</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">constraints</span><span class="p">):</span>
+                <span class="c1"># choose different colors for objective terms and constraints</span>
+                <span class="k">if</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">objectives</span><span class="p">):</span>
+                    <span class="n">color</span> <span class="o">=</span> <span class="s2">&quot;lightpink&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">color</span> <span class="o">=</span> <span class="s1">&#39;thistle&#39;</span>
+                <span class="c1"># add loss term boxes</span>
+                <span class="n">obj_cluster</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">pydot</span><span class="o">.</span><span class="n">Node</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                                          <span class="n">shape</span><span class="o">=</span><span class="s2">&quot;box&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;filled&#39;</span><span class="p">))</span>
+                <span class="c1"># connect nodes to loss terms</span>
+                <span class="n">unique_common_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">reverse_order_nodes</span><span class="p">:</span>
+                    <span class="n">common_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">output_keys</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">input_keys</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">common_keys</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">unique_common_keys</span><span class="p">:</span>
+                            <span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">pydot</span><span class="o">.</span><span class="n">Edge</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">key</span><span class="p">))</span>
+                            <span class="n">unique_common_keys</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="c1"># generate tuples connecting input data to loss terms</span>
+                <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">obj_data_keys</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">input_keys</span><span class="p">:</span>
+                        <span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">pydot</span><span class="o">.</span><span class="n">Edge</span><span class="p">(</span><span class="s2">&quot;in&quot;</span><span class="p">,</span> <span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">key</span><span class="p">))</span>
+                <span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">pydot</span><span class="o">.</span><span class="n">Edge</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;out&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">obj</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+            <span class="n">graph</span><span class="o">.</span><span class="n">add_subgraph</span><span class="p">(</span><span class="n">obj_cluster</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># aggregate outputs in a single output node</span>
+            <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">output_keys</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">input_keys</span><span class="p">):</span>
+                    <span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">pydot</span><span class="o">.</span><span class="n">Edge</span><span class="p">(</span><span class="s2">&quot;out&quot;</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">key</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">data_keys</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">input_keys</span><span class="p">):</span>
+                <span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">pydot</span><span class="o">.</span><span class="n">Edge</span><span class="p">(</span><span class="s2">&quot;in&quot;</span><span class="p">,</span> <span class="s2">&quot;out&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">key</span><span class="p">))</span>
+
+        <span class="n">input_keys</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">input_keys</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">input_keys</span><span class="p">))</span>
+        <span class="n">output_keys</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">output_keys</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">output_keys</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">graph</span></div>
+
+
+<div class="viewcode-block" id="Problem.show">
+<a class="viewcode-back" href="../../neuromancer.html#neuromancer.problem.Problem.show">[docs]</a>
+    <span class="k">def</span> <span class="nf">show</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">figname</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">graph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">figname</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">plot_func</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;svg&#39;</span><span class="p">:</span> <span class="n">graph</span><span class="o">.</span><span class="n">write_svg</span><span class="p">,</span>
+                         <span class="s1">&#39;png&#39;</span><span class="p">:</span> <span class="n">graph</span><span class="o">.</span><span class="n">write_png</span><span class="p">,</span>
+                         <span class="s1">&#39;jpg&#39;</span><span class="p">:</span> <span class="n">graph</span><span class="o">.</span><span class="n">write_jpg</span><span class="p">}</span>
+            <span class="n">ext</span> <span class="o">=</span> <span class="n">figname</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">plot_func</span><span class="p">[</span><span class="n">ext</span><span class="p">](</span><span class="n">figname</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">graph</span><span class="o">.</span><span class="n">write_png</span><span class="p">(</span><span class="s1">&#39;problem_graph.png&#39;</span><span class="p">)</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">mpimg</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="s1">&#39;problem_graph.png&#39;</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s1">&#39;problem_graph.png&#39;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+            <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="s1">&#39;equal&#39;</span><span class="p">)</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">get_xaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">get_yaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;### MODEL SUMMARY ###</span><span class="se">\n\n</span><span class="s2">nodeS:&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot; none</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">CONSTRAINTS:&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">constraints</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">constraints</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot; none</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">OBJECTIVES:&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">objectives</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">objectives</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot; none</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">return</span> <span class="n">s</span></div>
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

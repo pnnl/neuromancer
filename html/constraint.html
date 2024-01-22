@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Constraint &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=02f2166e"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Neuromancer
+              <img src="_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Constraint</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/constraint.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-neuromancer.constraint">
+<span id="constraint"></span><h1>Constraint<a class="headerlink" href="#module-neuromancer.constraint" title="Link to this heading"></a></h1>
+<p>Definition of neuromancer.Constraint class used in conjunction with neuromancer.Variable class. A Constraint has the
+same behavior as a Loss but with intuitive syntax for defining via Variable objects.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.constraint.Constraint">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.constraint.</span></span><span class="sig-name descname"><span class="pre">Constraint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">left</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comparator</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Constraint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Constraint" title="Link to this definition"></a></dt>
+<dd><p>Drop in replacement for a Loss object but constructed by a composition of Variable objects
+using comparative infix operators, ‘&lt;’, ‘&gt;’, ‘==’, ‘&lt;=’, ‘&gt;=’ and ‘*’ to weight loss component and ‘^’ to
+determine l-norm of constraint violation in determining loss.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Constraint.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Constraint.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Constraint.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input_dict</strong> – (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>0-dimensional torch.Tensor that can be cast as a floating point number</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Constraint.grad">
+<span class="sig-name descname"><span class="pre">grad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Constraint.grad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Constraint.grad" title="Link to this definition"></a></dt>
+<dd><blockquote>
+<div><p>returns gradient of the loss w.r.t. input key</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_dict</strong> – (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names</p></li>
+<li><p><strong>input_key</strong> – (str) Name of variable in input dict to take gradient with respect to.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Constraint.update_name">
+<span class="sig-name descname"><span class="pre">update_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Constraint.update_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Constraint.update_name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="neuromancer.constraint.Constraint.variable_names">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">variable_names</span></span><a class="headerlink" href="#neuromancer.constraint.Constraint.variable_names" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.constraint.Eq">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.constraint.</span></span><span class="sig-name descname"><span class="pre">Eq</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Eq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Eq" title="Link to this definition"></a></dt>
+<dd><p>Equality constraint penalizing difference between left and right hand side.
+Used for defining infix operator for the Variable class and calculating constraint
+violation losses for the forward pass of Constraint objects.</p>
+<p>constraint: g(x) == b
+forward pass returns:</p>
+<blockquote>
+<div><p>value = g(x) - b
+penalty = g(x) - b
+loss = torch.mean(penalty)</p>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Eq.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">left</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Eq.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Eq.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>left</strong> – torch.Tensor</p></li>
+<li><p><strong>right</strong> – torch.Tensor</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>zero dimensional torch.Tensor, torch.Tensor, torch.Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.constraint.GT">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.constraint.</span></span><span class="sig-name descname"><span class="pre">GT</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#GT"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.GT" title="Link to this definition"></a></dt>
+<dd><p>Greater than constraint for lower bounding the left hand side by the right hand side.
+Used for defining infix operator for the Variable class and calculating constraint
+violation losses for the forward pass of Constraint objects.</p>
+<p>constraint: g(x) &gt;= b
+forward pass returns:</p>
+<blockquote>
+<div><p>value = b - g(x)
+penalty = relu(b - g(x))
+loss = torch.mean(penalty)</p>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.GT.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">left</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#GT.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.GT.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>left</strong> – torch.Tensor</p></li>
+<li><p><strong>right</strong> – torch.Tensor</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>zero dimensional torch.Tensor, torch.Tensor, torch.Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.constraint.LT">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.constraint.</span></span><span class="sig-name descname"><span class="pre">LT</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#LT"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.LT" title="Link to this definition"></a></dt>
+<dd><p>Less than constraint for upper bounding the left hand side by the right hand side.
+Used for defining infix operator for the Variable class and calculating constraint
+violation losses for the forward pass of Constraint objects.</p>
+<p>constraint: g(x) &lt;= b
+forward pass returns:</p>
+<blockquote>
+<div><p>value = g(x) - b
+penalty = relu(g(x) - b)
+loss = torch.mean(penalty)</p>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.LT.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">left</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#LT.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.LT.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>left</strong> – torch.Tensor</p></li>
+<li><p><strong>right</strong> – torch.Tensor</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>zero dimensional torch.Tensor, torch.Tensor, torch.Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.constraint.Loss">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.constraint.</span></span><span class="sig-name descname"><span class="pre">Loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_keys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'loss'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Loss" title="Link to this definition"></a></dt>
+<dd><p>Drop in replacement for a Constraint object but relies on a list of dictionary keys and a callable function
+to instantiate.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Loss.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/neuromancer/constraint.html#Loss.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Loss.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>variables</strong> – (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>0-dimensional torch.Tensor that can be cast as a floating point number</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Loss.grad">
+<span class="sig-name descname"><span class="pre">grad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variables</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Loss.grad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Loss.grad" title="Link to this definition"></a></dt>
+<dd><blockquote>
+<div><p>returns gradient of the loss w.r.t. input variables</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>variables</strong> – </p></li>
+<li><p><strong>input_key</strong> – string</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.constraint.Objective">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.constraint.</span></span><span class="sig-name descname"><span class="pre">Objective</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">var</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric=&lt;built-in</span> <span class="pre">method</span> <span class="pre">mean</span> <span class="pre">of</span> <span class="pre">type</span> <span class="pre">object&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight=1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Objective"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Objective" title="Link to this definition"></a></dt>
+<dd><p>Drop in replacement for a Loss object constructed via neuromancer Variable object
+in the forward pass evaluates metric as torch function on Variable values</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Objective.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Objective.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Objective.forward" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input_dict</strong> – (dict, {str: torch.Tensor}) Should contain keys corresponding to self.variable_names</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(dict, {str: 0-dimensional torch.Tensor}) tensor value can be cast as a floating point number</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Objective.grad">
+<span class="sig-name descname"><span class="pre">grad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Objective.grad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Objective.grad" title="Link to this definition"></a></dt>
+<dd><blockquote>
+<div><p>returns gradient of the loss w.r.t. input variables</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_dict</strong> – </p></li>
+<li><p><strong>input_key</strong> – string</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="neuromancer.constraint.Objective.variable_names">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">variable_names</span></span><a class="headerlink" href="#neuromancer.constraint.Objective.variable_names" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">neuromancer.constraint.</span></span><span class="sig-name descname"><span class="pre">Variable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">display_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Variable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Variable" title="Link to this definition"></a></dt>
+<dd><p>Variable is an abstraction that allows for the definition of constraints and objectives with some nice
+syntactic sugar. When a Variable object is called given a dictionary a pytorch tensor is returned, and when
+a Variable object is subjected to a comparison operator a Constraint is returned. Mathematical operators return
+Variables which will instantiate and perform the sequence of mathematical operations. PyTorch callables
+called with variables as inputs return variables.
+Supported infix operators (variable * variable, variable * numeric): +, -, <em>, &#64;, *</em>, /, &lt;, &lt;=, &gt;, &gt;=, ==, ^</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.T">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">T</span></span><a class="headerlink" href="#neuromancer.constraint.Variable.T" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.check_keys">
+<span class="sig-name descname"><span class="pre">check_keys</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Variable.check_keys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Variable.check_keys" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.display_name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">display_name</span></span><a class="headerlink" href="#neuromancer.constraint.Variable.display_name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">datadict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Variable.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Variable.forward" title="Link to this definition"></a></dt>
+<dd><p>Forward pass goes through topologically sorted nodes calculating or retrieving values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>datadict</strong> – (dict, {str: Tensor}) Optional dictionary for Variable graphs which take input</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(torch.Tensor) Tensor value from evaluating the variable’s computational graph.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.get_value">
+<span class="sig-name descname"><span class="pre">get_value</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">datadict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Variable.get_value"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Variable.get_value" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.grad">
+<span class="sig-name descname"><span class="pre">grad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Variable.grad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Variable.grad" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.key">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">key</span></span><a class="headerlink" href="#neuromancer.constraint.Variable.key" title="Link to this definition"></a></dt>
+<dd><p>Used by input Variables to retrieve Tensor values from a dictionary.
+Will be used as a display_name if display_name is not provided to __init__
+:return: (str) String intended to be a key in a dict {str: Tensor}</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.keys">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">keys</span></span><a class="headerlink" href="#neuromancer.constraint.Variable.keys" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.mT">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mT</span></span><a class="headerlink" href="#neuromancer.constraint.Variable.mT" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.make_graph">
+<span class="sig-name descname"><span class="pre">make_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_variables</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Variable.make_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Variable.make_graph" title="Link to this definition"></a></dt>
+<dd><p>This is the function that composes the graph of the Variable from constituent input variables which
+are in-nodes to the Variable. It first builds an empty graph then adds itself to the graph.
+Then it goes through the inputs and instantiates Variable objects for them if they are not
+already a Variable. Then it combines the graphs of all Variables by unioning the sets of nodes and edges.
+In the penultimate step edges are added to the graph from the inputs to the Variable being instantiated,
+taking care to shallow copy nodes when there is more than one edge between nodes. Finally, the graph is
+topologically sorted for swift evaluation of the directed acyclic graph.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input_variables</strong> – List of arbitrary inputs for self._func</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A topologically sorted list of Variable objects</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.minimize">
+<span class="sig-name descname"><span class="pre">minimize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric=&lt;built-in</span> <span class="pre">method</span> <span class="pre">mean</span> <span class="pre">of</span> <span class="pre">type</span> <span class="pre">object&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight=1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Variable.minimize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Variable.minimize" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.show">
+<span class="sig-name descname"><span class="pre">show</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">figname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#Variable.show"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Variable.show" title="Link to this definition"></a></dt>
+<dd><p>Plot and save computational graph</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>figname</strong> – (str) Name to save figure to.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.unpack">
+<span class="sig-name descname"><span class="pre">unpack</span></span><a class="reference internal" href="_modules/neuromancer/constraint.html#Variable.unpack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.Variable.unpack" title="Link to this definition"></a></dt>
+<dd><p>Creates new variables for a node that evaluates to multiple values.
+This is useful for unpacking results of functions that return multiple values such as <cite>torch.linalg.svd</cite>:</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nret</strong> – (int) Number of return values from the torch function</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>[Variable] List of Variable objects for each value returned by the torch function</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="neuromancer.constraint.Variable.value">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">value</span></span><a class="headerlink" href="#neuromancer.constraint.Variable.value" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="neuromancer.constraint.variable">
+<span class="sig-prename descclassname"><span class="pre">neuromancer.constraint.</span></span><span class="sig-name descname"><span class="pre">variable</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/neuromancer/constraint.html#variable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#neuromancer.constraint.variable" title="Link to this definition"></a></dt>
+<dd><p>For instantiating a trainable Variable. returns Variable with trainable value = 0dim Tensor from std. normal dist.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>display_name</strong> – (str) for plotting graph and __repr__</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Variable with value = 0 dimensional nn.Parameter with requires_grad=True</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

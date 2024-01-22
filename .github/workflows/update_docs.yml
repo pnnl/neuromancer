@@ -43,14 +43,7 @@ jobs: #define set of jobs. Here there is only one job, each job is instantiated 
         with:
           publish_branch: gh-pages
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
+          publish_dir: build
           keep_files: true 
 
-      # Step 4: Build docs using sphinx. TZ=UTC needed to circumvent a nuance of running Sphinx on GHA runner
-      - name: Fix gh-pages directory structure
-        run: |
-          ls
-          cd gh-pages 
-          mkdir docs
-          cp -r html docs
-        
+

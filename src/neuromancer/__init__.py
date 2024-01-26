@@ -13,6 +13,7 @@ from neuromancer import loss
 from neuromancer import problem
 from neuromancer import trainer
 from neuromancer import plot
+from neuromancer import utils 
 
 from neuromancer.dynamics import *
 from neuromancer.modules import *

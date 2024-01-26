@@ -21,7 +21,7 @@ class LitDataModule(pl.LightningDataModule):
     This class converts a data_setup_function (which yields Neuromancer DictDatasets associated with a Neuromancer Problem)
     to a LightningDataModule such that it integrates with LitProblem and LitTrainer
     """
-    def __init__(self,data_setup_function, **kwargs):
+    def __init__(self,data_setup_function, hparam_config=None, **kwargs):
         """
         Minimial required input is the data_setup_function (callable) (see README.md as well as examples)
         If the data_setup_function requires any arguments, they should also be passed in here as keyword arguments
@@ -34,6 +34,15 @@ class LitDataModule(pl.LightningDataModule):
         self.train_data = None
         self.dev_data = None
         self.test_data = None
+        self.hparam_config = hparam_config
+        self.param_sweep_batch_size = None #to be used for wandb param sweep
+        self._load_from_config()
+
+    def _load_from_config(self): 
+        if self.hparam_config: 
+            if "batch_size" in self.hparam_config: 
+                self.param_sweep_batch_size = self.hparam_config.batch_size
+        
 
     def setup(self, stage=None):
         """
@@ -57,7 +66,8 @@ class LitDataModule(pl.LightningDataModule):
         self.train_data = train_data
         self.dev_data = dev_data
         self.test_data = test_data
-        self.batch_size = batch_size
+        self.batch_size = batch_size if not self.param_sweep_batch_size else self.param_sweep_batch_size
+        print("USING BATCH SIZE ", self.batch_size)
 
     def train_dataloader(self):
         return DataLoader(self.train_data, batch_size=self.batch_size, collate_fn=self.train_data.collate_fn)

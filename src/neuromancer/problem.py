@@ -21,7 +21,7 @@ class LitProblem(pl.LightningModule):
     Logging metrics are also defined here, such as 'train_loss'. 
     """
     def __init__(self, problem, train_metric='train_loss', dev_metric='train_loss', test_metric='train_loss', custom_optimizer=None, \
-                custom_training_step=None):
+                custom_training_step=None, hparam_config=None):
         """
         :param problem: A Neuromancer Problem()
         :param train_metric: metric to be used during training step. Default to train_loss
@@ -38,9 +38,21 @@ class LitProblem(pl.LightningModule):
         self.test_metric = test_metric
         self.custom_optimizer=custom_optimizer
         self.custom_training_step = custom_training_step
+        self.hparam_config = hparam_config
+        self.lr = .001
 
         self.training_step_outputs = []
         self.validation_step_outputs = []
+
+        self._load_from_config()
+
+    
+    def _load_from_config(self): 
+        if self.hparam_config: 
+            if "learning_rate" in self.hparam_config: 
+                self.lr = self.hparam_config.learning_rate
+    
+
 
     # Defines training step logic for a Neuromancer problem. Registers train_loss
     def training_step(self, batch):
@@ -76,7 +88,8 @@ class LitProblem(pl.LightningModule):
     # Defines the optimizers
     def configure_optimizers(self):
         if self.custom_optimizer is None: 
-            optimizer = torch.optim.Adam(self.problem.parameters(), 0.001, betas=(0.0, 0.9))
+            print("USING LEARNING RATE ", self.lr)
+            optimizer = torch.optim.Adam(self.problem.parameters(), self.lr, betas=(0.0, 0.9))
         else: 
             optimizer = self.custom_optimizer
         return optimizer

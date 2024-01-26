@@ -48,7 +48,8 @@ dependencies = [
     "pyts",
     "torch",
     "torchdiffeq",
-    "toml"
+    "toml", 
+    "lightning"
 ]
 
 version = "1.4.2"

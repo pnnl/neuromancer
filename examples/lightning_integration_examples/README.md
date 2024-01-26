@@ -1,4 +1,4 @@
-## 
+# Additional Instructions for Lightning Integration Features
 
 ## Motivation for PyTorch Lightning 
 
@@ -11,7 +11,7 @@ Why might I want to use Lightning in the context of NeuroMANCER? For the user, L
 * PyTorch boilerplate code is removed, thus increasing the accessibility of the NeuroMANCER library. For example, the user doesn't need to deal with details instantiating a PyTorch Dataloader() class. 
 * Increased modularity on the data portion: Lightning caters towards modularity often found in "traditional" scientific experimental design. In the Lightning workflow, the user is expected to define a "data_setup_function" that is fed into the LightningTrainer(). The user can easily swap out, or modify generation of, the datasets from run-to-run. 
 * Automatic GPU support: Lightning allows for easy migration to running training on the GPU. It even allows for multi-GPU training with a simple keyword argument change. Most of all, .to(device) calls are no longer required. 
-* Other features include automatic logging, easy profiling integration, and ability for the user to define own training logic without boilerplate
+* Other features include hyperparameter tuning with wandb, automatic logging, easy profiling integration, and ability for the user to define own training logic without boilerplate
 
 
 
@@ -54,33 +54,17 @@ Which will then train that particular Problem to data governed by the data_setup
 The user will find several Lightning-Neuromancer tutorials in this folder. There are two main tutorials
 * Part 1: Goes over how basics on how a Neuromancer set-up can be converted into the Lightning version
 * Part 2: Goes over more advanced / nuanced cases when migrating towards Lightning. Also showcases automated GPU support, loading/saving weights
+* Part 3: Is a Python script that demonstrates solving a computationally expensive problem with automated multi-GPU distributed training
+* Part 4: Demonstrates how to do hyperparameter tuning with wandb library
 
 Other domain-specific examples can be found in the "other_examples" folder: 
 
 * Part 3: Goes over solving a PINN with the Lightning workflow 
 * lightning_nonauto_DeepKoopman: Goes over using Koopman Operators with the Lightning workflow. Also showcases how to easily visualize training progress with Tensorboard
 * lightning_cvxpy_layers: Goes over using cvxpy with Lightning workflow. 
-* complex_objective_function_multi_GPU.py: Is a Python script that demonstrates solving a computationally expensive problem with automated multi-GPU distributed training 
 * lighting_custom_training_example: Demonstrates how the user can define their own training logic to replace default training logic, if desired
 
 
-:param epochs: Number of epochs for training. Defaults to 1000.
-        :param train_metric: Metric for training. Defaults to 'train_loss'.
-        :param dev_metric: Metric for development/validation. Defaults to 'dev_loss'.
-        :param test_metric: Metric for testing. Defaults to 'test_loss'. Currently unused
-        :param eval_metric: Metric for model checkpointing. Defaults to 'dev_loss'.
-        :param patience: Number of epochs to wait for improvement before early stopping. Defaults to None (no patience)
-        :param warmup: Number of warmup epochs. Defaults to 0.
-        :param clip: Gradient clipping value, by norm. Defaults to 100.0.
-        :param custom_optimizer: Optimizer to be used during training. If None (default), an Adam optimizer with learning rate of 0.001 will be used. 
-        :param save_weights: Whether to save weights. Defaults to True.
-        :param weight_path: Path to save weights. Defaults to './'.
-        :param weight_name: Name of the weight file. By default, filename is None and will be set to '{epoch}-{step}', where “epoch” and “step” match the number of finished epoch and optimizer steps respectively.
-        :param devices: Device assignment strategy. Defaults to 'auto'.
-        :param strategy: Strategy for distributed training. Defaults to 'auto'.
-        :param accelerator: Accelerator type. Defaults to 'auto'.
-        :param profiler: Profiler to use. Defaults to None (no profiling)
-        :param custom_training_step: Custom training step function, if desired. Defaults to None, in which case the standard training step procedure is executed
 
 
 ## LitTrainer Parameters
@@ -134,7 +118,7 @@ lit_trainer.fit(problem, data_setup_function, nsim=100)
     * ex) 7 will distribute training over the 7 GPUs automatically selected 
     * ex) "Auto" for automatic selection based on the chosen accelerator. We do not recommend this. 
 * strategy is either "auto", "ddp" or "ddp_notebook"
-    * "auto" will utilize a single GPU 
+    * "auto" will utilize whatever hardward is "best" available  
     * "ddp" will run distributed training across devices desginated under "devices" assuming len(devices) > 1. This keyword should *NOT* be used in notebooks, only scripts 
     * "ddp_notebook" is akin to "ddp" and should only be used in notebook environments
     
@@ -163,15 +147,74 @@ Load weights. Note that unless the problem specified here is untrained, this ste
 load_state_dict_lightning(problem, 'test_weights.ckpt')
 ```
 
-## Other Features 
+# Other Features 
 
-### Tensorboard
+## Wandb Hyperparameter Tuning 
+
+
+We now will tune learning rate and batch size hyperparameters. Recall in previous tutorials we use the `LitTrainer.fit()` function to fit a problem to data_setup_function. To tune hyperparameters, we use `LitTrainer.hyperparameter_sweep()` instead. The syntax is similar: 
+
+### Fit
+
+```bash
+lit_trainer = LitTrainer()
+lit_trainer.fit(problem, data_setup_function, *kwargs)
+```
+
+### Tuning 
+
+```bash
+lit_trainer = LitTrainer()
+lit_trainer.hyperparameter_sweep(problem, data_setup_function, sweep_config, *kwargs)
+```
+
+The only difference is the addition of a sweep configuration file in the format required by wandb. An example of such a config is shown below: 
+```bash
+sweep_config = {
+    'method': 'random',
+    'parameters': {
+        'learning_rate': {
+            'min': 0.001,
+            'max': .007
+        },
+        'batch_size': {
+            'values': [16, 64, 128]
+        }
+    }
+}
+```
+
+We go over the parameters for sweep below. Again the function signature is: 
+
+```bash
+def hyperparameter_sweep(self, problem, data_setup_function, sweep_config, count=10, project_name='run_sweep', **kwargs):
+```
+* problem: Neuromancer problem 
+* data_setup_function: A data setup function 
+* sweep_config: Dictionary of sweep parameters. 
+* Count: Number of iterations to sample from the param distributions. E.g. 10 will execute 10 runs 
+* project_name: Name of the project. Generally unnecesssary
+* **kwargs: Any keyword arguments needed for data setup function 
+
+### WandB Set-Up
+
+Please ensure you have a wandb account setup and provided API key. When running on VS Code, one will need to provide said API key upon launching hyperparameter_sweep()
+
+### WandB Visualization
+
+Upon launching the sweep, we will see a supplied link(s) to view the sweeps and runs in stdout
+
+For more information please refer to: https://docs.wandb.ai/guides/sweeps/define-sweep-configuration
+
+
+
+## Tensorboard
 Lightning automatically will log training history to a *lightning_logs* found in the current working direcotyr. The latest "version" should correspond to the most current training run. As a result it is easy to view training progress, etc. with Tensorboard. For example, assuming one is in VS Code environment with Tensorboard plug-in installed, one can launch a Tensorboard session to view latest training progress with: 
 ```
 %reload_ext tensorboard
 %tensorboard --logdir=lightning_logs/
 ``````
-### Profiling 
+## Profiling 
 One can profile training run easily by passing in the "profiler" keyword argument to LitTrainer, for example: 
 
 ```
@@ -181,7 +224,7 @@ lit_trainer = LitTrainer(profiler='simple)
 Will output profiling report at end of training. 
 Profiling options include "simple", "pytorch" and "advanced". For more information please see https://pytorch-lightning.readthedocs.io/en/1.5.10/advanced/profiler.html#pytorch-profiling
 
-### Custom Training Logic
+## Custom Training Logic
 Training within PyTorch Lightning framework is defined by a `training_step` function, which defines the logic going from a data batch to loss. For example, the default training_step used is shown below (other extraneous details removed for simplicity). Here, we get the problem output for the given batch and return the loss associated with that output.
 
 ```

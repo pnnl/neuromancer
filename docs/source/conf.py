@@ -44,5 +44,6 @@ html_static_path = ['_static']
 html_logo = '_static/dadaist.png'
 html_favicon = '_static/tiny_dadaist.ico'
 html_sidebars = {
-    "**": ["logo-text.html", "globaltoc.html", "localtoc.html", "searchbox.html"]
+    "**": ["logo-text.html", "globaltoc.html", "localtoc.html", "searchbox.html"], 
+    'collapse_navigation': False
 }

@@ -287,4 +287,4 @@ Welcome to My Project's Documentation
 .. toctree::
    :maxdepth: 4
 
-   neuromancer
+   index

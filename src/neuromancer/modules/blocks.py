@@ -12,6 +12,11 @@ import neuromancer.slim as slim
 import neuromancer.modules.rnn as rnn
 from neuromancer.modules.activations import soft_exp, SoftExponential, SmoothedReLU
 
+from torch.distributions import Normal
+
+import torchsde
+
+
 
 class Block(nn.Module, ABC):
     """
@@ -707,6 +712,89 @@ class BasisLinear(Block):
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
         return self.linear(self.expand(x))
+        
+
+class Encoder(Block):
+    def __init__(self, input_size, hidden_size, output_size):
+        super().__init__()
+        self.gru = RNN(input_size=input_size, hidden_size=hidden_size)
+        self.lin = Linear(hidden_size, output_size)
+
+    def block_eval(self, inp):
+        out = self.gru(inp)
+        out = self.lin(out)
+        return out
+    
+    
+class LatentSDE(Block):
+    sde_type = "ito"
+    noise_type = "diagonal"
+
+    def __init__(self, data_size, latent_size, context_size, hidden_size):
+        super(, self).__init__()
+        # Encoder.
+        self.encoder = Encoder(input_size=data_size, hidden_size=hidden_size, output_size=context_size)
+        self.qz0_net = Linear(context_size, latent_size + latent_size)
+
+        # Decoder.
+        self.f_net = MLP(insize=latent_size + context_size, outsize=hidden_size)
+        self.h_net = MLP(insize=latent_size, outsize=hidden_size)
+
+        self.g_nets = nn.ModuleList([MLP(insize=1, outsize=hidden_size) for _ in range(latent_size)])
+        self.projector = Linear(latent_size, data_size)
+
+        self.pz0_mean = nn.Parameter(torch.zeros(1, latent_size))
+        self.pz0_logstd = nn.Parameter(torch.zeros(1, latent_size))
+
+        self._ctx = None
+
+    def contextualize(self, ctx):
+        self._ctx = ctx  # A tuple of tensors of sizes (T,), (T, batch_size, d).
+
+    def f(self, t, y):
+        ts, ctx = self._ctx
+        i = min(torch.searchsorted(ts, t, right=True), len(ts) - 1)
+        return self.f_net(torch.cat((y, ctx[i]), dim=1))
+
+    def h(self, t, y):
+        return self.h_net(y)
+
+    def g(self, t, y):  # Diagonal diffusion.
+        y = torch.split(y, split_size_or_sections=1, dim=1)
+        out = [g_net_i(y_i) for (g_net_i, y_i) in zip(self.g_nets, y)]
+        return torch.cat(out, dim=1)
+
+    def block_eval(self, xs, ts, noise_std, adjoint=False, method="euler"):
+        # Contextualization is only needed for posterior inference.
+        ctx = self.encoder(torch.flip(xs, dims=(0,)))
+        ctx = torch.flip(ctx, dims=(0,))
+        self.contextualize((ts, ctx))
+
+        qz0_mean, qz0_logstd = self.qz0_net(ctx[0]).chunk(chunks=2, dim=1)
+        z0 = qz0_mean + qz0_logstd.exp() * torch.randn_like(qz0_mean)
+
+        if adjoint:
+            # Must use the argument `adjoint_params`, since `ctx` is not part of the input to `f`, `g`, and `h`.
+            adjoint_params = (
+                    (ctx,) +
+                    tuple(self.f_net.parameters()) + tuple(self.g_nets.parameters()) + tuple(self.h_net.parameters())
+            )
+            zs, log_ratio = torchsde.sdeint_adjoint(
+                self, z0, ts, adjoint_params=adjoint_params, dt=1e-2, logqp=True, method=method)
+        else:
+            zs, log_ratio = torchsde.sdeint(self, z0, ts, dt=1e-2, logqp=True, method=method)
+
+        _xs = self.projector(zs)
+        xs_dist = Normal(loc=_xs, scale=noise_std)
+        log_pxs = xs_dist.log_prob(xs).sum(dim=(0, 2)).mean(dim=0)
+
+        qz0 = torch.distributions.Normal(loc=qz0_mean, scale=qz0_logstd.exp())
+        pz0 = torch.distributions.Normal(loc=self.pz0_mean, scale=self.pz0_logstd.exp())
+        logqp0 = torch.distributions.kl_divergence(qz0, pz0).sum(dim=1).mean(dim=0)
+        logqp_path = log_ratio.sum(dim=0).mean(dim=0)
+        return log_pxs, logqp0 + logqp_path
+
+
 
 
 class InterpolateAddMultiply(nn.Module):

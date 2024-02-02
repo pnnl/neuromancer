@@ -57,7 +57,11 @@ Part 2: Learning to solve a quadratically-constrained optimization problem.
 Part 3: Learning to solve a set of 2D constrained optimization problems.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
-Part 4: Learning to solve a constrained optimization problem with projected gradient method.
+Part 4: Learning to solve a constrained optimization problem with the projected gradient.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_5_cvxpy_layers.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
+Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasible set.  
+
 
 ### Ordinary Differential Equations (ODEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_1_NODE.ipynb">
@@ -325,8 +329,8 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 ## Development team
 
-**Lead developers**: Jan Drgona, Aaron Tuor   
-**Active core developers**: James Koch, Madelyn Shapiro  
+**Lead developers**: [Jan Drgona](https://drgona.github.io/), [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/)   
+**Active core developers**: Madelyn Shapiro, James Koch, Rahul Birmiwal  
 **Scientific advisors**: Draguna Vrabie  
 **Notable contributors**: Seth Briney, Bo Tang, Ethan King, Shrirang Abhyankar, 
 Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard

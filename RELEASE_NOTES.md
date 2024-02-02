@@ -8,7 +8,12 @@
 + Automated docs build from `master -> gh-pages` #107
 + Fixed positional arg error and added support for Time data in `file_emulator.py` #119
 + Fixed a bug in `System` which caused incorrect visualization of the computational graph
-+ Minor updates to examples
++ New examples:
+  + [learning to optimize with cvxplayers](https://github.com/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_5_cvxpy_layers.ipynb)
+  + [Deep Koopman for system identification](https://github.com/pnnl/neuromancer/blob/master/examples/ODEs/Part_7_DeepKoopman.ipynb)
+  + [control-oriented Deep Koopman for system identification](https://github.com/pnnl/neuromancer/blob/master/examples/ODEs/Part_8_nonauto_DeepKoopman.ipynb)
+  + extended set of [domain examples](https://github.com/pnnl/neuromancer/tree/master/examples/domain_examples)
++ Other minor updates to examples
 
 ### Version 1.4.1 Release Notes
 + To simplify integration, interpolation of control input is no longer supported in `integrators.py`

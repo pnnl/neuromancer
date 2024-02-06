@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System ID Using Neural Ordinary Differential Equations in Neuromancer</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-start;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #data_setup, #problem_setup {
+            width: 45%;
+        }
+
+        #divider {
+            border-right: 2px solid orange;
+            height: 80%;
+            margin: auto;
+        }
+
+        #plot_container {
+            max-width: 100%; /* Ensure the plot doesn't exceed the width of the container */
+            overflow: hidden; /* Hide overflow to keep the layout clean */
+        }
+
+        #plot_container img {
+            width: 100%; /* Autoscale the image to fit the container */
+            height: auto; /* Maintain the aspect ratio */
+        }
+    </style>
+</head>
+<body>
+    <div id="data_setup">
+        <h2>Data Set-Up</h2>
+        <!-- Your existing data setup form goes here -->
+        <form action="/plot" method="post">
+            <label for="system_name">Select a system:</label>
+            <select name="system_name" id="system_name">
+                {% for system_name in system_names %}
+                    <option value="{{ system_name }}">{{ system_name }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="N">Enter value for N:</label>
+            <input type="number" name="N" id="N" required>
+            <button type="submit">Plot</button>
+        </form>
+
+        <!-- Container for the plot -->
+        <div id="plot_container">
+            <!-- Include your plot here -->
+            {% if plot_url %}
+                <img src="{{ plot_url }}" alt="System Plot">
+            {% endif %}
+        </div>
+
+    </div>
+
+    <div id="divider"></div>
+
+    <div id="problem_setup">
+        <h2>Problem Set-Up</h2>
+        <!-- Subheader for Blocks -->
+        <h3>Blocks</h3>
+        <form>
+            <label for="block_type">Select a block type:</label>
+            <select name="block_type" id="block_type">
+                <option value=""> </option>
+                <option value="MLP">MLP</option>
+                <option value="Dummy">Dummy</option>
+            </select>
+
+            <!-- Input form for MLP block -->
+            <div id="mlp_options" style="display: none;">
+                <label for="bias">Bias:</label>
+                <select name="bias" id="bias">
+                    <option value=""> </option>
+                    <option value="True">True</option>
+                    <option value="False">False</option>
+                </select>
+
+                <label for="hsizes">hsizes:</label>
+                <input type="number" name="hsizes" id="hsizes" value="60">
+            </div>
+        </form>
+    </div>
+
+    <!-- JavaScript to show/hide MLP options based on block selection -->
+    <script>
+        document.getElementById('block_type').addEventListener('change', function () {
+            var mlpOptionsDiv = document.getElementById('mlp_options');
+            mlpOptionsDiv.style.display = this.value === 'MLP' ? 'block' : 'none';
+        });
+    </script>
+
+</body>
+</html>

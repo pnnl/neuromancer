@@ -22,8 +22,9 @@ class Block(nn.Module, ABC):
     """
     Canonical abstract class of the block function approximator
     """
-    def __init__(self):
+    def __init__(self, concat=True):
         super().__init__()
+        self.concat = concat
 
     @abstractmethod
     def block_eval(self, x):
@@ -36,12 +37,15 @@ class Block(nn.Module, ABC):
         :param inputs: (list(torch.Tensor, shape=[batchsize, insize]) or torch.Tensor, shape=[batchsize, insize])
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
-        if len(inputs) > 1:
-            x = torch.cat(inputs, dim=-1)
-        else:
-            x = inputs[0]
-        return self.block_eval(x)
-
+        if self.concat: 
+            if len(inputs) > 1:
+                x = torch.cat(inputs, dim=-1)
+            else:
+                x = inputs[0]
+            return self.block_eval(x)
+        else: 
+            return self.block_eval(*inputs)
+    
 
 class Linear(Block):
     """
@@ -207,8 +211,8 @@ class MLP_bounds(MLP):
         :param dropout: (float) Dropout probability
         """
         super().__init__(insize=insize, outsize=outsize, bias=bias,
-                         linear_map=linear_map, nonlin=nonlin,
-                         hsizes=hsizes, linargs=linargs)
+                        linear_map=linear_map, nonlin=nonlin,
+                        hsizes=hsizes, linargs=linargs)
         self.min = min
         self.max = max
         self.method = self._set_method(method)
@@ -418,14 +422,14 @@ class InputConvexNN(MLP):
     """
 
     def __init__(self,
-                 insize,
-                 outsize,
-                 bias=True,
-                 linear_map=slim.Linear,
-                 nonlin=nn.ReLU,
-                 hsizes=[64],
-                 linargs=dict()
-                 ):
+                insize,
+                outsize,
+                bias=True,
+                linear_map=slim.Linear,
+                nonlin=nn.ReLU,
+                hsizes=[64],
+                linargs=dict()
+                ):
         super().__init__(
             insize,
             outsize,
@@ -713,47 +717,138 @@ class BasisLinear(Block):
         """
         return self.linear(self.expand(x))
         
-
+"""
 class Encoder(Block):
     def __init__(self, input_size, hidden_size, output_size):
         super().__init__()
-        self.gru = RNN(input_size=input_size, hidden_size=hidden_size)
+        self.gru = torch.nn.GRU(input_size=input_size, hidden_size=hidden_size)
         self.lin = Linear(hidden_size, output_size)
 
     def block_eval(self, inp):
         out = self.gru(inp)
         out = self.lin(out)
         return out
+"""
+
+class Encoder(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(Encoder, self).__init__()
+        self.gru = nn.GRU(input_size=input_size, hidden_size=hidden_size)
+        self.lin = nn.Linear(hidden_size, output_size)
+
+    def forward(self, inp):
+        out, _ = self.gru(inp)
+        out = self.lin(out)
+        return out
     
+class BasicSDE(Block): 
+    """
+    Wrapper class for torchsde explicit SDE case. See https://github.com/google-research/torchsde
+    """
+    def __init__(self, f, g, t, y):
+        """
+        :param f: Drift function
+        :param g: Diffusion function 
+        :param t: Timesteps 
+        :param y: Initial value of dimension (batch size, state size)
+        """
+        super().__init__()
+        self.f = f
+        self.g = g
+        self.y = y 
+        self.t = t 
+        self.theta = nn.Parameter(torch.tensor(0.1), requires_grad=False)  # Scalar parameter
+        self.noise_type = "diagonal"
+        self.sde_type = "ito"
+        self.in_features = 0
+        self.out_features = 0
+
+    def f(self, t,y): 
+        return self.f(t,y)
+
+    def g(self, t, y):
+        return self.g(t,y)
+                         
+    def block_eval(self): 
+        """This is unused by torchsde integrator"""
+        pass
     
-class LatentSDE(Block):
+
+class Encoder(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(Encoder, self).__init__()
+        self.gru = nn.GRU(input_size=input_size, hidden_size=hidden_size)
+        self.lin = nn.Linear(hidden_size, output_size)
+
+    def forward(self, inp):
+        out, _ = self.gru(inp)
+        out = self.lin(out)
+        return out
+
+
+
+class LatentSDE_Encoder(Block):
+    """
+    Wrapper for torchsde's Latent SDE class to integrate with Neuromancer. This takes in a full stochastic process dataset
+    and encodes it into a latent space. The output of this block feeds into LatentSDEIntegrator class. 
+    Please see https://github.com/google-research/torchsde/blob/master/examples/latent_sde_lorenz.py
+    """
     sde_type = "ito"
     noise_type = "diagonal"
 
-    def __init__(self, data_size, latent_size, context_size, hidden_size):
-        super(, self).__init__()
+    def __init__(self, data_size, latent_size, context_size, hidden_size, ts):
+        super().__init__()
         # Encoder.
         self.encoder = Encoder(input_size=data_size, hidden_size=hidden_size, output_size=context_size)
-        self.qz0_net = Linear(context_size, latent_size + latent_size)
+        self.qz0_net = nn.Linear(context_size, latent_size + latent_size)
+        
 
         # Decoder.
-        self.f_net = MLP(insize=latent_size + context_size, outsize=hidden_size)
-        self.h_net = MLP(insize=latent_size, outsize=hidden_size)
-
-        self.g_nets = nn.ModuleList([MLP(insize=1, outsize=hidden_size) for _ in range(latent_size)])
-        self.projector = Linear(latent_size, data_size)
+        self.f_net = nn.Sequential(
+            nn.Linear(latent_size + context_size, hidden_size),
+            nn.Softplus(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.Softplus(),
+            nn.Linear(hidden_size, latent_size),
+        )
+        self.h_net = nn.Sequential(
+            nn.Linear(latent_size, hidden_size),
+            nn.Softplus(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.Softplus(),
+            nn.Linear(hidden_size, latent_size),
+        )
+        # This needs to be an element-wise function for the SDE to satisfy diagonal noise.
+        self.g_nets = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(1, hidden_size),
+                    nn.Softplus(),
+                    nn.Linear(hidden_size, 1),
+                    nn.Sigmoid()
+                )
+                for _ in range(latent_size)
+            ]
+        )
+        self.projector = nn.Linear(latent_size, data_size)
 
         self.pz0_mean = nn.Parameter(torch.zeros(1, latent_size))
         self.pz0_logstd = nn.Parameter(torch.zeros(1, latent_size))
 
         self._ctx = None
+        self.in_features = 0
+        self.out_features = 0
+
+        self.ts = ts
 
     def contextualize(self, ctx):
         self._ctx = ctx  # A tuple of tensors of sizes (T,), (T, batch_size, d).
 
     def f(self, t, y):
         ts, ctx = self._ctx
+
         i = min(torch.searchsorted(ts, t, right=True), len(ts) - 1)
+  
         return self.f_net(torch.cat((y, ctx[i]), dim=1))
 
     def h(self, t, y):
@@ -764,38 +859,48 @@ class LatentSDE(Block):
         out = [g_net_i(y_i) for (g_net_i, y_i) in zip(self.g_nets, y)]
         return torch.cat(out, dim=1)
 
-    def block_eval(self, xs, ts, noise_std, adjoint=False, method="euler"):
+    def block_eval(self, xs):
         # Contextualization is only needed for posterior inference.
         ctx = self.encoder(torch.flip(xs, dims=(0,)))
         ctx = torch.flip(ctx, dims=(0,))
-        self.contextualize((ts, ctx))
+        self.contextualize((self.ts, ctx))
 
         qz0_mean, qz0_logstd = self.qz0_net(ctx[0]).chunk(chunks=2, dim=1)
         z0 = qz0_mean + qz0_logstd.exp() * torch.randn_like(qz0_mean)
+        return z0, xs, self.ts, qz0_mean, qz0_logstd
+    
+class LatentSDE_Decoder(Block):
+    """
+    Second part of Wrapper for torchsde's Latent SDE class to integrate with Neuromancer. This takes in output of 
+    LatentSDEIntegrator and decodes it back into the "real" data space and also outputs associated Gaussian distributions 
+    to be used in the final loss function.
+    Please see https://github.com/google-research/torchsde/blob/master/examples/latent_sde_lorenz.py
+    """
+    sde_type = "ito"
+    noise_type = "diagonal"
 
-        if adjoint:
-            # Must use the argument `adjoint_params`, since `ctx` is not part of the input to `f`, `g`, and `h`.
-            adjoint_params = (
-                    (ctx,) +
-                    tuple(self.f_net.parameters()) + tuple(self.g_nets.parameters()) + tuple(self.h_net.parameters())
-            )
-            zs, log_ratio = torchsde.sdeint_adjoint(
-                self, z0, ts, adjoint_params=adjoint_params, dt=1e-2, logqp=True, method=method)
-        else:
-            zs, log_ratio = torchsde.sdeint(self, z0, ts, dt=1e-2, logqp=True, method=method)
+    def __init__(self, data_size, latent_size, noise_std):
+        super().__init__(concat=False)
+        self.in_features = 0
+        self.out_features = 0
+        self.noise_std = noise_std
+        self.pz0_mean = nn.Parameter(torch.zeros(1, latent_size))
+        self.pz0_logstd = nn.Parameter(torch.zeros(1, latent_size))
+        self.projector = nn.Linear(latent_size, data_size)
+
+    def block_eval(self, xs, zs, log_ratio, qz0_mean, qz0_logstd): 
 
         _xs = self.projector(zs)
-        xs_dist = Normal(loc=_xs, scale=noise_std)
+        xs_dist = Normal(loc=_xs, scale=self.noise_std)
         log_pxs = xs_dist.log_prob(xs).sum(dim=(0, 2)).mean(dim=0)
 
         qz0 = torch.distributions.Normal(loc=qz0_mean, scale=qz0_logstd.exp())
         pz0 = torch.distributions.Normal(loc=self.pz0_mean, scale=self.pz0_logstd.exp())
         logqp0 = torch.distributions.kl_divergence(qz0, pz0).sum(dim=1).mean(dim=0)
         logqp_path = log_ratio.sum(dim=0).mean(dim=0)
-        return log_pxs, logqp0 + logqp_path
-
-
-
+        return log_pxs, logqp0 + logqp_path, log_ratio
+    
+        
 
 class InterpolateAddMultiply(nn.Module):
     """

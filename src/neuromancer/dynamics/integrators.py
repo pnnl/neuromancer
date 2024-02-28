@@ -7,6 +7,7 @@ import torch.nn as nn
 
 from torchdiffeq import odeint_adjoint as odeint
 import torchdiffeq
+import torchsde
 from abc import ABC, abstractmethod
 
 
@@ -81,6 +82,39 @@ class DiffEqIntegrator(Integrator):
                           adjoint_options=dict(norm=make_norm(x)))
         x_t = solution[-1]
         return x_t
+    
+class BasicSDEIntegrator(Integrator): 
+    def __init__(self, block): 
+        super().__init__(block) 
+
+    def integrate(self, x, t): 
+        ys = torchsde.sdeint(self.block, x, t, method='euler')
+        return ys 
+
+class LatentSDEIntegrator(Integrator):
+    """
+    Integrator (from TorchSDE) for LatentSDE case. Please see https://github.com/google-research/torchsde/blob/master/examples/latent_sde_lorenz.py for more
+    information
+    """
+    def __init__(self, block,  dt=1e-2, logqp=True, method='euler'):
+        """
+
+        :param block:(nn.Module) The LatentSDE_Encoder block
+        todo 
+        """
+        super().__init__(block)
+        self.method = method
+        self.logqp = logqp
+        self.dt = dt
+
+    def integrate(self, x):
+        z0, xs, ts, qz0_mean, qz0_logstd = self.block(x)
+        zs, log_ratio = torchsde.sdeint(self.block, z0, ts, dt=self.dt, logqp=self.logqp, method=self.method)
+        return zs, z0, log_ratio, xs, qz0_mean, qz0_logstd
+
+
+
+   
 
 
 class Euler(Integrator):

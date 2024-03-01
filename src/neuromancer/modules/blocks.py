@@ -775,10 +775,15 @@ class BasicSDE(Block):
     
 
 class Encoder(nn.Module):
+    """
+    Encoder module to handle time-series data (as in the case of stochastic data and SDE)
+    GRU is used to handle mapping to latent space in this case
+    This class is used only in LatentSDE_Encoder
+    """
     def __init__(self, input_size, hidden_size, output_size):
         super(Encoder, self).__init__()
         self.gru = nn.GRU(input_size=input_size, hidden_size=hidden_size)
-        self.lin = nn.Linear(hidden_size, output_size)
+        self.lin = Linear(hidden_size, output_size)
 
     def forward(self, inp):
         out, _ = self.gru(inp)
@@ -792,6 +797,7 @@ class LatentSDE_Encoder(Block):
     Wrapper for torchsde's Latent SDE class to integrate with Neuromancer. This takes in a full stochastic process dataset
     and encodes it into a latent space. The output of this block feeds into LatentSDEIntegrator class. 
     Please see https://github.com/google-research/torchsde/blob/master/examples/latent_sde_lorenz.py
+    Note that the adjoint method is not currently supported (see https://arxiv.org/pdf/2001.01328.pdf and TorchSDE documentation)
     """
     sde_type = "ito"
     noise_type = "diagonal"
@@ -800,44 +806,44 @@ class LatentSDE_Encoder(Block):
         super().__init__()
         # Encoder.
         self.encoder = Encoder(input_size=data_size, hidden_size=hidden_size, output_size=context_size)
-        self.qz0_net = nn.Linear(context_size, latent_size + latent_size)
+        self.qz0_net = Linear(context_size, latent_size + latent_size) #Layer to return mean and variance of the parameterized latent space 
         
 
         # Decoder.
         self.f_net = nn.Sequential(
-            nn.Linear(latent_size + context_size, hidden_size),
+            Linear(latent_size + context_size, hidden_size),
             nn.Softplus(),
-            nn.Linear(hidden_size, hidden_size),
+            Linear(hidden_size, hidden_size),
             nn.Softplus(),
-            nn.Linear(hidden_size, latent_size),
+            Linear(hidden_size, latent_size),
         )
         self.h_net = nn.Sequential(
-            nn.Linear(latent_size, hidden_size),
+            Linear(latent_size, hidden_size),
             nn.Softplus(),
-            nn.Linear(hidden_size, hidden_size),
+            Linear(hidden_size, hidden_size),
             nn.Softplus(),
-            nn.Linear(hidden_size, latent_size),
+            Linear(hidden_size, latent_size),
         )
         # This needs to be an element-wise function for the SDE to satisfy diagonal noise.
         self.g_nets = nn.ModuleList(
             [
                 nn.Sequential(
-                    nn.Linear(1, hidden_size),
+                    Linear(1, hidden_size),
                     nn.Softplus(),
-                    nn.Linear(hidden_size, 1),
+                    Linear(hidden_size, 1),
                     nn.Sigmoid()
                 )
                 for _ in range(latent_size)
             ]
         )
-        self.projector = nn.Linear(latent_size, data_size)
+        self.projector = Linear(latent_size, data_size)
 
         self.pz0_mean = nn.Parameter(torch.zeros(1, latent_size))
         self.pz0_logstd = nn.Parameter(torch.zeros(1, latent_size))
 
         self._ctx = None
-        self.in_features = 0
-        self.out_features = 0
+        self.in_features = 0 #unused
+        self.out_features = 0 #unused 
 
         self.ts = ts
 
@@ -889,7 +895,6 @@ class LatentSDE_Decoder(Block):
         self.projector = nn.Linear(latent_size, data_size)
 
     def block_eval(self, xs, zs, log_ratio, qz0_mean, qz0_logstd): 
-
         _xs = self.projector(zs)
         xs_dist = Normal(loc=_xs, scale=self.noise_std)
         log_pxs = xs_dist.log_prob(xs).sum(dim=(0, 2)).mean(dim=0)

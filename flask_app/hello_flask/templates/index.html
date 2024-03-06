@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System ID Using Neural Ordinary Differential Equations in Neuromancer</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-start;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #data_setup, #problem_setup {
+            width: 45%;
+        }
+
+        #divider {
+            border-right: 2px solid orange;
+            height: 80%;
+            margin: auto;
+        }
+
+        #plot_container {
+            max-width: 100%; 
+            overflow: hidden; 
+            height: auto;
+        }
+
+
+        #plot_container img {
+            width: 100%; 
+            height: auto; 
+        }
+        
+        #problem_setup {
+            position: relative;
+        }
+
+        #workspace {
+            width: 300px;
+            height: 300px;
+            background-color: lightgreen;
+            position: relative;
+            top: 10px;
+            left: 10px;
+            border: 1px solid #000;
+        }
+
+        #components_pane {
+            background-color: #ccc;
+            padding: 10px;
+            width: 100%;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .component {
+            width: 70px;
+            height: 30px;
+            background-color: #808080; 
+            margin-bottom: 5px; 
+            cursor: move; 
+        }
+
+        #main_button {
+            margin-top: auto;
+            align-self: flex-end;
+        }
+    </style>
+</head>
+<body>
+    <div id="data_setup">
+        <h2>Data Set-Up</h2>
+        <form action="/plot" method="post">
+            <label for="system_name">Select a system:</label>
+            <select name="system_name" id="system_name">
+                {% for system_name in system_names %}
+                    <option value="{{ system_name }}">{{ system_name }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="N">Enter value for N:</label>
+            <input type="number" name="N" id="N" required>
+            <button type="submit">Plot</button>
+        </form>
+
+        <div id="plot_container">
+            {% if plot_url %}
+                <img src="{{ plot_url }}" alt="System Plot">
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="divider"></div>
+
+    <div id="problem_setup">
+        <h2>Problem Set-Up</h2>
+        <h3>Blocks</h3>
+        <form id="mlp_form" action="/create_mlp_block" method="post">
+            <label for="block_type">Select a block type:</label>
+            <select name="block_type" id="block_type">
+                <option value=""> </option>
+                <option value="MLP">MLP</option>
+                <option value="Dummy">Dummy</option>
+            </select>
+
+            <div id="mlp_options" style="display: none;">
+                <label for="bias">Bias:</label>
+                <select name="bias" id="bias_select">
+                    <option value=""> </option>
+                    <option value="True">True</option>
+                    <option value="False">False</option>
+                </select>
+
+                <label for="hsizes">hsizes:</label>
+                <input type="number" name="hsizes" id="hsizes_input" value="60">
+                
+                <button type="button" onclick="createMLPBlock()">Create MLP Block</button>
+            </div>
+
+
+            <div id="components_pane">
+                <h3>Components</h3>
+                <div class="component" id="mlp_component" draggable="true" ondragstart="drag(event)">MLP</div>
+                <div class="component" id="resnet_component" draggable="true" ondragstart="drag(event)">ResNet</div>
+            </div>
+
+            <div id="workspace" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+        </form>
+
+        <form id="main_form" action="/main" method="post">
+            <button id="main_button" type="button" onclick="updateProblemComponents()">Main</button>
+        </form>
+
+        <form action="/print_globals" method="get" target="_blank">
+            <button type="submit">Print Global Variables</button>
+        </form>
+    </div>
+
+    <script>
+        function updateProblemComponents() {
+            var workspace = document.getElementById('workspace');
+            var components = workspace.getElementsByClassName('component');
+
+            var formData = new FormData();
+            for (var i = 0; i < components.length; i++) {
+                formData.append('components[]', components[i].textContent);
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/update_problem_components', true);
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    alert('Components updated in app.py.');
+                } else {
+                    console.error('Error:', xhr.statusText);
+                }
+            };
+            xhr.send(formData);
+        }
+
+        function createMLPBlock() {
+            var bias = document.getElementById('bias_select').value;
+            var hsizes = document.getElementById('hsizes_input').value;
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/create_mlp_block', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    alert('MLP Block created and stored.');
+                } else {
+                    console.error('Error:', xhr.statusText);
+                }
+            };
+            xhr.send('block_type=MLP&bias=' + bias + '&hsizes=' + hsizes);
+        }
+
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+        }
+
+        function drop(ev) {
+            ev.preventDefault();
+            var data = ev.dataTransfer.getData("text");
+            var draggedElement = document.getElementById(data);
+            var copy = draggedElement.cloneNode(true);
+            copy.id = data + "_" + Date.now(); // Create a unique ID for the dropped element
+            ev.target.appendChild(copy);
+        }
+
+        document.getElementById('block_type').addEventListener('change', function () {
+            var mlpOptionsDiv = document.getElementById('mlp_options');
+            mlpOptionsDiv.style.display = this.value === 'MLP' ? 'block' : 'none';
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.slim.linear &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.slim.linear</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.slim.linear</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Structured linear maps which are drop in replacements for torch.nn.Linear</span>
+
+
+<span class="sd">.. todo::</span>
+
+<span class="sd">    + Generalize to batch matrix multiplication for arbitrary N-dimensional tensors</span>
+<span class="sd">    + Additional linear parametrizations:</span>
+
+<span class="sd">        - Strictly diagonally dominant matrix is non-singular:</span>
+<span class="sd">            + https://en.wikipedia.org/wiki/Diagonally_dominant_matrix</span>
+<span class="sd">        - Doubly stochastic matrix:</span>
+<span class="sd">            + https://en.wikipedia.org/wiki/Doubly_stochastic_matrix</span>
+<span class="sd">            + https://github.com/btaba/sinkhorn_knopp</span>
+<span class="sd">            + https://github.com/HeddaCohenIndelman/Learning-Gumbel-Sinkhorn-Permutations-w-Pytorch</span>
+<span class="sd">        - Hamiltonian matrix:</span>
+<span class="sd">            + https://en.wikipedia.org/wiki/Hamiltonian_matrix</span>
+<span class="sd">        - Regular split: :math:`A = B − C` is a regular splitting of :math:`A` if :math:`B^{−1} ≥ 0` and :math:`C ≥ 0`:</span>
+<span class="sd">            + https://en.wikipedia.org/wiki/Matrix_splitting</span>
+
+<span class="sd">Pytorch weight initializations used in this module:</span>
+
+<span class="sd">+ torch.nn.init.xavier_normal_(tensor, gain=1.0)</span>
+<span class="sd">+ torch.nn.init.kaiming_normal_(tensor, a=0, mode=&#39;fan_in&#39;, nonlinearity=&#39;leaky_relu&#39;)</span>
+<span class="sd">+ torch.nn.init.orthogonal_(tensor, gain=1)</span>
+<span class="sd">+ torch.nn.init.sparse_(tensor, sparsity, std=0.01)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+<span class="kn">from</span> <span class="nn">neuromancer.slim.butterfly</span> <span class="kn">import</span> <span class="n">Butterfly</span>
+
+
+<div class="viewcode-block" id="LinearBase">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LinearBase">[docs]</a>
+<span class="k">class</span> <span class="nc">LinearBase</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base class defining linear map interface.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param insize: (int) Input dimensionality</span>
+<span class="sd">        :param outsize: (int) Output dimensionality</span>
+<span class="sd">        :param bias: (bool) Whether to use affine or linear map</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bias</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">outsize</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="ow">not</span> <span class="n">bias</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bias</span><span class="p">:</span>
+            <span class="n">bound</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">insize</span><span class="p">)</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">uniform_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bias</span><span class="p">,</span> <span class="o">-</span><span class="n">bound</span><span class="p">,</span> <span class="n">bound</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">provide_weights</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">))</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">kaiming_uniform_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span><span class="o">.</span><span class="n">device</span>
+
+<div class="viewcode-block" id="LinearBase.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LinearBase.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Regularization error associated with linear map parametrization.</span>
+
+<span class="sd">        :return: (torch.float)</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LinearBase.eig">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LinearBase.eig">[docs]</a>
+    <span class="k">def</span> <span class="nf">eig</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the eigenvalues (optionally eigenvectors) of the linear map used in matrix multiplication.</span>
+
+<span class="sd">        :return: (torch.Tensor) Vector of eigenvalues, optionally a tuple including a matrix of eigenvectors.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">effective_W</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="LinearBase.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LinearBase.effective_W">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The matrix used in the equivalent matrix multiplication for the parametrization</span>
+
+<span class="sd">        :return: (torch.Tensor, shape=[insize, outsize]) Matrix used in matrix multiply</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="LinearBase.forward">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LinearBase.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">0-</span>
+<span class="sd">        :param x: (torch.Tensor, shape=[batchsize, in_features])</span>
+<span class="sd">        :return: (torch.Tensor, shape=[batchsize, out_features])</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">effective_W</span><span class="p">())</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">bias</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Linear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.Linear">[docs]</a>
+<span class="k">class</span> <span class="nc">Linear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper for torch.nn.Linear with additional slim methods returning matrix,</span>
+<span class="sd">    eigenvectors, eigenvalues and regularization error.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">weight</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bias</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">bias</span>
+
+<div class="viewcode-block" id="Linear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.Linear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">T</span></div>
+
+
+<div class="viewcode-block" id="Linear.forward">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.Linear.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="L0Linear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.L0Linear">[docs]</a>
+<span class="k">class</span> <span class="nc">L0Linear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implementation of L0 regularization for the input units of a fully connected layer</span>
+
+<span class="sd">    + Reference implementation: https://github.com/AMLab-Amsterdam/L0_regularization/blob/master/l0_layers.py</span>
+<span class="sd">    + Paper: https://arxiv.org/pdf/1712.01312.pdf</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">        This implementation may need to be adjusted as there is the same sampling for each input</span>
+<span class="sd">        in the minibatch which may inhibit convergence. Also, there will be a different sampling</span>
+<span class="sd">        for each call during training so it may cause issues included in a layer for a recurrent</span>
+<span class="sd">        computation (fx in state space model).</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_decay</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+                 <span class="n">droprate_init</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">2.</span><span class="o">/</span><span class="mf">3.</span><span class="p">,</span> <span class="n">lamda</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param weight_decay: Strength of the L2 penalty</span>
+<span class="sd">        :param droprate_init: Dropout rate that the L0 gates will be initialized to</span>
+<span class="sd">        :param temperature: Temperature of the concrete distribution</span>
+<span class="sd">        :param lamba: Strength of the L0 penalty</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span> <span class="o">=</span> <span class="n">insize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">outsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_bias</span> <span class="o">=</span> <span class="n">bias</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;prior_prec&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">weight_decay</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">qz_loga</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;temperature&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">temperature</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;droprate_init&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">droprate_init</span><span class="p">)</span> <span class="k">if</span> <span class="n">droprate_init</span> <span class="o">!=</span> <span class="mf">0.</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.5</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;lamda&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">lamda</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;limit_a&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="o">-</span><span class="mf">.1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;limit_b&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">1.1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;epsilon&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">1e-6</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">qz_loga</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">normal_</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">droprate_init</span><span class="p">)</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">droprate_init</span><span class="p">),</span> <span class="mf">1e-2</span><span class="p">)</span>
+
+<div class="viewcode-block" id="L0Linear.cdf_qz">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.L0Linear.cdf_qz">[docs]</a>
+    <span class="k">def</span> <span class="nf">cdf_qz</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Implements the CDF of the &#39;stretched&#39; concrete distribution&quot;&quot;&quot;</span>
+        <span class="n">xn</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit_a</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">limit_b</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit_a</span><span class="p">)</span>
+        <span class="n">logits</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">xn</span><span class="p">)</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">xn</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">logits</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">qz_loga</span><span class="p">)</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="L0Linear.quantile_concrete">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.L0Linear.quantile_concrete">[docs]</a>
+    <span class="k">def</span> <span class="nf">quantile_concrete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Implements the quantile, aka inverse CDF, of the &#39;stretched&#39; concrete distribution&quot;&quot;&quot;</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">((</span><span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">qz_loga</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">limit_b</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit_a</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit_a</span></div>
+
+
+<div class="viewcode-block" id="L0Linear.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.L0Linear.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Expected L0 norm under the stochastic gates, takes into account and re-weights also a potential L2 penalty&quot;&quot;&quot;</span>
+        <span class="n">logpw_col</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">-</span> <span class="p">(</span><span class="mf">.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">prior_prec</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">lamda</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">logpw</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">cdf_qz</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span> <span class="o">*</span> <span class="n">logpw_col</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">logpb</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_bias</span> <span class="k">else</span> <span class="o">-</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mf">.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">prior_prec</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">bias</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">logpw</span> <span class="o">+</span> <span class="n">logpb</span></div>
+
+
+<div class="viewcode-block" id="L0Linear.get_eps">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.L0Linear.get_eps">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_eps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Uniform random numbers for the concrete distribution&quot;&quot;&quot;</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">FloatTensor</span><span class="p">(</span><span class="o">*</span><span class="n">size</span><span class="p">)</span><span class="o">.</span><span class="n">uniform_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">,</span> <span class="mi">1</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">eps</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eps</span></div>
+
+
+<div class="viewcode-block" id="L0Linear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.L0Linear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span><span class="p">:</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">quantile_concrete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_eps</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span><span class="p">]))</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">hardtanh</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">min_val</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_val</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">pi</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">qz_loga</span><span class="p">)</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">hardtanh</span><span class="p">(</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">limit_b</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit_a</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit_a</span><span class="p">,</span> <span class="n">min_val</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_val</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mask</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ButterflyLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.ButterflyLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">ButterflyLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Sparse structured linear maps from: https://github.com/HazyResearch/learning-circuits</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="nb">complex</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">tied_weight</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">increasing_stride</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ortho_init</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linmap</span> <span class="o">=</span> <span class="n">Butterfly</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="nb">complex</span><span class="o">=</span><span class="nb">complex</span><span class="p">,</span>
+                                <span class="n">tied_weight</span><span class="o">=</span><span class="n">tied_weight</span><span class="p">,</span> <span class="n">increasing_stride</span><span class="o">=</span><span class="n">increasing_stride</span><span class="p">,</span>
+                                <span class="n">ortho_init</span><span class="o">=</span><span class="n">ortho_init</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ButterflyLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.ButterflyLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linmap</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linmap</span><span class="o">.</span><span class="n">twiddle</span><span class="o">.</span><span class="n">device</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="ButterflyLinear.forward">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.ButterflyLinear.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linmap</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SquareLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SquareLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">SquareLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base class for linear map parametrizations that assume a square matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">insize</span> <span class="o">==</span> <span class="n">outsize</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Map must be square. insize=</span><span class="si">{</span><span class="n">insize</span><span class="si">}</span><span class="s1"> and outsize=</span><span class="si">{</span><span class="n">outsize</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="n">provide_weights</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SquareLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SquareLinear.effective_W">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="IdentityInitLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.IdentityInitLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">IdentityInitLinear</span><span class="p">(</span><span class="n">Linear</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Linear map initialized to Identity matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">weight</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bias</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">bias</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">eye_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bias</span><span class="p">:</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">zeros_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bias</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="IdentityLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.IdentityLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">IdentityLinear</span><span class="p">(</span><span class="n">IdentityInitLinear</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Identity operation compatible with all LinearBase functionality.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="NonNegativeLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.NonNegativeLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">NonNegativeLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Positive parametrization of linear map via Relu.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span><span class="o">*</span><span class="mf">0.1</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NonNegativeLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.NonNegativeLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PSDLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.PSDLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">PSDLinear</span><span class="p">(</span><span class="n">SquareLinear</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Symmetric Positive semi-definite matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PSDLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.PSDLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="IdentityGradReLU">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.IdentityGradReLU">[docs]</a>
+<span class="k">class</span> <span class="nc">IdentityGradReLU</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    We can implement our own custom autograd Functions by subclassing</span>
+<span class="sd">    torch.autograd.Function and implementing the forward and backward passes</span>
+<span class="sd">    which operate on Tensors.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="IdentityGradReLU.forward">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.IdentityGradReLU.forward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="nb">input</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        In the forward pass we receive a Tensor containing the input and return</span>
+<span class="sd">        a Tensor containing the output. ctx is a context object that can be used</span>
+<span class="sd">        to stash information for backward computation. You can cache arbitrary</span>
+<span class="sd">        objects for use in the backward pass using the ctx.save_for_backward method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">input</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IdentityGradReLU.backward">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.IdentityGradReLU.backward">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        In the backward pass we receive a Tensor containing the gradient of the loss</span>
+<span class="sd">        with respect to the output, and we need to compute the gradient of the loss</span>
+<span class="sd">        with respect to the input. Here we are just passing through the previous gradient since we want</span>
+<span class="sd">        the gradient for this max operation to be gradient of identity.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">grad_output</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="LassoLinearRELU">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LassoLinearRELU">[docs]</a>
+<span class="k">class</span> <span class="nc">LassoLinearRELU</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    From https://leon.bottou.org/publications/pdf/compstat-2010.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">kaiming_normal_</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">u_param</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">kaiming_normal_</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v_param</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">=</span> <span class="n">gamma</span>
+
+<div class="viewcode-block" id="LassoLinearRELU.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LassoLinearRELU.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Thresholding for sparsity</span>
+        <span class="k">return</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_param</span><span class="p">)</span> <span class="o">-</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">v_param</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LassoLinearRELU.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LassoLinearRELU.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># shrinkage</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">effective_W</span><span class="p">()</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="LassoLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LassoLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">LassoLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    From https://leon.bottou.org/publications/pdf/compstat-2010.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">kaiming_normal_</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">u_param</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">kaiming_normal_</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v_param</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">=</span> <span class="n">gamma</span>
+
+<div class="viewcode-block" id="LassoLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LassoLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Thresholding for sparsity</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_param</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_param</span></div>
+
+
+<div class="viewcode-block" id="LassoLinear.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LassoLinear.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># shrinkage</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">effective_W</span><span class="p">()</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LassoLinear.forward">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LassoLinear.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v_param</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">v_param</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">u_param</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_param</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="RightStochasticLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.RightStochasticLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">RightStochasticLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A right stochastic matrix is a real square matrix, with each row summing to 1.</span>
+
+<span class="sd">    + https://en.wikipedia.org/wiki/Stochastic_matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RightStochasticLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.RightStochasticLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="LeftStochasticLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LeftStochasticLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">LeftStochasticLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A left stochastic matrix is a real square matrix, with each column summing to 1.</span>
+
+<span class="sd">    + https://en.wikipedia.org/wiki/Stochastic_matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<div class="viewcode-block" id="LeftStochasticLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.LeftStochasticLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PerronFrobeniusLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.PerronFrobeniusLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">PerronFrobeniusLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sigma_min</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Perron-Frobenius theorem based regularization of matrix rows sum to in between sigma_min and sigma max.</span>
+
+<span class="sd">        + See https://arxiv.org/abs/2004.10883 for extensive description.</span>
+
+<span class="sd">        :param insize: (int) Dimension of input vectors</span>
+<span class="sd">        :param outsize: (int) Dimension of output vectors</span>
+<span class="sd">        :param bias: (bool) Whether to add bias to linear transform</span>
+<span class="sd">        :param sigma_min: (float) maximum allowed value of dominant eigenvalue</span>
+<span class="sd">        :param sigma_max: (float)  minimum allowed value of dominant eigenvalue</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># matrix scaling to allow for different row sums</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scaling</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_min</span> <span class="o">=</span> <span class="n">sigma_min</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="n">sigma_max</span>
+
+<div class="viewcode-block" id="PerronFrobeniusLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.PerronFrobeniusLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">s_clamped</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma_min</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scaling</span><span class="p">)</span>
+        <span class="n">w_sofmax</span> <span class="o">=</span> <span class="n">s_clamped</span> <span class="o">*</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">w_sofmax</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SymmetricLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SymmetricLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">SymmetricLinear</span><span class="p">(</span><span class="n">SquareLinear</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Symmetric matrix :math:`A` (effective_W) is a square matrix that is equal to its transpose. :math:`A = A^T`</span>
+
+<span class="sd">    + https://en.wikipedia.org/wiki/Symmetric_matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SymmetricLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SymmetricLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">t</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SkewSymmetricLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SkewSymmetricLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">SkewSymmetricLinear</span><span class="p">(</span><span class="n">SquareLinear</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Skew-symmetric (or antisymmetric) matrix :math:`A` (effective_W) is a square matrix whose transpose equals its negative.</span>
+<span class="sd">    :math:`A = -A^T`</span>
+
+<span class="sd">    + https://en.wikipedia.org/wiki/Skew-symmetric_matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SkewSymmetricLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SkewSymmetricLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">triu</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">triu</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="DampedSkewSymmetricLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.DampedSkewSymmetricLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">DampedSkewSymmetricLinear</span><span class="p">(</span><span class="n">SkewSymmetricLinear</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Skew-symmetric linear map with damping.</span>
+
+<span class="sd">    + https://en.wikipedia.org/wiki/Skew-symmetric_matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sigma_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eye</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">sigma_min</span> <span class="o">+</span> <span class="p">(</span><span class="n">sigma_max</span><span class="o">-</span><span class="n">sigma_min</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+<div class="viewcode-block" id="DampedSkewSymmetricLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.DampedSkewSymmetricLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">effective_W</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">eye</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SplitLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SplitLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">SplitLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    :math:`A = B − C`, with :math:`B ≥ 0` and :math:`C ≥ 0`.</span>
+
+<span class="sd">    + https://en.wikipedia.org/wiki/Matrix_splitting</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">B</span> <span class="o">=</span> <span class="n">NonNegativeLinear</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">C</span> <span class="o">=</span> <span class="n">NonNegativeLinear</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SplitLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SplitLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">effective_W</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">C</span><span class="o">.</span><span class="n">effective_W</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">A</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="StableSplitLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.StableSplitLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">StableSplitLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    :math:`A = B − C`, with stable `B` and stable `C`</span>
+
+<span class="sd">    + https://en.wikipedia.org/wiki/Matrix_splitting</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sigma_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">B</span> <span class="o">=</span> <span class="n">PerronFrobeniusLinear</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="n">sigma_max</span><span class="p">,</span> <span class="n">sigma_max</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">C</span> <span class="o">=</span> <span class="n">PerronFrobeniusLinear</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">sigma_max</span> <span class="o">-</span> <span class="n">sigma_min</span><span class="p">)</span>
+
+<div class="viewcode-block" id="StableSplitLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.StableSplitLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">effective_W</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">C</span><span class="o">.</span><span class="n">effective_W</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">A</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SVDLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SVDLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">SVDLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Linear map with constrained eigenvalues via approximate SVD factorization.</span>
+<span class="sd">    Soft SVD based regularization of matrix :math:`A`.</span>
+<span class="sd">    :math:`A = U \Sigma V`.</span>
+<span class="sd">    :math:`U,V` are unitary matrices (orthogonal for real matrices :math:`A`).</span>
+<span class="sd">    :math:`\Sigma` is a diagonal matrix of singular values (square roots of eigenvalues).</span>
+
+<span class="sd">    + https://arxiv.org/abs/2101.01864</span>
+
+<span class="sd">    This below paper uses the same factorization and orthogonality constraint as implemented here</span>
+<span class="sd">    but enforces a low rank prior on the map by introducing a sparse prior on the singular values:</span>
+
+<span class="sd">    + https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Yang_Learning_Low-Rank_Deep_Neural_Networks_via_Singular_Vector_Orthogonality_Regularization_CVPRW_2020_paper.pdf</span>
+
+<span class="sd">    Also a similar regularization on the factors as to our implementation:</span>
+
+<span class="sd">    + https://pdfs.semanticscholar.org/78b2/9eba4d6c836483c0aa67d637205e95223ae4.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sigma_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param sigma_min: (int) Minimum singular value.</span>
+<span class="sd">        :param sigma_max: (int) Maximum singular value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">insize</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">orthogonal_</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">U</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">outsize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">orthogonal_</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>  <span class="c1"># scaling of singular values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_min</span> <span class="o">=</span> <span class="n">sigma_min</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="n">sigma_max</span>
+
+<div class="viewcode-block" id="SVDLinear.orthogonal_error">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SVDLinear.orthogonal_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">orthogonal_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">):</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">size</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="o">-</span>
+                              <span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">weight</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">t</span><span class="p">(</span><span class="n">weight</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span>
+                           <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">size</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="o">-</span>
+                                      <span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">t</span><span class="p">(</span><span class="n">weight</span><span class="p">),</span> <span class="n">weight</span><span class="p">),</span> <span class="mi">2</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SVDLinear.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SVDLinear.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Regularization error enforces orthogonality constraint for matrix factors</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">orthogonal_error</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">U</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">orthogonal_error</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SVDLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SVDLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :return: Matrix for linear transformation with dominant eigenvalue between sigma_max and sigma_min</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">sigma_clapmed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma_min</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="p">)</span>
+        <span class="n">Sigma_bounded</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="o">*</span> <span class="n">sigma_clapmed</span>
+        <span class="n">w_svd</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">U</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">Sigma_bounded</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">w_svd</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SVDLinearLearnBounds">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SVDLinearLearnBounds">[docs]</a>
+<span class="k">class</span> <span class="nc">SVDLinearLearnBounds</span><span class="p">(</span><span class="n">SVDLinear</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sigma_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parametrizes bounds on singular value which are learned with other parameters via gradient descent.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">sigma_min</span><span class="o">=</span><span class="n">sigma_min</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="n">sigma_max</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_min</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">sigma_min</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">sigma_max</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="SymmetricSVDLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SymmetricSVDLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">SymmetricSVDLinear</span><span class="p">(</span><span class="n">SVDLinear</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    :math:`U = V`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sigma_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">sigma_min</span><span class="o">=</span><span class="n">sigma_min</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="n">sigma_max</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">U</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">V</span></div>
+
+
+
+<div class="viewcode-block" id="Hprod">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.Hprod">[docs]</a>
+<span class="k">def</span> <span class="nf">Hprod</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function for computing matrix multiply via householder reflection representation.</span>
+<span class="sd">    :param x: (torch.Tensor shape=[batchsize, dimension])</span>
+<span class="sd">    :param u: (torch.Tensor shape=[dimension])</span>
+<span class="sd">    :param k: (int)</span>
+<span class="sd">    :return: (torch.Tensor shape=[batchsize, dimension])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="o">-</span><span class="n">k</span><span class="p">:],</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="n">k</span><span class="p">:])</span> <span class="o">/</span> <span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="n">k</span><span class="p">:]</span> <span class="o">*</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="n">k</span><span class="p">:])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">k</span> <span class="o">&lt;</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">x</span><span class="p">[:,</span> <span class="p">:</span><span class="o">-</span><span class="n">k</span><span class="p">],</span> <span class="n">x</span><span class="p">[:,</span> <span class="o">-</span><span class="n">k</span><span class="p">:]</span> <span class="o">-</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">alpha</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="n">k</span><span class="p">:]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))],</span>
+                         <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># Subtract outer product</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">[:,</span> <span class="o">-</span><span class="n">k</span><span class="p">:]</span> <span class="o">-</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">alpha</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="n">k</span><span class="p">:]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="OrthogonalLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.OrthogonalLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">OrthogonalLinear</span><span class="p">(</span><span class="n">SquareLinear</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Orthogonal parametrization via householder reflection</span>
+
+<span class="sd">    + https://arxiv.org/abs/1612.00188</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">U</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">triu</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">insize</span><span class="p">)))</span>
+
+<div class="viewcode-block" id="OrthogonalLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.OrthogonalLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">U</span><span class="o">.</span><span class="n">device</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="OrthogonalLinear.forward">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.OrthogonalLinear.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">Hprod</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">U</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span> <span class="o">-</span> <span class="n">i</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">bias</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SchurDecompositionLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SchurDecompositionLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">SchurDecompositionLinear</span><span class="p">(</span><span class="n">SquareLinear</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    + https://papers.nips.cc/paper/9513-non-normal-recurrent-neural-network-nnrnn-learning-long-time-dependencies-while-improving-expressivity-with-transient-dynamics.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">l2</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">insize</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;Insize must be divisible by 2.&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">P</span> <span class="o">=</span> <span class="n">OrthogonalLinear</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">insize</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theta</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">([</span><span class="n">insize</span><span class="o">//</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">([</span><span class="n">insize</span><span class="o">//</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">T</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_T</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">insize</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">l2</span> <span class="o">=</span> <span class="n">l2</span>
+
+<div class="viewcode-block" id="SchurDecompositionLinear.build_T">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SchurDecompositionLinear.build_T">[docs]</a>
+    <span class="k">def</span> <span class="nf">build_T</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">T</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">gamma</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span><span class="p">)):</span>
+            <span class="n">rk</span> <span class="o">=</span> <span class="n">gamma</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span> <span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)],</span>
+                                       <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)]])</span>
+            <span class="n">T</span><span class="p">[</span><span class="mi">2</span><span class="o">*</span><span class="n">k</span><span class="p">:</span><span class="mi">2</span><span class="o">*</span><span class="n">k</span><span class="o">+</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">k</span><span class="p">:</span><span class="mi">2</span><span class="o">*</span><span class="n">k</span><span class="o">+</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">rk</span>
+        <span class="k">return</span> <span class="n">T</span></div>
+
+
+<div class="viewcode-block" id="SchurDecompositionLinear.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SchurDecompositionLinear.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">l2</span><span class="o">*</span><span class="n">F</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">insize</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SchurDecompositionLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SchurDecompositionLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="o">.</span><span class="n">effective_W</span><span class="p">()</span><span class="o">.</span><span class="n">T</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SpectralLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SpectralLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">SpectralLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    SVD paramaterized linear map of form :math:`U \Sigma V` via Householder reflection.</span>
+<span class="sd">    Singular values can be constrained to a range.</span>
+<span class="sd">    Translated from tensorflow code:</span>
+
+<span class="sd">    + https://github.com/zhangjiong724/spectral-RNN/blob/master/code/spectral_rnn.py</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">n_U_reflectors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_V_reflectors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">sigma_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param n_U_reflectors: (int) It looks like this should effectively constrain the rank of the matrix</span>
+<span class="sd">        :param n_V_reflectors: (int) It looks like this should effectively constrain the rank of the matrix</span>
+<span class="sd">        :param sigma_min: min value of singular values</span>
+<span class="sd">        :param sigma_max: max value of singular values</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n_U_reflectors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">n_U_reflectors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">n_U_reflectors</span> <span class="o">&lt;=</span> <span class="n">insize</span><span class="p">,</span> <span class="s1">&#39;Too many reflectors&#39;</span>
+            <span class="k">assert</span> <span class="n">n_V_reflectors</span> <span class="o">&lt;=</span> <span class="n">outsize</span><span class="p">,</span> <span class="s1">&#39;Too may reflectors&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_U_reflectors</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_V_reflectors</span> <span class="o">=</span> <span class="n">n_U_reflectors</span><span class="p">,</span> <span class="n">n_V_reflectors</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_U_reflectors</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_V_reflectors</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="p">(</span><span class="n">sigma_max</span> <span class="o">-</span> <span class="n">sigma_min</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_mean</span> <span class="o">=</span> <span class="n">sigma_min</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span>
+        <span class="n">nsigma</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nsigma</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.001</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">nsigma</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">V</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">triu</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">outsize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">U</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">triu</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">insize</span><span class="p">)))</span>
+
+<div class="viewcode-block" id="SpectralLinear.Sigma">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SpectralLinear.Sigma">[docs]</a>
+    <span class="k">def</span> <span class="nf">Sigma</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">sigmas</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">*</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma_mean</span>
+        <span class="n">square_matrix</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">sigmas</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span><span class="p">))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">sigmas</span><span class="o">.</span><span class="n">device</span><span class="p">)]))</span>
+        <span class="k">return</span> <span class="n">square_matrix</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">out_features</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="SpectralLinear.Umultiply">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SpectralLinear.Umultiply">[docs]</a>
+    <span class="k">def</span> <span class="nf">Umultiply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;x.shape: </span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1">, in_features: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_U_reflectors</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">Hprod</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">U</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span> <span class="o">-</span> <span class="n">i</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span></div>
+
+
+<div class="viewcode-block" id="SpectralLinear.Vmultiply">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SpectralLinear.Vmultiply">[docs]</a>
+    <span class="k">def</span> <span class="nf">Vmultiply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_V_reflectors</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">Hprod</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">V</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">-</span> <span class="n">i</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span></div>
+
+
+<div class="viewcode-block" id="SpectralLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SpectralLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">device</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="SpectralLinear.forward">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SpectralLinear.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Umultiply</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Sigma</span><span class="p">())</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Vmultiply</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">bias</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SymmetricSpectralLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SymmetricSpectralLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">SymmetricSpectralLinear</span><span class="p">(</span><span class="n">SpectralLinear</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    :math:`U = V`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">n_reflectors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigma_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span>
+                         <span class="n">n_U_reflectors</span><span class="o">=</span><span class="n">n_reflectors</span><span class="p">,</span> <span class="n">n_V_reflectors</span><span class="o">=</span><span class="n">n_reflectors</span><span class="p">,</span>
+                         <span class="n">sigma_min</span><span class="o">=</span><span class="n">sigma_min</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="n">sigma_max</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">U</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">V</span></div>
+
+
+
+<div class="viewcode-block" id="SymplecticLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SymplecticLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">SymplecticLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    + https://en.wikipedia.org/wiki/Symplectic_matrix</span>
+<span class="sd">    + https://arxiv.org/abs/1705.03341</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">insize</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;Symplectic Matrix must have even dimensions&#39;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">insize</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">outsize</span><span class="o">/</span><span class="mi">2</span><span class="p">)))</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">kaiming_normal_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SymplecticLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.SymplecticLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span> <span class="o">//</span> <span class="mi">2</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                          <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)])</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="GershgorinLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.GershgorinLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">GershgorinLinear</span><span class="p">(</span><span class="n">SquareLinear</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Uses Gershgorin Disc parametrization to constrain eigenvalues of the matrix. See:</span>
+
+<span class="sd">    + https://arxiv.org/abs/2011.13492</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sigma_min</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">real</span> <span class="o">=</span> <span class="n">real</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mean</span> <span class="o">=</span> <span class="p">(</span><span class="n">sigma_min</span> <span class="o">+</span> <span class="n">sigma_max</span><span class="p">)</span><span class="o">/</span><span class="mf">2.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">=</span> <span class="p">(</span><span class="n">sigma_min</span> <span class="o">-</span> <span class="n">sigma_max</span><span class="p">)</span><span class="o">/</span><span class="mf">2.0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">nonident</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">insize</span><span class="p">)</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">insize</span><span class="p">))</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">nonident</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diag</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">insize</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GershgorinLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.GershgorinLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
+            <span class="c1"># make weights symmetric</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span>
+        <span class="c1"># Set diagonals to be centered in eigenvalue range with offset bounded (0, .5*radius)</span>
+        <span class="n">eW</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">*</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diag</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">)</span>
+        <span class="c1"># Perform softmax on off diagonal elements, then scale so sum is equal to .5 radius</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">nonident</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="o">/</span><span class="mf">2.0</span><span class="p">)</span>
+        <span class="c1"># Get normalized upper triangular elements and put them in effective weights</span>
+        <span class="n">idxs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">triu</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">uppervec</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="n">idxs</span><span class="p">]</span>
+        <span class="n">eW</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">triu</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">),</span> <span class="n">diagonal</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">uppervec</span>
+        <span class="c1"># Get normalized lower triangular elements and put them in effective weights</span>
+        <span class="n">lowervec</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="o">~</span><span class="n">idxs</span><span class="p">]</span>
+        <span class="n">eW</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">tril</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">),</span> <span class="n">diagonal</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">lowervec</span>
+        <span class="k">return</span> <span class="n">eW</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="BoundedNormLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.BoundedNormLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">BoundedNormLinear</span><span class="p">(</span><span class="n">Linear</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    sigma_min &lt;= ||A||_p &lt;= sigma_max</span>
+<span class="sd">    p = type of the matrix norm</span>
+<span class="sd">    sigma_min = minimum allowed value of  eigenvalues</span>
+<span class="sd">    sigma_max = maximum allowed value of eigenvalues</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">sigma_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_min</span> <span class="o">=</span> <span class="n">sigma_min</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="n">sigma_max</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">=</span> <span class="n">p</span>
+
+<div class="viewcode-block" id="BoundedNormLinear.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.BoundedNormLinear.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="o">+</span> \
+               <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_min</span> <span class="o">-</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="TrivialNullSpaceLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.TrivialNullSpaceLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">TrivialNullSpaceLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Matrix with trivial null space</span>
+<span class="sd">    as defined via eq. 2 in https://arxiv.org/abs/1808.00924</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">bias</span> <span class="o">==</span> <span class="kc">False</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Map must have zero bias to have trivial null space&#39;</span>
+        <span class="k">assert</span> <span class="n">insize</span> <span class="o">&lt;=</span> <span class="n">outsize</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Map must not decrease the dimension of its input. &#39;</span> \
+                                  <span class="sa">f</span><span class="s1">&#39;insize=</span><span class="si">{</span><span class="n">insize</span><span class="si">}</span><span class="s1"> and outsize=</span><span class="si">{</span><span class="n">outsize</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">=</span> <span class="n">rank</span> <span class="k">if</span> <span class="n">rank</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">((</span><span class="n">insize</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Gl1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span> <span class="n">insize</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Gl2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">outsize</span><span class="o">-</span><span class="n">insize</span><span class="p">,</span> <span class="n">insize</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span> <span class="o">=</span> <span class="n">epsilon</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">insize</span> <span class="o">=</span> <span class="n">insize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outsize</span> <span class="o">=</span> <span class="n">outsize</span>
+
+<div class="viewcode-block" id="TrivialNullSpaceLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.TrivialNullSpaceLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">W_upper</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Gl1</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Gl1</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="o">*</span><span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">insize</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">W_upper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Gl2</span><span class="p">])</span><span class="o">.</span><span class="n">T</span></div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="viewcode-block" id="PowerBoundLinear">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.PowerBoundLinear">[docs]</a>
+<span class="k">class</span> <span class="nc">PowerBoundLinear</span><span class="p">(</span><span class="n">LinearBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Linear map with constrained spectral radius via the power method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">max_p</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span><span class="n">pwr_iters</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param max_p: Upper bound on the spectral radius.</span>
+<span class="sd">        :param pwr_iters: Number of power method iterations to use in estimating the spectral radius.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">insize</span> <span class="o">==</span> <span class="n">outsize</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Map must be square. insize=</span><span class="si">{</span><span class="n">insize</span><span class="si">}</span><span class="s1"> and outsize=</span><span class="si">{</span><span class="n">outsize</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">insize</span><span class="p">,</span> <span class="n">outsize</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">provide_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">insize</span> <span class="o">=</span> <span class="n">insize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outsize</span> <span class="o">=</span> <span class="n">outsize</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">insize</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">insize</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_p</span> <span class="o">=</span> <span class="n">max_p</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pwr_iters</span> <span class="o">=</span> <span class="n">pwr_iters</span>
+
+
+<div class="viewcode-block" id="PowerBoundLinear.eig_v_estimate">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.PowerBoundLinear.eig_v_estimate">[docs]</a>
+    <span class="k">def</span> <span class="nf">eig_v_estimate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">n_iterates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pwr_iters</span>
+        
+        <span class="n">a</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+         
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_iterates</span><span class="p">):</span>
+                <span class="n">a</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span><span class="n">a</span><span class="p">)</span>
+                <span class="n">b</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span><span class="n">b</span><span class="p">)</span>
+                <span class="n">a_ib_nrm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span> <span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">t</span><span class="p">(</span><span class="n">a</span><span class="p">),</span><span class="n">a</span><span class="p">)</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">t</span><span class="p">(</span><span class="n">b</span><span class="p">),</span><span class="n">b</span><span class="p">)</span>   <span class="p">)</span>
+                <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">a_ib_nrm</span><span class="p">)</span><span class="o">*</span><span class="n">a</span>
+                <span class="n">b</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">a_ib_nrm</span><span class="p">)</span><span class="o">*</span><span class="n">b</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">]</span></div>
+
+        
+
+<div class="viewcode-block" id="PowerBoundLinear.reg_error">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.PowerBoundLinear.reg_error">[docs]</a>
+    <span class="k">def</span> <span class="nf">reg_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Regularization error enforces upper bound on spectral radius</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="p">[</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eig_v_estimate</span><span class="p">()</span>    
+        <span class="n">a_ib_nsq</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">t</span><span class="p">(</span><span class="n">a</span><span class="p">),</span><span class="n">a</span><span class="p">)</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">t</span><span class="p">(</span><span class="n">b</span><span class="p">),</span><span class="n">b</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">t</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span><span class="n">a</span><span class="p">)),</span><span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span><span class="n">a</span><span class="p">))</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">t</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span><span class="n">b</span><span class="p">)),</span><span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span><span class="n">b</span><span class="p">))</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">/</span><span class="n">a_ib_nsq</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span> <span class="n">v</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_p</span>  <span class="p">)</span></div>
+
+        
+    
+
+<div class="viewcode-block" id="PowerBoundLinear.effective_W">
+<a class="viewcode-back" href="../../../neuromancer.slim.html#neuromancer.slim.linear.PowerBoundLinear.effective_W">[docs]</a>
+    <span class="k">def</span> <span class="nf">effective_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span></div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="n">square_maps</span> <span class="o">=</span> <span class="p">{</span><span class="n">SymmetricLinear</span><span class="p">,</span> <span class="n">SkewSymmetricLinear</span><span class="p">,</span> <span class="n">DampedSkewSymmetricLinear</span><span class="p">,</span> <span class="n">PSDLinear</span><span class="p">,</span>
+               <span class="n">OrthogonalLinear</span><span class="p">,</span> <span class="n">SymplecticLinear</span><span class="p">,</span> <span class="n">SchurDecompositionLinear</span><span class="p">,</span> <span class="n">SymmetricSpectralLinear</span><span class="p">,</span>
+               <span class="n">SymmetricSVDLinear</span><span class="p">,</span> <span class="n">GershgorinLinear</span><span class="p">,</span> <span class="n">PowerBoundLinear</span><span class="p">}</span>
+
+<span class="n">tall_maps</span> <span class="o">=</span> <span class="p">{</span><span class="n">TrivialNullSpaceLinear</span><span class="p">}</span>
+
+<span class="n">maps</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;l0&#39;</span><span class="p">:</span> <span class="n">L0Linear</span><span class="p">,</span>
+        <span class="s1">&#39;linear&#39;</span><span class="p">:</span> <span class="n">Linear</span><span class="p">,</span>
+        <span class="s1">&#39;nneg&#39;</span><span class="p">:</span> <span class="n">NonNegativeLinear</span><span class="p">,</span>
+        <span class="s1">&#39;lasso&#39;</span><span class="p">:</span> <span class="n">LassoLinear</span><span class="p">,</span>
+        <span class="s1">&#39;lstochastic&#39;</span><span class="p">:</span> <span class="n">LeftStochasticLinear</span><span class="p">,</span>
+        <span class="s1">&#39;rstochastic&#39;</span><span class="p">:</span> <span class="n">RightStochasticLinear</span><span class="p">,</span>
+        <span class="s1">&#39;pf&#39;</span><span class="p">:</span> <span class="n">PerronFrobeniusLinear</span><span class="p">,</span>
+        <span class="s1">&#39;symmetric&#39;</span><span class="p">:</span> <span class="n">SymmetricLinear</span><span class="p">,</span>
+        <span class="s1">&#39;skew_symetric&#39;</span><span class="p">:</span> <span class="n">SkewSymmetricLinear</span><span class="p">,</span>
+        <span class="s1">&#39;damp_skew_symmetric&#39;</span><span class="p">:</span> <span class="n">DampedSkewSymmetricLinear</span><span class="p">,</span>
+        <span class="s1">&#39;split&#39;</span><span class="p">:</span> <span class="n">SplitLinear</span><span class="p">,</span>
+        <span class="s1">&#39;stable_split&#39;</span><span class="p">:</span> <span class="n">StableSplitLinear</span><span class="p">,</span>
+        <span class="s1">&#39;spectral&#39;</span><span class="p">:</span> <span class="n">SpectralLinear</span><span class="p">,</span>
+        <span class="s1">&#39;softSVD&#39;</span><span class="p">:</span> <span class="n">SVDLinear</span><span class="p">,</span>
+        <span class="s1">&#39;learnSVD&#39;</span><span class="p">:</span> <span class="n">SVDLinearLearnBounds</span><span class="p">,</span>
+        <span class="s1">&#39;orthogonal&#39;</span><span class="p">:</span> <span class="n">OrthogonalLinear</span><span class="p">,</span>
+        <span class="s1">&#39;psd&#39;</span><span class="p">:</span> <span class="n">PSDLinear</span><span class="p">,</span>
+        <span class="s1">&#39;symplectic&#39;</span><span class="p">:</span> <span class="n">SymplecticLinear</span><span class="p">,</span>
+        <span class="s1">&#39;butterfly&#39;</span><span class="p">:</span> <span class="n">ButterflyLinear</span><span class="p">,</span>
+        <span class="s1">&#39;schur&#39;</span><span class="p">:</span> <span class="n">SchurDecompositionLinear</span><span class="p">,</span>
+        <span class="s1">&#39;identity&#39;</span><span class="p">:</span> <span class="n">IdentityLinear</span><span class="p">,</span>
+        <span class="s1">&#39;gershgorin&#39;</span><span class="p">:</span> <span class="n">GershgorinLinear</span><span class="p">,</span>
+        <span class="s1">&#39;bounded_Lp_norm&#39;</span><span class="p">:</span> <span class="n">BoundedNormLinear</span><span class="p">,</span>
+        <span class="s1">&#39;trivial_nullspace&#39;</span><span class="p">:</span> <span class="n">TrivialNullSpaceLinear</span><span class="p">,</span>
+        <span class="s1">&#39;Power_bound&#39;</span><span class="p">:</span> <span class="n">PowerBoundLinear</span><span class="p">}</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">sys</span>
+    <span class="kn">import</span> <span class="nn">inspect</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Tests</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="vm">__name__</span><span class="p">],</span>
+                       <span class="k">lambda</span> <span class="n">member</span><span class="p">:</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isclass</span><span class="p">(</span><span class="n">member</span><span class="p">)</span> <span class="ow">and</span> <span class="n">member</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">==</span> <span class="vm">__name__</span><span class="p">))</span>
+
+    <span class="n">square</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+    <span class="n">long</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+    <span class="n">tall</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">linear</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">maps</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span> <span class="o">-</span> <span class="n">square_maps</span> <span class="o">-</span> <span class="n">tall_maps</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">linear</span><span class="p">)</span>
+        <span class="nb">map</span> <span class="o">=</span> <span class="n">linear</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="nb">map</span><span class="o">.</span><span class="n">reg_error</span><span class="p">())</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">tall</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="nb">map</span> <span class="o">=</span> <span class="n">linear</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">long</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">linear</span> <span class="ow">in</span> <span class="n">square_maps</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">linear</span><span class="p">)</span>
+        <span class="nb">map</span> <span class="o">=</span> <span class="n">linear</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">square</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">long</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">linear</span> <span class="ow">in</span> <span class="n">tall_maps</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">linear</span><span class="p">)</span>
+        <span class="nb">map</span> <span class="o">=</span> <span class="n">linear</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">tall</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+
+
+
+
+
+
+
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

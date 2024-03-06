@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>System ID Using Neural Ordinary Differential Equations in Neuromancer</title>
+    <style>
+        .head1 {
+            font-size: 40px;
+            color: #009900;
+            font-weight: bold;
+        }
+
+        .head2 {
+            font-size: 17px;
+            margin-left: 10px;
+            margin-bottom: 15px;
+        }
+
+        body {
+            margin: 0 auto;
+            background-position: center;
+            background-size: contain;
+        }
+
+        .menu {
+            position: sticky;
+            top: 0;
+            background-color: #009900;
+            padding: 10px 0px 10px 0px;
+            color: white;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        .menu a {
+            float: left;
+            color: white;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+            font-size: 20px;
+        }
+
+        .menu-log {
+            right: auto;
+            float: right;
+        }
+
+        footer {
+            width: 100%;
+            bottom: 0px;
+            background-color: #000;
+            color: #fff;
+            position: absolute;
+            padding-top: 20px;
+            padding-bottom: 50px;
+            text-align: center;
+            font-size: 30px;
+            font-weight: bold;
+        }
+
+        .body_sec {
+            margin-left: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header Section -->
+    <header>
+        <div class="head1">
+            System ID Using Neural Ordinary Differential Equations in Neuromancer
+        </div>
+        <div class="head2">
+            A platform for system identification using neural networks
+        </div>
+    </header>
+
+    <!-- Menu Navigation Bar -->
+    <nav class="menu">
+        <a href="#home">HOME</a>
+        <a href="#news">NEWS</a>
+        <a href="#notification">NOTIFICATIONS</a>
+        <div class="menu-log">
+            <a href="#login">LOGIN</a>
+        </div>
+    </nav>
+
+    <!-- Body section -->
+    <main class="body_sec">
+        <section id="Content">
+            <body>
+                <div id="data_setup">
+                    <h2>Data Set-Up</h2>
+                    <!-- Your existing data setup form goes here -->
+                    <form action="/plot" method="post">
+                        <label for="system_name">Select a system:</label>
+                        <select name="system_name" id="system_name">
+                            {% for system_name in system_names %}
+                                <option value="{{ system_name }}">{{ system_name }}</option>
+                            {% endfor %}
+                        </select>
+            
+                        <label for="N">Enter value for N:</label>
+                        <input type="number" name="N" id="N" required>
+                        <button type="submit">Plot</button>
+                    </form>
+            
+                    <!-- Container for the plot -->
+                    <div id="plot_container">
+                        <!-- Include your plot here -->
+                        {% if plot_url %}
+                            <img src="{{ plot_url }}" alt="System Plot">
+                        {% endif %}
+                    </div>
+            
+                </div>
+            
+                <div id="divider"></div>
+            
+                <div id="problem_setup">
+                    <h2>Problem Set-Up</h2>
+                    <!-- Subheader for Blocks -->
+                    <h3>Blocks</h3>
+                    <form>
+                        <label for="block_type">Select a block type:</label>
+                        <select name="block_type" id="block_type">
+                            <option value=""> </option>
+                            <option value="MLP">MLP</option>
+                            <option value="Dummy">Dummy</option>
+                        </select>
+            
+                        <!-- Input form for MLP block -->
+                        <div id="mlp_options" style="display: none;">
+                            <label for="bias">Bias:</label>
+                            <select name="bias" id="bias">
+                                <option value=""> </option>
+                                <option value="True">True</option>
+                                <option value="False">False</option>
+                            </select>
+            
+                            <label for="hsizes">hsizes:</label>
+                            <input type="number" name="hsizes" id="hsizes" value="60">
+                        </div>
+                    </form>
+                </div>
+            
+                <!-- JavaScript to show/hide MLP options based on block selection -->
+                <script>
+                    document.getElementById('block_type').addEventListener('change', function () {
+                        var mlpOptionsDiv = document.getElementById('mlp_options');
+                        mlpOptionsDiv.style.display = this.value === 'MLP' ? 'block' : 'none';
+                    });
+                </script>
+            
+            </body>
+        </section>
+    </main>
+
+    <!-- Footer Section -->
+    <footer>Footer Section</footer>
+</body>
+
+</html>

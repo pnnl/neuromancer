@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuromancer.psl.autonomous &mdash; Neuromancer 1.4.2 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="shortcut icon" href="../../../_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=02f2166e"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Neuromancer
+              <img src="../../../_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../neuromancer.html">neuromancer package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Neuromancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">neuromancer.psl.autonomous</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuromancer.psl.autonomous</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Nonlinear ODEs. Wrapper for emulator dynamical models</span>
+
+<span class="sd">    * Internal Emulators - in house ground truth equations</span>
+<span class="sd">    * External Emulators - third party models</span>
+
+<span class="sd">References:</span>
+
+<span class="sd">    * https://en.wikipedia.org/wiki/List_of_nonlinear_ordinary_differential_equations</span>
+<span class="sd">    * https://en.wikipedia.org/wiki/List_of_dynamical_systems_and_differential_equations_topics</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">inspect</span><span class="o">,</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">neuromancer.psl.base</span> <span class="kn">import</span> <span class="n">ODE_Autonomous</span><span class="p">,</span> <span class="n">cast_backend</span>
+
+
+<div class="viewcode-block" id="UniversalOscillator">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.UniversalOscillator">[docs]</a>
+<span class="k">class</span> <span class="nc">UniversalOscillator</span><span class="p">(</span><span class="n">ODE_Autonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Harmonic oscillator</span>
+
+<span class="sd">    * https://en.wikipedia.org/wiki/Harmonic_oscillator</span>
+<span class="sd">    * https://sam-dolan.staff.shef.ac.uk/mas212/notebooks/ODE_Example.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;mu&#39;</span><span class="p">:</span> <span class="mf">2.</span><span class="p">,</span> <span class="s1">&#39;omega&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+<div class="viewcode-block" id="UniversalOscillator.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.UniversalOscillator.equations">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">dx1</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">dx2</span> <span class="o">=</span> <span class="o">-</span><span class="mf">2.</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">omega</span><span class="o">*</span><span class="n">t</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dx1</span><span class="p">,</span> <span class="n">dx2</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Pendulum">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.Pendulum">[docs]</a>
+<span class="k">class</span> <span class="nc">Pendulum</span><span class="p">(</span><span class="n">ODE_Autonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    `Simple pendulum &lt;https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.odeint.html&gt;`_</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;g&#39;</span><span class="p">:</span> <span class="mf">9.81</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+<div class="viewcode-block" id="Pendulum.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.Pendulum.equations">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">theta</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">omega</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">omega</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">f</span><span class="o">*</span><span class="n">omega</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">g</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="DoublePendulum">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.DoublePendulum">[docs]</a>
+<span class="k">class</span> <span class="nc">DoublePendulum</span><span class="p">(</span><span class="n">ODE_Autonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    `Double Pendulum &lt;https://scipython.com/blog/the-double-pendulum/&gt;`_</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">3.</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mf">7.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">3.</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mf">4.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;L1&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span>
+                      <span class="s1">&#39;L2&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span>
+                      <span class="s1">&#39;m1&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span>
+                      <span class="s1">&#39;m2&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span>
+                      <span class="s1">&#39;g&#39;</span><span class="p">:</span> <span class="mf">9.81</span><span class="p">,</span>
+                      <span class="p">}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+<div class="viewcode-block" id="DoublePendulum.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.DoublePendulum.equations">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">theta1</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">z1</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">theta2</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">z2</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+        <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta1</span> <span class="o">-</span> <span class="n">theta2</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta1</span> <span class="o">-</span> <span class="n">theta2</span><span class="p">)</span>
+        <span class="n">dx1</span> <span class="o">=</span> <span class="n">z1</span>
+        <span class="n">dx2</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">g</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta2</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">m2</span> <span class="o">*</span> <span class="n">s</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">L1</span> <span class="o">*</span> <span class="n">z1</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">c</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">L2</span> <span class="o">*</span> <span class="n">z2</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span>
+               <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">m2</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">g</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta1</span><span class="p">))</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">L1</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">m2</span> <span class="o">*</span> <span class="n">s</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">dx3</span> <span class="o">=</span> <span class="n">z2</span>
+        <span class="n">dx4</span> <span class="o">=</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">m1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">m2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">L1</span> <span class="o">*</span> <span class="n">z1</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">s</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">g</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta2</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">g</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta1</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span><span class="p">)</span> <span class="o">+</span>
+               <span class="bp">self</span><span class="o">.</span><span class="n">m2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">L2</span> <span class="o">*</span> <span class="n">z2</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">s</span> <span class="o">*</span> <span class="n">c</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">L2</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">m2</span> <span class="o">*</span> <span class="n">s</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dx1</span><span class="p">,</span> <span class="n">dx2</span><span class="p">,</span> <span class="n">dx3</span><span class="p">,</span> <span class="n">dx4</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="LorenzSystem">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.LorenzSystem">[docs]</a>
+<span class="k">class</span> <span class="nc">LorenzSystem</span><span class="p">(</span><span class="n">ODE_Autonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Lorenz System</span>
+
+<span class="sd">    * https://en.wikipedia.org/wiki/Lorenz_system#Analysis</span>
+<span class="sd">    * https://ipywidgets.readthedocs.io/en/stable/examples/Lorenz%20Differential%20Equations.html</span>
+<span class="sd">    * https://scipython.com/blog/the-lorenz-attractor/</span>
+<span class="sd">    * https://matplotlib.org/3.1.0/gallery/mplot3d/lorenz_attractor.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;sigma&#39;</span><span class="p">:</span> <span class="mf">10.</span><span class="p">,</span>
+                      <span class="s1">&#39;beta&#39;</span><span class="p">:</span> <span class="mf">8.</span><span class="o">/</span><span class="mf">3.</span><span class="p">,</span>
+                      <span class="s1">&#39;rho&#39;</span><span class="p">:</span> <span class="mf">28.0</span><span class="p">}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+
+<div class="viewcode-block" id="LorenzSystem.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.LorenzSystem.equations">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">dx1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">dx2</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rho</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">dx3</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dx1</span><span class="p">,</span> <span class="n">dx2</span><span class="p">,</span> <span class="n">dx3</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="VanDerPol">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.VanDerPol">[docs]</a>
+<span class="k">class</span> <span class="nc">VanDerPol</span><span class="p">(</span><span class="n">ODE_Autonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Van der Pol oscillator</span>
+
+<span class="sd">    * https://en.wikipedia.org/wiki/Van_der_Pol_oscillator</span>
+<span class="sd">    * http://kitchingroup.cheme.cmu.edu/blog/2013/02/02/Solving-a-second-order-ode/</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">2.</span><span class="p">]}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;mu&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+<div class="viewcode-block" id="VanDerPol.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.VanDerPol.equations">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">dx1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">1.</span><span class="o">/</span><span class="mf">3.</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">**</span><span class="mi">3</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">dx2</span><span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dx1</span><span class="p">,</span> <span class="n">dx2</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ThomasAttractor">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.ThomasAttractor">[docs]</a>
+<span class="k">class</span> <span class="nc">ThomasAttractor</span><span class="p">(</span><span class="n">ODE_Autonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Thomas&#39; cyclically symmetric attractor</span>
+
+<span class="sd">    * https://en.wikipedia.org/wiki/Thomas%27_cyclically_symmetric_attractor</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="mf">0.208186</span><span class="p">}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+<div class="viewcode-block" id="ThomasAttractor.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.ThomasAttractor.equations">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">dx1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">dx2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">dx3</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dx1</span><span class="p">,</span> <span class="n">dx2</span><span class="p">,</span> <span class="n">dx3</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="RosslerAttractor">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.RosslerAttractor">[docs]</a>
+<span class="k">class</span> <span class="nc">RosslerAttractor</span><span class="p">(</span><span class="n">ODE_Autonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    `Rössler attractor &lt;https://en.wikipedia.org/wiki/R%C3%B6ssler_attractor&gt;`_</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span>
+                      <span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span>
+                      <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="mf">5.7</span><span class="p">,}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+<div class="viewcode-block" id="RosslerAttractor.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.RosslerAttractor.equations">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">dx1</span> <span class="o">=</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">dx2</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">dx3</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="o">+</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dx1</span><span class="p">,</span> <span class="n">dx2</span><span class="p">,</span> <span class="n">dx3</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="LotkaVolterra">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.LotkaVolterra">[docs]</a>
+<span class="k">class</span> <span class="nc">LotkaVolterra</span><span class="p">(</span><span class="n">ODE_Autonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    `Lotka–Volterra equations &lt;https://en.wikipedia.org/wiki/Lotka%E2%80%93Volterra_equations&gt;`_</span>
+<span class="sd">    Also known as the predator–prey equations</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">100.</span><span class="p">]}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span>
+                      <span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+                      <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span>
+                      <span class="s1">&#39;d&#39;</span><span class="p">:</span> <span class="mf">0.75</span><span class="p">,}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+<div class="viewcode-block" id="LotkaVolterra.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.LotkaVolterra.equations">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">dx1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">dx2</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dx1</span><span class="p">,</span> <span class="n">dx2</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Brusselator1D">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.Brusselator1D">[docs]</a>
+<span class="k">class</span> <span class="nc">Brusselator1D</span><span class="p">(</span><span class="n">ODE_Autonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    `Brusselator &lt;https://en.wikipedia.org/wiki/Brusselator&gt;`_</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span>
+                      <span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="mf">3.</span><span class="p">}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+<div class="viewcode-block" id="Brusselator1D.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.Brusselator1D.equations">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">dx1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">+</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">dx2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dx1</span><span class="p">,</span> <span class="n">dx2</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ChuaCircuit">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.ChuaCircuit">[docs]</a>
+<span class="k">class</span> <span class="nc">ChuaCircuit</span><span class="p">(</span><span class="n">ODE_Autonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Chua&#39;s circuit</span>
+
+<span class="sd">    * https://en.wikipedia.org/wiki/Chua%27s_circuit</span>
+<span class="sd">    * https://www.chuacircuits.com/matlabsim.php</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="mf">15.6</span><span class="p">,</span>
+                      <span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="mf">28.</span><span class="p">,</span>
+                      <span class="s1">&#39;m0&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mf">1.143</span><span class="p">,</span>
+                      <span class="s1">&#39;m1&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mf">0.714</span><span class="p">,}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+<div class="viewcode-block" id="ChuaCircuit.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.ChuaCircuit.equations">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">fx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">m1</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">dx1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">fx</span><span class="p">)</span>
+        <span class="n">dx2</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">dx3</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dx1</span><span class="p">,</span> <span class="n">dx2</span><span class="p">,</span> <span class="n">dx3</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Duffing">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.Duffing">[docs]</a>
+<span class="k">class</span> <span class="nc">Duffing</span><span class="p">(</span><span class="n">ODE_Autonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    `Duffing equation &lt;https://en.wikipedia.org/wiki/Duffing_equation&gt;`_</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;alpha&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span>
+                      <span class="s1">&#39;beta&#39;</span><span class="p">:</span> <span class="mf">5.</span><span class="p">,</span>
+                      <span class="s1">&#39;delta&#39;</span><span class="p">:</span> <span class="mf">0.02</span><span class="p">,</span>
+                      <span class="s1">&#39;gamma&#39;</span><span class="p">:</span> <span class="mf">8.</span><span class="p">,</span>
+                      <span class="s1">&#39;omega&#39;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+<div class="viewcode-block" id="Duffing.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.Duffing.equations">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">dx1</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">dx2</span> <span class="o">=</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">delta</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">**</span><span class="mi">3</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">omega</span><span class="o">*</span><span class="n">t</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dx1</span><span class="p">,</span> <span class="n">dx2</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Autoignition">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.Autoignition">[docs]</a>
+<span class="k">class</span> <span class="nc">Autoignition</span><span class="p">(</span><span class="n">ODE_Autonomous</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ODE describing pulsating instability in open-ended combustor.</span>
+
+<span class="sd">    * Koch, J., Kurosaka, M., Knowlen, C., Kutz, J.N.,</span>
+<span class="sd">      &quot;Multiscale physics of rotating detonation waves: Autosolitons and modulational instabilities,&quot;</span>
+<span class="sd">      Physical Review E, 2021</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">],}</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ts&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;alpha&#39;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span>
+                      <span class="s1">&#39;uc&#39;</span><span class="p">:</span> <span class="mf">1.1</span><span class="p">,</span>
+                      <span class="s1">&#39;s&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span>
+                      <span class="s1">&#39;k&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span>
+                      <span class="s1">&#39;r&#39;</span><span class="p">:</span> <span class="mf">5.</span><span class="p">,</span>
+                      <span class="s1">&#39;q&#39;</span><span class="p">:</span> <span class="mf">6.5</span><span class="p">,</span>
+                      <span class="s1">&#39;up&#39;</span><span class="p">:</span> <span class="mf">0.55</span><span class="p">,</span>
+                      <span class="s1">&#39;e&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">}</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">variables</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">meta</span>
+
+<div class="viewcode-block" id="Autoignition.equations">
+<a class="viewcode-back" href="../../../neuromancer.psl.html#neuromancer.psl.autonomous.Autoignition.equations">[docs]</a>
+    <span class="nd">@cast_backend</span>
+    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">reactionRate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">uc</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">)</span>
+        <span class="n">regenRate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">up</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">up</span><span class="p">)))</span>
+        <span class="n">dx1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">*</span> <span class="n">reactionRate</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">e</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="n">dx2</span> <span class="o">=</span> <span class="n">reactionRate</span> <span class="o">-</span> <span class="n">regenRate</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dx1</span><span class="p">,</span> <span class="n">dx2</span><span class="p">]</span></div>
+</div>
+
+
+
+<span class="n">systems</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="vm">__name__</span><span class="p">],</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isclass</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+<span class="n">systems</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">systems</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">ODE_Autonomous</span><span class="p">)</span> <span class="ow">and</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">ODE_Autonomous</span><span class="p">}</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">system</span> <span class="ow">in</span> <span class="n">systems</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">system</span><span class="p">()</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span><span class="n">nsim</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">out</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Jan Drogna.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

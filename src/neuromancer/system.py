@@ -52,6 +52,20 @@ class Node(nn.Module):
             output = [output]
         return {k: v for k, v in zip(self.output_keys, output)}
 
+    def freeze(self):
+        """
+        Freezes the parameters of the callable in this node
+        """
+        for param in self.callable.parameters():
+            param.requires_grad = False
+
+    def unfreeze(self):
+        """
+        Unfreezes the parameters of the callable in this node
+        """
+        for param in self.callable.parameters():
+            param.requires_grad = True
+
     def __repr__(self):
         return f"{self.name}({', '.join(self.input_keys)}) -> {', '.join(self.output_keys)}"
 
@@ -255,3 +269,17 @@ class System(nn.Module):
                 outdata = node(indata)  # compute
                 data = self.cat(data, outdata)  # feed the data nodes
         return data  # return recorded system measurements
+
+    def freeze(self):
+        """
+        Freezes the parameters of all nodes in the system
+        """
+        for node in self.nodes:
+            node.freeze()
+
+    def unfreeze(self):
+        """
+        Unfreezes the parameters of all nodes in the system
+        """
+        for node in self.nodes:
+            node.unfreeze()

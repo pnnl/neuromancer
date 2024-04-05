@@ -281,6 +281,20 @@ class Problem(nn.Module):
             fig.axes.get_yaxis().set_visible(False)
             plt.show()
 
+    def freeze(self):
+        """
+        Freezes the parameters of all nodes in the system
+        """
+        for node in self.nodes:
+            node.freeze()
+
+    def unfreeze(self):
+        """
+        Unfreezes the parameters of all nodes in the system
+        """
+        for node in self.nodes:
+            node.unfreeze()
+
     def __repr__(self):
         s = "### MODEL SUMMARY ###\n\nnodeS:"
         if len(self.nodes) > 0:

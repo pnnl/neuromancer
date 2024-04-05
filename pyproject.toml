@@ -51,7 +51,7 @@ dependencies = [
     "torchdiffeq",
     "toml", 
     "lightning", 
-     "cvxpy", 
+    "cvxpy", 
     "cvxpylayers", 
     "casadi"
 ]

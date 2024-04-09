@@ -3,7 +3,7 @@
   <img src="figs/Neuromancer.png" width="250">  
 </p>
 
-# NeuroMANCER v1.4.2
+# NeuroMANCER v1.5.0
 
 **Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
 is an open-source differentiable programming (DP) library for solving parametric constrained optimization problems, 
@@ -16,13 +16,13 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 ![Static Badge](https://img.shields.io/badge/pip_install-neuromancer-blue)
  ![PyPI - Version](https://img.shields.io/pypi/v/neuromancer)
 
-### New in v1.4.2
-New feature: `GradientProjection` now supports updating violation energy at each gradient step, as in the original [DC3 paper](https://arxiv.org/pdf/2104.12225.pdf). See the full [release notes](RELEASE_NOTES.md) for more information.
 
-**New Colab Examples:**  
-> ⭐ [Physics-Informed Neural Networks (PINNs) for solving partial differential equations (PDEs) in NeuroMANCER](#physics-informed-neural-networks-pinns-for-partial-differential-equations-pdes)
+### New in v1.5.0
+![Lightning](https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white). Now supports integration with PyTorch Lightning (https://lightning.ai/docs/pytorch/stable/) to bring scability, simplicity, and flexibility to the NeuroMANCER workflows. Please refer to the Lightning folder and its README here [README](examples/lightning_integration_examples/README.md).
 
-> ⭐ [System identification for ordinary differential equations (ODEs)](#ordinary-differential-equations-odes)
+**New Colab Examples:**
+> ⭐ [Various domain examples, such as system identification of building thermal dynamics, in NeuroMANCER](#lightning-integration-examples)
+> ⭐ [PyTorch Lightning Integration: ](#domain-examples)
 
 
 ## Features and Examples
@@ -111,6 +111,33 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_5_neural_Lyapunov.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Learning neural Lyapunov function for a nonlinear dynamical system.
 
+### Domain Examples 
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_building_control.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Learning to Control Indoor Air Temperature in Buildings.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_PSH.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Learning to Control an Pumped-Hydroelectricity Energy Storage System.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_building_dynamics.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Learning Building Thermal Dynamics using Neural ODEs.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_rc_networks.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Data-driven modeling of a Resistance-Capacitance network with Neural ODEs.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_swing_equation.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Learning Swing Equation Dynamics using Neural ODEs.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NSSM_building_dynamics.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Learning Building Thermal Dynamics using Neural State Space Models.
+
+### Lightning Integration Examples 
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_1_lightning_basics_tutorial.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Lightning Integration Basics.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_2_lightning_advanced_and_gpu_tutorial.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Lightning Advanced Features and Automatic GPU Support.
 
 
 ## Documentation

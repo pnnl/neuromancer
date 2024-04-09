@@ -19,7 +19,13 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 
 ### New in v1.5.0
 ![Lightning](https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white)
-Now supports integration with PyTorch Lightning (https://lightning.ai/docs/pytorch/stable/) to bring scability, simplicity, and flexibility to NeuroMANCER workflows. Please refer to the Lightning folder and its [README](examples/lightning_integration_examples/README.md).
+Now supports integration with PyTorch Lightning (https://lightning.ai/docs/pytorch/stable/), bringing:
+* User workflow simplifications: zero boilerplate code and increased modularity 
+* Ability for user to define custom training logic easily 
+* Easy support distributed GPU training
+* Weights and Biases hyperparameter tuning 
+
+Please refer to the Lightning folder and its [README](examples/lightning_integration_examples/README.md).
 
 **New Colab Examples:**
 > ⭐ [Various domain examples, such as system identification of building thermal dynamics, in NeuroMANCER](#domain-examples)
@@ -141,6 +147,11 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_2_lightning_advanced_and_gpu_tutorial.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Lightning Advanced Features and Automatic GPU Support.
 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_4_lightning_wanb_hyperparameter_tuning.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Hyperparameter Tuning With Lightning & WandB.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/other_examples/lightning_custom_training_example.ipynb">
+<img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
 
 ## Documentation
 The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/). 

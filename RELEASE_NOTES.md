@@ -1,6 +1,14 @@
 
 ##  Release notes
 
+### Version 1.5.0 Release Notes 
++ New Feature: PyTorch Lightning Integration with NeuroMANCER core library. All these features are opt-in. 
+  + Code simplifications: zero boilerplate code, increased modularity 
+  + Added ability for user to define custom training logic 
+  + Easy support for GPU and multi-GPU training
+  + Easy Weights and Biases (https://wandb.ai/site) hyperparameter tuning and Tensorboard Logging
+
+
 ### Version 1.4.2 Release Notes 
 + New feature: Update violation energy for projected gradient #110 (based on idea #86).
 + Reverted `psl.nonautonomous.TwoTank` `(umin, umax)` bounds to `(0.5, 0.5)` for numerical stability #105

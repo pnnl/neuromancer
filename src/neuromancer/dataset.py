@@ -9,8 +9,81 @@ from scipy.io import loadmat
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.dataloader import default_collate
+import sys 
 
+import lightning.pytorch as pl 
+from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 
+class LitDataModule(pl.LightningDataModule):
+    """
+    A Neuromancer-specific class inheriting from PyTorch Lightning LightningDataModule
+    This class converts a data_setup_function (which yields Neuromancer DictDatasets associated with a Neuromancer Problem)
+    to a LightningDataModule such that it integrates with LitProblem and LitTrainer
+    """
+    def __init__(self,data_setup_function, hparam_config=None, **kwargs):
+        """
+        Minimial required input is the data_setup_function (callable) (see README.md as well as examples)
+        If the data_setup_function requires any arguments, they should also be passed in here as keyword arguments
+
+        :param data_setup_function: Function that generates Neuromancer DictDatasets
+        """
+        super().__init__()
+        self.data_setup_function = data_setup_function
+        self.data_setup_kwargs = kwargs
+        self.train_data = None
+        self.dev_data = None
+        self.test_data = None
+        self.hparam_config = hparam_config
+        self.param_sweep_batch_size = None #to be used for wandb param sweep
+        self._load_from_config()
+
+    def _load_from_config(self): 
+        if self.hparam_config: 
+            if "batch_size" in self.hparam_config: 
+                self.param_sweep_batch_size = self.hparam_config.batch_size
+        
+
+    def setup(self, stage=None):
+        """
+        Setup is a preprecessing stage required by LightningDataModules. Here we create the data splits from the data setup function, 
+        and we do data splitting and check that the user has properly named the DictDatasets
+        """
+        train_data, dev_data, test_data, batch_size = self.data_setup_function(**self.data_setup_kwargs)
+
+        try:
+            assert dev_data is None or dev_data.name == 'dev', f"Invalid name '{dev_data.name}' for dev_data DictDataset. Expected 'train'."
+        except AssertionError as e:
+            print("AssertionError:", e)
+            sys.exit(1) 
+
+        try:
+            assert train_data is None or train_data.name == 'train', f"Invalid name '{train_data.name}' for train_data DictDataset. Expected 'dev'."
+        except AssertionError as e:
+            print("AssertionError:", e)
+            sys.exit(1) 
+
+        self.train_data = train_data
+        self.dev_data = dev_data
+        self.test_data = test_data
+        self.batch_size = batch_size if not self.param_sweep_batch_size else self.param_sweep_batch_size
+        print("USING BATCH SIZE ", self.batch_size)
+
+    def train_dataloader(self):
+        return DataLoader(self.train_data, batch_size=self.batch_size, collate_fn=self.train_data.collate_fn)
+
+    def val_dataloader(self):
+        if self.dev_data is not None:
+            return DataLoader(self.dev_data, batch_size=self.batch_size, collate_fn=self.dev_data.collate_fn)
+        else:
+            # Return an empty DataLoader if dev_data is None
+            return DataLoader(dataset=[], batch_size=self.batch_size)
+
+    # currently unused
+    def test_dataloader(self):
+        return DataLoader(self.test_data, batch_size=self.batch_size, collate_fn=self.dev_data.collate_fn)
+    
+    
 class DictDataset(Dataset):
     """
     Basic dataset compatible with neuromancer Trainer

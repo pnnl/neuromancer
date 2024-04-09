@@ -9,6 +9,7 @@ authors = [
     { name = "Jan Drgona", email = "jan.drgona@pnnl.gov" },
     { name = "James Koch", email = "james.koch@pnnl.gov" },
     { name = "Madelyn Shapiro", email = "madelyn.shapiro@pnnl.gov"},
+    { name = "Rahul Birmiwal", email = "rahul.birmiwal@pnnl.gov"},
     { name = "Draguna Vrabie", email = "draguna.vrabie@pnnl.gov" }
 ]
 description = "Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularization"
@@ -48,10 +49,14 @@ dependencies = [
     "pyts",
     "torch",
     "torchdiffeq",
-    "toml"
+    "toml", 
+    "lightning", 
+    "cvxpy", 
+    "cvxpylayers", 
+    "casadi"
 ]
 
-version = "1.4.2"
+version = "1.5.0"
 
 [project.urls]
 homepage = "https://github.com/pnnl/neuromancer/"

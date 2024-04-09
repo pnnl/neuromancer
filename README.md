@@ -22,6 +22,7 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 
 **New Colab Examples:**
 > ⭐ [Various domain examples, such as system identification of building thermal dynamics, in NeuroMANCER](#lightning-integration-examples)
+
 > ⭐ [PyTorch Lightning Integration: ](#domain-examples)
 
 

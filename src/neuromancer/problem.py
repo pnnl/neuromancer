@@ -1,6 +1,3 @@
-"""
-
-"""
 # python base imports
 import os
 import pydot
@@ -8,12 +5,99 @@ from itertools import combinations
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import warnings
+import lightning.pytorch as pl 
 from typing import Dict, List, Callable
 
 # machine learning/data science imports
 import torch
 import torch.nn as nn
 
+
+
+class LitProblem(pl.LightningModule):
+    """
+    A PyTorch-Lightning Module wrapper for the Neuromancer Problem class. 
+    As is customary with LightningModules, steps for training and validation are outlined here, as well as the optimizer
+    Logging metrics are also defined here, such as 'train_loss'. 
+    """
+    def __init__(self, problem, train_metric='train_loss', dev_metric='train_loss', test_metric='train_loss', custom_optimizer=None, \
+                custom_training_step=None, hparam_config=None):
+        """
+        :param problem: A Neuromancer Problem()
+        :param train_metric: metric to be used during training step. Default to train_loss
+        :param dev_metric: metric to be used during validation step. Default to train_loss
+        :param test_metric: metric to be used during testing step (currently not supported yet)
+        :param custom_optimizer: Optimizer to be used during training. Default is None, in which an 
+                                 Adam optimizer is used with learning rate = 0.001
+        :param custom_training_step: Custom training step function, if desired. Defaults to None, in which case the standard training step procedure is executed
+        """
+        super().__init__()
+        self.problem = problem
+        self.train_metric = train_metric
+        self.dev_metric = dev_metric
+        self.test_metric = test_metric
+        self.custom_optimizer=custom_optimizer
+        self.custom_training_step = custom_training_step
+        self.hparam_config = hparam_config
+        self.lr = .001
+
+        self.training_step_outputs = []
+        self.validation_step_outputs = []
+
+        self._load_from_config()
+
+    
+    def _load_from_config(self): 
+        if self.hparam_config: 
+            if "learning_rate" in self.hparam_config: 
+                self.lr = self.hparam_config.learning_rate
+    
+
+
+    # Defines training step logic for a Neuromancer problem. Registers train_loss
+    def training_step(self, batch):
+        if self.custom_training_step is not None: 
+            loss = self.custom_training_step(self, batch)
+        else: 
+            output = self.problem(batch)
+            loss = output[self.train_metric]
+        self.training_step_outputs.append(loss)
+        self.log('train_loss', loss, on_epoch=True, enable_graph=True, prog_bar=True)
+        return loss
+
+    # Defines what to do after each training epoch
+    def on_train_epoch_end(self):
+        epoch_average = torch.stack(self.training_step_outputs).mean()
+        #print(f'epoch: {self.current_epoch}  : {epoch_average}')
+        self.log("training_epoch_average", epoch_average) #log to lightning_logs
+        self.training_step_outputs.clear() 
+
+    # Defines validation step logic for a Neuromancer problem. Registers dev_loss
+    def validation_step(self, batch):
+        output = self.problem(batch)
+        loss = output[self.dev_metric]
+        self.validation_step_outputs.append(loss)
+        self.log('dev_loss', loss, prog_bar=True)
+
+    # Defines what to do after each validation epoch
+    def on_validation_epoch_end(self):
+        epoch_average = torch.stack(self.validation_step_outputs).mean()
+        self.log("validation_epoch_average", epoch_average)
+        self.validation_step_outputs.clear()  # free memory
+
+    # Defines the optimizers
+    def configure_optimizers(self):
+        if self.custom_optimizer is None: 
+            print("USING LEARNING RATE ", self.lr)
+            optimizer = torch.optim.Adam(self.problem.parameters(), self.lr, betas=(0.0, 0.9))
+        else: 
+            optimizer = self.custom_optimizer
+        return optimizer
+    
+    # Returns the original Neuromancer problem
+    def get_problem(self):
+        return self.problem
+    
 
 class Problem(nn.Module):
     """
@@ -196,6 +280,20 @@ class Problem(nn.Module):
             fig.axes.get_xaxis().set_visible(False)
             fig.axes.get_yaxis().set_visible(False)
             plt.show()
+
+    def freeze(self):
+        """
+        Freezes the parameters of all nodes in the system
+        """
+        for node in self.nodes:
+            node.freeze()
+
+    def unfreeze(self):
+        """
+        Unfreezes the parameters of all nodes in the system
+        """
+        for node in self.nodes:
+            node.unfreeze()
 
     def __repr__(self):
         s = "### MODEL SUMMARY ###\n\nnodeS:"

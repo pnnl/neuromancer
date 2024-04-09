@@ -22,7 +22,7 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 Now supports integration with PyTorch Lightning (https://lightning.ai/docs/pytorch/stable/), bringing:
 * User workflow simplifications: zero boilerplate code and increased modularity 
 * Ability for user to define custom training logic easily 
-* Easy support distributed GPU training
+* Easy support for distributed GPU training
 * Weights and Biases hyperparameter tuning 
 
 Please refer to the Lightning folder and its [README](examples/lightning_integration_examples/README.md).
@@ -148,11 +148,11 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Lightning Advanced Features and Automatic GPU Support.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_4_lightning_wanb_hyperparameter_tuning.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Hyperparameter Tuning With Lightning & WandB.
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Hyperparameter Tuning With Lightning & WandB
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/other_examples/lightning_custom_training_example.ipynb">
-<img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
-
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
+ 
 ## Documentation
 The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/). 
 There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 

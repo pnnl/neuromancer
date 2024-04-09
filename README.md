@@ -19,7 +19,7 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 
 ### New in v1.5.0
 ![Lightning](https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white)
-Now supports integration with PyTorch Lightning (https://lightning.ai/docs/pytorch/stable/) to bring scability, simplicity, and flexibility to NeuroMANCER workflows. Please refer to the Lightning folder and its [README](examples/lightning_integration_examples/README.md).
+Now supports integration with PyTorch Lightning (https://lightning.ai/docs/pytorch/stable/) to bring scalability, simplicity, and flexibility to NeuroMANCER workflows. Please refer to the Lightning folder and its [README](examples/lightning_integration_examples/README.md).
 
 **New Colab Examples:**
 > ⭐ [Various domain examples, such as system identification of building thermal dynamics, in NeuroMANCER](#domain-examples)

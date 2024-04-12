@@ -228,6 +228,87 @@ class MLP_bounds(MLP):
         return self.method(x, self.min, self.max)
 
 
+class MultiFidelityMLP(Block):
+    def __init__(
+        self,
+        insize,
+        outsize,
+        bias=True,
+        linear_map=slim.Linear,
+        nonlin=nn.Tanh,
+        h_sf_size=[20, 20],
+        n_stacked_nets=3,
+        h_linear_sizes=[10, 10],
+        h_nonlinear_sizes=[20, 20],
+        linargs=dict(),
+        freeze_epochs=None,
+        alpha_init=0.1
+    ):
+        super().__init__()
+        self.in_features, self.out_features = insize, outsize
+        self.num_layers = n_stacked_nets
+        self.freeze_epochs = freeze_epochs
+        self.current_block = 0
+        self.current_epoch = 0
+        self.alpha = nn.Parameter(torch.tensor(alpha_init), requires_grad=True)
+
+        # First layer (single-fidelity MLP)
+        self.first_layer = MLP(
+            insize, outsize, bias=bias, linear_map=linear_map, nonlin=nonlin, hsizes=h_sf_size, linargs=linargs
+        )
+
+        # Subsequent layers (multi-fidelity)
+        self.layers = nn.ModuleList()
+        for i in range(n_stacked_nets - 1):
+            self.layers.append(
+                nn.ModuleDict(
+                    {
+                        "linear": MLP(insize + outsize, outsize, bias=bias, linear_map=linear_map, nonlin=nn.Identity, hsizes=h_linear_sizes, linargs=linargs),
+                        "nonlinear": MLP(
+                            insize + outsize,
+                            outsize,
+                            bias=bias,
+                            linear_map=linear_map,
+                            nonlin=nonlin,
+                            hsizes=h_nonlinear_sizes,
+                            linargs=linargs,
+                        ),
+                    }
+                )
+            )
+
+    def block_eval(self, x):
+        # First layer (single-fidelity MLP)
+        out = self.first_layer(x)
+
+        # Subsequent layers (multi-fidelity)
+        for i in range(self.current_block):
+            layer = self.layers[i]
+            linear_out = layer["linear"](torch.cat([x, out], dim=1))
+            nonlinear_out = layer["nonlinear"](torch.cat([x, out], dim=1))
+            out = torch.abs(self.alpha) * nonlinear_out + (1 - torch.abs(self.alpha)) * linear_out
+
+        return out
+
+    def update_epoch(self, epoch):
+        self.current_epoch = epoch
+
+        if self.freeze_epochs is not None:
+            if self.current_block < self.num_layers - 1 and self.current_epoch >= self.freeze_epochs[self.current_block]:
+                self._freeze_block(self.current_block)
+                self.current_block += 1
+
+    def _freeze_block(self, block):
+        if block == 0:
+            for param in self.first_layer.parameters():
+                param.requires_grad = False
+        else:
+            for param in self.layers[block - 1].parameters():
+                param.requires_grad = False
+
+
+
+
 class InteractionEmbeddingMLP(nn.Module):
     """
     Multi-Layer Perceptron which is a hypernetwork hidden state embeddings decided by interaction type and concatenated
@@ -286,6 +367,8 @@ class InteractionEmbeddingMLP(nn.Module):
             x = torch.cat([x, embedder(self.n_interactors*i + j)])
             x = nlin(lin(x))
         return x
+
+
 
 
 class MLPDropout(Block):

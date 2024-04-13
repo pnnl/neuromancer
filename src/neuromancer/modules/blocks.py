@@ -12,13 +12,19 @@ import neuromancer.slim as slim
 import neuromancer.modules.rnn as rnn
 from neuromancer.modules.activations import soft_exp, SoftExponential, SmoothedReLU
 
+from torch.distributions import Normal
+
+import torchsde
+
+
 
 class Block(nn.Module, ABC):
     """
     Canonical abstract class of the block function approximator
     """
-    def __init__(self):
+    def __init__(self, concat=True):
         super().__init__()
+        self.concat = concat
 
     @abstractmethod
     def block_eval(self, x):
@@ -31,12 +37,15 @@ class Block(nn.Module, ABC):
         :param inputs: (list(torch.Tensor, shape=[batchsize, insize]) or torch.Tensor, shape=[batchsize, insize])
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
-        if len(inputs) > 1:
-            x = torch.cat(inputs, dim=-1)
-        else:
-            x = inputs[0]
-        return self.block_eval(x)
-
+        if self.concat: 
+            if len(inputs) > 1:
+                x = torch.cat(inputs, dim=-1)
+            else:
+                x = inputs[0]
+            return self.block_eval(x)
+        else: 
+            return self.block_eval(*inputs)
+    
 
 class Linear(Block):
     """
@@ -202,8 +211,8 @@ class MLP_bounds(MLP):
         :param dropout: (float) Dropout probability
         """
         super().__init__(insize=insize, outsize=outsize, bias=bias,
-                         linear_map=linear_map, nonlin=nonlin,
-                         hsizes=hsizes, linargs=linargs)
+                        linear_map=linear_map, nonlin=nonlin,
+                        hsizes=hsizes, linargs=linargs)
         self.min = min
         self.max = max
         self.method = self._set_method(method)
@@ -413,14 +422,14 @@ class InputConvexNN(MLP):
     """
 
     def __init__(self,
-                 insize,
-                 outsize,
-                 bias=True,
-                 linear_map=slim.Linear,
-                 nonlin=nn.ReLU,
-                 hsizes=[64],
-                 linargs=dict()
-                 ):
+                insize,
+                outsize,
+                bias=True,
+                linear_map=slim.Linear,
+                nonlin=nn.ReLU,
+                hsizes=[64],
+                linargs=dict()
+                ):
         super().__init__(
             insize,
             outsize,
@@ -707,7 +716,215 @@ class BasisLinear(Block):
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
         return self.linear(self.expand(x))
+        
+"""
+class Encoder(Block):
+    def __init__(self, input_size, hidden_size, output_size):
+        super().__init__()
+        self.gru = torch.nn.GRU(input_size=input_size, hidden_size=hidden_size)
+        self.lin = Linear(hidden_size, output_size)
 
+    def block_eval(self, inp):
+        out = self.gru(inp)
+        out = self.lin(out)
+        return out
+"""
+
+class Encoder(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(Encoder, self).__init__()
+        self.gru = nn.GRU(input_size=input_size, hidden_size=hidden_size)
+        self.lin = nn.Linear(hidden_size, output_size)
+
+    def forward(self, inp):
+        out, _ = self.gru(inp)
+        out = self.lin(out)
+        return out
+    
+class BasicSDE(Block): 
+    """
+    Wrapper class for torchsde explicit SDE case. See https://github.com/google-research/torchsde
+    """
+    def __init__(self, f, g, t, y):
+        """
+        :param f: Drift function
+        :param g: Diffusion function 
+        :param t: Timesteps 
+        :param y: Initial value of dimension (batch size, state size)
+        """
+        super().__init__()
+        self.f = f
+        self.g = g
+        self.y = y 
+        self.t = t 
+        self.theta = nn.Parameter(torch.tensor(0.1), requires_grad=False)  # Scalar parameter
+        self.noise_type = "diagonal"
+        self.sde_type = "ito"
+        self.in_features = 0
+        self.out_features = 0
+
+    def f(self, t,y): 
+        return self.f(t,y)
+
+    def g(self, t, y):
+        return self.g(t,y)
+                         
+    def block_eval(self): 
+        """This is unused by torchsde integrator"""
+        pass
+    
+
+class Encoder(nn.Module):
+    """
+    Encoder module to handle time-series data (as in the case of stochastic data and SDE)
+    GRU is used to handle mapping to latent space in this case
+    This class is used only in LatentSDE_Encoder
+    """
+    def __init__(self, input_size, hidden_size, output_size):
+        super(Encoder, self).__init__()
+        self.gru = nn.GRU(input_size=input_size, hidden_size=hidden_size)
+        self.lin = Linear(hidden_size, output_size)
+
+    def forward(self, inp):
+        out, _ = self.gru(inp)
+        out = self.lin(out)
+        return out
+
+
+
+class LatentSDE_Encoder(Block):
+    """
+    Wrapper for torchsde's Latent SDE class to integrate with Neuromancer. This takes in a full stochastic process dataset
+    and encodes it into a latent space. The output of this block feeds into LatentSDEIntegrator class. 
+    Please see https://github.com/google-research/torchsde/blob/master/examples/latent_sde_lorenz.py
+    Note that the adjoint method is not currently supported (see https://arxiv.org/pdf/2001.01328.pdf and TorchSDE documentation)
+    """
+    sde_type = "ito"
+    noise_type = "diagonal"
+
+    def __init__(self, data_size, latent_size, context_size, hidden_size, ts, adjoint=False):
+        super().__init__()
+
+        self.adjoint = adjoint 
+
+        # Encoder.
+        self.encoder = Encoder(input_size=data_size, hidden_size=hidden_size, output_size=context_size)
+        self.qz0_net = Linear(context_size, latent_size + latent_size) #Layer to return mean and variance of the parameterized latent space 
+    
+
+        # Decoder.
+        self.f_net = nn.Sequential(
+            Linear(latent_size + context_size, hidden_size),
+            nn.Softplus(),
+            Linear(hidden_size, hidden_size),
+            nn.Softplus(),
+            Linear(hidden_size, latent_size),
+        )
+        self.h_net = nn.Sequential(
+            Linear(latent_size, hidden_size),
+            nn.Softplus(),
+            Linear(hidden_size, hidden_size),
+            nn.Softplus(),
+            Linear(hidden_size, latent_size),
+        )
+        # This needs to be an element-wise function for the SDE to satisfy diagonal noise.
+        self.g_nets = nn.ModuleList(
+            [
+                nn.Sequential(
+                    Linear(1, hidden_size),
+                    nn.Softplus(),
+                    Linear(hidden_size, 1),
+                    nn.Sigmoid()
+                )
+                for _ in range(latent_size)
+            ]
+        )
+        self.projector = Linear(latent_size, data_size)
+
+        self.pz0_mean = nn.Parameter(torch.zeros(1, latent_size))
+        self.pz0_logstd = nn.Parameter(torch.zeros(1, latent_size))
+
+        self._ctx = None
+        self.in_features = 0 #unused
+        self.out_features = 0 #unused 
+
+        self.ts = ts
+
+    def contextualize(self, ctx):
+        self._ctx = ctx  # A tuple of tensors of sizes (T,), (T, batch_size, d).
+
+    def f(self, t, y):
+        ts, ctx = self._ctx
+
+        i = min(torch.searchsorted(ts, t, right=True), len(ts) - 1)
+  
+        return self.f_net(torch.cat((y, ctx[i]), dim=1))
+
+    def h(self, t, y):
+        return self.h_net(y)
+
+    def g(self, t, y):  # Diagonal diffusion.
+        y = torch.split(y, split_size_or_sections=1, dim=1)
+        out = [g_net_i(y_i) for (g_net_i, y_i) in zip(self.g_nets, y)]
+        return torch.cat(out, dim=1)
+
+    def block_eval(self, xs):
+        # Contextualization is only needed for posterior inference.
+        ctx = self.encoder(torch.flip(xs, dims=(0,)))
+        ctx = torch.flip(ctx, dims=(0,))
+        self.contextualize((self.ts, ctx))
+
+        qz0_mean, qz0_logstd = self.qz0_net(ctx[0]).chunk(chunks=2, dim=1)
+        z0 = qz0_mean + qz0_logstd.exp() * torch.randn_like(qz0_mean)
+        if not self.adjoint: 
+            return z0, xs, self.ts, qz0_mean, qz0_logstd
+        else: 
+            adjoint_params = (
+                    (ctx,) +
+                    tuple(self.f_net.parameters()) + tuple(self.g_nets.parameters()) + tuple(self.h_net.parameters())
+            )
+            return z0, xs, self.ts, qz0_mean, qz0_logstd, adjoint_params
+    
+    @torch.no_grad()
+    def sample(self, batch_size, ts, bm=None):
+        eps = torch.randn(size=(batch_size, *self.pz0_mean.shape[1:]), device=self.pz0_mean.device)
+        z0 = self.pz0_mean + self.pz0_logstd.exp() * eps
+        zs = torchsde.sdeint(self, z0, ts, names={'drift': 'h'}, dt=1e-3, bm=bm)
+        # Most of the times in ML, we don't sample the observation noise for visualization purposes.
+        _xs = self.projector(zs)
+        return _xs
+    
+class LatentSDE_Decoder(Block):
+    """
+    Second part of Wrapper for torchsde's Latent SDE class to integrate with Neuromancer. This takes in output of 
+    LatentSDEIntegrator and decodes it back into the "real" data space and also outputs associated Gaussian distributions 
+    to be used in the final loss function.
+    Please see https://github.com/google-research/torchsde/blob/master/examples/latent_sde_lorenz.py
+    """
+    sde_type = "ito"
+    noise_type = "diagonal"
+
+    def __init__(self, data_size, latent_size, noise_std):
+        super().__init__(concat=False)
+        self.in_features = 0
+        self.out_features = 0
+        self.noise_std = noise_std
+        self.pz0_mean = nn.Parameter(torch.zeros(1, latent_size))
+        self.pz0_logstd = nn.Parameter(torch.zeros(1, latent_size))
+        self.projector = nn.Linear(latent_size, data_size)
+
+    def block_eval(self, xs, zs, log_ratio, qz0_mean, qz0_logstd): 
+        _xs = self.projector(zs)
+        xs_dist = Normal(loc=_xs, scale=self.noise_std)
+        log_pxs = xs_dist.log_prob(xs).sum(dim=(0, 2)).mean(dim=0)
+
+        qz0 = torch.distributions.Normal(loc=qz0_mean, scale=qz0_logstd.exp())
+        pz0 = torch.distributions.Normal(loc=self.pz0_mean, scale=self.pz0_logstd.exp())
+        logqp0 = torch.distributions.kl_divergence(qz0, pz0).sum(dim=1).mean(dim=0)
+        logqp_path = log_ratio.sum(dim=0).mean(dim=0)
+        return _xs, log_pxs, logqp0 + logqp_path, log_ratio
+    
+        
 
 class InterpolateAddMultiply(nn.Module):
     """

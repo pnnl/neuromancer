@@ -717,30 +717,8 @@ class BasisLinear(Block):
         """
         return self.linear(self.expand(x))
         
-"""
-class Encoder(Block):
-    def __init__(self, input_size, hidden_size, output_size):
-        super().__init__()
-        self.gru = torch.nn.GRU(input_size=input_size, hidden_size=hidden_size)
-        self.lin = Linear(hidden_size, output_size)
 
-    def block_eval(self, inp):
-        out = self.gru(inp)
-        out = self.lin(out)
-        return out
-"""
 
-class Encoder(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
-        super(Encoder, self).__init__()
-        self.gru = nn.GRU(input_size=input_size, hidden_size=hidden_size)
-        self.lin = nn.Linear(hidden_size, output_size)
-
-    def forward(self, inp):
-        out, _ = self.gru(inp)
-        out = self.lin(out)
-        return out
-    
 class BasicSDE(Block): 
     """
     Wrapper class for torchsde explicit SDE case. See https://github.com/google-research/torchsde
@@ -951,5 +929,10 @@ blocks = {
     "poly2": Poly2,
     "bilinear": BilinearTorch,
     "icnn": InputConvexNN,
-    "pos_def": PosDef
+    "pos_def": PosDef, 
+    "encoder": Encoder, 
+    "basic_sde": BasicSDE, 
+    "latent_sde_encoder": LatentSDE_Encoder, 
+    "latent_sde_decoder": LatentSDE_Decoder
+
 }

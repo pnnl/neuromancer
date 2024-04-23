@@ -391,7 +391,7 @@ def get_loss(objectives, constraints, train_data, args):
         optimizer_args = {'inner_loop': args.inner_loop, "eta": args.eta, 'sigma': args.sigma,
                           'mu_init': args.mu_init, "mu_max": args.mu_max}
         loss = AugmentedLagrangeLoss(objectives, constraints, train_data, **optimizer_args)
-    elif args.loss = 'multi_fidelity':
+    elif args.loss == 'multi_fidelity':
         optimizer_args = {'alpha': args.alpha}
         loss = MultiFidelityLoss(objectives, constraints, **optimizer_args)
     return loss

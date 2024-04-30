@@ -344,41 +344,9 @@ class AugmentedLagrangeLoss(AggregateLoss):
         return input_dict
 
 
-class MultiFidelityLoss(PenaltyLoss):
-    """
-    Multi-fidelity loss function.
-    Reference:
-    * https://arxiv.org/pdf/2304.03894.pdf
-    """
-
-    def __init__(self, objectives, constraints, alpha):
-        """
-        Initialize the MultiFidelityLoss with objectives, constraints, and alpha.
-
-        :param objectives: (list (Objective)) list of neuromancer objective classes
-        :param constraints: (list (Constraint)) list of neuromancer constraint classes
-        :param alpha: (float) scaling factor for multi-fidelity loss adjustment
-        """
-
-        super().__init__(objectives, constraints)
-        self.alpha = alpha
-
-    def forward(self, input_dict):
-        """
-        Forward pass to calculate the multi-fidelity loss.
-
-        :param input_dict: (dict {str: torch.Tensor}) Values from forward pass calculations
-        :return: (dict {str: torch.Tensor}) input_dict appended with calculated loss values
-        """
-        output_dict = super().forward(input_dict)
-        output_dict['loss'] += torch.pow(self.alpha, 4)
-        return output_dict
-
-
 losses = {'penalty': PenaltyLoss,
           'barrier': BarrierLoss,
-          'augmented_lagrange': AugmentedLagrangeLoss,
-          'multi_fidelity': MultiFidelityLoss}
+          'augmented_lagrange': AugmentedLagrangeLoss}
 
 
 def get_loss(objectives, constraints, train_data, args):
@@ -391,7 +359,4 @@ def get_loss(objectives, constraints, train_data, args):
         optimizer_args = {'inner_loop': args.inner_loop, "eta": args.eta, 'sigma': args.sigma,
                           'mu_init': args.mu_init, "mu_max": args.mu_max}
         loss = AugmentedLagrangeLoss(objectives, constraints, train_data, **optimizer_args)
-    elif args.loss == 'multi_fidelity':
-        optimizer_args = {'alpha': args.alpha}
-        loss = MultiFidelityLoss(objectives, constraints, **optimizer_args)
     return loss

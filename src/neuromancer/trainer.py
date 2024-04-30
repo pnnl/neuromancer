@@ -260,6 +260,11 @@ class Trainer:
         """
         self.callback.begin_train(self)
 
+        is_multi_fidelity = False
+        for node in self.model.nodes:
+            if isinstance(self.model.loss, MultiFidelityLoss):
+                is_multi_fidelity = True
+
         try:
             for i in range(self.current_epoch, self.current_epoch+self.epochs):
 
@@ -269,12 +274,22 @@ class Trainer:
                     t_batch['epoch'] = i
                     t_batch = move_batch_to_device(t_batch, self.device)
                     output = self.model(t_batch)
+
+                    if is_multi_fidelity:
+                        for node in self.model.nodes:
+                            alpha_loss = node.callable.get_alpha_loss()
+                            output[self.train_metric] += alpha_loss
+
                     self.optimizer.zero_grad()
                     output[self.train_metric].backward()
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
                     self.optimizer.step()
                     losses.append(output[self.train_metric])
                     self.callback.end_batch(self, output)
+
+                    if is_multi_fidelity:
+                        for node in self.model.nodes:
+                            node.callable.update_epoch(i)
 
                 output[f'mean_{self.train_metric}'] = torch.mean(torch.stack(losses))
                 self.callback.begin_epoch(self, output)

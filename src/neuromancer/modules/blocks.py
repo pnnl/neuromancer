@@ -229,6 +229,10 @@ class MLP_bounds(MLP):
 
 
 class MultiFidelityMLP(Block):
+    """
+    Multi-Fidelity Multi-Layer Perceptron.
+    """
+
     def __init__(
         self,
         insize,
@@ -242,7 +246,8 @@ class MultiFidelityMLP(Block):
         h_nonlinear_sizes=[20, 20],
         linargs=dict(),
         freeze_epochs=None,
-        alpha_init=0.1
+        alpha_init=0.1,
+        verbose=False
     ):
         super().__init__()
         self.in_features, self.out_features = insize, outsize
@@ -250,7 +255,9 @@ class MultiFidelityMLP(Block):
         self.freeze_epochs = freeze_epochs
         self.current_block = 0
         self.current_epoch = 0
-        self.alpha = nn.Parameter(torch.tensor(alpha_init), requires_grad=True)
+        self.alpha = nn.ParameterList([nn.Parameter(torch.tensor(alpha_init), requires_grad=True) for _ in range(n_stacked_nets - 1)])
+        self.alpha_loss = 0.0
+        self.verbose = verbose
 
         # First layer (single-fidelity MLP)
         self.first_layer = MLP(
@@ -263,7 +270,7 @@ class MultiFidelityMLP(Block):
             self.layers.append(
                 nn.ModuleDict(
                     {
-                        "linear": MLP(insize + outsize, outsize, bias=bias, linear_map=linear_map, nonlin=nn.Identity, hsizes=h_linear_sizes, linargs=linargs),
+                        "linear": MLP(outsize, outsize, bias=bias, linear_map=linear_map, nonlin=nn.Identity, hsizes=h_linear_sizes, linargs=linargs),
                         "nonlinear": MLP(
                             insize + outsize,
                             outsize,
@@ -280,33 +287,66 @@ class MultiFidelityMLP(Block):
     def block_eval(self, x):
         # First layer (single-fidelity MLP)
         out = self.first_layer(x)
-
+        
         # Subsequent layers (multi-fidelity)
+        alpha_loss = 0.0
         for i in range(self.current_block):
-            layer = self.layers[i]
-            linear_out = layer["linear"](torch.cat([x, out], dim=1))
+            layer = self.layers[i]  # Pick the corresponding stacked net
+            alpha = self.alpha[i]  # Pick the corresponding alpha for each stacked net
+            linear_out = layer["linear"](out)
             nonlinear_out = layer["nonlinear"](torch.cat([x, out], dim=1))
-            out = torch.abs(self.alpha) * nonlinear_out + (1 - torch.abs(self.alpha)) * linear_out
-
+            out = torch.abs(alpha) * nonlinear_out + (1 - torch.abs(alpha)) * linear_out
+            alpha_loss += torch.pow(alpha, 4)
+        self.alpha_loss = alpha_loss
         return out
 
+    def get_alpha_loss(self):
+        return self.alpha_loss
+    
     def update_epoch(self, epoch):
         self.current_epoch = epoch
 
         if self.freeze_epochs is not None:
-            if self.current_block < self.num_layers - 1 and self.current_epoch >= self.freeze_epochs[self.current_block]:
+            if self.current_block < self.num_layers - 1 and self.current_epoch == self.freeze_epochs[self.current_block]:
                 self._freeze_block(self.current_block)
                 self.current_block += 1
+                if self.verbose:
+                    print(f"Now training stacked block {self.current_block}")
+
 
     def _freeze_block(self, block):
         if block == 0:
             for param in self.first_layer.parameters():
                 param.requires_grad = False
+            if self.verbose:
+                print("Single-fidelity (0th layer) parameters have been frozen")
         else:
-            for param in self.layers[block - 1].parameters():
+            current_block = block - 1
+            current_layer = self.layers[current_block]
+    
+            for param in current_layer.parameters():
                 param.requires_grad = False
-
-
+            if self.verbose:
+                print(f"Multi-fidelity (layer {block}) parameters have been frozen")
+    
+            # Freeze the alpha of the current block by setting requires_grad to False
+            # self.alpha[current_block].requires_grad = False
+            # print(f"Alpha of the {block}th layer has been frozen")
+    
+            if block < len(self.layers):
+                next_layer = self.layers[block]
+                # current_params = deepcopy(current_layer.state_dict())
+                current_params = current_layer.state_dict()
+    
+                # Copy weights from the current block to the next block
+                next_layer.load_state_dict(current_params)
+    
+                # Initialize the alpha of the next block with a new learnable parameter
+                # Ensure the new alpha is detached and cloned to prevent any computational graph linking
+                # new_alpha_value = deepcopy(self.model.state_dict()) self.alpha[current_block].clone().detach()
+                # self.alpha[block] = nn.Parameter(new_alpha_value, requires_grad=True)
+                if self.verbose:
+                    print(f"Weights copied for layer {block + 1}")
 
 
 class InteractionEmbeddingMLP(nn.Module):

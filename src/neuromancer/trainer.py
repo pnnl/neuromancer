@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import numpy as np
 import wandb
-import lightning.pytorch as pl 
+import lightning.pytorch as pl
 
 from neuromancer.loggers import BasicLogger
 from neuromancer.problem import Problem
@@ -29,20 +29,20 @@ def move_batch_to_device(batch, device="cpu"):
 
 class CustomEarlyStopping(EarlyStopping):
     """
-    Custom early stopping callback inherited from PyTorch Lightning Early Stopping. 
+    Custom early stopping callback inherited from PyTorch Lightning Early Stopping.
     Needed to support proper warmup functionality (early stopping cannot occur within warmup grace period)
     """
     def __init__(self, monitor, patience, warmup=0):
         self.warmup = warmup
-        self.monitor = monitor 
-        self.patience = patience 
+        self.monitor = monitor
+        self.patience = patience
         super().__init__(monitor=monitor, patience=patience)
-    
+
     def _run_early_stopping_check(self, trainer) -> None:
-        if trainer.current_epoch < self.warmup: 
+        if trainer.current_epoch < self.warmup:
             trainer.should_stop = False
-            return None 
-        else: 
+            return None
+        else:
             # If not in the warm-up period, perform early stopping as usual
             super()._run_early_stopping_check(trainer)
 
@@ -51,9 +51,9 @@ class LitTrainer(pl.Trainer):
     def __init__(self, epochs=1000, train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss', eval_metric='dev_loss',
                  patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', weight_name=None, devices='auto', strategy='auto', \
                     accelerator='auto', profiler=None, custom_training_step=None, logger=None, hparam_config=None):
-        
+
         """
-        A Neuromancer-specific custom trainer class inheriting from PyTorch Lightning's Trainer. 
+        A Neuromancer-specific custom trainer class inheriting from PyTorch Lightning's Trainer.
         This class is mainly a wrapper to interface with the user through fit()
 
         For more information please see: https://lightning.ai/docs/pytorch/stable/common/trainer.html
@@ -66,7 +66,7 @@ class LitTrainer(pl.Trainer):
         :param patience: Number of epochs to wait for improvement before early stopping. Defaults to None (no patience)
         :param warmup: Number of warmup epochs. Defaults to 0.
         :param clip: Gradient clipping value, by norm. Defaults to 100.0.
-        :param custom_optimizer: Optimizer to be used during training. If None (default), an Adam optimizer with learning rate of 0.001 will be used. 
+        :param custom_optimizer: Optimizer to be used during training. If None (default), an Adam optimizer with learning rate of 0.001 will be used.
         :param save_weights: Whether to save weights. Defaults to True.
         :param weight_path: Path to save weights. Defaults to './'.
         :param weight_name: Name of the weight file. By default, filename is None and will be set to '{epoch}-{step}', where “epoch” and “step” match the number of finished epoch and optimizer steps respectively.
@@ -90,14 +90,14 @@ class LitTrainer(pl.Trainer):
         self.weight_name = weight_name
         self.devices = devices
         self.custom_optimizer = custom_optimizer
-        self.profiler = profiler 
+        self.profiler = profiler
         self.custom_training_step = custom_training_step
         self.logger = logger
-        self.hparam_config = hparam_config 
+        self.hparam_config = hparam_config
 
         self.problem_copy = None #store copy of base Neuromancer problem
         self.lit_problem = None
-        self.lit_data_module = None 
+        self.lit_data_module = None
 
 
         callbacks = []
@@ -124,7 +124,7 @@ class LitTrainer(pl.Trainer):
         self.problem_copy = deepcopy(problem) # store the original problem so that the original is used to train each sweep
         self.data_setup_function = data_setup_function
 
-        # A nester LiTrainer class is required to circumvent a PyTorch lightning constraint that "current_spoch" cannot be set. So this 
+        # A nester LiTrainer class is required to circumvent a PyTorch lightning constraint that "current_spoch" cannot be set. So this
         # allows epoch counter to be reset after each sweep
         class TempTrainer:
             def __init__(self, parent, epochs=1000, train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss', eval_metric='dev_loss',
@@ -146,7 +146,7 @@ class LitTrainer(pl.Trainer):
                 self.weight_name = weight_name
                 self.devices = devices
                 self.custom_optimizer = custom_optimizer
-                self.profiler = profiler 
+                self.profiler = profiler
                 self.custom_training_step = custom_training_step
                 self.accelerator = accelerator
 
@@ -168,8 +168,8 @@ class LitTrainer(pl.Trainer):
 
     def fit(self, problem, data_setup_function, **kwargs):
         """
-        Fits (trains) a base neuromancer Problem to a data defined by a data setup function). 
-        This function will also instantiate a Lightning version of the provided Problem 
+        Fits (trains) a base neuromancer Problem to a data defined by a data setup function).
+        This function will also instantiate a Lightning version of the provided Problem
         and LightningDataModule associated with the data setup function
 
         :param problem: A Neuromancer Problem() we want to train/fit
@@ -252,6 +252,9 @@ class Trainer:
         self.best_devloss = np.finfo(np.float32).max if self._eval_min else 0.
         self.best_model = deepcopy(self.model.state_dict())
         self.device = device
+        self.loss_history = dict()
+        self.loss_history["train"] = []
+        self.loss_history["dev"] = []
 
     def train(self):
         """
@@ -290,7 +293,9 @@ class Trainer:
                             d_batch = move_batch_to_device(d_batch, self.device)
                             eval_output = self.model(d_batch)
                             losses.append(eval_output[self.dev_metric])
-                        eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
+                        mean_dev_loss = torch.mean(torch.stack(losses))
+                        self.loss_history["dev"].append(mean_dev_loss)
+                        eval_output[f'mean_{self.dev_metric}'] = mean_dev_loss
                         output = {**output, **eval_output}
                     self.callback.begin_eval(self, output)  # Used for alternate dev evaluation
 
@@ -306,6 +311,8 @@ class Trainer:
                         self.logger.log_metrics(output, step=i)
                     else:
                         mean_loss = output[f'mean_{self.train_metric}']
+                        # CMH
+                        self.loss_history["train"].append(mean_loss)
                         if i % (self.epoch_verbose) == 0:
                             print(f'epoch: {i}  {self.train_metric}: {mean_loss}')
 
@@ -343,8 +350,10 @@ class Trainer:
         with torch.set_grad_enabled(self.model.grad_inference):
             self.callback.begin_test(self)
             output = {}
-            for dset, metric in zip([self.train_data, self.dev_data, self.test_data],
-                                    [self.train_metric, self.dev_metric, self.test_metric]):
+            #for dset, metric in zip([self.train_data, self.dev_data, self.test_data],
+            #                        [self.train_metric, self.dev_metric, self.test_metric]):
+            for dset, metric in zip([self.train_data, self.test_data],
+                                    [self.train_metric, self.test_metric]):
                 losses = []
                 for batch in dset:
                     batch = move_batch_to_device(batch, self.device)

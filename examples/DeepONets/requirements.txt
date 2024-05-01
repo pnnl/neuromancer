@@ -1,0 +1,4 @@
+matplotlib
+torch
+#graphviz
+pydot==1.4.2

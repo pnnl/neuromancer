@@ -82,7 +82,7 @@ data = {'x3': torch.rand(10, 2)}
 print(node_4(data).keys())
 print(node_4(data)['y3'].shape)
 
-# 2, instantiate recurrent neural net without bias, SVD linear map, and BLI activation
+# 2, instantiate recurrent neural net without bias, SVD linear map, and BLU activation
 block_2 = blocks.RNN(insize=2, outsize=2,
                   bias=False,
                   linear_map=slim.linear.SVDLinear,
@@ -110,7 +110,7 @@ dynamical systems in open or closed loop rollouts by specifying number of steps 
 # 1, create acyclic symbolic graph
 # list of nodes to construct the graph
 nodes = [node_1, node_2, node_3]
-# 10 steps rollout
+# n steps rollout
 nsteps = 3
 # connecting nodes via System class
 system_1 = System(nodes, nsteps=nsteps)

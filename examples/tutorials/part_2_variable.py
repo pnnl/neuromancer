@@ -21,11 +21,11 @@ a Variable object is subjected to a comparison operator a Constraint is returned
 Variables which will instantiate and perform the sequence of mathematical operations. PyTorch callables
 called with variables as inputs return variables. Variable supports binary infix operators (variable * variable, variable * numeric): +, -, *, @, **, <, <=, >, >=, ==, ^
 
-There are several ways how to instantiate variable:
+There are several ways to instantiate a variable:
 """
 
 # 1, named Variable without trainable tensor value
-#   intented to be used as a symbolic handler for input data or model outputs
+#   intended to be used as a symbolic handler for input data or model outputs
 x1 = variable('x')
 # evaluate forward pass of the variable with dictionary input data
 print(x1({'x': 5.00}))
@@ -78,7 +78,7 @@ x6 = x1 + 5
 # visualize computational graph of Variable
 x6.show()
 # more complex example
-a, b = variable('a'), variable('a')
+a, b = variable('a'), variable('b')
 x6 = a/3. - 1.5*b**2 + 5
 x6.show()
 # evaluate forward pass of the variable with dictionary input data
@@ -110,10 +110,12 @@ print(x10({'x': 5.00, 'y': 5.00}))
 # 8, create new variables via slicing on existing variables
 # select column 0
 x10_column0 = x10[:, 0]
+# note: the following still works because in case of a size mismatch the y tensor is automatically broadcast to the shape of the x tensor
 print(x10_column0({'x': torch.randn(2, 2), 'y': torch.randn(2, 1)}))
 x10_column0.show()
 # select column 1
 x10_column1 = x10[:, 1]
+# as above, the y tensor is broadcast to the shape of the x tensor
 print(x10_column1({'x': torch.randn(2, 2), 'y': torch.randn(2, 1)}))
 x10_column1.show()
 

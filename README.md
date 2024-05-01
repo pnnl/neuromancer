@@ -309,6 +309,7 @@ conda install networkx=3.0 plum-dispatch=1.7.3
 conda install -c anaconda pytest hypothesis
 conda install cvxpy cvxopt casadi seaborn imageio
 conda install tqdm torchdiffeq toml
+conda install lightning wandb -c conda-forge
 ## (for Windows): conda install -c defaults intel-openmp -f
 ```
 

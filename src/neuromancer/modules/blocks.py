@@ -1114,4 +1114,5 @@ blocks = {
     "bilinear": BilinearTorch,
     "icnn": InputConvexNN,
     "pos_def": PosDef,
+    "kan": KANBlock
 }

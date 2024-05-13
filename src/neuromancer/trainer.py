@@ -155,14 +155,14 @@ class LitTrainer(pl.Trainer):
                 self.parent.hparam_config = wandb.config
                 trainer = LitTrainer(epochs=self.epochs, train_metric=self.train_metric, dev_metric=self.dev_metric, test_metric=self.test_metric, eval_metric=self.eval_metric, \
                                                   patience=self.patience, warmup=self.warmup, clip=self.clip, save_weights=False, devices=self.devices, \
-                                                  custom_optimizer=self.custom_optimizer, profiler=None, custom_training_step=self.custom_optimizer, accelerator=self.accelerator, \
+                                                  custom_optimizer=self.custom_optimizer, profiler=None, custom_training_step=self.custom_training_step, accelerator=self.accelerator, \
                                                   hparam_config=wandb.config)
                 trainer.fit(self.problem_copy, self.data_setup_function, **kwargs)
 
         sweep_id = wandb.sweep(sweep_config, project=project_name)
         trainer_within_itself = TempTrainer(self, epochs=self.epochs, train_metric=self.train_metric, dev_metric=self.dev_metric, test_metric=self.test_metric, eval_metric=self.eval_metric, \
                                                   patience=self.patience, warmup=self.warmup, clip=self.clip, save_weights=False, devices=self.devices, \
-                                                  custom_optimizer=self.custom_optimizer, profiler=None, custom_training_step=self.custom_optimizer, accelerator=self.accelerator)
+                                                  custom_optimizer=self.custom_optimizer, profiler=None, custom_training_step=self.custom_training_step, accelerator=self.accelerator)
         wandb.agent(sweep_id=sweep_id, function=trainer_within_itself.train_model, count=count)
 
 
@@ -177,7 +177,7 @@ class LitTrainer(pl.Trainer):
         """
         self.problem_copy = deepcopy(problem)
         self.data_setup_function = data_setup_function
-        self.lit_problem = LitProblem(problem,self.train_metric, self.dev_metric, self.test_metric, custom_training_step=self.custom_training_step, hparam_config=self.hparam_config )
+        self.lit_problem = LitProblem(problem, self.train_metric, self.dev_metric, self.test_metric, custom_optimizer=self.custom_optimizer, custom_training_step=self.custom_training_step, hparam_config=self.hparam_config )
         self.lit_data_module = LitDataModule(data_setup_function,self.hparam_config ,**kwargs)
         super().fit(self.lit_problem, self.lit_data_module)
 

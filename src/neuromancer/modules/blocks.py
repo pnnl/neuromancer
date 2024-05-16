@@ -721,6 +721,56 @@ class InterpolateAddMultiply(nn.Module):
     def forward(self, p, q):
         return soft_exp(self.alpha, soft_exp(-self.alpha, p) + soft_exp(-self.alpha, q))
 
+class DeepONet(Block):
+    """
+    Deep Operator Network with blocks interface
+    """
+    def __init__(
+        self,
+        insize_branch,
+        insize_trunk,
+        widthsize,
+        interactsize,
+        depth_branch,
+        depth_trunk,
+        nonlin=nn.ReLU,
+        bias=True
+    ):
+        """
+        TODO param types and descriptions
+        """
+        super().__init__()
+        self.branch_net = MLP(
+            insize=insize_branch,
+            outsize=interactsize,
+            nonlin=nonlin,
+            hsizes=[widthsize] * depth_branch,
+            bias=True
+        )
+        self.trunk_net = MLP(
+            insize=insize_trunk,
+            outsize=interactsize,
+            nonlin=nonlin,
+            hsizes=[widthsize] * depth_trunk,
+            bias=True
+        )
+        # do i need outsize for bias
+        self.bias = nn.Parameter(torch.zeros(1,), requires_grad=not bias)
+
+    def transpose_branch_inputs(self, branch_inputs):
+        transposed_branch_inputs = torch.transpose(branch_inputs, 0, 1)
+        return transposed_branch_inputs
+
+    def block_eval(self, x):
+        branch_inputs = None
+        trunk_inputs = None
+        #return super().block_eval(x)
+        branch_output = self.branch_net(self.transpose_branch_inputs(branch_inputs))
+        trunk_output = self.trunk_net(trunk_inputs)
+        result = torch.matmul(branch_output, trunk_output.T) + self.bias
+        return result
+
+
 
 blocks = {
     "mlp": MLP,
@@ -734,5 +784,6 @@ blocks = {
     "poly2": Poly2,
     "bilinear": BilinearTorch,
     "icnn": InputConvexNN,
-    "pos_def": PosDef
+    "pos_def": PosDef,
+    "deeponet": DeepONet,
 }

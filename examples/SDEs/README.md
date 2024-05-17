@@ -1,6 +1,12 @@
 # TorchSDE x NeuroMANCER
 
-These folders illustrate how one might solve two cases of stochastic differential equations in Neuromancer. We achieve this technically by integrating Neuromancer framework to work with the TorchSDE library which is a library for SDE solvers (i.e. integrators). The examples in this notebook are: 
+The example in this folder, sde_walkthrough.ipynb, demonstrates how functionality from TorchSDE can be, and is, integrated into the Neuromancer workflow. https://github.com/google-research/torchsde/tree/master
 
-1. Basic_SDE: This is the first case of SDE problem -- where the user knows explicitly the drift and diffusion processes of the stochastic differential equation. If these are known, we can perform integration (e.g. Euler-Murayama integration which is a special case of Euler integration for stochastic case ) to compute output data at future time steps. This is similar to the torch DiffEqIntegrator examples in our library. Note that this example is based off https://github.com/google-research/torchsde/blob/master/examples/demo.ipynb
-2. Latent_SDE_Lorenz_System. This is the second case of SDE problem -- where the user does *not* know the drift/diffusion terms and instead seeks to learn these processes. This is the System ID equivalent for the stochastic case. The output of this notebook will be a LatentSDE neural network that can generate new time-series samples that exhibit the stochastic behavior of the original input data. 
+TorchSDE provides stochastic differential equation solvers with GPU spport and efficient backpropagation. They are based off this paper: http://proceedings.mlr.press/v108/li20i.html
+
+Neuromancer already has robust and extensive library for Neural ODEs and ODE solvers. We extend that functionality to the stochastic case by incorporating TorchSDE solvers. To motivate and teach the user how one progresses from neural ODEs to "neural SDEs" we have written a lengthy notebook -- sde_walkthrough.ipynb
+
+Please ensure torchsde is installed: 
+```
+pip install torchsde
+```

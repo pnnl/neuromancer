@@ -739,10 +739,6 @@ blocks = {
     "poly2": Poly2,
     "bilinear": BilinearTorch,
     "icnn": InputConvexNN,
-    "pos_def": PosDef, 
-    "encoder": Encoder, 
-    "basic_sde": BasicSDE, 
-    "latent_sde_encoder": LatentSDE_Encoder, 
-    "latent_sde_decoder": LatentSDE_Decoder
+    "pos_def": PosDef
 
 }

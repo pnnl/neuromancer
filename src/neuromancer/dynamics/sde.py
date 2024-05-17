@@ -1,20 +1,24 @@
 
-from typing import Sequence
+
 import abc
 import torch
 from torch import nn
 import torchsde
-
 import abc
+
+from torch.distributions import Normal
+from typing import Sequence
+
+
 class BaseSDESystem(abc.ABC, nn.Module):
     """
     Base class for SDEs for integration with TorchSDE library
     """
     def __init__(self):
         super().__init__()
-        self.noise_type = "diagonal"
-        self.sde_type = "ito"
-        self.in_features = 0
+        self.noise_type = "diagonal" #only supports diagonal diffusion right now
+        self.sde_type = "ito" #only supports Ito integrals right now
+        self.in_features = 0 #for compatibility with Neuromancer integrators; unused
         self.out_features = 0
 
     @abc.abstractmethod
@@ -47,7 +51,6 @@ class BaseSDESystem(abc.ABC, nn.Module):
         """
         pass
 
-
 class Encoder(nn.Module):
     """
     Encoder module to handle time-series data (as in the case of stochastic data and SDE)
@@ -55,7 +58,7 @@ class Encoder(nn.Module):
     This class is used only in LatentSDE_Encoder
     """
     def __init__(self, input_size, hidden_size, output_size):
-        super(Encoder, self).__init__()
+        super().__init__()
         self.gru = nn.GRU(input_size=input_size, hidden_size=hidden_size)
         self.lin = nn.Linear(hidden_size, output_size)
 
@@ -66,12 +69,30 @@ class Encoder(nn.Module):
     
 class LatentSDE_Encoder(BaseSDESystem):
     def __init__(self, data_size, latent_size, context_size, hidden_size, ts, adjoint=False):
-        super(BaseSDESystem).init__()
+        """
+        LatentSDE_Encoder is a neural network module designed for encoding time-series data into a latent space representation,
+        which is then used to model the system dynamics using Stochastic Differential Equations (SDEs).
+
+        The primary purpose of this class is to transform high-dimensional time-series data into a lower-dimensional latent space
+        while capturing the underlying stochastic dynamics. This transformation facilitates efficient modeling, prediction, and
+        inference of complex temporal processes. 
+
+        Taken from https://github.com/google-research/torchsde/blob/master/examples/latent_sde_lorenz.py and modified to support 
+        NeuroMANCER library
+
+        :param data_size: (int) state size of the data 
+        :param latent_size: (int) input latent size for the encoder 
+        :param context_size: (int) size of context vector (output of encoder)
+        :param hidden_size: (int) size of the hidden layer of encoder 
+        :param ts: (tensor) tensor of timesteps over which data should be predicted
+
+        """
+        super().__init__()
 
         self.adjoint = adjoint
 
         # Encoder.
-        self.encoder = Encoder(input_size=latent_size, hidden_size=hidden_size, output_size=context_size)
+        self.encoder = Encoder(input_size=data_size, hidden_size=hidden_size, output_size=context_size)
         self.qz0_net = nn.Linear(context_size, latent_size + latent_size) #Layer to return mean and variance of the parameterized latent space
 
         # Decoder.
@@ -144,12 +165,16 @@ class LatentSDE_Encoder(BaseSDESystem):
             )
             return z0, xs, self.ts, qz0_mean, qz0_logstd, adjoint_params
 
-class LatentSDE_Decoder(nn.Module):
+class LatentSDE_Decoder(BaseSDESystem):
     """
     Second part of Wrapper for torchsde's Latent SDE class to integrate with Neuromancer. This takes in output of
     LatentSDEIntegrator and decodes it back into the "real" data space and also outputs associated Gaussian distributions
     to be used in the final loss function.
     Please see https://github.com/google-research/torchsde/blob/master/examples/latent_sde_lorenz.py
+
+    :param data_size: (int) state size of the data 
+    :param latent_size: (int) input latent size for the encoder 
+    :param noise_std: (float) standard deviation of the Gaussian noise applied during decoding
     """
     def __init__(self, data_size, latent_size, noise_std):
         super().__init__()
@@ -157,6 +182,12 @@ class LatentSDE_Decoder(nn.Module):
         self.pz0_mean = nn.Parameter(torch.zeros(1, latent_size))
         self.pz0_logstd = nn.Parameter(torch.zeros(1, latent_size))
         self.projector = nn.Linear(latent_size, data_size)
+    
+    def f(self, t, y): 
+        pass #unused 
+    
+    def g(self, t, y): 
+        pass #unused
 
     def forward(self, xs, zs, log_ratio, qz0_mean, qz0_logstd):
         _xs = self.projector(zs)
@@ -169,11 +200,12 @@ class LatentSDE_Decoder(nn.Module):
         logqp_path = log_ratio.sum(dim=0).mean(dim=0)
         return _xs, log_pxs, logqp0 + logqp_path, log_ratio
     
-
-
-def StochasticLorenzAttractor(BaseSDESystem):
+"""
+---------------------------------- Data Generation Classes, for forward pass only -------------------------------------------
+"""
+class StochasticLorenzAttractor(BaseSDESystem):
     def __init__(self, a: Sequence = (10., 28., 8 / 3), b: Sequence = (.1, .28, .3)):
-        super(BaseSDESystem).__init__()
+        super().__init__()
         self.a = a
         self.b = b
 
@@ -203,12 +235,13 @@ def StochasticLorenzAttractor(BaseSDESystem):
             mean, std = torch.mean(xs, dim=(0, 1)), torch.std(xs, dim=(0, 1))
             xs.sub_(mean).div_(std).add_(torch.randn_like(xs) * noise_std)
         return xs
+    
 
-def SDECoxIngersollRand(BaseSDESystem):
+class SDECoxIngersollRand(BaseSDESystem):
     def __init__(self, alpha: float=0.1,
                         beta: float=0.05,
                         sigma: float=0.02):
-        super(BaseSDESystem).__init__()
+        super().__init__()
         self.alpha = alpha
         self.beta = beta
         self.sigma = sigma
@@ -222,7 +255,7 @@ def SDECoxIngersollRand(BaseSDESystem):
         return self.sigma * torch.sqrt(torch.abs(r))
 
 
-def SDEOrnsteinUhlenbeck(BaseSDESystem):
+class SDEOrnsteinUhlenbeck(BaseSDESystem):
     def __init__(self, theta: float = 0.1, sigma: float = 0.2):
         super(BaseSDESystem).__init__()
         self.theta = theta
@@ -233,7 +266,8 @@ def SDEOrnsteinUhlenbeck(BaseSDESystem):
 
     def g(self, t, y):
         return self.sigma
-    
+
+
 class LotkaVolterraSDE(BaseSDESystem):
     def __init__(self, a, b, c, d, g_params):
         super().__init__()
@@ -242,7 +276,6 @@ class LotkaVolterraSDE(BaseSDESystem):
         self.c = c
         self.d = d
         self.g_params = g_params
-
 
     def f(self, t, x):
         x1 = x[:,[0]]

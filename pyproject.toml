@@ -54,7 +54,8 @@ dependencies = [
     "cvxpy", 
     "cvxpylayers", 
     "casadi", 
-    "wandb"
+    "wandb", 
+    "torchsde"
 ]
 
 version = "1.5.0"

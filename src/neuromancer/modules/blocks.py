@@ -13,6 +13,9 @@ import neuromancer.modules.rnn as rnn
 from neuromancer.modules.activations import soft_exp, SoftExponential, SmoothedReLU
 
 
+
+
+
 class Block(nn.Module, ABC):
     """
     Canonical abstract class of the block function approximator
@@ -36,7 +39,8 @@ class Block(nn.Module, ABC):
         else:
             x = inputs[0]
         return self.block_eval(x)
-
+       
+    
 
 class Linear(Block):
     """
@@ -202,8 +206,8 @@ class MLP_bounds(MLP):
         :param dropout: (float) Dropout probability
         """
         super().__init__(insize=insize, outsize=outsize, bias=bias,
-                         linear_map=linear_map, nonlin=nonlin,
-                         hsizes=hsizes, linargs=linargs)
+                        linear_map=linear_map, nonlin=nonlin,
+                        hsizes=hsizes, linargs=linargs)
         self.min = min
         self.max = max
         self.method = self._set_method(method)
@@ -413,14 +417,14 @@ class InputConvexNN(MLP):
     """
 
     def __init__(self,
-                 insize,
-                 outsize,
-                 bias=True,
-                 linear_map=slim.Linear,
-                 nonlin=nn.ReLU,
-                 hsizes=[64],
-                 linargs=dict()
-                 ):
+                insize,
+                outsize,
+                bias=True,
+                linear_map=slim.Linear,
+                nonlin=nn.ReLU,
+                hsizes=[64],
+                linargs=dict()
+                ):
         super().__init__(
             insize,
             outsize,
@@ -707,6 +711,7 @@ class BasisLinear(Block):
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
         return self.linear(self.expand(x))
+        
 
 
 class InterpolateAddMultiply(nn.Module):
@@ -735,4 +740,5 @@ blocks = {
     "bilinear": BilinearTorch,
     "icnn": InputConvexNN,
     "pos_def": PosDef
+
 }

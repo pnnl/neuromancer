@@ -372,6 +372,8 @@ def pltOL(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
     if figname is not None:
         plt.savefig(figname)
 
+    return fig, ax
+
 
 def plot_trajectories(traj1, traj2, labels, figname):
     fig, ax = plt.subplots(len(traj1), 1, figsize=(12, 12))

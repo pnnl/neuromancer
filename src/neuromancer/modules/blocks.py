@@ -586,9 +586,27 @@ class MLP_bounds(MLP):
         return self.method(x, self.min, self.max)
 
 
-class MultiFidelityMLP(Block):
+
+class MultiFidelityMLP(nn.Module):
     """
-    Multi-Fidelity Multi-Layer Perceptron.
+    Multi-Fidelity Multi-Layer Perceptron (MFMLP) designed for multi-fidelity learning where multiple layers are
+    stacked to refine the prediction progressively. Each layer is a blend of linear and nonlinear transformations
+    controlled by an adaptive parameter alpha, influencing the trade-off between the two.
+
+    Attributes:
+        insize (int): Input feature dimension.
+        outsize (int): Output feature dimension.
+        bias (bool): If True, bias is used in linear transformations.
+        linear_map (class): Linear map class used for layers, by default set to slim.Linear.
+        nonlin (callable): Nonlinear activation function applied after linear transformations.
+        h_sf_size (list of int): Sizes of hidden layers in the single-fidelity MLP.
+        n_stacked_mf_layers (int): Number of stacked multi-fidelity layers.
+        h_linear_sizes (list of int): Sizes of hidden layers in each linear sub-network within the multi-fidelity layers.
+        h_nonlinear_sizes (list of int): Sizes of hidden layers in each nonlinear sub-network within the multi-fidelity layers.
+        linargs (dict): Additional arguments for the linear layer instantiation.
+        alpha_init (float): Initial value of alpha parameter controlling linear-nonlinear blend.
+        freeze_epochs (list of int): Epochs at which layers will be frozen. List size should match n_stacked_mf_layers.
+        verbose (bool): If True, print messages about network progress and actions.
     """
 
     def __init__(
@@ -596,35 +614,37 @@ class MultiFidelityMLP(Block):
         insize,
         outsize,
         bias=True,
-        linear_map=slim.Linear,
+        linear_map=Linear,
         nonlin=nn.Tanh,
         h_sf_size=[20, 20],
-        n_stacked_nets=3,
+        n_stacked_mf_layers=3,
         h_linear_sizes=[10, 10],
         h_nonlinear_sizes=[20, 20],
-        linargs=dict(),
-        freeze_epochs=None,
+        linargs=dict(), 
         alpha_init=0.1,
+        freeze_epochs=[1000,2000,3000],
         verbose=False
     ):
         super().__init__()
         self.in_features, self.out_features = insize, outsize
-        self.num_layers = n_stacked_nets
-        self.freeze_epochs = freeze_epochs
+        self.num_layers = n_stacked_mf_layers
         self.current_block = 0
         self.current_epoch = 0
-        self.alpha = nn.ParameterList([nn.Parameter(torch.tensor(alpha_init), requires_grad=True) for _ in range(n_stacked_nets - 1)])
+        self.alpha = nn.ParameterList([nn.Parameter(torch.tensor(alpha_init), requires_grad=True) for _ in range(n_stacked_mf_layers)])
         self.alpha_loss = 0.0
         self.verbose = verbose
 
-        # First layer (single-fidelity MLP)
+        self._validate_parameters(freeze_epochs, n_stacked_mf_layers)
+        self.freeze_epochs = freeze_epochs
+        
+        # Initialize the first layer (single-fidelity MLP)
         self.first_layer = MLP(
             insize, outsize, bias=bias, linear_map=linear_map, nonlin=nonlin, hsizes=h_sf_size, linargs=linargs
         )
-
-        # Subsequent layers (multi-fidelity)
+    
+        # Initialize subsequent layers (multi-fidelity)
         self.layers = nn.ModuleList()
-        for i in range(n_stacked_nets - 1):
+        for i in range(n_stacked_mf_layers):
             self.layers.append(
                 nn.ModuleDict(
                     {
@@ -642,14 +662,26 @@ class MultiFidelityMLP(Block):
                 )
             )
 
+    def _validate_parameters(self, freeze_epochs, n_stacked_mf_layers):
+        if not isinstance(freeze_epochs, list):
+            raise ValueError("freeze_epochs must be a list.")
+        if len(freeze_epochs) != n_stacked_mf_layers:
+            raise ValueError("The size of freeze_epochs must match the number of stacked multi-fidelity layers.")
+        if not all(freeze_epochs[i] <= freeze_epochs[i+1] for i in range(len(freeze_epochs)-1)):
+            raise ValueError("The elements of freeze_epochs must be in ascending order, otherwise the freezing mechanism will fail.")
+
     def block_eval(self, x):
-        # First layer (single-fidelity MLP)
+        """
+        Process input through the multi-fidelity network blocks up to the current block, combining the outputs
+        of linear and nonlinear transformations weighted by alpha.
+
+        :param x: Input tensor.
+        :return: Output tensor from the last activated block.
+        """
         out = self.first_layer(x)
-        
-        # Subsequent layers (multi-fidelity)
         alpha_loss = 0.0
         for i in range(self.current_block):
-            layer = self.layers[i]  # Pick the corresponding stacked net
+            layer = self.layers[i] # Pick the corresponding stacked net
             alpha = self.alpha[i]  # Pick the corresponding alpha for each stacked net
             linear_out = layer["linear"](out)
             nonlinear_out = layer["nonlinear"](torch.cat([x, out], dim=1))
@@ -659,20 +691,33 @@ class MultiFidelityMLP(Block):
         return out
 
     def get_alpha_loss(self):
-        return self.alpha_loss
-    
-    def update_epoch(self, epoch):
-        self.current_epoch = epoch
+        """
+        Retrieve the accumulated loss from alpha parameters used for regularization purposes.
 
-        if self.freeze_epochs is not None:
-            if self.current_block < self.num_layers - 1 and self.current_epoch == self.freeze_epochs[self.current_block]:
+        :return: Alpha loss as a torch scalar.
+        """
+        return self.alpha_loss
+
+    def update_epoch(self, epoch):
+        """
+        Update the current epoch and manage the layer freezing based on predefined epochs.
+
+        :param epoch: Current training epoch.
+        """
+        self.current_epoch = epoch
+        if self.freeze_epochs is not None and self.current_block < self.num_layers:
+            if self.current_epoch == self.freeze_epochs[self.current_block]:
                 self._freeze_block(self.current_block)
                 self.current_block += 1
                 if self.verbose:
                     print(f"Now training stacked block {self.current_block}")
 
-
     def _freeze_block(self, block):
+        """
+        Freeze the parameters of a specified block to halt its training, moving on to the next block.
+
+        :param block: Index of the block to freeze.
+        """
         if block == 0:
             for param in self.first_layer.parameters():
                 param.requires_grad = False
@@ -681,28 +726,15 @@ class MultiFidelityMLP(Block):
         else:
             current_block = block - 1
             current_layer = self.layers[current_block]
-    
             for param in current_layer.parameters():
                 param.requires_grad = False
             if self.verbose:
                 print(f"Multi-fidelity (layer {block}) parameters have been frozen")
-    
-            # Freeze the alpha of the current block by setting requires_grad to False
-            # self.alpha[current_block].requires_grad = False
-            # print(f"Alpha of the {block}th layer has been frozen")
-    
+
             if block < len(self.layers):
                 next_layer = self.layers[block]
-                # current_params = deepcopy(current_layer.state_dict())
                 current_params = current_layer.state_dict()
-    
-                # Copy weights from the current block to the next block
                 next_layer.load_state_dict(current_params)
-    
-                # Initialize the alpha of the next block with a new learnable parameter
-                # Ensure the new alpha is detached and cloned to prevent any computational graph linking
-                # new_alpha_value = deepcopy(self.model.state_dict()) self.alpha[current_block].clone().detach()
-                # self.alpha[block] = nn.Parameter(new_alpha_value, requires_grad=True)
                 if self.verbose:
                     print(f"Weights copied for layer {block + 1}")
 

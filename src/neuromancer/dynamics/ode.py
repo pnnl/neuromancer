@@ -287,7 +287,7 @@ class LotkaVolterraParam(ODESystem):
     def ode_equations(self, x):
         x1 = x[:, [0]]
         x2 = x[:, [-1]]
-        dx1 = 1.1 * x1 - 0.4*x1*x2
+        dx1 = self.alpha*x1 - 0.4*x1*x2
         dx2 = 0.1*x1*x2 - 0.4*x2
         return torch.cat([dx1, dx2], dim=-1)
 

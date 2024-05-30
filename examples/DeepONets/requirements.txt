@@ -3,3 +3,4 @@ torch
 #graphviz
 pydot==1.4.2
 deepxde
+watermark

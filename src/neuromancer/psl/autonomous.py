@@ -190,17 +190,17 @@ class LotkaVolterra(ODE_Autonomous):
     def params(self):
         variables = {'x0': [5., 100.]}
         constants = {'ts': 0.1}
-        parameters = {'a': 1.,
-                      'b': 0.1,
-                      'c': 1.5,
-                      'd': 0.75,}
+        parameters = {'a': 1.1,
+                      'b': 0.4,
+                      'c': 0.1,
+                      'd': 0.4,}
         meta = {}
         return variables, constants, parameters, meta
 
     @cast_backend
     def equations(self, t, x):
         dx1 = self.a*x[0] - self.b*x[0]*x[1]
-        dx2 = -self.c*x[1] + self.d*self.b*x[0]*x[1]
+        dx2 = self.c**x[0]*x[1] - self.d*x[1]
         return [dx1, dx2]
 
 

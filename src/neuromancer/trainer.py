@@ -350,10 +350,10 @@ class Trainer:
         with torch.set_grad_enabled(self.model.grad_inference):
             self.callback.begin_test(self)
             output = {}
-            #for dset, metric in zip([self.train_data, self.dev_data, self.test_data],
-            #                        [self.train_metric, self.dev_metric, self.test_metric]):
-            for dset, metric in zip([self.train_data, self.test_data],
-                                    [self.train_metric, self.test_metric]):
+            for dset, metric in zip([self.train_data, self.dev_data, self.test_data],
+                                    [self.train_metric, self.dev_metric, self.test_metric]):
+            #for dset, metric in zip([self.train_data, self.test_data],
+            #                        [self.train_metric, self.test_metric]):
                 losses = []
                 for batch in dset:
                     batch = move_batch_to_device(batch, self.device)

@@ -130,7 +130,7 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_building_dynamics.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Learning Building Thermal Dynamics using Neural ODEs.
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_rc_networks.ipynb">
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_RC_networks.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Data-driven modeling of a Resistance-Capacitance network with Neural ODEs.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_swing_equation.ipynb">
@@ -371,9 +371,9 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 ## Development team
 
 **Lead developers**: [Jan Drgona](https://drgona.github.io/), [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/)   
-**Active core developers**: Madelyn Shapiro, James Koch, Rahul Birmiwal  
-**Scientific advisors**: Draguna Vrabie  
-**Notable contributors**: Seth Briney, Bo Tang, Ethan King, Shrirang Abhyankar, 
+**Active core developers**: Madelyn Shapiro, Bruno Jacob, Rahul Birmiwal  
+**Scientific advisors**: Draguna Vrabie, Panos Stinis  
+**Notable contributors**: James Koch, Seth Briney, Bo Tang, Ethan King, Shrirang Abhyankar, 
 Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 
 Open-source contributions made by:  

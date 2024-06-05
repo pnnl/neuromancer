@@ -980,7 +980,8 @@ class StridedDataset(Dataset):
     Strided Sequence Dataset compatible with neuromancer Trainer
 
     This dataset generates subsequences of a fixed length from a sequence dataset.
-    The goal is to decouple the prediction horizon length of a of the rollout.
+    The goal is to decouple the prediction horizon length from the length of the rollout.
+    This is useful as a form of data augmentation.
 
     Contributors:
         - @Seth1Briney

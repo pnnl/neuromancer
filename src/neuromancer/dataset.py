@@ -977,7 +977,7 @@ def get_sequence_dataloaders(
 
 class StridedDataset(Dataset):
     """
-    Basic dataset compatible with neuromancer Trainer
+    Strided Sequence Dataset compatible with neuromancer Trainer
     Contributors:
         - @Seth1Briney
         - @HarryLTS

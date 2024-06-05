@@ -978,27 +978,25 @@ def get_sequence_dataloaders(
 class StridedDataset(Dataset):
     """
     Strided Sequence Dataset compatible with neuromancer Trainer
+
+    This dataset generates subsequences of a fixed length from a sequence dataset.
+    The goal is to decouple the prediction horizon length of a of the rollout.
+
     Contributors:
         - @Seth1Briney
         - @HarryLTS
         - @diego-llanes
     """
 
-    def remainder(self, n, d):
-        """ use the remainder algorithm to index sequences
-        :param i (int) index of subsequence
-        """
-        i_sim = n // d
-        i = n % d
-        return i_sim, i
-
     def __init__(self, datadict, L=32, name='train', stride=1, update_fn=None):
         """
-
         :rtype: object
-        :param datadict: (dict {str: Tensor})
+        :param datadict: (dict {str: Tensor}) Dictionary of tensors with shape (N, T, D)
         :param name: (str) Name of dataset
-        :param L (int) prediction horizion
+        :param L (int) Length of each subsequence
+        :param stride (int) Stride between subsequences
+        :param update_fn (callable) Function to collect the first element of the sequence for a rollout of predictions
+        :example of update_fn: lambda d: d["yn"] = d["Y"][0:1, :]
         """
         super().__init__()
         self.datadict = datadict
@@ -1029,3 +1027,11 @@ class StridedDataset(Dataset):
         batch = default_collate(batch)
         batch['name'] = self.name
         return batch
+
+    def remainder(self, n, d):
+        """ use the remainder algorithm to index sequences
+        :param i (int) index of subsequence
+        """
+        i_sim = n // d
+        i = n % d
+        return i_sim, i

@@ -5,7 +5,7 @@ from itertools import combinations
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import warnings
-import lightning.pytorch as pl 
+import lightning.pytorch as pl
 from typing import Dict, List, Callable
 
 # machine learning/data science imports
@@ -16,9 +16,9 @@ import torch.nn as nn
 
 class LitProblem(pl.LightningModule):
     """
-    A PyTorch-Lightning Module wrapper for the Neuromancer Problem class. 
+    A PyTorch-Lightning Module wrapper for the Neuromancer Problem class.
     As is customary with LightningModules, steps for training and validation are outlined here, as well as the optimizer
-    Logging metrics are also defined here, such as 'train_loss'. 
+    Logging metrics are also defined here, such as 'train_loss'.
     """
     def __init__(self, problem, train_metric='train_loss', dev_metric='train_loss', test_metric='train_loss', custom_optimizer=None, \
                 custom_training_step=None, hparam_config=None):
@@ -27,7 +27,7 @@ class LitProblem(pl.LightningModule):
         :param train_metric: metric to be used during training step. Default to train_loss
         :param dev_metric: metric to be used during validation step. Default to train_loss
         :param test_metric: metric to be used during testing step (currently not supported yet)
-        :param custom_optimizer: Optimizer to be used during training. Default is None, in which an 
+        :param custom_optimizer: Optimizer to be used during training. Default is None, in which an
                                  Adam optimizer is used with learning rate = 0.001
         :param custom_training_step: Custom training step function, if desired. Defaults to None, in which case the standard training step procedure is executed
         """
@@ -46,19 +46,19 @@ class LitProblem(pl.LightningModule):
 
         self._load_from_config()
 
-    
-    def _load_from_config(self): 
-        if self.hparam_config: 
-            if "learning_rate" in self.hparam_config: 
+
+    def _load_from_config(self):
+        if self.hparam_config:
+            if "learning_rate" in self.hparam_config:
                 self.lr = self.hparam_config.learning_rate
-    
+
 
 
     # Defines training step logic for a Neuromancer problem. Registers train_loss
     def training_step(self, batch):
-        if self.custom_training_step is not None: 
+        if self.custom_training_step is not None:
             loss = self.custom_training_step(self, batch)
-        else: 
+        else:
             output = self.problem(batch)
             loss = output[self.train_metric]
         self.training_step_outputs.append(loss)
@@ -70,7 +70,7 @@ class LitProblem(pl.LightningModule):
         epoch_average = torch.stack(self.training_step_outputs).mean()
         #print(f'epoch: {self.current_epoch}  : {epoch_average}')
         self.log("training_epoch_average", epoch_average) #log to lightning_logs
-        self.training_step_outputs.clear() 
+        self.training_step_outputs.clear()
 
     # Defines validation step logic for a Neuromancer problem. Registers dev_loss
     def validation_step(self, batch):
@@ -87,17 +87,17 @@ class LitProblem(pl.LightningModule):
 
     # Defines the optimizers
     def configure_optimizers(self):
-        if self.custom_optimizer is None: 
+        if self.custom_optimizer is None:
             print("USING LEARNING RATE ", self.lr)
             optimizer = torch.optim.Adam(self.problem.parameters(), self.lr, betas=(0.0, 0.9))
-        else: 
+        else:
             optimizer = self.custom_optimizer
         return optimizer
-    
+
     # Returns the original Neuromancer problem
     def get_problem(self):
         return self.problem
-    
+
 
 class Problem(nn.Module):
     """
@@ -162,6 +162,11 @@ class Problem(nn.Module):
                 output_dict = {node.name: output_dict}
             input_dict = {**input_dict, **output_dict}
         return input_dict
+
+    def predict(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        with torch.no_grad():
+            output_dict = self.step(data)
+        return {k: v for k,v in output_dict.items()}
 
     def graph(self, include_objectives=True):
         self._check_unique_names()
@@ -321,4 +326,3 @@ class Problem(nn.Module):
             s += " none\n"
 
         return s
-

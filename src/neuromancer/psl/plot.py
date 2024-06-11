@@ -243,3 +243,19 @@ def pltCL(Y, U=None, D=None, X=None, R=None,
     plt.tight_layout()
     if figname is not None:
         plt.savefig(figname)
+
+
+def render(x, env_str, render_mode="human"):
+    """
+    Render the state of the environment with
+    the state vector x using the Farama environment.
+    :param x: sequence of states
+    :param env_str: environment string
+    :param render_mode: rendering mode
+    :return: rendered gif of the state sequence
+    """
+    import gymnasium
+    env = gymnasium.make(env_str, render_mode=render_mode)
+    env.reset()
+    env.state[:] = x[:]
+    return env.render()

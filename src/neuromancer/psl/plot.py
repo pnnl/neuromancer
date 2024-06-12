@@ -245,7 +245,7 @@ def pltCL(Y, U=None, D=None, X=None, R=None,
         plt.savefig(figname)
 
 
-def render(x, env_str, render_mode="human"):
+def render_gymnasium(x, env_str, render_mode="rgb_array"):
     """
     Render the state of the environment with
     the state vector x using the Farama environment.
@@ -254,8 +254,30 @@ def render(x, env_str, render_mode="human"):
     :param render_mode: rendering mode
     :return: rendered gif of the state sequence
     """
-    import gymnasium
-    env = gymnasium.make(env_str, render_mode=render_mode)
-    env.reset()
+    try:
+        import gymnasium
+    except ImportError:
+        print("Farama gymnasium not installed.\nTry `pip install gymnasium`")
+        return
+
+    # if the user has not changed the environment, don't rebuild it
+    if (not hasattr(render_gymnasium, 'env') or
+            render_gymnasium.env_str != env_str or
+            render_gymnasium.render_mode != render_mode):
+        render_gymnasium.env = gymnasium.make(env_str, render_mode=render_mode)
+        render_gymnasium.env_str = env_str
+        render_gymnasium.render_mode = render_mode
+        render_gymnasium.env.reset()
+        env = render_gymnasium.env
+
+    env = render_gymnasium.env
+
+    if len(x.shape) > 1:
+        frames = []
+        for i in range(x.shape[0]):
+            env.state[:] = x[i, :]
+            frames.append(env.render())
+        return frames
+
     env.state[:] = x[:]
     return env.render()

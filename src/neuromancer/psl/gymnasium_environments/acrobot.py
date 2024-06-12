@@ -9,7 +9,7 @@ import torch
 tens_or_float = Union[torch.Tensor, float]
 
 
-class DifferentiableAcrobot(ODE, torch.nn.Module):
+class GymnasiumAcrobot(ODE, torch.nn.Module):
 
     """
     A differentiable implementation of the Acrobot environment from
@@ -35,6 +35,7 @@ class DifferentiableAcrobot(ODE, torch.nn.Module):
         seed: Union[int, np.random._generator.Generator] = 59,
         set_stats=True,
     ):
+        self.env_str = "Acrobot-v1"
         self.rng = np.random.default_rng(seed=seed)
         self.exclude_norms = exclude_norms
         if not hasattr(self, "nsim"):
@@ -282,7 +283,7 @@ class DifferentiableAcrobot(ODE, torch.nn.Module):
         )
         return Y
 
-    def simulate(self, U, x0):
+    def simulate(self, nsim, U=None, x0=None,):
         '''
         Create a rollout of the system that is the same length as the control
         sequence U.
@@ -290,8 +291,12 @@ class DifferentiableAcrobot(ODE, torch.nn.Module):
         :param x0: initial state
         :return: dictionary of hidden states, observable states, and time steps
         '''
+        if U is None:
+            U = self.get_U(nsim=nsim)
         if len(U.shape) < 2:
             U = U.unsqueeze(0)
+        if x0 is None:
+            x0 = self.get_x0()
 
         nsim = U.shape[0]
         Time = torch.arange(0, nsim + 1) * self.ts
@@ -354,3 +359,22 @@ class DifferentiableAcrobot(ODE, torch.nn.Module):
         terminal = terminal.type(torch.float32)
         loss = 1 - terminal
         return loss
+
+
+if __name__ == '__main__':
+    from neuromancer.psl.plot import render_gymnasium
+
+    acrobot = GymnasiumAcrobot()
+    x0 = acrobot.get_x0()
+    U = acrobot.get_U(nsim=10)
+    rollout = acrobot.simulate(10, U, x0)
+    print(f"{rollout=}")
+    print(f"{acrobot.get_loss(rollout['Y'], U)=}")
+    _ = render_gymnasium(rollout['X'], acrobot.env_str, render_mode="human")
+    y0 = acrobot.get_y0(x0)[None, :]
+    frames = []
+    for i in range(10):
+        print(y0 := acrobot(y0, U[i, :][None, :]))
+        print(f"{acrobot.get_loss(y0, U)=}")
+        frames.append(render_gymnasium(acrobot.y_to_x(y0).squeeze(), acrobot.env_str))
+    print(f"{frames=}")

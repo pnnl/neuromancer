@@ -9,11 +9,12 @@ import torch
 tens_or_float = Union[torch.Tensor, float]
 
 
-class DifferentiablePendulum(ODE, torch.nn.Module):
+class GymnasiumPendulum(ODE, torch.nn.Module):
 
     """
     A differentiable implementation of the Pendulum environment from
     Farama Foundation's Gymnasium.
+
     :param exclude_norms: list of norms to exclude from the stats dictionary
     :param backend: backend to use for the simulation
     :param requires_grad: whether to require gradients for the parameters
@@ -29,6 +30,7 @@ class DifferentiablePendulum(ODE, torch.nn.Module):
         seed: Union[int, np.random._generator.Generator] = 59,
         set_stats=True,
     ):
+        self.env_str = "Pendulum-v1"
         self.rng = np.random.default_rng(seed=seed)
         self.exclude_norms = exclude_norms
         if not hasattr(self, "nsim"):
@@ -204,9 +206,9 @@ class DifferentiablePendulum(ODE, torch.nn.Module):
         )
         X = self.y_to_x(y=Y)
 
-        return Y, X
+        return Y
 
-    def simulate(self, U, x0):
+    def simulate(self, nsim, U=None, x0=None,):
         '''
         Create a rollout of the system that is the same length as the control
         sequence U.
@@ -214,6 +216,10 @@ class DifferentiablePendulum(ODE, torch.nn.Module):
         :param x0: initial state
         :return: dictionary of hidden states, observable states, and time steps
         '''
+        if x0 is None:
+            x0 = self.get_x0()
+        if U is None:
+            U = self.get_U(nsim=nsim)
         nsim = U.shape[0]
         Time = torch.arange(0, nsim + 1) * self.ts
         X = torch.empty((nsim, self.nx), dtype=torch.float32, device=x0.device)
@@ -269,3 +275,22 @@ class DifferentiablePendulum(ODE, torch.nn.Module):
 
         costs = th**2 + 0.1 * thdot**2 + 0.001 * (u**2)
         return costs
+
+
+if __name__ == '__main__':
+    from neuromancer.psl.plot import render_gymnasium
+
+    pendulum = GymnasiumPendulum()
+    x0 = pendulum.get_x0()
+    U = pendulum.get_U(nsim=10)
+    rollout = pendulum.simulate(10, U, x0)
+    print(f"{rollout=}")
+    print(f"{pendulum.get_loss(rollout['Y'], U)=}")
+    _ = render_gymnasium(rollout['X'], pendulum.env_str, render_mode="human")
+    y0 = pendulum.get_y0(x0)[None, :]
+    frames = []
+    for i in range(10):
+        print(y0 := pendulum(y0, U[i, :][None, :]))
+        print(f"{pendulum.get_loss(y0, U)=}")
+        frames.append(render_gymnasium(pendulum.y_to_x(y0).squeeze(), pendulum.env_str))
+    print(f"{frames=}")

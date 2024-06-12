@@ -8,6 +8,8 @@ from neuromancer.psl.base import ODE_NonAutonomous as ODE
 from neuromancer.psl.base import cast_backend
 import inspect, sys
 
+from neuromancer.psl.gymnasium_environments.acrobot import GymnasiumAcrobot
+from neuromancer.psl.gymnasium_environments.pendulum import GymnasiumPendulum
 
 class LorenzControl(ODE):
 
@@ -610,6 +612,8 @@ class ThomasAttractorControl(ODE):
 
 
 systems = dict(inspect.getmembers(sys.modules[__name__], lambda x: inspect.isclass(x)))
+systems['GymnasiumAcrobot'] = GymnasiumAcrobot
+systems['GymnasiumPendulum'] = GymnasiumPendulum
 systems = {k: v for k, v in systems.items() if issubclass(v, ODE) and v is not ODE}
 
 if __name__ == '__main__':

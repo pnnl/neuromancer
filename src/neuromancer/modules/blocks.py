@@ -982,6 +982,84 @@ class RNN(Block):
         return self.output(hiddens[-1])
 
 
+class LSTM(Block):
+    def __init__(
+            self,
+            insize,
+            outsize,
+            hidden_size,
+            num_layers=1,
+            bias=True,
+            dropout=0.0
+    ):
+        """
+        insize (int): The size of each input feature vector.
+        outsize (int): The size of each output feature vector.
+        hidden_size (int): The number of features in the hidden state of each LSTM cell.
+        num_layers (int, optional): The number of recurrent layers. Defaults to 1.
+        bias (bool, optional): If `True`, adds a learnable bias to the output. Defaults to True.
+        dropout (float, optional): If non-zero, introduces a dropout layer on the outputs of each
+                                   LSTM layer except the last layer, with dropout probability equal
+                                   to the value specified. Defaults to 0.0.
+        """
+        super().__init__()
+        self.in_features, self.out_features = insize, outsize
+
+        self.lstm = torch.nn.LSTM(
+            input_size=insize,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            bias=bias,
+            batch_first=True,
+            dropout=dropout,
+            bidirectional=False,
+            device=None,
+            dtype=None)
+
+        self.fc = torch.nn.Linear(hidden_size, outsize)
+
+        self.h, self.c = None, None
+
+    def reset(self):
+        """
+        Resets the internal states (hidden state and cell state) of the LSTM module.
+        This should be called at the beginning of a sequence. You can use this with the neuromancer System class
+        like this:
+
+        ssm = LSTM(args)
+        system_node = Node(ssm, ["yn", "U", "D"], ["yn"])
+        def reset(data):
+            system_node.callable.reset()
+            return data
+        init_fn = reset if args.architecture in ['LSTM', 'LSTM_integrator'] else None
+
+        system = System([system_node], init_func=init_fn)
+        """
+        self.h, self.c = None, None
+
+    def block_eval(self, x):
+        """
+        Processes the input sequence through the LSTM and outputs the transformed final state.
+
+        Parameters:
+            x (torch.Tensor): Input tensor of shape [batch_size, n_steps, dim] where `n_steps` is the
+                              number of timesteps in each sequence, and `dim` is the dimensionality of
+                              each timestep. If the tensor is 2D (batch_size, dim), it will be reshaped
+                              to 3D assuming n_steps = 1.
+
+        Returns:
+            torch.Tensor: Output tensor of shape [batch_size, outsize] representing the transformed
+                          output of the final hidden state of the LSTM.
+        """
+        if len(x.shape) == 2:
+            x = torch.unsqueeze(x, 1)
+
+        x, (self.h, self.c) = self.lstm(x, (self.h, self.c) if self.h is not None else None)
+        x = x[:, -1, :]
+        x = self.fc(x)
+        return x
+
+
 class BilinearTorch(Block):
     """
     Wraps torch.nn.Bilinear to be consistent with the blocks interface
@@ -1106,6 +1184,7 @@ blocks = {
     "mlp_dropout": MLPDropout,
     "mlp_bounds": MLP_bounds,
     "rnn": RNN,
+    "lstm": LSTM,
     "pytorch_rnn": PytorchRNN,
     "linear": Linear,
     "residual_mlp": ResMLP,

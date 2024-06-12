@@ -982,7 +982,7 @@ class RNN(Block):
         return self.output(hiddens[-1])
 
 
-class LSTM(Block):
+class LSTM(blocks.Block):
     def __init__(
             self,
             insize,
@@ -1016,7 +1016,7 @@ class LSTM(Block):
             device=None,
             dtype=None)
 
-        self.output = torch.nn.Linear(hidden_size, outsize)
+        self.fc = torch.nn.Linear(hidden_size, outsize)
 
         self.h, self.c = None, None
 
@@ -1024,16 +1024,16 @@ class LSTM(Block):
         """
         Resets the internal states (hidden state and cell state) of the LSTM module.
         This should be called at the beginning of a sequence. You can use this with the neuromancer System class
-        by overriding the init function:
+        like this:
 
         ssm = LSTM(args)
         system_node = Node(ssm, ["yn", "U", "D"], ["yn"])
-        system = System([system_node])
-
-        def reset(self, data):
-            self.nodes[0].callable.reset() # reset the index of the node in the system that is the LSTM
+        def reset(data):
+            system_node.callable.reset()
             return data
-        system.init = reset.__get__(system, System)
+        init_fn = reset if args.architecture in ['LSTM', 'LSTM_integrator'] else None
+
+        system = System([system_node], init_func=init_fn)
         """
         self.h, self.c = None, None
 
@@ -1055,10 +1055,8 @@ class LSTM(Block):
             x = torch.unsqueeze(x, 1)
 
         x, (self.h, self.c) = self.lstm(x, (self.h, self.c) if self.h is not None else None)
-
-        self.h, self.c = self.h.detach(), self.c.detach()
         x = x[:, -1, :]
-        x = self.output(x)
+        x = self.fc(x)
         return x
 
 

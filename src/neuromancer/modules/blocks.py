@@ -982,7 +982,7 @@ class RNN(Block):
         return self.output(hiddens[-1])
 
 
-class LSTM(blocks.Block):
+class LSTM(Block):
     def __init__(
             self,
             insize,

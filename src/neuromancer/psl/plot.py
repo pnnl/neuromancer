@@ -281,3 +281,288 @@ def render_gymnasium(x, env_str, render_mode="rgb_array"):
 
     env.state[:] = x[:]
     return env.render()
+
+
+def plot_acrobot_control(data, save_loc=None):
+    """
+    Plots the height of the acrobot controller using the loss function.
+        cos0, sin0 = y[:,0], y[:,1]
+        cos1, sin1 = y[:,2], y[:,3]
+        terminal = cos0 + (cos0*cos1 - sin0*sin1)
+    Args:
+    - data: Dict of state variables. Each key has a ndarray of shape [time, state_variable].
+    - save_loc: Optional location to save the plot.
+    """
+    try:
+        import torch
+    except ImportError:
+        print("PyTorch not installed.\nTry `pip install torch`")
+        return
+    data = data.copy()
+    # Ensure data is in the correct format and convert tensors to numpy
+    for key in data:
+        if isinstance(data[key], torch.Tensor):
+            data[key] = data[key].detach().cpu().numpy()
+        if len(data[key].shape) == 1:
+            data[key] = data[key][np.newaxis, :]
+        elif len(data[key].shape) > 2:
+            data[key] = data[key].squeeze(0)
+
+    # Calculate the height of the acrobot
+    cos0, sin0 = data["yn"][:, 0], data["yn"][:, 1]
+    cos1, sin1 = data["yn"][:, 2], data["yn"][:, 3]
+    terminal = -(cos0 + (cos0 * cos1 - sin0 * sin1)) + 2.0
+
+    plt.figure(figsize=(10, 8))
+
+    plt.subplot(2, 1, 1)
+    plt.margins(x=0.1)
+    plt.ylim(0, 4)
+    plt.xlim(0, 400)
+
+    # Plot the height and an array of ones for the reference
+    plt.plot(terminal, label="Height", color='blue')
+    plt.plot(np.ones_like(terminal) + 2.0, linestyle="--", label="ref Height", color='red')
+    plt.title(
+        "Acrobot Height",
+        fontsize=24,
+    )
+    plt.ylabel("Height", fontsize=22)
+    plt.xlabel("Time", fontsize=22)
+    plt.legend(loc="upper right", fontsize=18)
+    plt.grid(True)
+
+    plt.subplot(2, 1, 2)
+    plt.margins(x=0.1)
+    plt.xlim(0, 400)
+
+    plt.plot(data["U"][:, 0], label="u", color='blue')
+    plt.title(
+        "Control Input",
+        fontsize=24,
+    )
+    plt.ylabel("Torque", fontsize=22)
+    plt.xlabel("Time", fontsize=22)
+    plt.legend(loc="upper right", fontsize=18)
+    plt.grid(True)
+
+    plt.tight_layout()
+    if save_loc:
+        plt.savefig(save_loc)
+    plt.show()
+
+
+def plot_pendulum_control(data, save_loc=None):
+    """
+    Plots the pendulum state variables and optional reference trajectories.
+    
+    Args:
+    - data: Dict of state variables. Each key has a ndarray of shape [time, state_variable].
+    - ref_data: Optional dict of reference trajectories with matching keys to `data`.
+    """
+    try:
+        import torch
+    except ImportError:
+        print("PyTorch not installed.\nTry `pip install torch`")
+        return
+
+    data = data.copy()
+    for key in data.keys():
+        if len(data[key].shape) == 1:
+            data[key] = data[key][None, :]
+        elif len(data[key].shape) > 2:
+            try:
+                data[key] = data[key].squeeze(0)
+            except ValueError:
+                raise ValueError(f"Could not reshape {key} with shape {data[key].shape}")
+        if type(data[key]) is torch.Tensor:
+            data[key] = data[key].detach().cpu().numpy()
+
+    plt.figure(figsize=(10, 8))
+
+    # Plot angles
+    plt.subplot(3, 1, 1)
+    plt.margins(x=0)
+
+    plt.plot(data["yn"][:, 0], label="$cos(\\theta)$", color='cornflowerblue')
+    plt.plot(data["yn"][:, 1], label="$sin(\\theta)$", color='tomato')
+
+    # Plot the reference for the angles, sin = 0, cos = 1
+    plt.plot(
+        np.ones_like(data["yn"][:, 0]),
+        linestyle="--", label="ref $cos(\\theta)$",
+        color='blue'
+    )
+    plt.plot(
+        np.zeros_like(data["yn"][:, 1]),
+        linestyle="--",
+        label="ref $sin(\\theta)$",
+        color='red'
+    )
+
+    plt.title(
+        "Angles",
+        fontsize=24,
+        # fontweight='bold'
+    )
+    plt.ylabel("Angle", fontsize=22)
+    plt.legend(loc="upper right", fontsize=18)
+    plt.grid(True)
+
+    # Plot angular velocities
+    plt.subplot(3, 1, 2)
+    plt.margins(x=0)
+
+    plt.plot(data["yn"][:, 2], label="$\\dot \\theta$", color='blue')
+    plt.title(
+        "Angular Velocities",
+        fontsize=24,
+        # fontweight='bold'
+    )
+    plt.ylabel("$\\frac{rad}{s}$", fontsize=22)
+    plt.legend(loc="upper right", fontsize=18)
+    plt.grid(True)
+
+    # Plot control input
+    plt.subplot(3, 1, 3)
+    plt.margins(x=0)
+
+    plt.plot(data["U"][:, 0], label="u", color='blue')
+    plt.title(
+        "Control Input",
+        fontsize=24,
+        # fontweight='bold'
+    )
+    plt.ylabel("Torque", fontsize=22)
+    plt.xlabel("Time", fontsize=22)
+    plt.grid(True)
+
+    plt.tight_layout()
+    if save_loc:
+        plt.savefig(save_loc)
+    plt.show()
+
+
+def plot_acrobot_sysid(data, save_loc=None):
+    """
+    Plots the acrobot system identification state variables and optional reference trajectories.
+
+    Args:
+    - data: Dict of state variables. Each key has a ndarray of shape [time, state_variable].
+    """
+    try:
+        import torch
+    except ImportError:
+        print("PyTorch not installed.\nTry `pip install torch`")
+        return
+
+    # Ensure data is in the correct format and convert tensors to numpy
+    for key in data:
+        if isinstance(data[key], torch.Tensor):
+            data[key] = data[key].detach().cpu().numpy()
+        if len(data[key].shape) == 1:
+            data[key] = data[key][np.newaxis, :]
+        elif len(data[key].shape) > 2:
+            data[key] = data[key].squeeze(0)
+
+    plt.figure(figsize=(10, 8))
+
+    # Plot angles
+    plt.subplot(3, 1, 1)
+    cmap = plt.get_cmap("tab10")
+    colors = cmap(np.linspace(0, 1, 6))
+
+    plt.plot(data["xsys"][:, 0], label="$cos(\\theta_1)$", color=colors[0])
+    plt.plot(data["Y"][:, 0], linestyle="--", label="$ref cos(\\theta_1)$", color=colors[0])
+    plt.plot(data["xsys"][:, 1], label="$sin(\\theta_1)$", color=colors[1])
+    plt.plot(data["Y"][:, 1], linestyle="--", label="$ref sin(\\theta_1)$", color=colors[1])
+    plt.plot(data["xsys"][:, 2], label="$cos(\\theta_2)$", color=colors[2])
+    plt.plot(data["Y"][:, 2], linestyle="--", label="$ref cos(\\theta_2)$", color=colors[2])
+    plt.plot(data["xsys"][:, 3], label="$sin(\\theta_2)$", color=colors[3])
+    plt.plot(data["Y"][:, 3], linestyle="--", label="$ref sin(\\theta_2)$", color=colors[3])
+
+    plt.title("Angles")
+    plt.ylabel("Angle")
+    plt.legend(loc="upper right")
+    plt.grid(True)
+
+    # Plot angular velocities
+    plt.subplot(3, 1, 2)
+    plt.plot(data["xsys"][:, 4], label="$\\dot \\theta_1$", color=colors[4])
+    plt.plot(data["Y"][:, 4], linestyle="--", label="$ref \\dot \\theta_1$", color=colors[4])
+    plt.plot(data["xsys"][:, 5], label="$\\dot \\theta_2$", color=colors[5])
+    plt.plot(data["Y"][:, 5], linestyle="--", label="$ref \\dot \\theta_2$", color=colors[5])
+    plt.title("Angular Velocities")
+    plt.ylabel("$\\frac{rad}{s}$")
+    plt.legend(loc="upper right")
+    plt.grid(True)
+
+    # Plot control input
+    plt.subplot(3, 1, 3)
+    plt.plot(data["U"][:, 0], label="u")
+    plt.title("Control Input")
+    plt.ylabel("Torque")
+    plt.xlabel("Time")
+    plt.grid(True)
+
+    plt.tight_layout()
+    if save_loc:
+        plt.savefig(save_loc, dpi=300)
+    plt.show()
+
+
+def plot_pendulum_sysid(data, save_loc=None):
+    """
+    Plots the pendulum system identification state variables and optional reference trajectories.
+
+    Args:
+    - data: Dict of state variables. Each key has a ndarray of shape [time, state_variable].
+    """
+
+    # Ensure data is in the correct format and convert tensors to numpy
+    for key in data:
+        if isinstance(data[key], torch.Tensor):
+            data[key] = data[key].detach().cpu().numpy()
+        if len(data[key].shape) == 1:
+            data[key] = data[key][np.newaxis, :]
+        elif len(data[key].shape) > 2:
+            data[key] = data[key].squeeze(0)
+
+    plt.figure(figsize=(10, 8))
+
+    # Plot angles
+    plt.subplot(3, 1, 1)
+    cmap = plt.get_cmap("tab10")
+    colors = cmap(np.linspace(0, 1, 3))
+
+    plt.plot(data["xsys"][:, 0], label="$cos(\\theta)$", color=colors[0])
+    plt.plot(data["Y"][:, 0], linestyle="--", label="$ref cos(\\theta)$", color=colors[0])
+    plt.plot(data["xsys"][:, 1], label="$sin(\\theta)$", color=colors[1])
+    plt.plot(data["Y"][:, 1], linestyle="--", label="$ref sin(\\theta)$", color=colors[1])
+
+    plt.title("Angles")
+    plt.ylabel("Angle")
+    plt.legend(loc="upper right")
+    plt.grid(True)
+
+    # Plot angular velocities
+    plt.subplot(3, 1, 2)
+    plt.plot(data["xsys"][:, 2], label="$\\dot \\theta$", color=colors[2])
+    plt.plot(data["Y"][:, 2], linestyle="--", label="$ref \\dot \\theta$", color=colors[2])
+    plt.title("Angular Velocities")
+    plt.ylabel("$\\frac{rad}{s}$")
+    plt.legend(loc="upper right")
+    plt.grid(True)
+
+    # Plot control input
+    plt.subplot(3, 1, 3)
+    plt.plot(data["U"][:, 0], label="u")
+    plt.title("Control Input")
+    plt.ylabel("Torque")
+    plt.xlabel("Time")
+    plt.grid(True)
+
+    plt.tight_layout()
+    if save_loc:
+        plt.savefig(save_loc, dpi=300)
+    plt.show()

@@ -1,0 +1,22 @@
+!!python/object:argparse.Namespace
+act: leakyrelu
+bs: 512
+continous: false
+debug: false
+device: cuda
+entity: diegollanes
+env: pendulum
+epochs: 10000
+exp: Farama_Control
+hsize: 1534
+location: mlruns
+logdir: control_drl
+lr: 0.0005032754254936123
+nlayers: 5
+nsim: 156
+nsteps: 24
+patience: 400
+render_mode: null
+run: null
+seed: 0
+ssm_size: unlimited

@@ -443,7 +443,7 @@ def plot_pendulum_control(data, save_loc=None):
     plt.show()
 
 
-def plot_acrobot_sysid(data, save_loc=None):
+def plot_acrobot_sysid(data, save_loc=None, true_key="Y", pred_key="yn"):
     """
     Plots the acrobot system identification state variables and optional reference trajectories.
 
@@ -472,14 +472,14 @@ def plot_acrobot_sysid(data, save_loc=None):
     cmap = plt.get_cmap("tab10")
     colors = cmap(np.linspace(0, 1, 6))
 
-    plt.plot(data["xsys"][:, 0], label="$cos(\\theta_1)$", color=colors[0])
-    plt.plot(data["Y"][:, 0], linestyle="--", label="$ref cos(\\theta_1)$", color=colors[0])
-    plt.plot(data["xsys"][:, 1], label="$sin(\\theta_1)$", color=colors[1])
-    plt.plot(data["Y"][:, 1], linestyle="--", label="$ref sin(\\theta_1)$", color=colors[1])
-    plt.plot(data["xsys"][:, 2], label="$cos(\\theta_2)$", color=colors[2])
-    plt.plot(data["Y"][:, 2], linestyle="--", label="$ref cos(\\theta_2)$", color=colors[2])
-    plt.plot(data["xsys"][:, 3], label="$sin(\\theta_2)$", color=colors[3])
-    plt.plot(data["Y"][:, 3], linestyle="--", label="$ref sin(\\theta_2)$", color=colors[3])
+    plt.plot(data[pred_key][:, 0], label="$cos(\\theta_1)$", color=colors[0])
+    plt.plot(data[true_key][:, 0], linestyle="--", label="$ref cos(\\theta_1)$", color=colors[0])
+    plt.plot(data[pred_key][:, 1], label="$sin(\\theta_1)$", color=colors[1])
+    plt.plot(data[true_key][:, 1], linestyle="--", label="$ref sin(\\theta_1)$", color=colors[1])
+    plt.plot(data[pred_key][:, 2], label="$cos(\\theta_2)$", color=colors[2])
+    plt.plot(data[true_key][:, 2], linestyle="--", label="$ref cos(\\theta_2)$", color=colors[2])
+    plt.plot(data[pred_key][:, 3], label="$sin(\\theta_2)$", color=colors[3])
+    plt.plot(data[true_key][:, 3], linestyle="--", label="$ref sin(\\theta_2)$", color=colors[3])
 
     plt.title("Angles")
     plt.ylabel("Angle")
@@ -488,10 +488,10 @@ def plot_acrobot_sysid(data, save_loc=None):
 
     # Plot angular velocities
     plt.subplot(3, 1, 2)
-    plt.plot(data["xsys"][:, 4], label="$\\dot \\theta_1$", color=colors[4])
-    plt.plot(data["Y"][:, 4], linestyle="--", label="$ref \\dot \\theta_1$", color=colors[4])
-    plt.plot(data["xsys"][:, 5], label="$\\dot \\theta_2$", color=colors[5])
-    plt.plot(data["Y"][:, 5], linestyle="--", label="$ref \\dot \\theta_2$", color=colors[5])
+    plt.plot(data[pred_key][:, 4], label="$\\dot \\theta_1$", color=colors[4])
+    plt.plot(data[true_key][:, 4], linestyle="--", label="$ref \\dot \\theta_1$", color=colors[4])
+    plt.plot(data[pred_key][:, 5], label="$\\dot \\theta_2$", color=colors[5])
+    plt.plot(data[true_key][:, 5], linestyle="--", label="$ref \\dot \\theta_2$", color=colors[5])
     plt.title("Angular Velocities")
     plt.ylabel("$\\frac{rad}{s}$")
     plt.legend(loc="upper right")
@@ -511,7 +511,7 @@ def plot_acrobot_sysid(data, save_loc=None):
     plt.show()
 
 
-def plot_pendulum_sysid(data, save_loc=None):
+def plot_pendulum_sysid(data, save_loc=None, true_key="Y", pred_key="yn"):
     """
     Plots the pendulum system identification state variables and optional reference trajectories.
 
@@ -535,10 +535,10 @@ def plot_pendulum_sysid(data, save_loc=None):
     cmap = plt.get_cmap("tab10")
     colors = cmap(np.linspace(0, 1, 3))
 
-    plt.plot(data["xsys"][:, 0], label="$cos(\\theta)$", color=colors[0])
-    plt.plot(data["Y"][:, 0], linestyle="--", label="$ref cos(\\theta)$", color=colors[0])
-    plt.plot(data["xsys"][:, 1], label="$sin(\\theta)$", color=colors[1])
-    plt.plot(data["Y"][:, 1], linestyle="--", label="$ref sin(\\theta)$", color=colors[1])
+    plt.plot(data[pred_key][:, 0], label="$cos(\\theta)$", color=colors[0])
+    plt.plot(data[true_key][:, 0], linestyle="--", label="$ref cos(\\theta)$", color=colors[0])
+    plt.plot(data[pred_key][:, 1], label="$sin(\\theta)$", color=colors[1])
+    plt.plot(data[true_key][:, 1], linestyle="--", label="$ref sin(\\theta)$", color=colors[1])
 
     plt.title("Angles")
     plt.ylabel("Angle")
@@ -547,8 +547,8 @@ def plot_pendulum_sysid(data, save_loc=None):
 
     # Plot angular velocities
     plt.subplot(3, 1, 2)
-    plt.plot(data["xsys"][:, 2], label="$\\dot \\theta$", color=colors[2])
-    plt.plot(data["Y"][:, 2], linestyle="--", label="$ref \\dot \\theta$", color=colors[2])
+    plt.plot(data[pred_key][:, 2], label="$\\dot \\theta$", color=colors[2])
+    plt.plot(data[true_key][:, 2], linestyle="--", label="$ref \\dot \\theta$", color=colors[2])
     plt.title("Angular Velocities")
     plt.ylabel("$\\frac{rad}{s}$")
     plt.legend(loc="upper right")

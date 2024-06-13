@@ -973,3 +973,66 @@ def get_sequence_dataloaders(
     )
 
     return (train_data, dev_data, test_data), (train_loop, dev_loop, test_loop), train_data.dataset.dims
+
+
+class StridedDataset(Dataset):
+    """
+    Strided Sequence Dataset compatible with neuromancer Trainer
+
+    This dataset generates subsequences of a fixed length from a sequence dataset.
+    The goal is to decouple the prediction horizon length from the length of the rollout.
+    This is useful as a form of data augmentation.
+
+    Contributors:
+        - @Seth1Briney
+        - @HarryLTS
+        - @diego-llanes
+    """
+
+    def __init__(self, datadict, L=32, name='train', stride=1, update_fn=None):
+        """
+        :rtype: object
+        :param datadict: (dict {str: Tensor}) Dictionary of tensors with shape (N, T, D)
+        :param name: (str) Name of dataset
+        :param L (int) Length of each subsequence
+        :param stride (int) Stride between subsequences
+        :param update_fn (callable) Function to collect the first element of the sequence for a rollout of predictions
+        :example of update_fn: lambda d: d["yn"] = d["Y"][0:1, :]
+        """
+        super().__init__()
+        self.datadict = datadict
+        self.L = L
+        self.name = name
+        self.nsim, self.nsteps, _ = next(iter(datadict.values())).shape
+        self.seqs_per_sim = self.nsteps - self.L + 1
+        self.length = (self.nsim * self.seqs_per_sim) // stride
+        self.update_fn = update_fn
+        self.stride = stride
+
+    def __getitem__(self, i):
+        """Fetch a single item from the dataset."""
+        i_sim, i = self.remainder(i * self.stride, self.seqs_per_sim)
+        sim_chunk = {k: v[i_sim][i: i+self.L] for k, v in self.datadict.items()}
+        if self.update_fn:
+            self.update_fn(sim_chunk)
+        return sim_chunk
+
+    def __len__(self):
+        return self.length
+
+    def collate_fn(self, batch):
+        """Wraps the default PyTorch batch collation function and adds a name field.
+
+        :param batch: (dict str: torch.Tensor) dataset sample.
+        """
+        batch = default_collate(batch)
+        batch['name'] = self.name
+        return batch
+
+    def remainder(self, n, d):
+        """ use the remainder algorithm to index sequences
+        :param i (int) index of subsequence
+        """
+        i_sim = n // d
+        i = n % d
+        return i_sim, i

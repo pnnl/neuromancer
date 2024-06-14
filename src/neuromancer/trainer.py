@@ -311,7 +311,6 @@ class Trainer:
                         self.logger.log_metrics(output, step=i)
                     else:
                         mean_loss = output[f'mean_{self.train_metric}']
-                        # CMH
                         self.loss_history["train"].append(mean_loss)
                         if i % (self.epoch_verbose) == 0:
                             print(f'epoch: {i}  {self.train_metric}: {mean_loss}')

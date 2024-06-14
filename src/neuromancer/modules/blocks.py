@@ -983,6 +983,12 @@ class RNN(Block):
 
 
 class LSTM(Block):
+    """
+    Contributors:
+    - @Seth1Briney
+    - @HarryLTS
+    - @diego-llanes
+    """
     def __init__(
             self,
             insize,

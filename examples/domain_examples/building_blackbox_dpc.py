@@ -88,26 +88,29 @@ obj = PenaltyLoss([loss], [])
 problem = Problem([system], obj).to(device)
 problem.show()
 
-def remainder(n, d):
-    """ use the remainder algorithm to index sequences
-    :param i (int) index of subsequence
+class StridedDataset(Dataset):
     """
-    i_sim = n // d
-    i = n % d
-    return i_sim, i
+    Strided Sequence Dataset compatible with neuromancer Trainer
 
-class DictDataset_L(Dataset):
-    """
-    Basic dataset compatible with neuromancer Trainer
+    This dataset generates subsequences of a fixed length from a sequence dataset.
+    The goal is to decouple the prediction horizon length from the length of the rollout.
+    This is useful as a form of data augmentation.
+
+    Contributors:
+        - @Seth1Briney
+        - @HarryLTS
+        - @diego-llanes
     """
 
     def __init__(self, datadict, L=32, name='train', stride=1, update_fn=None):
         """
-
         :rtype: object
-        :param datadict: (dict {str: Tensor})
+        :param datadict: (dict {str: Tensor}) Dictionary of tensors with shape (N, T, D)
         :param name: (str) Name of dataset
-        :param L (int) prediction horizion
+        :param L (int) Length of each subsequence
+        :param stride (int) Stride between subsequences
+        :param update_fn (callable) Function to collect the first element of the sequence for a rollout of predictions
+        :example of update_fn: lambda d: d["yn"] = d["Y"][0:1, :]
         """
         super().__init__()
         self.datadict = datadict
@@ -121,7 +124,7 @@ class DictDataset_L(Dataset):
 
     def __getitem__(self, i):
         """Fetch a single item from the dataset."""
-        i_sim, i = remainder(i * self.stride, self.seqs_per_sim)
+        i_sim, i = self.remainder(i * self.stride, self.seqs_per_sim)
         sim_chunk = {k: v[i_sim][i: i+self.L] for k, v in self.datadict.items()}
         if self.update_fn:
             self.update_fn(sim_chunk)
@@ -139,9 +142,16 @@ class DictDataset_L(Dataset):
         batch['name'] = self.name
         return batch
 
+    def remainder(self, n, d):
+        """ use the remainder algorithm to index sequences
+        :param i (int) index of subsequence
+        """
+        i_sim = n // d
+        i = n % d
+        return i_sim, i
+
 NV = load_stats(psl_sys, psl_key)
 NVD = {k: v.to(device) for k, v in NV.items()}
-
 
 def denorm(x, key, cpu=True):
   normer = NV if cpu else NVD
@@ -157,7 +167,7 @@ def get_dataset(name, nsim=20, nsteps=3500, L=512, stride=509, device='cpu'):
         d['yn'] = d['Y'][0:1, :].clone().detach().requires_grad_(True)
 
     if name == 'train':
-        return DictDataset_L(
+        return StridedDataset(
             {
                 'Y': norm(data['Y'], 'Y').to(device),
                 'U': norm(data['U'], 'U').to(device),

@@ -1,0 +1,22 @@
+!!python/object:argparse.Namespace
+act: softshrink
+bs: 512
+continous: true
+debug: false
+device: cuda
+entity: diegollanes
+env: acrobot
+epochs: 10000
+exp: Farama_Control
+hsize: 1487
+location: mlruns
+logdir: control_drl
+lr: 0.0016935746031054744
+nlayers: 4
+nsim: 100
+nsteps: 41
+patience: 400
+render_mode: null
+run: null
+seed: 0
+ssm_size: unlimited

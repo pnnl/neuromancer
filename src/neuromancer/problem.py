@@ -20,8 +20,8 @@ class LitProblem(pl.LightningModule):
     As is customary with LightningModules, steps for training and validation are outlined here, as well as the optimizer
     Logging metrics are also defined here, such as 'train_loss'. 
     """
-    def __init__(self, problem, train_metric='train_loss', dev_metric='train_loss', test_metric='train_loss', custom_optimizer=None, \
-                custom_training_step=None, hparam_config=None):
+    def __init__(self, problem, train_metric='train_loss', dev_metric='train_loss', test_metric='train_loss', custom_optimizer=None, 
+                 custom_training_step=None, custom_hooks=None, hparam_config=None):
         """
         :param problem: A Neuromancer Problem()
         :param train_metric: metric to be used during training step. Default to train_loss
@@ -36,8 +36,9 @@ class LitProblem(pl.LightningModule):
         self.train_metric = train_metric
         self.dev_metric = dev_metric
         self.test_metric = test_metric
-        self.custom_optimizer=custom_optimizer
+        self.custom_optimizer = custom_optimizer
         self.custom_training_step = custom_training_step
+        self.custom_hooks = custom_hooks or {}
         self.hparam_config = hparam_config
         self.lr = .001
 
@@ -46,16 +47,12 @@ class LitProblem(pl.LightningModule):
 
         self._load_from_config()
 
-    
     def _load_from_config(self): 
         if self.hparam_config: 
             if "learning_rate" in self.hparam_config: 
                 self.lr = self.hparam_config.learning_rate
     
-
-
-    # Defines training step logic for a Neuromancer problem. Registers train_loss
-    def training_step(self, batch):
+    def training_step(self, batch, batch_idx):
         if self.custom_training_step is not None: 
             loss = self.custom_training_step(self, batch)
         else: 
@@ -65,36 +62,33 @@ class LitProblem(pl.LightningModule):
         self.log('train_loss', loss, on_epoch=True, enable_graph=True, prog_bar=True)
         return loss
 
-    # Defines what to do after each training epoch
     def on_train_epoch_end(self):
-        epoch_average = torch.stack(self.training_step_outputs).mean()
-        #print(f'epoch: {self.current_epoch}  : {epoch_average}')
-        self.log("training_epoch_average", epoch_average) #log to lightning_logs
-        self.training_step_outputs.clear() 
+        if 'on_train_epoch_end' in self.custom_hooks:
+            self.custom_hooks['on_train_epoch_end'](self)
+        else:
+            epoch_average = torch.stack(self.training_step_outputs).mean()
+            self.log("training_epoch_average", epoch_average) #log to lightning_logs
+            self.training_step_outputs.clear() 
 
-    # Defines validation step logic for a Neuromancer problem. Registers dev_loss
-    def validation_step(self, batch):
-        output = self.problem(batch)
-        loss = output[self.dev_metric]
-        self.validation_step_outputs.append(loss)
-        self.log('dev_loss', loss, prog_bar=True)
-
-    # Defines what to do after each validation epoch
-    def on_validation_epoch_end(self):
-        epoch_average = torch.stack(self.validation_step_outputs).mean()
-        self.log("validation_epoch_average", epoch_average)
-        self.validation_step_outputs.clear()  # free memory
-
-    # Defines the optimizers
-    def configure_optimizers(self):
-        if self.custom_optimizer is None: 
-            print("USING LEARNING RATE ", self.lr)
-            optimizer = torch.optim.Adam(self.problem.parameters(), self.lr, betas=(0.0, 0.9))
+    def validation_step(self, batch, batch_idx):
+        if 'validation_step' in self.custom_hooks: 
+            self.custom_hook['validation_step'](self, batch, batch_idx)
         else: 
-            optimizer = self.custom_optimizer
-        return optimizer
+            output = self.problem(batch)
+            loss = output[self.dev_metric]
+            self.validation_step_outputs.append(loss)
+            self.log('dev_loss', loss, prog_bar=True)
+
+    def configure_optimizers(self):
+        if 'configure_optimizers' in self.custom_hooks:
+            self.custom_hooks['configure_optimizers'](self)
+        else: 
+            if self.custom_optimizer is None: 
+                optimizer = torch.optim.Adam(self.problem.parameters(), self.lr, betas=(0.0, 0.9))
+            else: 
+                optimizer = self.custom_optimizer
+            return optimizer
     
-    # Returns the original Neuromancer problem
     def get_problem(self):
         return self.problem
     

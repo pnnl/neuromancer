@@ -4,7 +4,7 @@
 
 PyTorch Lightning is a framework built on top of PyTorch designed to simplify the implementation of complex models in PyTorch. It promotes cleaner, more organized code by providing a high-level interface for PyTorch that handles many training intricacies automatically. 
 
-Why might I want to use Lightning in the context of NeuroMANCER? For the user, Lightning simplifies the workflow, allowing one to focus on solving NeuroMANCER problems with their associated datasets. How does it do this? Let's take a look at the added functionality when using Lightning 
+Why might I want to use Lightning in the context of NeuroMANCER? For the user, Lightning simplifies the workflow, allowing one to focus on solving NeuroMANCER problems with their associated datasets. How does it do this? Let's take a look at the added functionality when using Lightning. 
 
 ## New Features
 
@@ -247,4 +247,8 @@ def custom_training_step(model, batch):
     return loss
 ```
 
-The signature of this function should be `custom_training_step(model, batch)` where model is a Neuromancer Problem
+The signature of this function should be `custom_training_step(model, batch)` where model is a Neuromancer Problem. 
+
+We are not limited to just implementing custom training step. Lightning provides a plethora of "hooks" for the user to interact with in modular "lego" style fashion that is intrinsic to the Lightning framework. 
+
+Please refer to lightning_integration_examples/other_examples/custom_training_example.ipynb for more information on these flexible training options. 

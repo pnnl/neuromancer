@@ -30,6 +30,8 @@ class LitProblem(pl.LightningModule):
         :param custom_optimizer: Optimizer to be used during training. Default is None, in which an 
                                  Adam optimizer is used with learning rate = 0.001
         :param custom_training_step: Custom training step function, if desired. Defaults to None, in which case the standard training step procedure is executed
+        :param custom_hooks: Dictionary of custom hook functions that are supported by Lightning. Defaults to None.
+        :param hparam_config: A wandb hyperparameter configuration file. Only used for hyperparameter tuning. 
         """
         super().__init__()
         self.problem = problem

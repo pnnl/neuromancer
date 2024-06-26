@@ -156,14 +156,14 @@ class FourierLibrary(FunctionLibrary):
         cosines = []
         cos_names = []
         if self.include_sin:
-            sines = [(lambda z: [(lambda y: lambda X: np.sin(y * X[:,z]))(i) \
+            sines = [(lambda z: [(lambda y: lambda X: torch.sin(y * X[:,z]))(i) \
                     for i in range(1,self.max_freq+1)]) (j) for j in \
                     range(n_features)]
             sin_names = [[f"sin({j}*x{i})"  for j in \
                     range(1, self.max_freq+1)] for i in range(n_features)]
 
         if self.include_cos:
-            cosines = [(lambda z: [(lambda y: lambda X: np.cos(y * X[:,z]))(i)\
+            cosines = [(lambda z: [(lambda y: lambda X: torch.cos(y * X[:,z]))(i)\
                     for i in range(1,self.max_freq+1)]) (j) for j in \
                     range(n_features)]
             cos_names = [[f"cos({j}*x{i})"  for j in \

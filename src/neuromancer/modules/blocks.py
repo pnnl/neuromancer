@@ -119,46 +119,6 @@ def set_model_dropout_mode(model, at_train=None, at_test=None):
 
     model.apply(_apply_fn)
 
-# def w_jl(x, num_domains):
-#     """
-#     Window functions for finite-basis domain decomposition.
-#     """
-#     delta = 1.9
-#     eps = 1e-12  # Small epsilon to prevent division by zero
-    
-#     def w_jl_i(x_i, n_domains, Tmax):
-#         jvec = torch.arange(n_domains, device=x.device) + 1
-#         muvec = Tmax * (jvec - 1) / (n_domains - 1)
-#         muvec = muvec.expand(x_i.shape[0], n_domains)
-#         u = x_i.repeat(1, n_domains)
-#         sigma = Tmax * (delta / 2.0) / (n_domains - 1)
-
-#         # z = torch.clamp((u - muvec) / sigma, -1 + eps, 1 - eps)
-#         z = (u-muvec) / (sigma+eps)
-#         w_jl = ((1 + torch.cos(np.pi * z)) / 2) ** 2
-#         w_jl = torch.where(torch.abs(z) < 1, w_jl, torch.zeros_like(w_jl))
-#         return w_jl
-
-#     n_dims = x.shape[1]
-#     if n_dims == 1:
-#         Tmax = x.max() - x.min()
-#         print(Tmax)
-#         w = w_jl_i(x, num_domains, Tmax)
-#     elif n_dims == 2:
-#         n_per_dim = int(np.sqrt(num_domains))
-#         Tmax_x = x[:, 0].max() - x[:, 0].min()
-#         Tmax_y = x[:, 1].max() - x[:, 1].min()
-#         w1 = w_jl_i(x[:, 0:1], n_per_dim, Tmax_x)
-#         w2 = w_jl_i(x[:, 1:2], n_per_dim, Tmax_y)
-#         w = torch.einsum('bi,bj->bij', w1, w2).reshape(x.shape[0], -1)
-#         w = w[:, :num_domains]  # Trim if necessary
-#     else:
-#         raise ValueError("Only 1D and 2D inputs are currently supported")
-
-#     s = torch.sum(w, dim=1, keepdim=True)
-#     return w / (s + eps)
-
-
 def w_jl(x, num_domains, delta=1.9):
     """
     Window functions for finite-basis domain decomposition.
@@ -197,9 +157,6 @@ def w_jl(x, num_domains, delta=1.9):
 
     s = torch.sum(w, dim=1, keepdim=True)
     return w / (s + eps)
-
-
-
 
 class MLP(Block):
     """
@@ -501,8 +458,6 @@ class KANLinear(torch.nn.Module):
             regularize_activation * regularization_loss_activation
             + regularize_entropy * regularization_loss_entropy
         )
-
-
 
 
 class KAN(torch.nn.Module):

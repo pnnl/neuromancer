@@ -240,7 +240,6 @@ class Trainer:
         self.multigrid = multigrid
         self.device = device
 
-    
     def train(self):
         self.callback.begin_train(self)
         try:

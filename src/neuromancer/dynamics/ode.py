@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from abc import ABC, abstractmethod
-from library import FunctionLibrary
+from neuromancer.dynamics.library import FunctionLibrary
 
 
 class SSM(nn.Module):

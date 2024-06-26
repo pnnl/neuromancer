@@ -43,7 +43,7 @@ class Block(nn.Module, ABC):
 
 class Linear(Block):
     """
-    Linear map consistent with block interface
+    Linear map consistent with block interface.
     """
 
     def __init__(
@@ -85,7 +85,8 @@ class Linear(Block):
 
 class Dropout(Block):
     def __init__(self, p=0.0, at_train=False, at_test=True):
-        """Wrapper for standard dropout that allows its use at test time.
+        """
+        Wrapper for standard dropout that allows its use at test time.
         By default, dropout is disabled during training as it appears difficult
         to train models with it enabled.
 
@@ -106,8 +107,9 @@ class Dropout(Block):
 
 
 def set_model_dropout_mode(model, at_train=None, at_test=None):
-    """Change dropout mode, useful for enabling MC sampling during inference time."""
-
+    """
+    Change dropout mode, useful for enabling MC sampling during inference time.
+    """
     def _apply_fn(x):
         if isinstance(x, Dropout):
             if at_test is not None:
@@ -117,10 +119,91 @@ def set_model_dropout_mode(model, at_train=None, at_test=None):
 
     model.apply(_apply_fn)
 
+# def w_jl(x, num_domains):
+#     """
+#     Window functions for finite-basis domain decomposition.
+#     """
+#     delta = 1.9
+#     eps = 1e-12  # Small epsilon to prevent division by zero
+    
+#     def w_jl_i(x_i, n_domains, Tmax):
+#         jvec = torch.arange(n_domains, device=x.device) + 1
+#         muvec = Tmax * (jvec - 1) / (n_domains - 1)
+#         muvec = muvec.expand(x_i.shape[0], n_domains)
+#         u = x_i.repeat(1, n_domains)
+#         sigma = Tmax * (delta / 2.0) / (n_domains - 1)
+
+#         # z = torch.clamp((u - muvec) / sigma, -1 + eps, 1 - eps)
+#         z = (u-muvec) / (sigma+eps)
+#         w_jl = ((1 + torch.cos(np.pi * z)) / 2) ** 2
+#         w_jl = torch.where(torch.abs(z) < 1, w_jl, torch.zeros_like(w_jl))
+#         return w_jl
+
+#     n_dims = x.shape[1]
+#     if n_dims == 1:
+#         Tmax = x.max() - x.min()
+#         print(Tmax)
+#         w = w_jl_i(x, num_domains, Tmax)
+#     elif n_dims == 2:
+#         n_per_dim = int(np.sqrt(num_domains))
+#         Tmax_x = x[:, 0].max() - x[:, 0].min()
+#         Tmax_y = x[:, 1].max() - x[:, 1].min()
+#         w1 = w_jl_i(x[:, 0:1], n_per_dim, Tmax_x)
+#         w2 = w_jl_i(x[:, 1:2], n_per_dim, Tmax_y)
+#         w = torch.einsum('bi,bj->bij', w1, w2).reshape(x.shape[0], -1)
+#         w = w[:, :num_domains]  # Trim if necessary
+#     else:
+#         raise ValueError("Only 1D and 2D inputs are currently supported")
+
+#     s = torch.sum(w, dim=1, keepdim=True)
+#     return w / (s + eps)
+
+
+def w_jl(x, num_domains, delta=1.9):
+    """
+    Window functions for finite-basis domain decomposition.
+    """
+    eps = 1e-12  # Small epsilon to prevent division by zero
+    
+    def w_jl_i(x_i, n_domains, x_min, x_max):
+        jvec = torch.arange(n_domains, device=x_i.device) + 1
+        muvec = x_min + (jvec - 1) * (x_max - x_min) / (n_domains - 1)
+        muvec = muvec.unsqueeze(0).expand(x_i.shape[0], n_domains)
+        u = x_i.repeat(1, n_domains)
+        sigma = (x_max - x_min) * (delta / 2.0) / (n_domains - 1)
+
+        z = (u - muvec) / (sigma + eps)
+        w_jl = ((1 + torch.cos(np.pi * z)) / 2) ** 2
+        w_jl = torch.where(torch.abs(z) < 1, w_jl, torch.zeros_like(w_jl))
+        return w_jl
+
+    n_dims = x.shape[1]
+    if n_dims == 1:
+        x_min, x_max = x.min(), x.max()
+        w = w_jl_i(x, num_domains, x_min, x_max)
+    elif n_dims == 2:
+        n_per_dim = int(np.sqrt(num_domains))
+        if n_per_dim ** 2 != num_domains:
+            raise ValueError("num_domains must be a perfect square for 2D inputs.")
+        x_min_x, x_max_x = x[:, 0].min(), x[:, 0].max()
+        x_min_y, x_max_y = x[:, 1].min(), x[:, 1].max()
+        w1 = w_jl_i(x[:, 0:1], n_per_dim, x_min_x, x_max_x)
+        w2 = w_jl_i(x[:, 1:2], n_per_dim, x_min_y, x_max_y)  # Corrected slice
+        w = torch.einsum('bi,bj->bij', w1, w2).reshape(x.shape[0], -1)
+        if w.shape[1] > num_domains:
+            w = w[:, :num_domains]  # Trim if necessary
+    else:
+        raise ValueError("Only 1D and 2D inputs are currently supported")
+
+    s = torch.sum(w, dim=1, keepdim=True)
+    return w / (s + eps)
+
+
+
 
 class MLP(Block):
     """
-    Multi-Layer Perceptron consistent with blocks interface
+    Multi-Layer Perceptron consistent with blocks interface, now with support for multiple domains
     """
 
     def __init__(
@@ -132,9 +215,9 @@ class MLP(Block):
         nonlin=SoftExponential,
         hsizes=[64],
         linargs=dict(),
+        num_domains=1,
     ):
         """
-
         :param insize: (int) dimensionality of input
         :param outsize: (int) dimensionality of output
         :param bias: (bool) Whether to use bias
@@ -142,35 +225,51 @@ class MLP(Block):
         :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape
         :param hsizes: (list of ints) List of hidden layer sizes
         :param linargs: (dict) Arguments for instantiating linear layer
-        :param dropout: (float) Dropout probability
+        :param num_domains: (int) Number of domains for finite-basis domain decomposition
         """
         super().__init__()
         self.in_features, self.out_features = insize, outsize
         self.nhidden = len(hsizes)
-        sizes = [insize] + hsizes + [outsize]
-        self.nonlin = nn.ModuleList(
-            [nonlin() for k in range(self.nhidden)] + [nn.Identity()]
-        )
-        self.linear = nn.ModuleList(
-            [
-                linear_map(sizes[k], sizes[k + 1], bias=bias, **linargs)
-                for k in range(self.nhidden + 1)
-            ]
-        )
+        self.num_domains = num_domains
+
+        self.domain_layers = nn.ModuleList()
+        for _ in range(num_domains):
+            sizes = [insize] + hsizes + [outsize]
+            layers = nn.ModuleList()
+            for k in range(self.nhidden + 1):
+                layers.append(nn.ModuleDict({
+                    'linear': linear_map(sizes[k], sizes[k + 1], bias=bias, **linargs),
+                    'nonlin': nonlin() if k < self.nhidden else nn.Identity()
+                }))
+            self.domain_layers.append(layers)
 
     def reg_error(self):
-        return sum([k.reg_error() for k in self.linear if hasattr(k, "reg_error")])
+        return sum([layer['linear'].reg_error() for domain in self.domain_layers for layer in domain if hasattr(layer['linear'], "reg_error")])
 
     def block_eval(self, x):
         """
-
         :param x: (torch.Tensor, shape=[batchsize, insize])
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
-        for lin, nlin in zip(self.linear, self.nonlin):
-            x = nlin(lin(x))
-        return x
-
+        if self.num_domains == 1:
+            for layer in self.domain_layers[0]:
+                x = layer['nonlin'](layer['linear'](x))
+            return x
+        else:
+            w = w_jl(x, self.num_domains)
+            
+            domain_outputs = torch.zeros(x.shape[0], self.num_domains, self.out_features, device=x.device)
+            
+            for i, domain_layers in enumerate(self.domain_layers):
+                domain_x = x
+                for layer in domain_layers:
+                    domain_x = layer['nonlin'](layer['linear'](domain_x))
+                domain_outputs[:, i, :] = domain_x
+            
+            x_final = torch.sum(w.unsqueeze(-1) * domain_outputs, dim=1)
+            
+            return x_final
+            
 
 def sigmoid_scale(x, min, max):
     return (max - min) * torch.sigmoid(x) + min
@@ -180,7 +279,7 @@ def relu_clamp(x, min, max):
     x = x + torch.relu(-x + min)
     x = x - torch.relu(x - max)
     return x
-
+    
 
 class KANLinear(torch.nn.Module):
     """
@@ -347,53 +446,48 @@ class KANLinear(torch.nn.Module):
         return base_output + spline_output
 
     @torch.no_grad()
-    def update_grid(self, x: torch.Tensor, margin=0.01):
-        assert x.dim() == 2 and x.size(1) == self.in_features
-        batch = x.size(0)
-
-        splines = self.b_splines(x)  # (batch, in, coeff)
-        splines = splines.permute(1, 0, 2)  # (in, batch, coeff)
-        orig_coeff = self.scaled_spline_weight  # (out, in, coeff)
-        orig_coeff = orig_coeff.permute(1, 2, 0)  # (in, coeff, out)
-        unreduced_spline_output = torch.bmm(splines, orig_coeff)  # (in, batch, out)
-        unreduced_spline_output = unreduced_spline_output.permute(
-            1, 0, 2
-        )  # (batch, in, out)
-
-        # sort each channel individually to collect data distribution
-        x_sorted = torch.sort(x, dim=0)[0]
-        grid_adaptive = x_sorted[
-            torch.linspace(
-                0, batch - 1, self.grid_size + 1, dtype=torch.int64, device=x.device
-            )
-        ]
-
-        uniform_step = (x_sorted[-1] - x_sorted[0] + 2 * margin) / self.grid_size
-        grid_uniform = (
-            torch.arange(
-                self.grid_size + 1, dtype=torch.float32, device=x.device
-            ).unsqueeze(1)
-            * uniform_step
-            + x_sorted[0]
-            - margin
-        )
-
-        grid = self.grid_eps * grid_uniform + (1 - self.grid_eps) * grid_adaptive
-        grid = torch.concatenate(
-            [
-                grid[:1]
-                - uniform_step
-                * torch.arange(self.spline_order, 0, -1, device=x.device).unsqueeze(1),
-                grid,
-                grid[-1:]
-                + uniform_step
-                * torch.arange(1, self.spline_order + 1, device=x.device).unsqueeze(1),
-            ],
-            dim=0,
-        )
-
-        self.grid.copy_(grid.T)
-        self.spline_weight.data.copy_(self.curve2coeff(x, unreduced_spline_output))
+    def update_grid(self, _x, margin=0.01):
+        for _,x in _x.items():
+            if torch.is_tensor(x):
+                if x.dim() == 2 and x.size(1) == self.in_features: 
+                    batch = x.size(0)
+                    splines = self.b_splines(x)  # (batch, in, coeff)
+                    splines = splines.permute(1, 0, 2)  # (in, batch, coeff)
+                    orig_coeff = self.scaled_spline_weight  # (out, in, coeff)
+                    orig_coeff = orig_coeff.permute(1, 2, 0)  # (in, coeff, out)
+                    unreduced_spline_output = torch.bmm(splines, orig_coeff)  # (in, batch, out)
+                    unreduced_spline_output = unreduced_spline_output.permute(1, 0, 2)  # (batch, in, out)
+            
+                    # sort each channel individually to collect data distribution
+                    x_sorted = torch.sort(x, dim=0)[0]
+                    grid_adaptive = x_sorted[torch.linspace(0, batch - 1, self.grid_size + 1, dtype=torch.int64, device=x.device)]
+            
+                    uniform_step = (x_sorted[-1] - x_sorted[0] + 2 * margin) / self.grid_size
+                    grid_uniform = (
+                        torch.arange(
+                            self.grid_size + 1, dtype=torch.float32, device=x.device
+                        ).unsqueeze(1)
+                        * uniform_step
+                        + x_sorted[0]
+                        - margin
+                    )
+            
+                    grid = self.grid_eps * grid_uniform + (1 - self.grid_eps) * grid_adaptive
+                    grid = torch.concatenate(
+                        [
+                            grid[:1]
+                            - uniform_step
+                            * torch.arange(self.spline_order, 0, -1, device=x.device).unsqueeze(1),
+                            grid,
+                            grid[-1:]
+                            + uniform_step
+                            * torch.arange(1, self.spline_order + 1, device=x.device).unsqueeze(1),
+                        ],
+                        dim=0,
+                    )
+            
+                    self.grid.copy_(grid.T)
+                    self.spline_weight.data.copy_(self.curve2coeff(x, unreduced_spline_output))
 
     def regularization_loss(self, regularize_activation=1.0, regularize_entropy=1.0):
         """
@@ -407,6 +501,8 @@ class KANLinear(torch.nn.Module):
             regularize_activation * regularization_loss_activation
             + regularize_entropy * regularization_loss_entropy
         )
+
+
 
 
 class KAN(torch.nn.Module):
@@ -460,16 +556,16 @@ class KAN(torch.nn.Module):
             layer.regularization_loss(regularize_activation, regularize_entropy)
             for layer in self.layers
         )
-
+        
 
 class KANBlock(Block):
     def __init__(
         self,
         insize,
         outsize,
-        num_layers=1,
-        hidden_size=None,
-        grid_size=5,
+        hsizes=[64],
+        num_domains=1,
+        grid_sizes=[5],
         spline_order=3,
         scale_noise=0.1,
         scale_base=1.0,
@@ -478,48 +574,91 @@ class KANBlock(Block):
         base_activation=torch.nn.SiLU,
         grid_eps=0.02,
         grid_range=[-1, 1],
+        grid_updates=None,
+        verbose=False,
     ):
         super().__init__()
         self.in_features = insize
         self.out_features = outsize
+        self.num_domains = num_domains
+        self.spline_order = spline_order
+
         self.kan_layers = nn.ModuleList()
-
-        if hidden_size is None:
-            hidden_size = outsize
-
-        layer_sizes = [insize] + [hidden_size] * (num_layers - 1) + [outsize]
-        for in_features, out_features in zip(layer_sizes[:-1], layer_sizes[1:]):
-            self.kan_layers.append(
-                KANLinear(
-                    in_features,
-                    out_features,
-                    grid_size=grid_size,
-                    spline_order=spline_order,
-                    scale_noise=scale_noise,
-                    scale_base=scale_base,
-                    scale_spline=scale_spline,
-                    enable_standalone_scale_spline=enable_standalone_scale_spline,
-                    base_activation=base_activation,
-                    grid_eps=grid_eps,
-                    grid_range=grid_range,
+        for _ in range(num_domains):
+            layers = nn.ModuleList()
+            layer_sizes = [insize] + hsizes + [outsize]
+            for in_features, out_features in zip(layer_sizes[:-1], layer_sizes[1:]):
+                layers.append(
+                    KANLinear(
+                        in_features,
+                        out_features,
+                        grid_size=grid_sizes[0],
+                        spline_order=spline_order,
+                        scale_noise=scale_noise,
+                        scale_base=scale_base,
+                        scale_spline=scale_spline,
+                        enable_standalone_scale_spline=enable_standalone_scale_spline,
+                        base_activation=base_activation,
+                        grid_eps=grid_eps,
+                        grid_range=grid_range,
+                    )
                 )
-            )
+            self.kan_layers.append(layers)
+
+        self.grid_sizes = grid_sizes
+        self.grid_updates = grid_updates or []
+        self.current_grid_index = 0
+        self.verbose = verbose
 
     def block_eval(self, x):
-        for layer in self.kan_layers:
-            x = layer(x)
-        return x
+        if self.num_domains == 1:
+            for layer in self.kan_layers[0]:
+                x = layer(x)
+            return x
+        else:
+            w = w_jl(x, self.num_domains)
+            
+            x_domain_outputs = torch.zeros(x.shape[0], self.num_domains, self.out_features, device=x.device)
+            
+            for i, domain_layers in enumerate(self.kan_layers):
+                x_domain = x
+                for layer in domain_layers:
+                    x_domain = layer(x_domain)
+                x_domain_outputs[:, i, :] = x_domain
+            
+            x_final = torch.sum(w.unsqueeze(-1) * x_domain_outputs, dim=1)
+            
+            return x_final
+
+
 
     def regularization_loss(self, regularize_activation=1.0, regularize_entropy=1.0):
         return sum(
             layer.regularization_loss(regularize_activation, regularize_entropy)
-            for layer in self.kan_layers
+            for domain_layers in self.kan_layers
+            for layer in domain_layers
         )
 
-    def update_grid(self, x: torch.Tensor, margin=0.01):
-        for layer in self.kan_layers:
-            layer.update_grid(x, margin=margin)
+    def update_grid(self, x, margin=0.01):
+        if isinstance(x, dict):
+            x = next(iter(x.values()))
+            
+        for domain_layers in self.kan_layers:
+            for layer in domain_layers:
+                layer.update_grid(x, margin=margin)
 
+    def update_epoch(self, epoch, x):
+        if self.current_grid_index < len(self.grid_updates) and epoch >= self.grid_updates[self.current_grid_index]:
+            new_grid_size = self.grid_sizes[self.current_grid_index]
+            if self.verbose:
+                print(f"Updating grid size to {new_grid_size} at epoch {epoch}")
+                        
+            for domain_layers in self.kan_layers:
+                for layer in domain_layers:
+                    layer.grid_size = new_grid_size
+                    layer.reset_parameters()  # Reinitialize parameters with new grid size
+                    layer.update_grid(x)  # Update the grid with the current batch
+            self.current_grid_index += 1
 
 class MLP_bounds(MLP):
     """
@@ -586,6 +725,159 @@ class MLP_bounds(MLP):
         return self.method(x, self.min, self.max)
 
 
+
+class MultiFidelityMLP(nn.Module):
+    """
+    Multi-Fidelity Multi-Layer Perceptron (MFMLP) designed for multi-fidelity learning where multiple layers are
+    stacked to refine the prediction progressively. Each layer is a blend of linear and nonlinear transformations
+    controlled by an adaptive parameter alpha, influencing the trade-off between the two.
+
+    Attributes:
+        insize (int): Input feature dimension.
+        outsize (int): Output feature dimension.
+        bias (bool): If True, bias is used in linear transformations.
+        linear_map (class): Linear map class used for layers, by default set to slim.Linear.
+        nonlin (callable): Nonlinear activation function applied after linear transformations.
+        h_sf_size (list of int): Sizes of hidden layers in the single-fidelity MLP.
+        n_stacked_mf_layers (int): Number of stacked multi-fidelity layers.
+        h_linear_sizes (list of int): Sizes of hidden layers in each linear sub-network within the multi-fidelity layers.
+        h_nonlinear_sizes (list of int): Sizes of hidden layers in each nonlinear sub-network within the multi-fidelity layers.
+        linargs (dict): Additional arguments for the linear layer instantiation.
+        alpha_init (float): Initial value of alpha parameter controlling linear-nonlinear blend.
+        freeze_epochs (list of int): Epochs at which layers will be frozen. List size should match n_stacked_mf_layers.
+        verbose (bool): If True, print messages about network progress and actions.
+    """
+
+    def __init__(
+        self,
+        insize,
+        outsize,
+        bias=True,
+        linear_map=Linear,
+        nonlin=nn.Tanh,
+        h_sf_size=[20, 20],
+        n_stacked_mf_layers=3,
+        h_linear_sizes=[10, 10],
+        h_nonlinear_sizes=[20, 20],
+        linargs=dict(), 
+        alpha_init=0.1,
+        freeze_epochs=[1000,2000,3000],
+        verbose=False
+    ):
+        super().__init__()
+        self.in_features, self.out_features = insize, outsize
+        self.num_layers = n_stacked_mf_layers
+        self.current_block = 0
+        self.current_epoch = 0
+        self.alpha = nn.ParameterList([nn.Parameter(torch.tensor(alpha_init), requires_grad=True) for _ in range(n_stacked_mf_layers)])
+        self.alpha_loss = 0.0
+        self.verbose = verbose
+
+        self._validate_parameters(freeze_epochs, n_stacked_mf_layers)
+        self.freeze_epochs = freeze_epochs
+        
+        # Initialize the first layer (single-fidelity MLP)
+        self.first_layer = MLP(
+            insize, outsize, bias=bias, linear_map=linear_map, nonlin=nonlin, hsizes=h_sf_size, linargs=linargs
+        )
+    
+        # Initialize subsequent layers (multi-fidelity)
+        self.layers = nn.ModuleList()
+        for i in range(n_stacked_mf_layers):
+            self.layers.append(
+                nn.ModuleDict(
+                    {
+                        "linear": MLP(outsize, outsize, bias=bias, linear_map=linear_map, nonlin=nn.Identity, hsizes=h_linear_sizes, linargs=linargs),
+                        "nonlinear": MLP(
+                            insize + outsize,
+                            outsize,
+                            bias=bias,
+                            linear_map=linear_map,
+                            nonlin=nonlin,
+                            hsizes=h_nonlinear_sizes,
+                            linargs=linargs,
+                        ),
+                    }
+                )
+            )
+
+    def _validate_parameters(self, freeze_epochs, n_stacked_mf_layers):
+        if not isinstance(freeze_epochs, list):
+            raise ValueError("freeze_epochs must be a list.")
+        if len(freeze_epochs) != n_stacked_mf_layers:
+            raise ValueError("The size of freeze_epochs must match the number of stacked multi-fidelity layers.")
+        if not all(freeze_epochs[i] <= freeze_epochs[i+1] for i in range(len(freeze_epochs)-1)):
+            raise ValueError("The elements of freeze_epochs must be in ascending order, otherwise the freezing mechanism will fail.")
+
+    def block_eval(self, x):
+        """
+        Process input through the multi-fidelity network blocks up to the current block, combining the outputs
+        of linear and nonlinear transformations weighted by alpha.
+
+        :param x: Input tensor.
+        :return: Output tensor from the last activated block.
+        """
+        out = self.first_layer(x)
+        alpha_loss = 0.0
+        for i in range(self.current_block):
+            layer = self.layers[i] # Pick the corresponding stacked net
+            alpha = self.alpha[i]  # Pick the corresponding alpha for each stacked net
+            linear_out = layer["linear"](out)
+            nonlinear_out = layer["nonlinear"](torch.cat([x, out], dim=1))
+            out = torch.abs(alpha) * nonlinear_out + (1 - torch.abs(alpha)) * linear_out
+            alpha_loss += torch.pow(alpha, 4)
+        self.alpha_loss = alpha_loss
+        return out
+
+    def get_alpha_loss(self):
+        """
+        Retrieve the accumulated loss from alpha parameters used for regularization purposes.
+
+        :return: Alpha loss as a torch scalar.
+        """
+        return self.alpha_loss
+
+    def update_epoch(self, epoch):
+        """
+        Update the current epoch and manage the layer freezing based on predefined epochs.
+
+        :param epoch: Current training epoch.
+        """
+        self.current_epoch = epoch
+        if self.freeze_epochs is not None and self.current_block < self.num_layers:
+            if self.current_epoch == self.freeze_epochs[self.current_block]:
+                self._freeze_block(self.current_block)
+                self.current_block += 1
+                if self.verbose:
+                    print(f"Now training stacked block {self.current_block}")
+
+    def _freeze_block(self, block):
+        """
+        Freeze the parameters of a specified block to halt its training, moving on to the next block.
+
+        :param block: Index of the block to freeze.
+        """
+        if block == 0:
+            for param in self.first_layer.parameters():
+                param.requires_grad = False
+            if self.verbose:
+                print("Single-fidelity (0th layer) parameters have been frozen")
+        else:
+            current_block = block - 1
+            current_layer = self.layers[current_block]
+            for param in current_layer.parameters():
+                param.requires_grad = False
+            if self.verbose:
+                print(f"Multi-fidelity (layer {block}) parameters have been frozen")
+
+            if block < len(self.layers):
+                next_layer = self.layers[block]
+                current_params = current_layer.state_dict()
+                next_layer.load_state_dict(current_params)
+                if self.verbose:
+                    print(f"Weights copied for layer {block + 1}")
+
+
 class InteractionEmbeddingMLP(nn.Module):
     """
     Multi-Layer Perceptron which is a hypernetwork hidden state embeddings decided by interaction type and concatenated
@@ -649,6 +941,8 @@ class InteractionEmbeddingMLP(nn.Module):
             x = torch.cat([x, embedder(self.n_interactors * i + j)])
             x = nlin(lin(x))
         return x
+
+
 
 
 class MLPDropout(Block):

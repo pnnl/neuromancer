@@ -184,11 +184,6 @@ class LitTrainer(pl.Trainer):
 
 
 class Trainer:
-    """
-    Class encapsulating boilerplate PyTorch training code. Training procedure is somewhat
-    extensible through methods in Callback objects associated with training and evaluation
-    waypoints.
-    """
     def __init__(
         self,
         problem: Problem,
@@ -209,22 +204,12 @@ class Trainer:
         eval_metric="dev_loss",
         eval_mode="min",
         clip=100.0,
-        device="cpu"
+        multi_fidelity=False,
+        multigrid=False,
+        device="cpu",
     ):
-        """
-
-        :param problem: Object which defines multi-objective loss function and computational graph
-        :param dataset: Batched (over chunks of time if sequence data) dataset for non-stochastic gradient descent
-        :param optimizer: Pytorch optimizer
-        :param logger: Object for logging results
-        :param epochs: (int) Number of epochs to train
-        :param epoch_verbose (int) printing epoch metric at each i-th epoch
-        :param patience: (int) Number of epochs to allow no improvement before early stopping
-        :param warmup: (int) How many epochs to wait before enacting early stopping policy
-        :param eval_metric: (str) Performance metric for model selection and early stopping
-        """
         self.model = problem
-        self.optimizer = optimizer if optimizer is not None else torch.optim.Adam(problem.parameters(), 0.01, betas=(0.0, 0.9))
+        self.optimizer = optimizer if optimizer is not None else torch.optim.Adam(problem.parameters(), lr=0.01, betas=(0.0, 0.9))
         self.train_data = train_data
         self.dev_data = dev_data
         self.test_data = test_data
@@ -251,31 +236,50 @@ class Trainer:
         self.clip = clip
         self.best_devloss = np.finfo(np.float32).max if self._eval_min else 0.
         self.best_model = deepcopy(self.model.state_dict())
+        self.multi_fidelity = multi_fidelity
+        self.multigrid = multigrid
         self.device = device
 
+    
     def train(self):
-        """
-        Optimize model according to train_metric and validate per-epoch according to eval_metric.
-        Trains for self.epochs and terminates early if self.patience threshold is exceeded.
-        """
         self.callback.begin_train(self)
-
         try:
-            for i in range(self.current_epoch, self.current_epoch+self.epochs):
-
+            for i in range(self.current_epoch, self.current_epoch + self.epochs):
                 self.model.train()
+
                 losses = []
                 for t_batch in self.train_data:
+
                     t_batch['epoch'] = i
                     t_batch = move_batch_to_device(t_batch, self.device)
                     output = self.model(t_batch)
+
+                    if self.multi_fidelity:
+                        for node in self.model.nodes:
+                            alpha_loss = node.callable.get_alpha_loss()
+                            output[self.train_metric] += alpha_loss
+                    
+                    if self.multi_fidelity:
+                        for node in self.model.nodes:
+                            node.callable.update_epoch(i)
+
+                    # if self.multigrid:
+                    #     for node in self.model.nodes:
+                    #         with torch.no_grad():
+                    #             # node.callable.update_epoch(i, t_batch, self.model.input_keys)
+                    #             old_grid_index = node.callable.current_grid_index
+                    #             node.callable.update_epoch(i, t_batch, self.model.input_keys)
+                    #             if node.callable.current_grid_index != old_grid_index:
+                    #                 self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
+                    #                 print(f"Reinitialized optimizer at epoch {i}")
+                    
                     self.optimizer.zero_grad()
                     output[self.train_metric].backward()
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
                     self.optimizer.step()
                     losses.append(output[self.train_metric])
                     self.callback.end_batch(self, output)
-
+                                
                 output[f'mean_{self.train_metric}'] = torch.mean(torch.stack(losses))
                 self.callback.begin_epoch(self, output)
 
@@ -294,8 +298,9 @@ class Trainer:
                         output = {**output, **eval_output}
                     self.callback.begin_eval(self, output)  # Used for alternate dev evaluation
 
-                    if (self._eval_min and output[self.eval_metric] < self.best_devloss)\
-                            or (not self._eval_min and output[self.eval_metric] > self.best_devloss):
+                    if (self._eval_min and output[self.eval_metric] < self.best_devloss) or (
+                        not self._eval_min and output[self.eval_metric] > self.best_devloss
+                    ):
                         self.best_model = deepcopy(self.model.state_dict())
                         self.best_devloss = output[self.eval_metric]
                         self.badcount = 0
@@ -318,6 +323,7 @@ class Trainer:
                         break
                     self.current_epoch = i + 1
 
+
         except KeyboardInterrupt:
             print("Interrupted training loop.")
 
@@ -332,36 +338,3 @@ class Trainer:
                 "best_model.pth": self.model,
             })
         return self.best_model
-
-    def test(self, best_model):
-        """
-        Evaluate the model on all data splits.
-        """
-        self.model.load_state_dict(best_model, strict=False)
-        self.model.eval()
-
-        with torch.set_grad_enabled(self.model.grad_inference):
-            self.callback.begin_test(self)
-            output = {}
-            for dset, metric in zip([self.train_data, self.dev_data, self.test_data],
-                                    [self.train_metric, self.dev_metric, self.test_metric]):
-                losses = []
-                for batch in dset:
-                    batch = move_batch_to_device(batch, self.device)
-                    batch_output = self.model(batch)
-                    losses.append(batch_output[metric])
-                output[f'mean_{metric}'] = torch.mean(torch.stack(losses))
-                output = {**output, **batch_output}
-
-        self.callback.end_test(self, output)
-
-        if self.logger is not None:
-            self.logger.log_metrics({f"best_{k}": v for k, v in output.items()})
-
-        return output
-
-    def evaluate(self, best_model):
-        """
-        This method is deprecated. Use self.test instead.
-        """
-        return self.test(best_model)

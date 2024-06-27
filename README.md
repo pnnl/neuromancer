@@ -1,15 +1,15 @@
 
 <p align="center">
-  <img src="figs/Neuromancer.png" width="250">  
+  <img src="figs/Neuromancer.png" width="250">
 </p>
 
 # NeuroMANCER v1.5.0
 
 **Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
-is an open-source differentiable programming (DP) library for solving parametric constrained optimization problems, 
+is an open-source differentiable programming (DP) library for solving parametric constrained optimization problems,
 physics-informed system identification, and parametric model-based optimal control.
-NeuroMANCER is written in [PyTorch](https://pytorch.org/) and allows for systematic 
-integration of machine learning with scientific computing for creating end-to-end 
+NeuroMANCER is written in [PyTorch](https://pytorch.org/) and allows for systematic
+integration of machine learning with scientific computing for creating end-to-end
 differentiable models and algorithms embedded with prior knowledge and physics.
 
 ### ⭐ Now available on PyPi! ⭐
@@ -20,10 +20,10 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 ### New in v1.5.0
 ![Lightning](https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white)
 Now supports integration with PyTorch Lightning (https://lightning.ai/docs/pytorch/stable/), bringing:
-* User workflow simplifications: zero boilerplate code and increased modularity 
-* Ability for user to define custom training logic easily 
+* User workflow simplifications: zero boilerplate code and increased modularity
+* Ability for user to define custom training logic easily
 * Easy support for distributed GPU training
-* Weights and Biases hyperparameter tuning 
+* Weights and Biases hyperparameter tuning
 
 Please refer to the Lightning folder and its [README](examples/lightning_integration_examples/README.md).
 
@@ -35,7 +35,7 @@ Please refer to the Lightning folder and its [README](examples/lightning_integra
 
 ## Features and Examples
 
-Extensive set of tutorials can be found in the 
+Extensive set of tutorials can be found in the
 [examples](https://github.com/pnnl/neuromancer/tree/master/examples) folder.
 Interactive notebook versions of examples are available on Google Colab!
 Test out NeuroMANCER functionality before cloning the repository and setting up an
@@ -44,10 +44,10 @@ environment.
 ### Intro to NeuroMANCER
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_1_linear_regression.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-Part 1: Linear regression in PyTorch vs NeuroMANCER.  
+Part 1: Linear regression in PyTorch vs NeuroMANCER.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_2_variable.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-Part 2: NeuroMANCER syntax tutorial: variables, constraints, and objectives.  
+Part 2: NeuroMANCER syntax tutorial: variables, constraints, and objectives.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_3_node.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 Part 3: NeuroMANCER syntax tutorial: modules, Node, and System class.
@@ -64,11 +64,11 @@ Part 2: Learning to solve a quadratically-constrained optimization problem.
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_3_pNLP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 Part 3: Learning to solve a set of 2D constrained optimization problems.
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 Part 4: Learning to solve a constrained optimization problem with the projected gradient.
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_5_cvxpy_layers.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
-Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasible set.  
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_5_cvxpy_layers.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasible set.
 
 
 ### Ordinary Differential Equations (ODEs)
@@ -119,7 +119,7 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_5_neural_Lyapunov.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Learning neural Lyapunov function for a nonlinear dynamical system.
 
-### Domain Examples 
+### Domain Examples
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_building_control.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Learning to Control Indoor Air Temperature in Buildings.
@@ -139,7 +139,7 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NSSM_building_dynamics.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Learning Building Thermal Dynamics using Neural State Space Models.
 
-### Lightning Integration Examples 
+### Lightning Integration Examples
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_1_lightning_basics_tutorial.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Lightning Integration Basics.
@@ -152,25 +152,30 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/other_examples/lightning_custom_training_example.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
- 
+
+### Operator Learning
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/DeepONets/Part_1_antiderivative_aligned.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Antiderivative Operator - Aligned Dataset.
+
 ## Documentation
-The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/). 
-There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 
-core features of the library. 
+The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/).
+There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering
+core features of the library.
 
 
-```python 
+```python
 # Neuromancer syntax example for constrained optimization
 import neuromancer as nm
-import torch 
+import torch
 
-# define neural architecture 
-func = nm.modules.blocks.MLP(insize=1, outsize=2, 
-                             linear_map=nm.slim.maps['linear'], 
+# define neural architecture
+func = nm.modules.blocks.MLP(insize=1, outsize=2,
+                             linear_map=nm.slim.maps['linear'],
                              nonlin=torch.nn.ReLU, hsizes=[80] * 4)
 # wrap neural net into symbolic representation via the Node class: map(p) -> x
 map = nm.system.Node(func, ['p'], ['x'], name='map')
-    
+
 # define decision variables
 x = nm.constraint.variable("x")[:, [0]]
 y = nm.constraint.variable("x")[:, [1]]
@@ -199,12 +204,12 @@ problem = nm.problem.Problem(nodes=[map], loss=loss)
 
 ### PIP Install (recommended)
 
-Consider using a dedicated virtual environment (conda or otherwise) with Python 3.9+ installed. 
+Consider using a dedicated virtual environment (conda or otherwise) with Python 3.9+ installed.
 
 ```bash
 pip install neuromancer
 ```
-Example usage: 
+Example usage:
 
 ```bash
 import torch
@@ -219,7 +224,7 @@ print(node_3({'y1': torch.rand(2), 'y2': torch.rand(2)}))
 ### Manual Install
 
 First clone the neuromancer package.
-A dedicated virtual environment (conda or otherwise) is recommended. 
+A dedicated virtual environment (conda or otherwise) is recommended.
 
 Note: If you have a previous neuromancer env it would be best at this point to create a new environment given the following instructions.
 
@@ -266,7 +271,7 @@ See [CVXPY installation instructions](https://www.cvxpy.org/install/index.html) 
 
 
 ### Conda install
-Conda install is recommended for GPU acceleration. 
+Conda install is recommended for GPU acceleration.
 
 > ❗️Warning: `linux_env.yml`, `windows_env.yml`, and `osxarm64_env.yml` are out of date. Manual installation of dependencies is recommended for conda.
 
@@ -305,7 +310,7 @@ conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
 ## OR (for Mac): conda install pytorch -c pytorch
 conda config --append channels conda-forge
 conda install scipy numpy"<1.24.0" matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba
-conda install networkx=3.0 plum-dispatch=1.7.3 
+conda install networkx=3.0 plum-dispatch=1.7.3
 conda install -c anaconda pytest hypothesis
 conda install cvxpy cvxopt casadi seaborn imageio
 conda install tqdm torchdiffeq toml
@@ -322,16 +327,16 @@ pip install -e . --no-deps
 ```
 
 ### Test NeuroMANCER install
-Run pytest on the [tests folder](https://github.com/pnnl/neuromancer/tree/master/tests). 
-It should take about 2 minutes to run the tests on CPU. 
-There will be a lot of warnings that you can safely ignore. These warnings will be cleaned 
+Run pytest on the [tests folder](https://github.com/pnnl/neuromancer/tree/master/tests).
+It should take about 2 minutes to run the tests on CPU.
+There will be a lot of warnings that you can safely ignore. These warnings will be cleaned
 up in a future release.
 
 ## Community Information
-We welcome contributions and feedback from the open-source community!  
+We welcome contributions and feedback from the open-source community!
 
 ### Contributions, Discussions, and Issues
-Please read the [Community Development Guidelines](https://github.com/pnnl/neuromancer/blob/master/CONTRIBUTING.md) 
+Please read the [Community Development Guidelines](https://github.com/pnnl/neuromancer/blob/master/CONTRIBUTING.md)
 for further information on contributions, [discussions](https://github.com/pnnl/neuromancer/discussions), and [Issues](https://github.com/pnnl/neuromancer/issues).
 
 ###  Release notes
@@ -339,10 +344,10 @@ See the [Release notes](https://github.com/pnnl/neuromancer/blob/master/RELEASE_
 
 ###  License
 NeuroMANCER comes with [BSD license](https://en.wikipedia.org/wiki/BSD_licenses).
-See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) for further details. 
+See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) for further details.
 
 
-## Publications 
+## Publications
 + [James Koch, Zhao Chen, Aaron Tuor, Jan Drgona, Draguna Vrabie, Structural Inference of Networked Dynamical Systems with Universal Differential Equations, arXiv:2207.04962, (2022)](https://aps.arxiv.org/abs/2207.04962)
 + [Ján Drgoňa, Sayak Mukherjee, Aaron Tuor, Mahantesh Halappanavar, Draguna Vrabie, Learning Stochastic Parametric Differentiable Predictive Control Policies, IFAC ROCOND conference (2022)](https://www.sciencedirect.com/science/article/pii/S2405896322015877)
 + [Sayak Mukherjee, Ján Drgoňa, Aaron Tuor, Mahantesh Halappanavar, Draguna Vrabie, Neural Lyapunov Differentiable Predictive Control, IEEE Conference on Decision and Control Conference 2022](https://arxiv.org/abs/2205.10728)
@@ -363,7 +368,7 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 @article{Neuromancer2023,
   title={{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}},
   author={Drgona, Jan and Tuor, Aaron and Koch, James and Shapiro, Madelyn and Vrabie, Draguna},
-  Url= {https://github.com/pnnl/neuromancer}, 
+  Url= {https://github.com/pnnl/neuromancer},
   year={2023}
 }
 ```
@@ -376,7 +381,7 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 **Notable contributors**: James Koch, Seth Briney, Bo Tang, Ethan King, Shrirang Abhyankar, 
 Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 
-Open-source contributions made by:  
+Open-source contributions made by:
 <a href="https://github.com/pnnl/neuromancer/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=pnnl/neuromancer" />
 </a>
@@ -384,6 +389,5 @@ Open-source contributions made by:
 Made with [contrib.rocks](https://contrib.rocks).
 
 ## Acknowledgments
-This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research's “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects. 
+This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research's “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects.
 PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.
-

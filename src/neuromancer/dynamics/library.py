@@ -11,19 +11,22 @@ class FunctionLibrary:
         function_names=None
     ):
         """
-        :param functions: (list) all of the functions to be included
+        :param functions: (list) a one-dimensional list of callables functions.
+                                 All callables must be able to operate on the
+                                 columns of a two-dimensional torch.Tensor of
+                                 floating point numbers.
         :param n_features: (int) number of columns of data matrix
-        :param function_names: (list) names for each function
+        :param function_names: (list) name for each function, must either be None
+                                      or a list of the same length as the functions
         """
         if function_names is not None:
             assert len(functions) == len(function_names), "Must have one name for each function"
 
-        if isinstance(functions, list):
-            self.library = np.array(functions)
-        else:
-            self.library = functions
+        assert isinstance(functions, list), "Functions must be passed as list"
 
-        self.shape = (self.library.shape[0], n_features)
+        self.library = functions
+
+        self.shape = (len(self.library), n_features)
         self.function_names = function_names
 
     def evaluate(self, x):
@@ -70,7 +73,7 @@ class PolynomialLibrary(FunctionLibrary):
     def __create_library(self, n_features):
         """
         :param n_features: (int) the number of feature in the input dataset
-        :return: (np.ndarray) a row vector of all of the polynomial functions
+        :return: (list) a row vector of all of the polynomial functions
         :return: (list) a list of all of the names of the functions
         """
         funs_list = [(lambda y: lambda X: X[:, y])(i) for i in range(n_features)]
@@ -88,7 +91,7 @@ class PolynomialLibrary(FunctionLibrary):
             for j in range(len(names)):
                 all_names.append(names[j])
 
-        library = np.array(all_combos, dtype=tuple)
+        library = all_combos
         names = self.__convert(all_names)
         return library, names
 
@@ -134,7 +137,7 @@ class FourierLibrary(FunctionLibrary):
         include_cos=True
     ):
         """
-        :param n_features: (int) the number of features of the dataset
+        :param n_features: (int) the number of features of the dataset (columns of data matrix)
         :param max_freq: (int) the max multiplier for the frequency
         :param include_sin: (bool) include the sine function
         :param include_cos: (bool) include the cosine function
@@ -147,8 +150,8 @@ class FourierLibrary(FunctionLibrary):
 
     def __create_library(self, n_features):
         """
-        :param n_features: (int) the number of input features of the dataset
-        :return: (np.ndarray) an array of functions of sines and cosines
+        :param n_features: (int) the number of input features of the dataset (columns of data matrix)
+        :return: (list) an array of functions of sines and cosines
         :return: (list) a list of the names of each function (i.e. sin(2*x0))
         """
         sines = []
@@ -169,7 +172,7 @@ class FourierLibrary(FunctionLibrary):
             cos_names = [[f"cos({j}*x{i})"  for j in \
                     range(1, self.max_freq+1)] for i in range(n_features)]
 
-        library = np.array(sines+cosines).flatten()
+        library = sum(sines, []) + sum(cosines, [])
         function_names = sum(sin_names, []) + sum(cos_names, [])
 
         return library, function_names

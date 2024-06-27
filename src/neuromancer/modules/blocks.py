@@ -1,22 +1,22 @@
-"""
-Function approximators of various degrees of generality which implement a consistent block interface.
+"""Function approximators of various degrees of generality which implement a consistent block interface.
 Neural network module building blocks for neural state space models, state estimators and control policies.
 """
 
-import numpy as np
-import torch
-import torch.nn as nn
 from abc import ABC, abstractmethod
 
-import neuromancer.slim as slim
-import neuromancer.modules.rnn as rnn
-from neuromancer.modules.activations import soft_exp, SoftExponential, SmoothedReLU
+import numpy as np
+import torch
+from torch import nn
+
+from neuromancer import slim
+from neuromancer.modules import rnn
+from neuromancer.modules.activations import SmoothedReLU, SoftExponential, soft_exp
 
 
 class Block(nn.Module, ABC):
+    """Canonical abstract class of the block function approximator
     """
-    Canonical abstract class of the block function approximator
-    """
+
     def __init__(self):
         super().__init__()
 
@@ -25,8 +25,7 @@ class Block(nn.Module, ABC):
         pass
 
     def forward(self, *inputs):
-        """
-        Handling varying number of tensor inputs
+        """Handling varying number of tensor inputs
 
         :param inputs: (list(torch.Tensor, shape=[batchsize, insize]) or torch.Tensor, shape=[batchsize, insize])
         :return: (torch.Tensor, shape=[batchsize, outsize])
@@ -39,9 +38,9 @@ class Block(nn.Module, ABC):
 
 
 class Linear(Block):
+    """Linear map consistent with block interface
     """
-    Linear map consistent with block interface
-    """
+
     def __init__(
         self,
         insize,
@@ -52,9 +51,7 @@ class Linear(Block):
         hsizes=None,
         linargs=dict(),
     ):
-        """
-
-        :param insize: (int) dimensionality of input
+        """:param insize: (int) dimensionality of input
         :param outsize: (int) dimensionality of output
         :param bias: (bool) Whether to use bias
         :param linear_map: (class) Linear map class from neuromancer.slim.linear
@@ -62,7 +59,6 @@ class Linear(Block):
         :param hsizes: (list of ints) Not used in this module but included as argument for consistent interface
         :param linargs: (dict) Arguments for instantiating linear layer
         """
-
         super().__init__()
         self.in_features, self.out_features = insize, outsize
         self.linear = linear_map(insize, outsize, bias=bias, **linargs)
@@ -71,9 +67,7 @@ class Linear(Block):
         return self.linear.reg_error()
 
     def block_eval(self, x):
-        """
-
-        :param x: (torch.Tensor, shape=[batchsize, insize])
+        """:param x: (torch.Tensor, shape=[batchsize, insize])
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
         return self.linear(x)
@@ -110,9 +104,9 @@ def set_model_dropout_mode(model, at_train=None, at_test=None):
 
 
 class MLP(Block):
+    """Multi-Layer Perceptron consistent with blocks interface
     """
-    Multi-Layer Perceptron consistent with blocks interface
-    """
+
     def __init__(
         self,
         insize,
@@ -123,9 +117,7 @@ class MLP(Block):
         hsizes=[64],
         linargs=dict(),
     ):
-        """
-
-        :param insize: (int) dimensionality of input
+        """:param insize: (int) dimensionality of input
         :param outsize: (int) dimensionality of output
         :param bias: (bool) Whether to use bias
         :param linear_map: (class) Linear map class from neuromancer.slim.linear
@@ -143,16 +135,14 @@ class MLP(Block):
             [
                 linear_map(sizes[k], sizes[k + 1], bias=bias, **linargs)
                 for k in range(self.nhidden + 1)
-            ]
+            ],
         )
 
     def reg_error(self):
         return sum([k.reg_error() for k in self.linear if hasattr(k, "reg_error")])
 
     def block_eval(self, x):
-        """
-
-        :param x: (torch.Tensor, shape=[batchsize, insize])
+        """:param x: (torch.Tensor, shape=[batchsize, insize])
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
         for lin, nlin in zip(self.linear, self.nonlin):
@@ -171,11 +161,11 @@ def relu_clamp(x, min, max):
 
 
 class MLP_bounds(MLP):
+    """Multi-Layer Perceptron consistent with blocks interface
     """
-    Multi-Layer Perceptron consistent with blocks interface
-    """
-    bound_methods = {'sigmoid_scale': sigmoid_scale,
-                    'relu_clamp': relu_clamp}
+
+    bound_methods = {"sigmoid_scale": sigmoid_scale,
+                    "relu_clamp": relu_clamp}
 
     def __init__(
         self,
@@ -188,11 +178,9 @@ class MLP_bounds(MLP):
         linargs=dict(),
         min=0.0,
         max=1.0,
-        method='sigmoid_scale',
+        method="sigmoid_scale",
     ):
-        """
-
-        :param insize: (int) dimensionality of input
+        """:param insize: (int) dimensionality of input
         :param outsize: (int) dimensionality of output
         :param bias: (bool) Whether to use bias
         :param linear_map: (class) Linear map class from neuromancer.slim.linear
@@ -213,14 +201,12 @@ class MLP_bounds(MLP):
             return self.bound_methods[method]
         else:
             assert callable(method), \
-                f'Method, {method} must be a key in {self.bound_methods} ' \
-                f'or a differentiable callable.'
+                f"Method, {method} must be a key in {self.bound_methods} " \
+                f"or a differentiable callable."
             return method
 
     def block_eval(self, x):
-        """
-
-        :param x: (torch.Tensor, shape=[batchsize, insize])
+        """:param x: (torch.Tensor, shape=[batchsize, insize])
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
         for lin, nlin in zip(self.linear, self.nonlin):
@@ -229,10 +215,10 @@ class MLP_bounds(MLP):
 
 
 class InteractionEmbeddingMLP(nn.Module):
-    """
-    Multi-Layer Perceptron which is a hypernetwork hidden state embeddings decided by interaction type and concatenated
+    """Multi-Layer Perceptron which is a hypernetwork hidden state embeddings decided by interaction type and concatenated
     to hidden state.
     """
+
     def __init__(
         self,
         insize,
@@ -244,9 +230,7 @@ class InteractionEmbeddingMLP(nn.Module):
         linargs=dict(),
         n_interactors=9,
     ):
-        """
-
-        :param insize: (int) dimensionality of input
+        """:param insize: (int) dimensionality of input
         :param outsize: (int) dimensionality of output
         :param bias: (bool) Whether to use bias
         :param linear_map: (class) Linear map class from neuromancer.slim.linear
@@ -270,16 +254,14 @@ class InteractionEmbeddingMLP(nn.Module):
             [
                 linear_map(sizes[k], sizes[k + 1], bias=bias, **linargs)
                 for k in range(self.nhidden + 1)
-            ]
+            ],
         )
 
     def reg_error(self):
         return sum([k.reg_error() for k in self.linear if hasattr(k, "reg_error")])
 
     def forward(self, x, i, j):
-        """
-
-        :param x: (torch.Tensor, shape=[batchsize, insize])
+        """:param x: (torch.Tensor, shape=[batchsize, insize])
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
         for lin, nlin, embedder in zip(self.linear, self.nonlin, self.embeddings):
@@ -289,9 +271,9 @@ class InteractionEmbeddingMLP(nn.Module):
 
 
 class MLPDropout(Block):
+    """Multi-Layer Perceptron with dropout consistent with blocks interface
     """
-    Multi-Layer Perceptron with dropout consistent with blocks interface
-    """
+
     def __init__(
         self,
         insize,
@@ -301,11 +283,9 @@ class MLPDropout(Block):
         nonlin=SoftExponential,
         hsizes=[64],
         linargs=dict(),
-        dropout=0.0
+        dropout=0.0,
     ):
-        """
-
-        :param insize: (int) dimensionality of input
+        """:param insize: (int) dimensionality of input
         :param outsize: (int) dimensionality of output
         :param bias: (bool) Whether to use bias
         :param linear_map: (class) Linear map class from neuromancer.slim.linear
@@ -323,20 +303,18 @@ class MLPDropout(Block):
             [
                 linear_map(sizes[k], sizes[k + 1], bias=bias, **linargs)
                 for k in range(self.nhidden + 1)
-            ]
+            ],
         )
         self.dropout = nn.ModuleList(
             [Dropout(p=dropout) if dropout > 0.0 else nn.Identity() for _ in range(self.nhidden)]
-            + [nn.Identity()]
+            + [nn.Identity()],
         )
 
     def reg_error(self):
         return sum([k.reg_error() for k in self.linear if hasattr(k, "reg_error")])
 
     def block_eval(self, x):
-        """
-
-        :param x: (torch.Tensor, shape=[batchsize, insize])
+        """:param x: (torch.Tensor, shape=[batchsize, insize])
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
         for lin, nlin, drop in zip(self.linear, self.nonlin, self.dropout):
@@ -345,9 +323,9 @@ class MLPDropout(Block):
 
 
 class ResMLP(MLP):
+    """Residual MLP consistent with the block interface.
     """
-    Residual MLP consistent with the block interface.
-    """
+
     def __init__(
         self,
         insize,
@@ -359,9 +337,7 @@ class ResMLP(MLP):
         linargs=dict(),
         skip=1,
     ):
-        """
-
-        :param insize: (int) dimensionality of input
+        """:param insize: (int) dimensionality of input
         :param outsize: (int) dimensionality of output
         :param bias: (bool) Whether to use bias
         :param linear_map: (class) Linear map class from neuromancer.slim.linear
@@ -369,7 +345,6 @@ class ResMLP(MLP):
         :param hsizes: (list of ints) List of hidden layer sizes
         :param linargs: (dict) Arguments for instantiating linear layer
         """
-
         super().__init__(
             insize,
             outsize,
@@ -388,9 +363,7 @@ class ResMLP(MLP):
         self.in_features, self.out_features = insize, outsize
 
     def block_eval(self, x):
-        """
-
-        :param x: (torch.Tensor, shape=[batchsize, insize])
+        """:param x: (torch.Tensor, shape=[batchsize, insize])
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
         px = self.inmap(x)
@@ -403,8 +376,7 @@ class ResMLP(MLP):
 
 
 class InputConvexNN(MLP):
-    """
-    Input convex neural network
+    """Input convex neural network
     z1 =  sig(W0(x) + b0)
     z_i+1 = sig_i(Ui(zi) + Wi(x) + bi),  i = 1, ..., k-1
     V = g(x) = zk
@@ -419,7 +391,7 @@ class InputConvexNN(MLP):
                  linear_map=slim.Linear,
                  nonlin=nn.ReLU,
                  hsizes=[64],
-                 linargs=dict()
+                 linargs=dict(),
                  ):
         super().__init__(
             insize,
@@ -440,13 +412,13 @@ class InputConvexNN(MLP):
             [
                 linear_map(insize, sizes[k + 1], bias=bias, **linargs)
                 for k in range(self.nhidden)
-            ]
+            ],
         )
         self.poslinear = nn.ModuleList(
             [
                 slim.NonNegativeLinear(sizes[k], sizes[k + 1], bias=False, **linargs)
                 for k in range(self.nhidden)
-            ]
+            ],
         )
         self.nonlin = nn.ModuleList([nonlin() for k in range(self.nhidden + 1)])
 
@@ -465,14 +437,12 @@ class InputConvexNN(MLP):
 
 
 class PosDef(Block):
-    """
-    Enforce positive-definiteness of lyapunov function ICNN, V = g(x)
+    """Enforce positive-definiteness of lyapunov function ICNN, V = g(x)
     Equation 12 from https://arxiv.org/abs/2001.06116
     """
-    def __init__(self, g, max=None, eps=0.01, d=1.0, *args):
-        """
 
-        :param g: (nn.Module) An ICNN network
+    def __init__(self, g, max=None, eps=0.01, d=1.0, *args):
+        """:param g: (nn.Module) An ICNN network
         :param eps: (float) quadratic form regularization weight
         :param d: (float) d parameter for ReLU with a quadratic region in [0,d]
         :param max: (float) max value of the output function
@@ -497,9 +467,7 @@ class PosDef(Block):
 
 
 class PytorchRNN(Block):
-
-    """
-    This wraps the torch.nn.RNN class consistent with the blocks interface
+    """This wraps the torch.nn.RNN class consistent with the blocks interface
     to give output which is a linear map from final hidden state.
     """
 
@@ -513,9 +481,7 @@ class PytorchRNN(Block):
         hsizes=[10],
         linargs=dict(),
     ):
-        """
-
-        :param insize: (int) dimensionality of input
+        """:param insize: (int) dimensionality of input
         :param outsize: (int) dimensionality of output
         :param bias: (bool) Whether to use bias
         :param linear_map: (class) Linear map class from neuromancer.slim.linear
@@ -533,9 +499,7 @@ class PytorchRNN(Block):
         return self.output.reg_error()
 
     def block_eval(self, x):
-        """
-
-        :param x: (torch.Tensor, shape=[nsteps, batchsize, dim]) Input sequence is expanded for order 2 tensors
+        """:param x: (torch.Tensor, shape=[nsteps, batchsize, dim]) Input sequence is expanded for order 2 tensors
         :return: (torch.Tensor, shape=[batchsize, outsize]) Returns linear transform of final hidden state of RNN.
         """
         if len(x.shape) == 2:
@@ -547,8 +511,7 @@ class PytorchRNN(Block):
 
 
 class RNN(Block):
-    """
-    This wraps the rnn.RNN class consistent with blocks interface to give output which is a linear map from final hidden state.
+    """This wraps the rnn.RNN class consistent with blocks interface to give output which is a linear map from final hidden state.
     """
 
     def __init__(
@@ -561,9 +524,7 @@ class RNN(Block):
         hsizes=[1],
         linargs=dict(),
     ):
-        """
-
-        :param insize: (int) dimensionality of input
+        """:param insize: (int) dimensionality of input
         :param outsize: (int) dimensionality of output
         :param bias: (bool) Whether to use bias
         :param linear_map: (class) Linear map class from neuromancer.slim.linear
@@ -592,8 +553,7 @@ class RNN(Block):
         self.init_states = None
 
     def block_eval(self, x, hx=None):
-        """
-        There is some logic here so that the RNN will still get context from state in open loop simulation.
+        """There is some logic here so that the RNN will still get context from state in open loop simulation.
 
         :param x: (torch.Tensor, shape=[nsteps, batchsize, dim]) Input sequence is expanded for order 2 tensors
         :return: (torch.Tensor, shape=[batchsize, outsize]) Returns linear transform of final hidden state of RNN.
@@ -608,9 +568,9 @@ class RNN(Block):
 
 
 class BilinearTorch(Block):
+    """Wraps torch.nn.Bilinear to be consistent with the blocks interface
     """
-    Wraps torch.nn.Bilinear to be consistent with the blocks interface
-    """
+
     def __init__(
         self,
         insize,
@@ -621,9 +581,7 @@ class BilinearTorch(Block):
         hsizes=[64],
         linargs=dict(),
     ):
-        """
-
-        :param insize: (int) dimensionality of input
+        """:param insize: (int) dimensionality of input
         :param outsize: (int) dimensionality of output
         :param bias: (bool) Whether to use bias
         :param linear_map: (class) Not used in this module
@@ -634,7 +592,7 @@ class BilinearTorch(Block):
         super().__init__()
         self.in_features, self.out_features = insize, outsize
         self.f = nn.Bilinear(
-            self.in_features, self.in_features, self.out_features, bias=bias
+            self.in_features, self.in_features, self.out_features, bias=bias,
         )
 
     def reg_error(self):
@@ -645,16 +603,14 @@ class BilinearTorch(Block):
 
 
 class Poly2(Block):
+    """Feature expansion of network to include pairwise multiplications of features.
     """
-    Feature expansion of network to include pairwise multiplications of features.
-    """
+
     def __init__(self, *args):
         super().__init__()
 
     def block_eval(self, x):
-        """
-
-        :param x: (torch.Tensor, shape=[batchsize, N]) Input tensor
+        """:param x: (torch.Tensor, shape=[batchsize, N]) Input tensor
         :return: (torch.Tensor, shape=[batchsize, :math:`\frac{N(N+1)}{2} + N`]) Feature expanded tensor
         """
         row_idxs, col_idxs = np.triu_indices(x.shape[-1])
@@ -664,11 +620,11 @@ class Poly2(Block):
 
 
 class BasisLinear(Block):
-    """
-    For mapping inputs to functional basis feature expansion. This could implement a dictionary of lifting functions.
+    """For mapping inputs to functional basis feature expansion. This could implement a dictionary of lifting functions.
     Takes a linear combination of the expanded features.
 
     """
+
     def __init__(
         self,
         insize,
@@ -680,9 +636,7 @@ class BasisLinear(Block):
         linargs=dict(),
         expand=Poly2(),
     ):
-        """
-
-        :param insize: (int) dimensionality of input
+        """:param insize: (int) dimensionality of input
         :param outsize: (int) dimensionality of output
         :param bias: (bool) Whether to use bias
         :param linear_map: (class) Not used in this module
@@ -701,87 +655,23 @@ class BasisLinear(Block):
         return self.linear.reg_error()
 
     def block_eval(self, x):
-        """
-
-        :param x: (torch.Tensor, shape=[batchsize, insize])
+        """:param x: (torch.Tensor, shape=[batchsize, insize])
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
         return self.linear(self.expand(x))
 
 
 class InterpolateAddMultiply(nn.Module):
-    """
-    Implementation of smooth interpolation between addition and multiplication
+    """Implementation of smooth interpolation between addition and multiplication
     using soft exponential activation: https://arxiv.org/pdf/1602.01321.pdf
     """
+
     def __init__(self, alpha=0.0, tune_alpha=True):
         super().__init__()
         self.alpha = nn.Parameter(torch.tensor(alpha), requires_grad=tune_alpha)
 
     def forward(self, p, q):
         return soft_exp(self.alpha, soft_exp(-self.alpha, p) + soft_exp(-self.alpha, q))
-
-class DeepONet(Block):
-    """
-    Deep Operator Network with blocks interface
-    """
-    def __init__(
-        self,
-        insize_branch,
-        insize_trunk,
-        widthsize,
-        interactsize, # should this be outsize?
-        depth_branch,
-        depth_trunk,
-        nonlin=nn.ReLU,
-        bias=True
-    ):
-        """
-        : param insize_branch: (int) dimensionality of branch net input
-        : param insize_trunk: (int) dimensionality of trunk net input
-        : param widthsize: (int) horizontal size for branch and trunk net
-        : param interactsize: (int) dimensionality of branch net and trunk net output
-        : param depth_branch: (int) depth of branch net
-        : param depth_trunk: (int) depth of trunk net
-        : nonlin: (callable) nonlinear activation function for branch net and trunk net
-        : bias: (bool) Whether to use bias
-        """
-        super().__init__()
-        self.branch_net = MLP(
-            insize=insize_branch,
-            outsize=interactsize,
-            nonlin=nonlin,
-            hsizes=[widthsize] * depth_branch,
-            bias=True
-        )
-        self.trunk_net = MLP(
-            insize=insize_trunk,
-            outsize=interactsize,
-            nonlin=nonlin,
-            hsizes=[widthsize] * depth_trunk,
-            bias=True
-        )
-        self.bias = nn.Parameter(torch.zeros(1,), requires_grad=not bias)
-
-    def transpose_branch_inputs(self, branch_inputs):
-        transposed_branch_inputs = torch.transpose(branch_inputs, 0, 1)
-        return transposed_branch_inputs
-
-
-    def reg_error(self):
-        return self.branch_net.reg_error() + self.trunk_net.reg_error()
-
-    def block_eval(self, x):
-        """
-        TODO param types and descriptions
-        """
-        (branch_inputs, trunk_inputs) = torch.split(x, x.shape[1] - 1, dim=1)
-        branch_output = self.branch_net(self.transpose_branch_inputs(branch_inputs))
-        trunk_output = self.trunk_net(trunk_inputs)
-        result = torch.matmul(branch_output, trunk_output.T) + self.bias
-        return result
-
-
 
 
 blocks = {
@@ -797,5 +687,4 @@ blocks = {
     "bilinear": BilinearTorch,
     "icnn": InputConvexNN,
     "pos_def": PosDef,
-    "deeponet": DeepONet,
 }

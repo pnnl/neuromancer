@@ -1,29 +1,27 @@
 # python base imports
 import os
-import pydot
-from itertools import combinations
+import warnings
+from typing import Callable, Dict, List
+
+import lightning.pytorch as pl
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
-import warnings
-import lightning.pytorch as pl 
-from typing import Dict, List, Callable
+import pydot
 
 # machine learning/data science imports
 import torch
-import torch.nn as nn
-
+from torch import nn
 
 
 class LitProblem(pl.LightningModule):
-    """
-    A PyTorch-Lightning Module wrapper for the Neuromancer Problem class. 
+    """A PyTorch-Lightning Module wrapper for the Neuromancer Problem class.
     As is customary with LightningModules, steps for training and validation are outlined here, as well as the optimizer
     Logging metrics are also defined here, such as 'train_loss'. 
     """
-    def __init__(self, problem, train_metric='train_loss', dev_metric='train_loss', test_metric='train_loss', custom_optimizer=None, \
+
+    def __init__(self, problem, train_metric="train_loss", dev_metric="train_loss", test_metric="train_loss", custom_optimizer=None, \
                 custom_training_step=None, hparam_config=None):
-        """
-        :param problem: A Neuromancer Problem()
+        """:param problem: A Neuromancer Problem()
         :param train_metric: metric to be used during training step. Default to train_loss
         :param dev_metric: metric to be used during validation step. Default to train_loss
         :param test_metric: metric to be used during testing step (currently not supported yet)
@@ -46,23 +44,23 @@ class LitProblem(pl.LightningModule):
 
         self._load_from_config()
 
-    
-    def _load_from_config(self): 
-        if self.hparam_config: 
-            if "learning_rate" in self.hparam_config: 
+
+    def _load_from_config(self):
+        if self.hparam_config:
+            if "learning_rate" in self.hparam_config:
                 self.lr = self.hparam_config.learning_rate
-    
+
 
 
     # Defines training step logic for a Neuromancer problem. Registers train_loss
     def training_step(self, batch):
-        if self.custom_training_step is not None: 
+        if self.custom_training_step is not None:
             loss = self.custom_training_step(self, batch)
-        else: 
+        else:
             output = self.problem(batch)
             loss = output[self.train_metric]
         self.training_step_outputs.append(loss)
-        self.log('train_loss', loss, on_epoch=True, enable_graph=True, prog_bar=True)
+        self.log("train_loss", loss, on_epoch=True, enable_graph=True, prog_bar=True)
         return loss
 
     # Defines what to do after each training epoch
@@ -70,14 +68,14 @@ class LitProblem(pl.LightningModule):
         epoch_average = torch.stack(self.training_step_outputs).mean()
         #print(f'epoch: {self.current_epoch}  : {epoch_average}')
         self.log("training_epoch_average", epoch_average) #log to lightning_logs
-        self.training_step_outputs.clear() 
+        self.training_step_outputs.clear()
 
     # Defines validation step logic for a Neuromancer problem. Registers dev_loss
     def validation_step(self, batch):
         output = self.problem(batch)
         loss = output[self.dev_metric]
         self.validation_step_outputs.append(loss)
-        self.log('dev_loss', loss, prog_bar=True)
+        self.log("dev_loss", loss, prog_bar=True)
 
     # Defines what to do after each validation epoch
     def on_validation_epoch_end(self):
@@ -87,21 +85,20 @@ class LitProblem(pl.LightningModule):
 
     # Defines the optimizers
     def configure_optimizers(self):
-        if self.custom_optimizer is None: 
+        if self.custom_optimizer is None:
             print("USING LEARNING RATE ", self.lr)
             optimizer = torch.optim.Adam(self.problem.parameters(), self.lr, betas=(0.0, 0.9))
-        else: 
+        else:
             optimizer = self.custom_optimizer
         return optimizer
-    
+
     # Returns the original Neuromancer problem
     def get_problem(self):
         return self.problem
-    
+
 
 class Problem(nn.Module):
-    """
-    This class is similar in spirit to a nn.Sequential module. However,
+    """This class is similar in spirit to a nn.Sequential module. However,
     by concatenating input and output dictionaries for each node
     module we can represent arbitrary directed acyclic computation graphs.
     In addition the Problem module takes care of calculating loss functions
@@ -113,8 +110,7 @@ class Problem(nn.Module):
     def __init__(self, nodes: List[Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]],
                  loss: Callable[[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]],
                  grad_inference=False, check_overwrite=False):
-        """
-        :param nodes: (List[Node]) list of objects which implement the Node interface
+        """:param nodes: (List[Node]) list of objects which implement the Node interface
                                    (i.e. input and output are dicts of Tensors and
                                    object has input_keys, output_keys, and name attributes)
         :param loss: (PenaltyLoss) instantiated loss class
@@ -138,7 +134,7 @@ class Problem(nn.Module):
             same = new_keys & keys
             if self.check_overwrite:
                 if len(same) != 0:
-                    warnings.warn(f'Keys {same} are being overwritten by the node {node}.')
+                    warnings.warn(f"Keys {same} are being overwritten by the node {node}.")
             keys |= new_keys
 
     def _check_unique_names(self):
@@ -163,18 +159,23 @@ class Problem(nn.Module):
             input_dict = {**input_dict, **output_dict}
         return input_dict
 
+    def predict(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        with torch.no_grad():
+            output_dict = self.step(data)
+        return {k: v for k,v in output_dict.items()}
+
     def graph(self, include_objectives=True):
         self._check_unique_names()
         graph = pydot.Dot("problem", graph_type="digraph", splines="spline", rankdir="LR")
-        graph.add_node(pydot.Node("in", label="dataset", color='skyblue',
-                                  style='filled', shape="box"))
-        graph.add_node(pydot.Node("out", label="loss", color='lightcoral',
-                                  style='filled', shape="box"))
+        graph.add_node(pydot.Node("in", label="dataset", color="skyblue",
+                                  style="filled", shape="box"))
+        graph.add_node(pydot.Node("out", label="loss", color="lightcoral",
+                                  style="filled", shape="box"))
         # plot clusters for nodes and loss terms
-        node_cluster = pydot.Cluster('nodes', color='cornsilk',
-                                 style='filled', label='nodes')
-        obj_cluster = pydot.Cluster('loss_term', color='cornsilk',
-                                 style='filled', label='loss terms')
+        node_cluster = pydot.Cluster("nodes", color="cornsilk",
+                                 style="filled", label="nodes")
+        obj_cluster = pydot.Cluster("loss_term", color="cornsilk",
+                                 style="filled", label="loss terms")
 
         # create nodes in the node cluster
         input_keys = []
@@ -183,10 +184,10 @@ class Problem(nn.Module):
         for idx, node in enumerate(self.nodes):
             input_keys += node.input_keys
             output_keys += node.output_keys
-            if node.name is None or node.name == '':
-                node.name = f'node_{nonames}'
+            if node.name is None or node.name == "":
+                node.name = f"node_{nonames}"
                 nonames += 1
-            node_cluster.add_node(pydot.Node(node.name, color='lavender', style='filled',
+            node_cluster.add_node(pydot.Node(node.name, color="lavender", style="filled",
                                          label=node.name, shape="box"))
         graph.add_subgraph(node_cluster)
 
@@ -231,10 +232,10 @@ class Problem(nn.Module):
                 if i+1 <= len(self.loss.objectives):
                     color = "lightpink"
                 else:
-                    color = 'thistle'
+                    color = "thistle"
                 # add loss term boxes
                 obj_cluster.add_node(pydot.Node(obj.name, label=obj.name,
-                                          shape="box", color=color, style='filled'))
+                                          shape="box", color=color, style="filled"))
                 # connect nodes to loss terms
                 unique_common_keys = set()
                 for node in reverse_order_nodes:
@@ -266,31 +267,29 @@ class Problem(nn.Module):
     def show(self, figname=None):
         graph = self.graph()
         if figname is not None:
-            plot_func = {'svg': graph.write_svg,
-                         'png': graph.write_png,
-                         'jpg': graph.write_jpg}
-            ext = figname.split('.')[-1]
+            plot_func = {"svg": graph.write_svg,
+                         "png": graph.write_png,
+                         "jpg": graph.write_jpg}
+            ext = figname.split(".")[-1]
             plot_func[ext](figname)
         else:
-            graph.write_png('problem_graph.png')
-            img = mpimg.imread('problem_graph.png')
-            os.remove('problem_graph.png')
+            graph.write_png("problem_graph.png")
+            img = mpimg.imread("problem_graph.png")
+            os.remove("problem_graph.png")
             plt.figure()
-            fig = plt.imshow(img, aspect='equal')
+            fig = plt.imshow(img, aspect="equal")
             fig.axes.get_xaxis().set_visible(False)
             fig.axes.get_yaxis().set_visible(False)
             plt.show()
 
     def freeze(self):
-        """
-        Freezes the parameters of all nodes in the system
+        """Freezes the parameters of all nodes in the system
         """
         for node in self.nodes:
             node.freeze()
 
     def unfreeze(self):
-        """
-        Unfreezes the parameters of all nodes in the system
+        """Unfreezes the parameters of all nodes in the system
         """
         for node in self.nodes:
             node.unfreeze()
@@ -299,7 +298,7 @@ class Problem(nn.Module):
         s = "### MODEL SUMMARY ###\n\nnodeS:"
         if len(self.nodes) > 0:
             for c in self.nodes:
-                s += f"\n  {repr(c)}"
+                s += f"\n  {c!r}"
             s += "\n"
         else:
             s += " none\n"
@@ -307,7 +306,7 @@ class Problem(nn.Module):
         s += "\nCONSTRAINTS:"
         if len(self.loss.constraints) > 0:
             for c in self.loss.constraints:
-                s += f"\n  {repr(c)}"
+                s += f"\n  {c!r}"
             s += "\n"
         else:
             s += " none\n"
@@ -315,7 +314,7 @@ class Problem(nn.Module):
         s += "\nOBJECTIVES:"
         if len(self.loss.objectives) > 0:
             for c in self.loss.objectives:
-                s += f"\n  {repr(c)}"
+                s += f"\n  {c!r}"
             s += "\n"
         else:
             s += " none\n"

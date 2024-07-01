@@ -96,6 +96,9 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_8_nonauto_DeepKoopman.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 8: control-oriented Deep Koopman operator
 
++ <a target="_blank" href="https://colab.research.google.com/github/cjb873/neuromancer-sindy/blob/master/examples/ODEs/Part_8_nonauto_DeepKoopman.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 9: Sparse Identification of Nonlinear Dynamics (SINDy)
+
 
 ### Physics-Informed Neural Networks (PINNs) for Partial Differential Equations (PDEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Diffusion Equation

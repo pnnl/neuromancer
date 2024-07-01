@@ -11,7 +11,7 @@ class FunctionLibrary:
         function_names=None
     ):
         """
-        :param functions: (list) a one-dimensional list of callables functions.
+        :param functions: (list) a one-dimensional list of callable functions.
                                  All callables must be able to operate on the
                                  columns of a two-dimensional torch.Tensor of
                                  floating point numbers.
@@ -32,7 +32,8 @@ class FunctionLibrary:
     def evaluate(self, x):
         """
         :param x: (torch.Tensor) an array of values to evaluate the functions at
-        :return: (torch.Tensor, shape=[self.shape + x.shape])
+        :return: (torch.Tensor, shape=[[# of rows of X, number of functions) the 
+                       functions evaluated at every single time step of the data
         """
         output = torch.zeros(size=(x.shape[0], self.shape[0]))
 
@@ -63,8 +64,9 @@ class PolynomialLibrary(FunctionLibrary):
         max_degree=2
         ):
         """
-        :param n_features: (int) the number of features in the input dataset
-        :param max_degree: (int) the maximum total degree of any polynomial
+        :param n_features: (int) the number of features (columns) in the input dataset
+        :param max_degree: (int) the maximum total degree of any polynomial 
+                                 (i.e. max_degree=3 -> x^2y)
         """
         self.max_degree = max_degree
         lib, function_names = self.__create_library(n_features)
@@ -72,7 +74,7 @@ class PolynomialLibrary(FunctionLibrary):
 
     def __create_library(self, n_features):
         """
-        :param n_features: (int) the number of feature in the input dataset
+        :param n_features: (int) the number of features (columns) in the input dataset
         :return: (list) a row vector of all of the polynomial functions
         :return: (list) a list of all of the names of the functions
         """
@@ -97,7 +99,7 @@ class PolynomialLibrary(FunctionLibrary):
 
     def __convert(self, names):
         """
-        :param names: (list) a list of tuples of all of the names of terms combined
+        :param names: (list) a list of tuples of all of the names of terms that were combined
         :return: (list) the names converted into a more intrepreted form (i.e. x*x*x -> x^3)
         """
         return_names = ["1"]

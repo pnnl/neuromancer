@@ -55,11 +55,9 @@ The user will find several Lightning-Neuromancer tutorials in this folder. There
 * Part 1: Goes over how basics on how a Neuromancer set-up can be converted into the Lightning version
 * Part 2: Goes over more advanced / nuanced cases when migrating towards Lightning. Also showcases automated GPU support, loading/saving weights
 * Part 3: Is a Python script that demonstrates solving a computationally expensive problem with automated multi-GPU distributed training
-* Part 4: Demonstrates how to do hyperparameter tuning with wandb library
 
 Other domain-specific examples can be found in the "other_examples" folder: 
 
-* Part 3: Goes over solving a PINN with the Lightning workflow 
 * lightning_nonauto_DeepKoopman: Goes over using Koopman Operators with the Lightning workflow. Also showcases how to easily visualize training progress with Tensorboard
 * lightning_cvxpy_layers: Goes over using cvxpy with Lightning workflow. 
 * lighting_custom_training_example: Demonstrates how the user can define their own training logic to replace default training logic, if desired
@@ -196,7 +194,7 @@ def hyperparameter_sweep(self, problem, data_setup_function, sweep_config, count
 * project_name: Name of the project. Generally unnecesssary
 * **kwargs: Any keyword arguments needed for data setup function 
 
-### WandB Set-Up
+### WandB Set-Up (Deprecated For Now, Will be re-added in future release)
 
 Please ensure you have a wandb account setup and provided API key. When running on VS Code, one will need to provide said API key upon launching hyperparameter_sweep()
 

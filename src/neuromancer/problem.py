@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import warnings
 import lightning.pytorch as pl 
 from typing import Dict, List, Callable
+from inspect import signature
 
 # machine learning/data science imports
 import torch
@@ -20,6 +21,45 @@ class LitProblem(pl.LightningModule):
     As is customary with LightningModules, steps for training and validation are outlined here, as well as the optimizer
     Logging metrics are also defined here, such as 'train_loss'. 
     """
+
+    # Class attrinbute for expected signatures of Lightning hooks
+    expected_signatures = {
+        'backward': '(self, loss)',
+        'on_before_backward': '(self, loss)',
+        'on_after_backward': '(self)',
+        'on_before_zero_grad': '(self, optimizer)',
+        'on_fit_start': '(self)',
+        'on_fit_end': '(self)', 
+        'on_load_checkpoint': '(self, checkpoint)', 
+        'on_save_checkpoint': '(self, checkpoint)', 
+        'on_train_start': '(self)', 
+        'on_train_end': '(self)', 
+        'on_validation_start': '(self)', 
+        'on_validation_end': '(self)', 
+        'on_test_batch_start': '(self, batch, batch_idx, dataloader_idx)', 
+        'on_test_batch_end': '(self, batch, batch_idx, dataloader_idx)', 
+        'on_test_epoch_start': '(self)', 
+        'on_test_epoch_end': '(self)', 
+        'on_test_start': '(self)', 
+        'on_test_end': '(self)', 
+        'on_predict_batch_start': '(self, batch, batch_idx, dataloader_idx)', 
+        'on_predict_batch_end': '(self, batch, batch_idx, dataloader_idx)', 
+        'on_predict_epoch_start': '(self)', 
+        'on_predict_epoch_end': '(self)', 
+        'on_predict_start': '(self)', 
+        'on_predict_end': '(self)', 
+        'on_train_batch_start': '(self, batch, batch_idx)',
+        'on_train_batch_end': '(self, batch, batch_idx)',
+        'on_train_epoch_start': '(self)', 
+        'on_train_epoch_end': '(self)', 
+        'on_validation_batch_start': '(self, batch, batch_idx)',
+        'on_validation_batch_end': '(self, batch, batch_idx)',
+        'on_validation_epoch_start': '(self)', 
+        'on_validation_epoch_end': '(self)', 
+        'configure_model': '(self)'
+
+    }
+
     def __init__(self, problem, train_metric='train_loss', dev_metric='train_loss', test_metric='train_loss', custom_optimizer=None, 
                  custom_training_step=None, custom_hooks=None, hparam_config=None):
         """
@@ -47,12 +87,22 @@ class LitProblem(pl.LightningModule):
         self.training_step_outputs = []
         self.validation_step_outputs = []
 
+        
         self._load_from_config()
+        self._validate_hooks()
 
     def _load_from_config(self): 
         if self.hparam_config: 
             if "learning_rate" in self.hparam_config: 
                 self.lr = self.hparam_config.learning_rate
+    
+    def _validate_hooks(self):
+        for hook_name, hook_func in self.custom_hooks.items():
+            if hook_name in self.expected_signatures:
+                expected_sig = self.expected_signatures[hook_name]
+                actual_sig = str(signature(hook_func))
+                if actual_sig != expected_sig:
+                    raise ValueError(f"Custom hook '{hook_name}' has incorrect signature: expected {expected_sig}, got {actual_sig}")
     
     def training_step(self, batch, batch_idx):
         if self.custom_training_step is not None: 

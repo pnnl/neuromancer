@@ -4,23 +4,18 @@
 """
 from copy import deepcopy
 
-import torch
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-
+import lightning.pytorch as pl
 import numpy as np
+import torch
 import wandb
-import lightning.pytorch as pl 
-
-from neuromancer.loggers import BasicLogger
-from neuromancer.problem import Problem
-from neuromancer.callbacks import Callback
-from neuromancer.problem import LitProblem
-from neuromancer.dataset import LitDataModule
-
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
-from lightning.pytorch.loggers import WandbLogger
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+from neuromancer.callbacks import Callback
+from neuromancer.dataset import LitDataModule
+from neuromancer.loggers import BasicLogger
+from neuromancer.problem import LitProblem, Problem
 
 
 def move_batch_to_device(batch, device="cpu"):
@@ -28,32 +23,30 @@ def move_batch_to_device(batch, device="cpu"):
 
 
 class CustomEarlyStopping(EarlyStopping):
-    """
-    Custom early stopping callback inherited from PyTorch Lightning Early Stopping. 
+    """Custom early stopping callback inherited from PyTorch Lightning Early Stopping.
     Needed to support proper warmup functionality (early stopping cannot occur within warmup grace period)
     """
+
     def __init__(self, monitor, patience, warmup=0):
         self.warmup = warmup
-        self.monitor = monitor 
-        self.patience = patience 
+        self.monitor = monitor
+        self.patience = patience
         super().__init__(monitor=monitor, patience=patience)
-    
+
     def _run_early_stopping_check(self, trainer) -> None:
-        if trainer.current_epoch < self.warmup: 
+        if trainer.current_epoch < self.warmup:
             trainer.should_stop = False
-            return None 
-        else: 
+            return
+        else:
             # If not in the warm-up period, perform early stopping as usual
             super()._run_early_stopping_check(trainer)
 
 
 class LitTrainer(pl.Trainer):
-    def __init__(self, epochs=1000, train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss', eval_metric='dev_loss',
-                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', weight_name=None, devices='auto', strategy='auto', \
-                    accelerator='auto', profiler=None, custom_training_step=None, logger=None, hparam_config=None):
-        
-        """
-        A Neuromancer-specific custom trainer class inheriting from PyTorch Lightning's Trainer. 
+    def __init__(self, epochs=1000, train_metric="train_loss", dev_metric="dev_loss", test_metric="test_loss", eval_metric="dev_loss",
+                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path="./", weight_name=None, devices="auto", strategy="auto", \
+                    accelerator="auto", profiler=None, custom_training_step=None, logger=None, hparam_config=None):
+        """A Neuromancer-specific custom trainer class inheriting from PyTorch Lightning's Trainer.
         This class is mainly a wrapper to interface with the user through fit()
 
         For more information please see: https://lightning.ai/docs/pytorch/stable/common/trainer.html
@@ -90,20 +83,20 @@ class LitTrainer(pl.Trainer):
         self.weight_name = weight_name
         self.devices = devices
         self.custom_optimizer = custom_optimizer
-        self.profiler = profiler 
+        self.profiler = profiler
         self.custom_training_step = custom_training_step
         self.logger = logger
-        self.hparam_config = hparam_config 
+        self.hparam_config = hparam_config
 
         self.problem_copy = None #store copy of base Neuromancer problem
         self.lit_problem = None
-        self.lit_data_module = None 
+        self.lit_data_module = None
 
 
         callbacks = []
         if self.save_weights:
             callbacks.append(ModelCheckpoint(save_weights_only=True, monitor=self.eval_metric, dirpath=self.weight_path, filename=self.weight_name, \
-                                             mode='min', every_n_epochs=1, verbose=True))
+                                             mode="min", every_n_epochs=1, verbose=True))
         if self.patience:
             callbacks.append(CustomEarlyStopping(monitor=self.eval_metric, patience=self.patience, warmup=self.warmup))
 
@@ -117,19 +110,18 @@ class LitTrainer(pl.Trainer):
         return best_model
 
 
-    def hyperparameter_sweep(self, problem, data_setup_function, sweep_config, count=10, project_name='run_sweep', **kwargs):
-        """
-        Performs hyperparameter tuning sweep using wandb
+    def hyperparameter_sweep(self, problem, data_setup_function, sweep_config, count=10, project_name="run_sweep", **kwargs):
+        """Performs hyperparameter tuning sweep using wandb
         """
         self.problem_copy = deepcopy(problem) # store the original problem so that the original is used to train each sweep
         self.data_setup_function = data_setup_function
 
-        # A nester LiTrainer class is required to circumvent a PyTorch lightning constraint that "current_spoch" cannot be set. So this 
+        # A nester LiTrainer class is required to circumvent a PyTorch lightning constraint that "current_spoch" cannot be set. So this
         # allows epoch counter to be reset after each sweep
         class TempTrainer:
-            def __init__(self, parent, epochs=1000, train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss', eval_metric='dev_loss',
-                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', weight_name=None, devices='auto', strategy='auto', \
-                    accelerator='auto', profiler=None, custom_training_step=None, logger=None):
+            def __init__(self, parent, epochs=1000, train_metric="train_loss", dev_metric="dev_loss", test_metric="test_loss", eval_metric="dev_loss",
+                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path="./", weight_name=None, devices="auto", strategy="auto", \
+                    accelerator="auto", profiler=None, custom_training_step=None, logger=None):
                 self.parent = parent
                 self.problem_copy = deepcopy(parent.problem_copy)
                 self.data_setup_function = parent.data_setup_function
@@ -146,7 +138,7 @@ class LitTrainer(pl.Trainer):
                 self.weight_name = weight_name
                 self.devices = devices
                 self.custom_optimizer = custom_optimizer
-                self.profiler = profiler 
+                self.profiler = profiler
                 self.custom_training_step = custom_training_step
                 self.accelerator = accelerator
 
@@ -167,8 +159,7 @@ class LitTrainer(pl.Trainer):
 
 
     def fit(self, problem, data_setup_function, **kwargs):
-        """
-        Fits (trains) a base neuromancer Problem to a data defined by a data setup function). 
+        """Fits (trains) a base neuromancer Problem to a data defined by a data setup function).
         This function will also instantiate a Lightning version of the provided Problem 
         and LightningDataModule associated with the data setup function
 
@@ -184,11 +175,11 @@ class LitTrainer(pl.Trainer):
 
 
 class Trainer:
-    """
-    Class encapsulating boilerplate PyTorch training code. Training procedure is somewhat
+    """Class encapsulating boilerplate PyTorch training code. Training procedure is somewhat
     extensible through methods in Callback objects associated with training and evaluation
     waypoints.
     """
+
     def __init__(
         self,
         problem: Problem,
@@ -209,11 +200,9 @@ class Trainer:
         eval_metric="dev_loss",
         eval_mode="min",
         clip=100.0,
-        device="cpu"
+        device="cpu",
     ):
-        """
-
-        :param problem: Object which defines multi-objective loss function and computational graph
+        """:param problem: Object which defines multi-objective loss function and computational graph
         :param dataset: Batched (over chunks of time if sequence data) dataset for non-stochastic gradient descent
         :param optimizer: Pytorch optimizer
         :param logger: Object for logging results
@@ -252,10 +241,12 @@ class Trainer:
         self.best_devloss = np.finfo(np.float32).max if self._eval_min else 0.
         self.best_model = deepcopy(self.model.state_dict())
         self.device = device
+        self.loss_history = dict()
+        self.loss_history["train"] = []
+        self.loss_history["dev"] = []
 
     def train(self):
-        """
-        Optimize model according to train_metric and validate per-epoch according to eval_metric.
+        """Optimize model according to train_metric and validate per-epoch according to eval_metric.
         Trains for self.epochs and terminates early if self.patience threshold is exceeded.
         """
         self.callback.begin_train(self)
@@ -266,7 +257,7 @@ class Trainer:
                 self.model.train()
                 losses = []
                 for t_batch in self.train_data:
-                    t_batch['epoch'] = i
+                    t_batch["epoch"] = i
                     t_batch = move_batch_to_device(t_batch, self.device)
                     output = self.model(t_batch)
                     self.optimizer.zero_grad()
@@ -276,11 +267,11 @@ class Trainer:
                     losses.append(output[self.train_metric])
                     self.callback.end_batch(self, output)
 
-                output[f'mean_{self.train_metric}'] = torch.mean(torch.stack(losses))
+                output[f"mean_{self.train_metric}"] = torch.mean(torch.stack(losses))
                 self.callback.begin_epoch(self, output)
 
                 if self.lr_scheduler is not None:
-                    self.lr_scheduler.step(output[f'mean_{self.train_metric}'])
+                    self.lr_scheduler.step(output[f"mean_{self.train_metric}"])
 
                 with torch.set_grad_enabled(self.model.grad_inference):
                     self.model.eval()
@@ -290,7 +281,9 @@ class Trainer:
                             d_batch = move_batch_to_device(d_batch, self.device)
                             eval_output = self.model(d_batch)
                             losses.append(eval_output[self.dev_metric])
-                        eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
+                        mean_dev_loss = torch.mean(torch.stack(losses))
+                        self.loss_history["dev"].append(mean_dev_loss)
+                        eval_output[f"mean_{self.dev_metric}"] = mean_dev_loss
                         output = {**output, **eval_output}
                     self.callback.begin_eval(self, output)  # Used for alternate dev evaluation
 
@@ -299,22 +292,22 @@ class Trainer:
                         self.best_model = deepcopy(self.model.state_dict())
                         self.best_devloss = output[self.eval_metric]
                         self.badcount = 0
-                    else:
-                        if i > self.warmup:
-                            self.badcount += 1
+                    elif i > self.warmup:
+                        self.badcount += 1
                     if self.logger is not None:
                         self.logger.log_metrics(output, step=i)
                     else:
-                        mean_loss = output[f'mean_{self.train_metric}']
+                        mean_loss = output[f"mean_{self.train_metric}"]
+                        self.loss_history["train"].append(mean_loss)
                         if i % (self.epoch_verbose) == 0:
-                            print(f'epoch: {i}  {self.train_metric}: {mean_loss}')
+                            print(f"epoch: {i}  {self.train_metric}: {mean_loss}")
 
                     self.callback.end_eval(self, output)  # visualizations
 
                     self.callback.end_epoch(self, output)
 
                     if self.badcount > self.patience:
-                        print('Early stopping!!!')
+                        print("Early stopping!!!")
                         break
                     self.current_epoch = i + 1
 
@@ -334,8 +327,7 @@ class Trainer:
         return self.best_model
 
     def test(self, best_model):
-        """
-        Evaluate the model on all data splits.
+        """Evaluate the model on all data splits.
         """
         self.model.load_state_dict(best_model, strict=False)
         self.model.eval()
@@ -350,7 +342,7 @@ class Trainer:
                     batch = move_batch_to_device(batch, self.device)
                     batch_output = self.model(batch)
                     losses.append(batch_output[metric])
-                output[f'mean_{metric}'] = torch.mean(torch.stack(losses))
+                output[f"mean_{metric}"] = torch.mean(torch.stack(losses))
                 output = {**output, **batch_output}
 
         self.callback.end_test(self, output)
@@ -361,7 +353,6 @@ class Trainer:
         return output
 
     def evaluate(self, best_model):
-        """
-        This method is deprecated. Use self.test instead.
+        """This method is deprecated. Use self.test instead.
         """
         return self.test(best_model)

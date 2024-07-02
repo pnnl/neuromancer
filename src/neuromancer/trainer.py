@@ -150,60 +150,7 @@ class LitTrainer(pl.Trainer):
         self.apply_custom_hooks(self.lit_problem)
         super().fit(self.lit_problem, self.lit_data_module)
     
-    def hyperparameter_sweep(self, problem, data_setup_function, sweep_config, count=10, project_name='run_sweep', **kwargs):
-        """
-        Performs hyperparameter tuning sweep using wandb
-        """
-        self.problem_copy = deepcopy(problem) # store the original problem so that the original is used to train each sweep
-        self.data_setup_function = data_setup_function
-
-        # A nester LiTrainer class is required to circumvent a PyTorch lightning constraint that "current_spoch" cannot be set. So this 
-        # allows epoch counter to be reset after each sweep
-        class TempTrainer:
-            def __init__(self, parent, epochs=1000, train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss', eval_metric='dev_loss',
-                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', weight_name=None, devices='auto', strategy='auto', \
-                 accelerator='auto', profiler=None, custom_training_step=None, custom_hooks=None, logger=None, hparam_config=None, automatic_optimization=True):
-                self.parent = parent
-                self.problem_copy = deepcopy(parent.problem_copy)
-                self.data_setup_function = parent.data_setup_function
-                self.epochs = epochs
-                self.train_metric = train_metric
-                self.dev_metric = dev_metric
-                self.test_metric = test_metric
-                self.eval_metric = eval_metric
-                self.patience = patience
-                self.warmup = warmup
-                self.clip = clip
-                self.save_weights = save_weights
-                self.weight_path = weight_path
-                self.weight_name = weight_name
-                self.devices = devices
-                self.strategy = strategy
-                self.accelerator = accelerator 
-                self.custom_optimizer = custom_optimizer
-                self.profiler = profiler
-                self.custom_training_step = custom_training_step
-                self.custom_hooks = custom_hooks or {}
-                self.logger = logger
-                self.hparam_config = hparam_config
-                self.automatic_optimization = automatic_optimization
-
-            def train_model(self):
-                wandb.init()
-                self.parent.hparam_config = wandb.config
-                trainer = LitTrainer(epochs=self.epochs, train_metric=self.train_metric, dev_metric=self.dev_metric, test_metric=self.test_metric, eval_metric=self.eval_metric, 
-                                                  patience=self.patience, warmup=self.warmup, clip=self.clip, save_weights=False, devices=self.devices, 
-                                                  custom_optimizer=self.custom_optimizer, profiler=None, accelerator=self.accelerator, 
-                                                  custom_training_step=self.custom_training_step, custom_hooks=self.custom_hooks, logger=self.logger, automatic_optimization=self.automatic_optimization,
-                                                  hparam_config=wandb.config)
-                trainer.fit(self.problem_copy, self.data_setup_function, **kwargs)
-
-        sweep_id = wandb.sweep(sweep_config, project=project_name)
-        trainer_within_itself = TempTrainer(self, epochs=self.epochs, train_metric=self.train_metric, dev_metric=self.dev_metric, test_metric=self.test_metric, eval_metric=self.eval_metric, 
-                                                  patience=self.patience, warmup=self.warmup, clip=self.clip, save_weights=False, devices=self.devices, strategy=self.strategy, 
-                                                  accelerator=self.accelerator, custom_training_step=self.custom_training_step, custom_hooks=self.custom_hooks, 
-                                                  custom_optimizer=self.custom_optimizer, profiler=None)
-        wandb.agent(sweep_id=sweep_id, function=trainer_within_itself.train_model, count=count)
+    
 
 
 

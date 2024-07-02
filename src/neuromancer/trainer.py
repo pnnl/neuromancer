@@ -252,6 +252,9 @@ class Trainer:
         self.best_devloss = np.finfo(np.float32).max if self._eval_min else 0.
         self.best_model = deepcopy(self.model.state_dict())
         self.device = device
+        self.loss_history = dict()
+        self.loss_history["train"] = []
+        self.loss_history["dev"] = []
 
     def train(self):
         """
@@ -290,7 +293,9 @@ class Trainer:
                             d_batch = move_batch_to_device(d_batch, self.device)
                             eval_output = self.model(d_batch)
                             losses.append(eval_output[self.dev_metric])
-                        eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
+                        mean_dev_loss = torch.mean(torch.stack(losses))
+                        self.loss_history["dev"].append(mean_dev_loss)
+                        eval_output[f"mean_{self.dev_metric}"] = mean_dev_loss
                         output = {**output, **eval_output}
                     self.callback.begin_eval(self, output)  # Used for alternate dev evaluation
 
@@ -306,6 +311,7 @@ class Trainer:
                         self.logger.log_metrics(output, step=i)
                     else:
                         mean_loss = output[f'mean_{self.train_metric}']
+                        self.loss_history["train"].append(mean_loss)
                         if i % (self.epoch_verbose) == 0:
                             print(f'epoch: {i}  {self.train_metric}: {mean_loss}')
 

@@ -96,6 +96,9 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_8_nonauto_DeepKoopman.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 8: control-oriented Deep Koopman operator
 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_9_SINDy.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 9: Sparse Identification of Nonlinear Dynamics (SINDy)
+
 
 ### Physics-Informed Neural Networks (PINNs) for Partial Differential Equations (PDEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Diffusion Equation
@@ -130,7 +133,7 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_building_dynamics.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Learning Building Thermal Dynamics using Neural ODEs.
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_rc_networks.ipynb">
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_RC_networks.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Data-driven modeling of a Resistance-Capacitance network with Neural ODEs.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_swing_equation.ipynb">
@@ -309,6 +312,7 @@ conda install networkx=3.0 plum-dispatch=1.7.3
 conda install -c anaconda pytest hypothesis
 conda install cvxpy cvxopt casadi seaborn imageio
 conda install tqdm torchdiffeq toml
+conda install lightning wandb -c conda-forge
 ## (for Windows): conda install -c defaults intel-openmp -f
 ```
 
@@ -370,9 +374,9 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 ## Development team
 
 **Lead developers**: [Jan Drgona](https://drgona.github.io/), [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/)   
-**Active core developers**: Madelyn Shapiro, James Koch, Rahul Birmiwal  
-**Scientific advisors**: Draguna Vrabie  
-**Notable contributors**: Seth Briney, Bo Tang, Ethan King, Shrirang Abhyankar, 
+**Active core developers**: Madelyn Shapiro, Bruno Jacob, Rahul Birmiwal  
+**Scientific advisors**: Draguna Vrabie, Panos Stinis  
+**Notable contributors**: James Koch, Seth Briney, Bo Tang, Ethan King, Shrirang Abhyankar, 
 Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 
 Open-source contributions made by:  

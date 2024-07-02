@@ -336,6 +336,8 @@ def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
     if figname is not None:
         plt.savefig(figname)
 
+    return fig, ax
+
 
 def pltOL(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
     """
@@ -369,6 +371,8 @@ def pltOL(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
     plt.tight_layout()
     if figname is not None:
         plt.savefig(figname)
+
+    return fig, ax
 
 
 def plot_trajectories(traj1, traj2, labels, figname):

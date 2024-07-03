@@ -31,7 +31,7 @@ Lightning Studios are powerful, AI development platforms. They essentially act a
 
 #### TorchSDE Integration
 * We have begun integration with the TorchSDE library (https://github.com/google-research/torchsde/tree/master) TorchSDE provides stochastic differential equation solvers with GPU spport and efficient backpropagation. 
-* Neuromancer already has robust and extensive library for Neural ODEs and ODE solvers. We extend that functionality to the stochastic case by incorporating TorchSDE solvers. To motivate and teach the user how one progresses from neural ODEs to "neural SDEs" we have written a lengthy notebook -- [sde_walkthrough.ipynb](examples/sdes/sde_walkthrough.ipynb)
+* Neuromancer already has robust and extensive library for Neural ODEs and ODE solvers. We extend that functionality to the stochastic case by incorporating TorchSDE solvers. To motivate and teach the user how one progresses from neural ODEs to "neural SDEs" we have written a lengthy notebook -- [sde_walkthrough.ipynb](examples/SDEs/sde_walkthrough.ipynb)
 
 #### Stacked Physics-Informed Neural Networks
 
@@ -168,7 +168,7 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
  
 
 ### Stochastic Differential Equation Examples
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/sdes/sde_walkthrough.ipynb">
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/SDEs/sde_walkthrough.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> LatentSDEs: "System Identification" of Stochastic Processes using Neuromancer x TorchSDE
 
 

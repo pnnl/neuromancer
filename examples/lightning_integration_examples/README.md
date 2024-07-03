@@ -4,7 +4,7 @@
 
 PyTorch Lightning is a framework built on top of PyTorch designed to simplify the implementation of complex models in PyTorch. It promotes cleaner, more organized code by providing a high-level interface for PyTorch that handles many training intricacies automatically. 
 
-Why might I want to use Lightning in the context of NeuroMANCER? For the user, Lightning simplifies the workflow, allowing one to focus on solving NeuroMANCER problems with their associated datasets. How does it do this? Let's take a look at the added functionality when using Lightning 
+Why might I want to use Lightning in the context of NeuroMANCER? For the user, Lightning simplifies the workflow, allowing one to focus on solving NeuroMANCER problems with their associated datasets. How does it do this? Let's take a look at the added functionality when using Lightning. 
 
 ## New Features
 
@@ -55,11 +55,9 @@ The user will find several Lightning-Neuromancer tutorials in this folder. There
 * Part 1: Goes over how basics on how a Neuromancer set-up can be converted into the Lightning version
 * Part 2: Goes over more advanced / nuanced cases when migrating towards Lightning. Also showcases automated GPU support, loading/saving weights
 * Part 3: Is a Python script that demonstrates solving a computationally expensive problem with automated multi-GPU distributed training
-* Part 4: Demonstrates how to do hyperparameter tuning with wandb library
 
 Other domain-specific examples can be found in the "other_examples" folder: 
 
-* Part 3: Goes over solving a PINN with the Lightning workflow 
 * lightning_nonauto_DeepKoopman: Goes over using Koopman Operators with the Lightning workflow. Also showcases how to easily visualize training progress with Tensorboard
 * lightning_cvxpy_layers: Goes over using cvxpy with Lightning workflow. 
 * lighting_custom_training_example: Demonstrates how the user can define their own training logic to replace default training logic, if desired
@@ -196,7 +194,7 @@ def hyperparameter_sweep(self, problem, data_setup_function, sweep_config, count
 * project_name: Name of the project. Generally unnecesssary
 * **kwargs: Any keyword arguments needed for data setup function 
 
-### WandB Set-Up
+### WandB Set-Up (Deprecated For Now, Will be re-added in future release)
 
 Please ensure you have a wandb account setup and provided API key. When running on VS Code, one will need to provide said API key upon launching hyperparameter_sweep()
 
@@ -247,4 +245,8 @@ def custom_training_step(model, batch):
     return loss
 ```
 
-The signature of this function should be `custom_training_step(model, batch)` where model is a Neuromancer Problem
+The signature of this function should be `custom_training_step(model, batch)` where model is a Neuromancer Problem. 
+
+We are not limited to just implementing custom training step. Lightning provides a plethora of "hooks" for the user to interact with in modular "lego" style fashion that is intrinsic to the Lightning framework. 
+
+Please refer to lightning_integration_examples/other_examples/custom_training_example.ipynb for more information on these flexible training options. 

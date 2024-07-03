@@ -1,6 +1,12 @@
 
 ##  Release notes
 
+### Version 1.5.1 Release Notes
++ Enhancement: Now supports integration of all Lightning hooks into the Neuromancer Lightning trainer. Please refer to Lightning examples README for more information
++ Deprecated WandB hyperparameter tuning via `LitTrainer` for now 
++ New feature: TorchSDE integration with Neuromancer core library, namely `torchsde.sdeint()`. Motivating example for system ID on stochastic process found in examples/sdes/sde_walkthrough.ipynb
+
+
 ### Version 1.5.0 Release Notes 
 + New Feature: PyTorch Lightning Integration with NeuroMANCER core library. All these features are opt-in. 
   + Code simplifications: zero boilerplate code, increased modularity 

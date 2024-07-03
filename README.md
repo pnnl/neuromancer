@@ -20,7 +20,7 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 ### New in v1.5.1
 #### Lightning Enhancements 
 ![Lightning](https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white)
-Further integration enhancements with PyTorch Lightning (https://lightning.ai/docs/pytorch/stable/). We now support all Lightning hooks, which are modular logic blocks that make defining custom training/validation/etc logic very easy using our `LitTrainer`
+Further integration enhancements with PyTorch Lightning (https://lightning.ai/docs/pytorch/stable/). We now support all Lightning hooks, which are modular logic blocks that make defining custom training/validation/etc logic very easy and user-friendly.
 
 We have also released a *Lightning Studio* course on **Differentiable Predictive Control**: <a target="_blank" href="https://lightning.ai/rahulbirmiwal/studios/differential-predictive-control-with-neuromancer">
   <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio" style="width:100px; height:auto;"/>
@@ -39,7 +39,8 @@ To Do...
 
 **New Colab Examples:**
 > ⭐ [Custom Training Via Lightning Hooks ](#lightning-integration-examples)
-> ⭐ [Custom Training Via Lightning Hooks ](#lightning-integration-examples)
+
+> ⭐ [Latent Stochastic Differential Equations ](#stochastic-differential-equation-examples)
 
 
 ## Features and Examples

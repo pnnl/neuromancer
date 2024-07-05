@@ -34,6 +34,7 @@ Lightning Studios are powerful, AI development platforms. They essentially act a
 * Neuromancer already has robust and extensive library for Neural ODEs and ODE solvers. We extend that functionality to the stochastic case by incorporating TorchSDE solvers. To motivate and teach the user how one progresses from neural ODEs to "neural SDEs" we have written a lengthy notebook -- [sde_walkthrough.ipynb](examples/SDEs/sde_walkthrough.ipynb)
 
 #### Stacked Physics-Informed Neural Networks
+* Neuromancer now supports Stacked Physics-Informed Neural Networks. This architecture, based on the work of [Howard et al. (2023)](https://arxiv.org/abs/2311.06483), consists of stacking multifidelity networks via composition, allowing a progressive improvement of learned solutions. This formulation is especially useful for highly oscillatory problems. We illustrate an example of its usage with the solution of a damped harmonic oscillator using PINN: [Part_5_Pendulum_Stacked.ipynb](examples/PDEs/Part_5_Pendulum_Stacked.ipynb)
 
 To Do...
 

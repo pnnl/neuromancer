@@ -285,10 +285,6 @@ class Trainer:
                     losses.append(output[self.train_metric])
                     self.callback.end_batch(self, output)
 
-                    if self.multi_fidelity:
-                        for node in self.model.nodes:
-                            node.callable.update_epoch(i)
-
                 output[f'mean_{self.train_metric}'] = torch.mean(torch.stack(losses))
                 self.callback.begin_epoch(self, output)
 

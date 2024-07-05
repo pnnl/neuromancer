@@ -181,6 +181,7 @@ class Trainer:
         eval_metric="dev_loss",
         eval_mode="min",
         clip=100.0,
+        multi_fidelity=False,
         device="cpu"
     ):
         """
@@ -194,6 +195,7 @@ class Trainer:
         :param patience: (int) Number of epochs to allow no improvement before early stopping
         :param warmup: (int) How many epochs to wait before enacting early stopping policy
         :param eval_metric: (str) Performance metric for model selection and early stopping
+        :param multi_fidelity: (bool) If yes, performs updates on the parameter alpha of the multi-fidelity net
         """
         self.model = problem
         self.optimizer = optimizer if optimizer is not None else torch.optim.Adam(problem.parameters(), 0.01, betas=(0.0, 0.9))
@@ -223,6 +225,7 @@ class Trainer:
         self.clip = clip
         self.best_devloss = np.finfo(np.float32).max if self._eval_min else 0.
         self.best_model = deepcopy(self.model.state_dict())
+        self.multi_fidelity=multi_fidelity
         self.device = device
 
     def train(self):
@@ -231,7 +234,7 @@ class Trainer:
         Trains for self.epochs and terminates early if self.patience threshold is exceeded.
         """
         self.callback.begin_train(self)
-
+    
         try:
             for i in range(self.current_epoch, self.current_epoch+self.epochs):
 
@@ -241,6 +244,12 @@ class Trainer:
                     t_batch['epoch'] = i
                     t_batch = move_batch_to_device(t_batch, self.device)
                     output = self.model(t_batch)
+
+                    if self.multi_fidelity:
+                        for node in self.model.nodes:
+                            alpha_loss = node.callable.get_alpha_loss()
+                            output[self.train_metric] += alpha_loss
+
                     self.optimizer.zero_grad()
                     output[self.train_metric].backward()
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)

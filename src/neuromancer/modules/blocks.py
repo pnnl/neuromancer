@@ -590,7 +590,107 @@ class MLP_bounds(MLP):
         for lin, nlin in zip(self.linear, self.nonlin):
             x = nlin(lin(x))
         return self.method(x, self.min, self.max)
+        
 
+class StackedMLP(Block):
+    """
+    Stacked Multi-Layer Perceptron (MFMLP) designed for multi-fidelity learning where multiple layers are
+    stacked to refine the prediction progressively. Each layer is a blend of linear and nonlinear transformations
+    controlled by an adaptive parameter alpha, influencing the trade-off between the two.
+
+    Attributes:
+        insize (int): Input feature dimension.
+        outsize (int): Output feature dimension.
+        bias (bool): If True, bias is used in linear transformations.
+        linear_map (class): Linear map class used for layers, by default set to slim.Linear.
+        nonlin (callable): Nonlinear activation function applied after linear transformations.
+        h_sf_size (list of int): Sizes of hidden layers in the single-fidelity MLP.
+        n_stacked_mf_layers (int): Number of stacked multi-fidelity layers.
+        h_linear_sizes (list of int): Sizes of hidden layers in each linear sub-network within the multi-fidelity layers.
+        h_nonlinear_sizes (list of int): Sizes of hidden layers in each nonlinear sub-network within the multi-fidelity layers.
+        linargs (dict): Additional arguments for the linear layer instantiation.
+        alpha_init (float): Initial value of alpha parameter controlling linear-nonlinear blend.
+        verbose (bool): If True, print messages about network progress and actions.
+    """
+
+    def __init__(
+        self,
+        insize,
+        outsize,
+        bias=True,
+        linear_map=Linear,
+        nonlin=nn.Tanh,
+        h_sf_size=[20, 20],
+        n_stacked_mf_layers=3,
+        h_linear_sizes=[10, 10],
+        h_nonlinear_sizes=[20, 20],
+        linargs=dict(), 
+        alpha_init=0.1,
+        verbose=False
+    ):
+        super().__init__()
+        self.in_features, self.out_features = insize, outsize
+        self.num_layers = n_stacked_mf_layers
+        self.current_block = 0
+        self.current_epoch = 0
+        self.alpha = nn.ParameterList([nn.Parameter(torch.tensor(alpha_init), requires_grad=True) for _ in range(n_stacked_mf_layers)])
+        self.alpha_loss = 0.0
+        self.verbose = verbose
+        
+        # Initialize the first layer (single-fidelity MLP)
+        self.first_layer = MLP(
+            insize, outsize, bias=bias, linear_map=linear_map, nonlin=nonlin, hsizes=h_sf_size, linargs=linargs
+        )
+    
+        # Initialize subsequent layers (multi-fidelity)
+        self.layers = nn.ModuleList()
+        for i in range(n_stacked_mf_layers):
+            self.layers.append(
+                nn.ModuleDict(
+                    {
+                        "linear": MLP(outsize, outsize, bias=True, linear_map=linear_map, nonlin=nn.Identity, hsizes=h_linear_sizes, linargs=linargs),
+                        "nonlinear": MLP(
+                            insize + outsize,
+                            outsize,
+                            bias=bias,
+                            linear_map=linear_map,
+                            nonlin=nonlin,
+                            hsizes=h_nonlinear_sizes,
+                            linargs=linargs,
+                        ),
+                    }
+                )
+            )
+
+    def block_eval(self, x):
+        """
+        Process input through the multi-fidelity network blocks up to the current block, combining the outputs
+        of linear and nonlinear transformations weighted by alpha.
+
+        :param x: Input tensor.
+        :return: Output tensor from the last activated block.
+        """
+        out = self.first_layer(x)
+        alpha_loss = 0.0
+        # for i in range(self.current_block):
+        for i in range(self.num_layers):
+            layer = self.layers[i] # Pick the corresponding stacked net
+            alpha = self.alpha[i]  # Pick the corresponding alpha for each stacked net
+            linear_out = layer["linear"](out)
+            nonlinear_out = layer["nonlinear"](torch.cat([x, out], dim=1))
+            out = torch.abs(alpha) * nonlinear_out + (1 - torch.abs(alpha)) * linear_out
+            alpha_loss += torch.pow(alpha, 4)
+        self.alpha_loss = alpha_loss
+        return out
+
+    def get_alpha_loss(self):
+        """
+        Retrieve the accumulated loss from alpha parameters used for regularization purposes.
+
+        :return: Alpha loss as a torch scalar.
+        """
+        return self.alpha_loss
+        
 
 class InteractionEmbeddingMLP(nn.Module):
     """
@@ -655,6 +755,8 @@ class InteractionEmbeddingMLP(nn.Module):
             x = torch.cat([x, embedder(self.n_interactors * i + j)])
             x = nlin(lin(x))
         return x
+
+
 
 
 class MLPDropout(Block):
@@ -1122,6 +1224,7 @@ blocks = {
     "bilinear": BilinearTorch,
     "icnn": InputConvexNN,
     "pos_def": PosDef,
-    "kan": KANBlock
+    "kan": KANBlock,
+    "stacked_mlp": StackedMLP
 }
 

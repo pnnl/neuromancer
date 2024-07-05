@@ -8,7 +8,10 @@ Physics-informed neural networks (PINNs) examples:
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Diffusion Equation
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_2_PINN_BurgersEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Burgers' Equation
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_3_PINN_BurgersEquation_inverse.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Burgers' Equation w/ Parameter Estimation (Inverse Problem)
-  
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_4_PINN_LaplaceEquationSteadyState.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Laplace's Equation (steady-state)
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_5_Pendulum_Stacked.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Damped Pendulum (stacked PINN)
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_6_PINN_NavierStokesCavitySteady_KAN.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Navier-Stokes equation (lid-driven cavity flow, steady-state, KAN)
+
 
 ## Physics-informed neural networks
 
@@ -69,6 +72,12 @@ Then the total loss is just a sum of PDE residuals over CP
 and supervised learning residuals over IC and BC.
 $$\ell_{\text{PINN}}=\ell_{f}+\ell_{u} +\ell_{y}$$
 
+## Stacked (Multi-Fidelity) Physics-Informed Neural Networks
+Stacked physics-informed neural networks represent a novel approach to enhance the training efficiency and accuracy of models dealing with partial differential equations (PDEs). This method leverages a hierarchy of multifidelity networks, where each layer of the stack uses the output of the previous one as an input, leading to a progressive refinement of the solution [4,5]. This architecture allows for a more gradual learning process, helping overcome the difficulties typically associated with training deep networks on complex PDEs, such as those subject to fixed points and multiple local minima. Stacked PINNs are available on Neuromancer via 'blocks.MultiFidelityMLP'.
+
+## Kolmogorov-Arnold Networks (KANs)
+Based on the Kolmogorov-Arnold representation theorem, KANs offer an alternative architecture: where traditional neural networks utilize fixed activation functions, KANs employ learnable activation functions on the edges of the network, replacing linear weight parameters with parametrized spline functions. This fundamental shift sometimes enhances model interpretability and improves computational efficiency and accuracy [6]. KANs are available on Neuromancer via `blocks.KANBlock`, which leverages the efficient-kan implementation of [7].
+
 
 ### References
 
@@ -77,4 +86,12 @@ $$\ell_{\text{PINN}}=\ell_{f}+\ell_{u} +\ell_{y}$$
 [2] https://en.wikipedia.org/wiki/Physics-informed_neural_networks
 
 [3] https://i-systems.github.io/tutorial/KSME/CAE/220520/01_PINN.html
+
+[4] [Howard, Amanda A., et al. (2023) Stacked networks improve physics-informed training: applications to neural networks and deep operator networks.](https://arxiv.org/abs/2311.06483)
+
+[5] [Heinlein, Alexander, et al. (2023) Multifidelity domain decomposition-based physics-informed neural networks for time-dependent problems.](https://arxiv.org/abs/2401.07888)
+
+[6] [Liu, Ziming, et al. (2024). KAN: Kolmogorov-Arnold Networks.](https://arxiv.org/abs/2404.19756)
+
+[7] https://github.com/Blealtan/efficient-kan
 

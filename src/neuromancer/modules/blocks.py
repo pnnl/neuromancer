@@ -557,7 +557,6 @@ class MLP_bounds(MLP):
         :param dropout: (float) Dropout probability
         """
 
-=======
         super().__init__(
             insize=insize,
             outsize=outsize,

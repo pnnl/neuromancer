@@ -36,16 +36,16 @@ Lightning Studios are powerful, AI development platforms. They essentially act a
 #### Stacked Physics-Informed Neural Networks
 * Neuromancer now supports Stacked Physics-Informed Neural Networks. This architecture, based on the work of [Howard et al. (2023)](https://arxiv.org/abs/2311.06483), consists of stacking multifidelity networks via composition, allowing a progressive improvement of learned solutions. This formulation is especially useful for highly oscillatory problems. We illustrate an example of its usage with the solution of a damped harmonic oscillator using PINN: [Part_5_Pendulum_Stacked.ipynb](examples/PDEs/Part_5_Pendulum_Stacked.ipynb)
 
-To Do...
-
 #### SINDy
 
-Sparse Identification of Nonlinear Dynamics (SINDy) is a powerful method which uses sparse regression to identify a small number of active terms in dynamic systems, allowing for interpretable and efficient modeling of complex, nonlinear dynamics. We now enable users to leverage this technique for sparse physics-informed system identification. Checkout the notebook here [Part_9_SINDy.ipynb](examples/ODEs/Part_9_SINDy.ipynb)
+* Sparse Identification of Nonlinear Dynamics (SINDy) is a powerful method which uses sparse regression to identify a small number of active terms in dynamic systems, allowing for interpretable and efficient modeling of complex, nonlinear dynamics. We now enable users to leverage this technique for sparse physics-informed system identification. Checkout the notebook here [Part_9_SINDy.ipynb](examples/ODEs/Part_9_SINDy.ipynb)
 
 **New Colab Examples:**
 > ⭐ [Custom Training Via Lightning Hooks ](#lightning-integration-examples)
 
 > ⭐ [Latent Stochastic Differential Equations ](#stochastic-differential-equation-examples)
+
+> ⭐ [Stacked Physics-Informed Neural Networks ](examples/PDEs/Part_5_Pendulum_Stacked.ipynb)
 
 > ⭐ [Part 9: Sparse Identification of Nonlinear Dynamics (SINDy) ](#ordinary-differential-equation-examples)
 

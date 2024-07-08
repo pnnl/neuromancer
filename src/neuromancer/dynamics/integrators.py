@@ -7,6 +7,7 @@ import torch.nn as nn
 
 from torchdiffeq import odeint_adjoint as odeint
 import torchdiffeq
+import torchsde
 from abc import ABC, abstractmethod
 
 
@@ -81,6 +82,63 @@ class DiffEqIntegrator(Integrator):
                           adjoint_options=dict(norm=make_norm(x)))
         x_t = solution[-1]
         return x_t
+    
+class BasicSDEIntegrator(Integrator): 
+    """
+    Integrator (from TorchSDE) for basic/explicit SDE case where drift (f) and diffusion (g) terms are defined 
+    Returns a single tensor of size (t, batch_size, state_size).
+
+    Please see https://github.com/google-research/torchsde/blob/master/torchsde/_core/sdeint.py
+    Currently only supports Euler integration. Choice of integration method is dependent 
+    on integral type (Ito/Stratanovich) and drift/diffusion terms
+    """
+    def __init__(self, block): 
+        """
+        :param block: (nn.Module) The BasicSDE block
+        """
+        super().__init__(block) 
+
+    def integrate(self, x, t): 
+        """
+        x is the initial datastate of size (batch_size, state_size)
+        t is the time-step vector over which to integrate
+        """
+        ys = torchsde.sdeint(self.block, x, t, method='euler')
+        return ys 
+
+class LatentSDEIntegrator(Integrator):
+    """
+    Integrator (from TorchSDE) for LatentSDE case. Please see https://github.com/google-research/torchsde/blob/master/examples/latent_sde_lorenz.py for more
+    information. Integration here takes place in the latent space produced by the first-stage (encoding process) of the LatentSDE_Encoder block
+    Note that torchsde.sdeint() is called, like in BasicSDEIntegrator, and thus the output of integrate() is a single tensor of size (t, batch_size, latent_size)
+    In this case we also set logqp to True such that log ratio penalty is also returned. 
+    PLease see: https://github.com/google-research/torchsde/blob/master/torchsde/_core/sdeint.py
+    """
+    def __init__(self, block,  dt=1e-2, method='euler', adjoint=False):
+        """
+        :param block:(nn.Module) The LatentSDE_Encoder block
+        :param dt: (float, optional): The constant step size or initial step size for
+            adaptive time-stepping.
+        :param method: method (str, optional): Numerical integration method to use. Must be
+            compatible with the SDE type (Ito/Stratonovich) and the noise type
+            (scalar/additive/diagonal/general). Defaults to a sensible choice
+            depending on the SDE type and noise type of the supplied SDE.
+        """
+        super().__init__(block)
+        self.method = method
+        self.dt = dt
+        self.adjoint = adjoint 
+        if self.adjoint: 
+            assert self.block.adjoint == True, "LatentSDE_Encoder block must have adjoint=True if using adjoint method here"
+
+    def integrate(self, x):
+        if not self.adjoint: 
+            z0, xs, ts, qz0_mean, qz0_logstd = self.block(x)
+            zs, log_ratio = torchsde.sdeint(self.block, z0, ts, dt=self.dt, logqp=True, method=self.method)
+        else: 
+            z0, xs, ts, qz0_mean, qz0_logstd, adjoint_params = self.block(x)
+            zs, log_ratio = torchsde.sdeint_adjoint(self.block, z0, ts, adjoint_params=adjoint_params, dt=self.dt, logqp=True, method=self.method)
+        return zs, z0, log_ratio, xs, qz0_mean, qz0_logstd
 
 
 class Euler(Integrator):

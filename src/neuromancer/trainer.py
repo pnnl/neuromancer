@@ -47,16 +47,15 @@ class CustomEarlyStopping(EarlyStopping):
             super()._run_early_stopping_check(trainer)
 
 
+
 class LitTrainer(pl.Trainer):
     def __init__(self, epochs=1000, train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss', eval_metric='dev_loss',
-                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', weight_name=None, devices='auto', strategy='auto', \
-                    accelerator='auto', profiler=None, custom_training_step=None, logger=None, hparam_config=None):
-        
+                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', weight_name=None, devices='auto', strategy='auto', 
+                 accelerator='auto', profiler=None, custom_training_step=None, custom_hooks=None, logger=None, hparam_config=None, automatic_optimization=True):
+
         """
         A Neuromancer-specific custom trainer class inheriting from PyTorch Lightning's Trainer. 
         This class is mainly a wrapper to interface with the user through fit()
-
-        For more information please see: https://lightning.ai/docs/pytorch/stable/common/trainer.html
 
         :param epochs: Number of epochs for training. Defaults to 1000.
         :param train_metric: Metric for training. Defaults to 'train_loss'.
@@ -75,8 +74,12 @@ class LitTrainer(pl.Trainer):
         :param accelerator: Accelerator type. Defaults to 'auto'.
         :param profiler: Profiler to use. Defaults to None (no profiling)
         :param custom_training_step: Custom training step function, if desired. Defaults to None, in which case the standard training step procedure is executed
-
+        :param custom_hooks: Dictionary of custom hook functions that are supported by Lightning. Defaults to None.
+        :param logger: A PyTorch Lightning logger e.g. TensorboardLogger(). Defaults to None. 
+        :param hparam_config: A wandb hyperparameter configuration file. Only used for hyperparameter tuning. 
+        :param automatic_optimization: If custom_training_step is defined, then this flag set to True means lightning expects custom_training_step to handle the gradients rather than return a loss
         """
+
         self.epochs = epochs
         self.train_metric = train_metric
         self.dev_metric = dev_metric
@@ -90,82 +93,46 @@ class LitTrainer(pl.Trainer):
         self.weight_name = weight_name
         self.devices = devices
         self.custom_optimizer = custom_optimizer
-        self.profiler = profiler 
+        self.profiler = profiler
         self.custom_training_step = custom_training_step
+        self.custom_hooks = custom_hooks or {}
         self.logger = logger
-        self.hparam_config = hparam_config 
+        self.hparam_config = hparam_config
+        self.automatic_optimization = automatic_optimization
 
-        self.problem_copy = None #store copy of base Neuromancer problem
+        self.problem_copy = None  # store copy of base Neuromancer problem
         self.lit_problem = None
-        self.lit_data_module = None 
-
+        self.lit_data_module = None
 
         callbacks = []
         if self.save_weights:
-            callbacks.append(ModelCheckpoint(save_weights_only=True, monitor=self.eval_metric, dirpath=self.weight_path, filename=self.weight_name, \
+            callbacks.append(ModelCheckpoint(save_weights_only=True, monitor=self.eval_metric, dirpath=self.weight_path, filename=self.weight_name, 
                                              mode='min', every_n_epochs=1, verbose=True))
         if self.patience:
             callbacks.append(CustomEarlyStopping(monitor=self.eval_metric, patience=self.patience, warmup=self.warmup))
 
-        super().__init__(max_epochs=self.epochs, callbacks=callbacks, devices=self.devices, strategy=strategy, accelerator=accelerator, \
-                         gradient_clip_val=clip, profiler=self.profiler, logger=self.logger)
+        # when using automatic optimization in lightning automatic gradient clipping is not supported
+        if (self.automatic_optimization is False) and (self.custom_training_step is not None):
+            super().__init__(max_epochs=self.epochs, callbacks=callbacks, devices=self.devices, strategy=strategy, accelerator=accelerator, \
+                            profiler=self.profiler, logger=self.logger)
+        else:
+            super().__init__(max_epochs=self.epochs, callbacks=callbacks, devices=self.devices, strategy=strategy, accelerator=accelerator, \
+                            gradient_clip_val=clip, profiler=self.profiler, logger=self.logger)
 
+    def apply_custom_hooks(self, model):
+        """
+        Apply custom hooks to the model.
+        :param model: The LightningModule to which custom hooks are applied.
+        """
+        for hook_name, hook_fn in self.custom_hooks.items():
+        # Bind the hook function to the model instance
+            setattr(model, hook_name, hook_fn.__get__(model))
 
     def get_weights(self):
         # Get state dict of best model
         best_model = self.lit_problem.problem.state_dict()
         return best_model
-
-
-    def hyperparameter_sweep(self, problem, data_setup_function, sweep_config, count=10, project_name='run_sweep', **kwargs):
-        """
-        Performs hyperparameter tuning sweep using wandb
-        """
-        self.problem_copy = deepcopy(problem) # store the original problem so that the original is used to train each sweep
-        self.data_setup_function = data_setup_function
-
-        # A nester LiTrainer class is required to circumvent a PyTorch lightning constraint that "current_spoch" cannot be set. So this 
-        # allows epoch counter to be reset after each sweep
-        class TempTrainer:
-            def __init__(self, parent, epochs=1000, train_metric='train_loss', dev_metric='dev_loss', test_metric='test_loss', eval_metric='dev_loss',
-                 patience=None, warmup=0, clip=100.0, custom_optimizer=None, save_weights=True, weight_path='./', weight_name=None, devices='auto', strategy='auto', \
-                    accelerator='auto', profiler=None, custom_training_step=None, logger=None):
-                self.parent = parent
-                self.problem_copy = deepcopy(parent.problem_copy)
-                self.data_setup_function = parent.data_setup_function
-                self.epochs = epochs
-                self.train_metric = train_metric
-                self.dev_metric = dev_metric
-                self.test_metric = test_metric
-                self.eval_metric = eval_metric
-                self.patience = patience
-                self.warmup = warmup
-                self.clip = clip
-                self.save_weights = save_weights
-                self.weight_path = weight_path
-                self.weight_name = weight_name
-                self.devices = devices
-                self.custom_optimizer = custom_optimizer
-                self.profiler = profiler 
-                self.custom_training_step = custom_training_step
-                self.accelerator = accelerator
-
-            def train_model(self):
-                wandb.init()
-                self.parent.hparam_config = wandb.config
-                trainer = LitTrainer(epochs=self.epochs, train_metric=self.train_metric, dev_metric=self.dev_metric, test_metric=self.test_metric, eval_metric=self.eval_metric, \
-                                                  patience=self.patience, warmup=self.warmup, clip=self.clip, save_weights=False, devices=self.devices, \
-                                                  custom_optimizer=self.custom_optimizer, profiler=None, custom_training_step=self.custom_optimizer, accelerator=self.accelerator, \
-                                                  hparam_config=wandb.config)
-                trainer.fit(self.problem_copy, self.data_setup_function, **kwargs)
-
-        sweep_id = wandb.sweep(sweep_config, project=project_name)
-        trainer_within_itself = TempTrainer(self, epochs=self.epochs, train_metric=self.train_metric, dev_metric=self.dev_metric, test_metric=self.test_metric, eval_metric=self.eval_metric, \
-                                                  patience=self.patience, warmup=self.warmup, clip=self.clip, save_weights=False, devices=self.devices, \
-                                                  custom_optimizer=self.custom_optimizer, profiler=None, custom_training_step=self.custom_optimizer, accelerator=self.accelerator)
-        wandb.agent(sweep_id=sweep_id, function=trainer_within_itself.train_model, count=count)
-
-
+    
     def fit(self, problem, data_setup_function, **kwargs):
         """
         Fits (trains) a base neuromancer Problem to a data defined by a data setup function). 
@@ -175,11 +142,16 @@ class LitTrainer(pl.Trainer):
         :param problem: A Neuromancer Problem() we want to train/fit
         :param data_setup_function: A function that returns train/dev/test Neuromancer DictDatasets as well as batch_size to use
         """
-        self.problem_copy = deepcopy(problem)
+        ##self.problem_copy = deepcopy(problem)
         self.data_setup_function = data_setup_function
-        self.lit_problem = LitProblem(problem,self.train_metric, self.dev_metric, self.test_metric, custom_training_step=self.custom_training_step, hparam_config=self.hparam_config )
-        self.lit_data_module = LitDataModule(data_setup_function,self.hparam_config ,**kwargs)
+        self.lit_problem = LitProblem(problem, self.train_metric, self.dev_metric, self.test_metric, custom_training_step=self.custom_training_step, 
+                                      custom_hooks=self.custom_hooks, hparam_config=self.hparam_config)
+        self.lit_data_module = LitDataModule(data_setup_function, self.hparam_config, **kwargs)
+        self.apply_custom_hooks(self.lit_problem)
         super().fit(self.lit_problem, self.lit_data_module)
+    
+    
+
 
 
 
@@ -209,6 +181,7 @@ class Trainer:
         eval_metric="dev_loss",
         eval_mode="min",
         clip=100.0,
+        multi_fidelity=False,
         device="cpu"
     ):
         """
@@ -222,6 +195,7 @@ class Trainer:
         :param patience: (int) Number of epochs to allow no improvement before early stopping
         :param warmup: (int) How many epochs to wait before enacting early stopping policy
         :param eval_metric: (str) Performance metric for model selection and early stopping
+        :param multi_fidelity: (bool) If yes, performs updates on the parameter alpha of the multi-fidelity net
         """
         self.model = problem
         self.optimizer = optimizer if optimizer is not None else torch.optim.Adam(problem.parameters(), 0.01, betas=(0.0, 0.9))
@@ -251,6 +225,7 @@ class Trainer:
         self.clip = clip
         self.best_devloss = np.finfo(np.float32).max if self._eval_min else 0.
         self.best_model = deepcopy(self.model.state_dict())
+        self.multi_fidelity=multi_fidelity
         self.device = device
 
     def train(self):
@@ -259,7 +234,7 @@ class Trainer:
         Trains for self.epochs and terminates early if self.patience threshold is exceeded.
         """
         self.callback.begin_train(self)
-
+    
         try:
             for i in range(self.current_epoch, self.current_epoch+self.epochs):
 
@@ -269,6 +244,12 @@ class Trainer:
                     t_batch['epoch'] = i
                     t_batch = move_batch_to_device(t_batch, self.device)
                     output = self.model(t_batch)
+
+                    if self.multi_fidelity:
+                        for node in self.model.nodes:
+                            alpha_loss = node.callable.get_alpha_loss()
+                            output[self.train_metric] += alpha_loss
+
                     self.optimizer.zero_grad()
                     output[self.train_metric].backward()
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)

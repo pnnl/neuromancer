@@ -3,7 +3,7 @@
   <img src="figs/Neuromancer.png" width="250">  
 </p>
 
-# NeuroMANCER v1.5.0
+# NeuroMANCER v1.5.1
 
 **Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
 is an open-source differentiable programming (DP) library for solving parametric constrained optimization problems, 
@@ -17,20 +17,37 @@ differentiable models and algorithms embedded with prior knowledge and physics.
  ![PyPI - Version](https://img.shields.io/pypi/v/neuromancer)
 
 
-### New in v1.5.0
+### New in v1.5.1
+#### Lightning Enhancements 
 ![Lightning](https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white)
-Now supports integration with PyTorch Lightning (https://lightning.ai/docs/pytorch/stable/), bringing:
-* User workflow simplifications: zero boilerplate code and increased modularity 
-* Ability for user to define custom training logic easily 
-* Easy support for distributed GPU training
-* Weights and Biases hyperparameter tuning 
+Further integration enhancements with PyTorch Lightning (https://lightning.ai/docs/pytorch/stable/). We now support all Lightning hooks, which are modular logic blocks that make defining custom training/validation/etc logic very easy and user-friendly.
 
-Please refer to the Lightning folder and its [README](examples/lightning_integration_examples/README.md).
+We have also released a *Lightning Studio* course on **Differentiable Predictive Control**: <a target="_blank" href="https://lightning.ai/rahulbirmiwal/studios/differential-predictive-control-with-neuromancer">
+  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio" style="width:100px; height:auto;"/>
+</a>!
+
+Lightning Studios are powerful, AI development platforms. They essentially act as extremely user-friendly virtual machines, but accessible through your browser! Please see https://lightning.ai/studios for more information. 
+
+
+#### TorchSDE Integration
+* We have begun integration with the TorchSDE library (https://github.com/google-research/torchsde/tree/master) TorchSDE provides stochastic differential equation solvers with GPU spport and efficient backpropagation. 
+* Neuromancer already has robust and extensive library for Neural ODEs and ODE solvers. We extend that functionality to the stochastic case by incorporating TorchSDE solvers. To motivate and teach the user how one progresses from neural ODEs to "neural SDEs" we have written a lengthy notebook -- [sde_walkthrough.ipynb](examples/SDEs/sde_walkthrough.ipynb)
+
+#### Stacked Physics-Informed Neural Networks
+* Neuromancer now supports Stacked Physics-Informed Neural Networks. This architecture, based on the work of [Howard et al. (2023)](https://arxiv.org/abs/2311.06483), consists of stacking multifidelity networks via composition, allowing a progressive improvement of learned solutions. This formulation is especially useful for highly oscillatory problems. We illustrate an example of its usage with the solution of a damped harmonic oscillator using PINN: [Part_5_Pendulum_Stacked.ipynb](examples/PDEs/Part_5_Pendulum_Stacked.ipynb)
+
+#### SINDy
+
+* Sparse Identification of Nonlinear Dynamics (SINDy) is a powerful method which uses sparse regression to identify a small number of active terms in dynamic systems, allowing for interpretable and efficient modeling of complex, nonlinear dynamics. We now enable users to leverage this technique for sparse physics-informed system identification. Checkout the notebook here [Part_9_SINDy.ipynb](examples/ODEs/Part_9_SINDy.ipynb)
 
 **New Colab Examples:**
-> ⭐ [Various domain examples, such as system identification of building thermal dynamics, in NeuroMANCER](#domain-examples)
+> ⭐ [Custom Training Via Lightning Hooks ](#lightning-integration-examples)
 
-> ⭐ [PyTorch lightning integration Examples ](#lightning-integration-examples)
+> ⭐ [Latent Stochastic Differential Equations ](#stochastic-differential-equation-examples)
+
+> ⭐ [Stacked Physics-Informed Neural Networks ](examples/PDEs/Part_5_Pendulum_Stacked.ipynb)
+
+> ⭐ [Part 9: Sparse Identification of Nonlinear Dynamics (SINDy) ](#ordinary-differential-equation-examples)
 
 
 ## Features and Examples
@@ -96,11 +113,17 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_8_nonauto_DeepKoopman.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 8: control-oriented Deep Koopman operator
 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_9_SINDy.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 9: Sparse Identification of Nonlinear Dynamics (SINDy)
 
-### Physics-Informed Neural Networks (PINNs) for Partial Differential Equations (PDEs)
+
+### Physics-Informed Neural Networks (PINNs) for Partial Differential Equations (PDEs) and Ordinary Differential Equations (ODEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Diffusion Equation
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_2_PINN_BurgersEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Burgers' Equation
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_3_PINN_BurgersEquation_inverse.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Burgers' Equation w/ Parameter Estimation (Inverse Problem)
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_4_PINN_LaplaceEquationSteadyState.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Laplace's Equation (steady-state)
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_5_Pendulum_Stacked.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Damped Pendulum (stacked PINN)
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_6_PINN_NavierStokesCavitySteady_KAN.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Navier-Stokes equation (lid-driven cavity flow, steady-state, KAN)
 
 ### Control
 
@@ -153,6 +176,12 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/other_examples/lightning_custom_training_example.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
  
+
+### Stochastic Differential Equation Examples
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/SDEs/sde_walkthrough.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> LatentSDEs: "System Identification" of Stochastic Processes using Neuromancer x TorchSDE
+
+
 ## Documentation
 The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/). 
 There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 

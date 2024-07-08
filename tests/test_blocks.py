@@ -10,7 +10,8 @@ from neuromancer.modules.activations import activations
 rect_maps = [v for k, v in maps.items() if v not in square_maps and v is not slim.linear.TrivialNullSpaceLinear]
 activations = [v for k, v in activations.items()]
 # list of all blocks with tunable insize and outsize shapes
-all_shaped_blocks = [MLP, MLPDropout, MLP_bounds, ResMLP, BilinearTorch, RNN, PytorchRNN, Linear, BasisLinear, InputConvexNN]
+all_shaped_blocks = [MLP, MLPDropout, MLP_bounds, ResMLP, BilinearTorch, RNN, PytorchRNN,
+                     Linear, BasisLinear, InputConvexNN, KANBlock, StackedMLP]
 
 
 @given(st.integers(1, 100),

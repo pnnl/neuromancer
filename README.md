@@ -70,7 +70,7 @@ Part 2: NeuroMANCER syntax tutorial: variables, constraints, and objectives.
 Part 3: NeuroMANCER syntax tutorial: modules, Node, and System class.
 
 
-### Parametric Programming
+### Learning to Optimize (L2O) for Parametric Programming
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 Part 1: Learning to solve a constrained optimization problem.
@@ -87,8 +87,10 @@ Part 4: Learning to solve a constrained optimization problem with the projected 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_5_cvxpy_layers.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
 Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasible set.  
 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_6_pQp_lopoCorrection"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
+Part 6: Learning to optimize with metric learning for Operator Splitting layers.  
 
-### Ordinary Differential Equations (ODEs)
+### System Identification of Ordinary Differential Equations (ODEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_1_NODE.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Neural Ordinary Differential Equations (NODEs)
 
@@ -125,7 +127,7 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_5_Pendulum_Stacked.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Damped Pendulum (stacked PINN)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_6_PINN_NavierStokesCavitySteady_KAN.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Navier-Stokes equation (lid-driven cavity flow, steady-state, KAN)
 
-### Control
+### Learning to Control (L2C) with Differentiable Models
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Learning to stabilize a linear dynamical system.
@@ -177,7 +179,7 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
  
 
-### Stochastic Differential Equation Examples
+### Stochastic Differential Equations (SDEs) 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/SDEs/sde_walkthrough.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> LatentSDEs: "System Identification" of Stochastic Processes using Neuromancer x TorchSDE
 
@@ -372,6 +374,12 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 
 ## Publications 
++ [Jan Drgona, Aaron Tuor, Draguna Vrabie, Learning Constrained Parametric Differentiable Predictive Control Policies With Guarantees, IEEE Transactions on Systems, Man, and Cybernetics: Systems, 2024](https://ieeexplore.ieee.org/abstract/document/10479163)
++ [Renukanandan Tumu, Wenceslao Shaw Cortez, Ján Drgoňa, Draguna L. Vrabie, Sonja Glavaski, Differentiable Predictive Control for Large-Scale Urban Road Networks, 	arXiv:2406.10433, 2024](https://arxiv.org/abs/2406.10433)
++ [Ethan King, James Kotary, Ferdinando Fioretto, Jan Drgona, Metric Learning to Accelerate Convergence of Operator Splitting Methods for Differentiable Parametric Programming, arXiv:2404.00882, 2024](https://arxiv.org/abs/2404.00882)
++ [James Koch, Madelyn Shapiro, Himanshu Sharma, Draguna Vrabie, Jan Drgona, Neural Differential Algebraic Equations, arXiv:2403.12938, 2024](https://arxiv.org/abs/2403.12938)
++ [Wenceslao Shaw Cortez, Jan Drgona, Draguna Vrabie, Mahantesh Halappanavar, A Robust, Efficient Predictive Safety Filter, arXiv:2311.08496, 2024](https://arxiv.org/abs/2311.08496)
++ [Shrirang Abhyankar, Jan Drgona, Andrew August, Elliott Skomski, Aaron Tuor, Neuro-physical dynamic load modeling using differentiable parametric optimization, 2023 IEEE Power & Energy Society General Meeting (PESGM), 2023](https://ieeexplore.ieee.org/abstract/document/10253098)
 + [James Koch, Zhao Chen, Aaron Tuor, Jan Drgona, Draguna Vrabie, Structural Inference of Networked Dynamical Systems with Universal Differential Equations, arXiv:2207.04962, (2022)](https://aps.arxiv.org/abs/2207.04962)
 + [Ján Drgoňa, Sayak Mukherjee, Aaron Tuor, Mahantesh Halappanavar, Draguna Vrabie, Learning Stochastic Parametric Differentiable Predictive Control Policies, IFAC ROCOND conference (2022)](https://www.sciencedirect.com/science/article/pii/S2405896322015877)
 + [Sayak Mukherjee, Ján Drgoňa, Aaron Tuor, Mahantesh Halappanavar, Draguna Vrabie, Neural Lyapunov Differentiable Predictive Control, IEEE Conference on Decision and Control Conference 2022](https://arxiv.org/abs/2205.10728)
@@ -391,7 +399,7 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 ```yaml
 @article{Neuromancer2023,
   title={{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}},
-  author={Drgona, Jan and Tuor, Aaron and Koch, James and Shapiro, Madelyn and Vrabie, Draguna},
+  author={Drgona, Jan and Tuor, Aaron and Koch, James and Shapiro, Madelyn and Jacob, Bruno and Vrabie, Draguna},
   Url= {https://github.com/pnnl/neuromancer}, 
   year={2023}
 }
@@ -399,11 +407,10 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 ## Development team
 
-**Lead developers**: [Jan Drgona](https://drgona.github.io/), [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/)   
-**Active core developers**: Madelyn Shapiro, Bruno Jacob, Rahul Birmiwal  
+**Active core developers**: [Jan Drgona](https://drgona.github.io/), [Rahul Birmiwal](https://www.linkedin.com/in/rahul-birmiwal009/), [Bruno Jacob](https://brunopjacob.github.io/)
+**Notable contributors**: [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/), Madelyn Shapiro, James Koch, Seth Briney, Bo Tang, Ethan King, Shrirang Abhyankar, 
+Elliot Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 **Scientific advisors**: Draguna Vrabie, Panos Stinis  
-**Notable contributors**: James Koch, Seth Briney, Bo Tang, Ethan King, Shrirang Abhyankar, 
-Mia Skomski, Stefan Dernbach, Zhao Chen, Christian Møldrup Legaard
 
 Open-source contributions made by:  
 <a href="https://github.com/pnnl/neuromancer/graphs/contributors">

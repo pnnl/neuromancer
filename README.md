@@ -87,7 +87,7 @@ Part 4: Learning to solve a constrained optimization problem with the projected 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_5_cvxpy_layers.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
 Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasible set.  
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_6_pQp_lopoCorrection"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_6_pQp_lopoCorrection.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
 Part 6: Learning to optimize with metric learning for Operator Splitting layers.  
 
 ### System Identification of Ordinary Differential Equations (ODEs)

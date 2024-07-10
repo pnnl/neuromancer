@@ -7,6 +7,7 @@
 + New feature: TorchSDE integration with Neuromancer core library, namely `torchsde.sdeint()`. Motivating example for system ID on stochastic process found in examples/sdes/sde_walkthrough.ipynb
 + New feature: Stacked physics-informed neural networks 
 + New feature: SINDy -- sparse system identification of nonlinear dynamical systems
++ New feature: differentiable proximal operators in operator splitting methods for learning to optimize
 
 ### Version 1.5.0 Release Notes 
 + New Feature: PyTorch Lightning Integration with NeuroMANCER core library. All these features are opt-in. 

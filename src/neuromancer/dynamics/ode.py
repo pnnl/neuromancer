@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from abc import ABC, abstractmethod
+from neuromancer.dynamics.library import FunctionLibrary
 
 
 class SSM(nn.Module):
@@ -154,6 +155,62 @@ class GeneralNetworkedODE(ODESystem):
                 if physics.symmetric:
                     dx[:, [receive]] -= contribution
         return dx   
+
+
+class SINDy(ODESystem):
+    """
+    Sparse Identification of Nonlinear Dynamics
+    Reference: https://www.pnas.org/doi/10.1073/pnas.1517384113
+    """
+    def __init__(
+        self,
+        library,
+        threshold=1e-2
+    ):
+        """
+        :param library: (FunctionLibrary) the library of candidate functions
+        :param threshold: (float) all functions with coefficients lower than this are omitted
+        """
+        assert isinstance(library, FunctionLibrary), "Must be valid library"
+
+        super().__init__(library.shape[1], library.shape[1])
+
+        self.library = library
+        self.threshold = threshold
+        init_coef = torch.rand(self.library.shape)
+        self.coef = torch.nn.Parameter(init_coef, requires_grad=True)
+        self.float()
+
+    def ode_equations(self, x):
+        """
+        :param x: (torch.tensor) time series data
+        """
+        assert x.ndim == 2, "Input must not be empty"
+        assert x.shape[1] == self.library.shape[1], "Must have same number of states as insize"
+        lib_eval = self.library.evaluate(x)
+        output = torch.matmul(lib_eval, self.coef)
+        return output
+
+
+    def __str__(self):
+        """
+        return: (str) a list of the linear combinations of candidate functions for each state variable
+        """
+        f_names = self.library.__str__()
+        f_names = f_names.split(", ")
+        return_str = ""
+
+        for i in range(self.library.shape[1]):
+            return_str += f"dx{i}/dt = "
+            for j in range(len(f_names)):
+                coef = self.coef[j, i]
+                if torch.abs(coef) > self.threshold:
+                    func = f_names[j]
+                    return_str += f"{coef:.3f}*{func} + "
+            return_str = return_str[:-2]
+            return_str += "\n"
+
+        return return_str
 
 
 class TwoTankParam(ODESystem):

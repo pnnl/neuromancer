@@ -11,7 +11,8 @@ Complimentary to the Energy Load Forecasting Notebook using a multi-layered perc
 ## Forecasting  
 While this notebook does not display the use of forecasting future timesteps without weather inputs, after training the model displayed in the notebook for 175 epochs, one can achieve relatively good results for forecasting future timesteps:
 
+<img src="./figs/Transformer_Prediction_0.png" width="500">  
 
-![image.png](/neuromancer/examples/figs/Transformer_Prediction_1.png)
+<img src="./figs/Transformer_Prediction_1.png" width="500">  
 
-![image.png](/neuromancer/examples/figs/Transformer_Prediction_2.png)
+<img src="./figs/Transformer_Prediction_2.png" width="500">  

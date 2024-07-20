@@ -13,8 +13,9 @@ integration of machine learning with scientific computing for creating end-to-en
 differentiable models and algorithms embedded with prior knowledge and physics.
 
 ### ⭐ Now available on PyPi! ⭐
-![Static Badge](https://img.shields.io/badge/pip_install-neuromancer-blue)
- ![PyPI - Version](https://img.shields.io/pypi/v/neuromancer)
+
+[![PyPI - Version](https://img.shields.io/pypi/v/neuromancer)](https://pypi.org/project/neuromancer/)
+[![Python - Version](https://img.shields.io/pypi/pyversions/neuromancer?logo=pypi)](https://pypi.org/project/neuromancer/)
 
 
 ### New in v1.5.1

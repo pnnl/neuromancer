@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "neuromancer"
+version = "1.5.1"
 authors = [
     { name = "Aaron Tuor", email = "aaron.tuor@pnnl.gov" },
     { name = "Jan Drgona", email = "jan.drgona@pnnl.gov" },
@@ -15,7 +16,7 @@ authors = [
 ]
 description = "Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularization"
 readme = "README.md"
-requires-python = ">=3.9, <3.11"
+requires-python = ">=3.9, <4"
 keywords = [
     "Deep Learning",
     "Pytorch",
@@ -23,17 +24,17 @@ keywords = [
     "Dynamical Systems",
     "Data-driven control",
 ]
-
-
-
 license = { text = "BSD-2-Clause" }
 classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Physics",
     "License :: OSI Approved :: BSD License"
 ]
+
 dependencies = [
     "dill",
     "graphviz",
@@ -58,8 +59,6 @@ dependencies = [
     "wandb", 
     "torchsde"
 ]
-
-version = "1.5.1"
 
 [project.urls]
 homepage = "https://github.com/pnnl/neuromancer/"

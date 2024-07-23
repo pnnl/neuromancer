@@ -15,7 +15,7 @@ authors = [
 ]
 description = "Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularization"
 readme = "README.md"
-requires-python = ">=3.9, <3.11"
+requires-python = ">=3.9, <=3.11"
 keywords = [
     "Deep Learning",
     "Pytorch",
@@ -76,3 +76,4 @@ where = ["src"]
 tests = ["pytest", "hypothesis"]
 examples = ["casadi", "cvxpy", "imageio", "cvxpylayers"]
 docs = ["sphinx", "sphinx-rtd-theme"]
+dev = ["pre-commit", "flake8", "black"]

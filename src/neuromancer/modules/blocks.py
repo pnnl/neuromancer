@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 import neuromancer.slim as slim
 import neuromancer.modules.rnn as rnn
 from neuromancer.modules.activations import soft_exp, SoftExponential, SmoothedReLU
-
+from neuromancer.modules.functions import bounds_clamp, bounds_scaling
 
 
 
@@ -174,16 +174,6 @@ class MLP(Block):
         for lin, nlin in zip(self.linear, self.nonlin):
             x = nlin(lin(x))
         return x
-
-
-def sigmoid_scale(x, min, max):
-    return (max - min) * torch.sigmoid(x) + min
-
-
-def relu_clamp(x, min, max):
-    x = x + torch.relu(-x + min)
-    x = x - torch.relu(x - max)
-    return x
 
 
 class KANLinear(torch.nn.Module):
@@ -530,7 +520,7 @@ class MLP_bounds(MLP):
     Multi-Layer Perceptron consistent with blocks interface
     """
 
-    bound_methods = {"sigmoid_scale": sigmoid_scale, "relu_clamp": relu_clamp}
+    bound_methods = {"sigmoid_scale": bounds_scaling, "relu_clamp": bounds_clamp}
 
     def __init__(
         self,

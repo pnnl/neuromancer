@@ -356,7 +356,7 @@ pip install -e . --no-deps
 In order to use the Problem graph plots, we recommend installing Graphviz system-wide. Note that this feature is optional.
 
 #### For Windows:
-Package must be installed manually, with installers available (here)[https://graphviz.org/download/]
+Package must be installed manually: [Graphviz website](https://graphviz.org/download/)
 
 #### For Linux (Debian, Ubuntu)
 ```bash

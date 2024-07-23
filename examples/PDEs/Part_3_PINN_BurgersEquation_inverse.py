@@ -30,8 +30,15 @@ import torch
 import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
+
 # data imports
 from scipy.io import loadmat
+import os
+os.chdir(os.path.dirname(__file__))
+
+# filter some user warnings from torch broadcast
+import warnings
+warnings.filterwarnings("ignore")
 
 
 def plot3D(X, T, y):
@@ -61,7 +68,15 @@ if __name__ == "__main__":
     torch.set_default_dtype(torch.float)  # Set default dtype to float32
     torch.manual_seed(1234)  # PyTorch random number generator
     np.random.seed(1234)  # numpy Random number generators
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # Device configuration
+    device =  torch.device('cpu')
+    # if torch.backends.mps.is_available():
+    #     device = torch.device('mps')
+    # elif torch.cuda.is_available():
+    #     device = torch.device('cuda')
+    # else:
+    #     device = torch.device('cpu')
 
     """
     ## Generate data of the exact solution
@@ -240,7 +255,7 @@ if __name__ == "__main__":
     scaling = 1000.
 
     # PDE CP loss
-    ell_1 = (f_pinn == 0.) ^ 2
+    ell_1 = (f_pinn == torch.tensor(0.).to(device)) ^ 2
 
     # PDE supervised learning loss
     ell_2 = scaling * (y_hat == y) ^ 2
@@ -277,7 +292,7 @@ if __name__ == "__main__":
                       )
 
     # show the PINN computational graph
-    problem.show()
+    # problem.show()
 
     optimizer = torch.optim.AdamW(problem.parameters(), lr=0.001)
     epochs = 10000
@@ -293,6 +308,7 @@ if __name__ == "__main__":
         dev_metric='train_loss',
         eval_metric="train_loss",
         warmup=epochs,
+        device=device
     )
 
     # Train PINN
@@ -309,7 +325,7 @@ if __name__ == "__main__":
     Plot the results
     """
     # evaluate trained PINN on test data
-    PINN = problem.nodes[0]
+    PINN = problem.nodes[0].cpu()
     y1 = PINN(test_data.datadict)['y_hat']
 
     # arrange data for plotting

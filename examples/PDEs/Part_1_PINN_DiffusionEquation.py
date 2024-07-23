@@ -32,6 +32,10 @@ import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
 
+# filter some user warnings from torch broadcast
+import warnings
+warnings.filterwarnings("ignore")
+
 
 def f_real(x, t):
     # exact PDE solution y(x,t)

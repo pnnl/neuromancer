@@ -293,7 +293,7 @@ if __name__ == "__main__":
     scaling = 100.
 
     # PDE CP loss
-    ell_f = scaling * (f_pinn == torch.tensor(0.).to(device)) ^ 2
+    ell_f = scaling * (f_pinn == 0.) ^ 2
 
     # PDE IC and BC loss
     ell_u = scaling * (y_hat[-Nu:] == Y_train_Nu) ^ 2  # remember we stacked CP with IC and BC

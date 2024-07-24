@@ -70,13 +70,12 @@ if __name__ == "__main__":
     np.random.seed(1234)  # numpy Random number generators
     
     # Device configuration
-    device =  torch.device('cpu')
-    # if torch.backends.mps.is_available():
-    #     device = torch.device('mps')
-    # elif torch.cuda.is_available():
-    #     device = torch.device('cuda')
-    # else:
-    #     device = torch.device('cpu')
+    if torch.backends.mps.is_available():
+        device = torch.device('mps')
+    elif torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
 
     """
     ## Generate data of the exact solution
@@ -255,7 +254,7 @@ if __name__ == "__main__":
     scaling = 1000.
 
     # PDE CP loss
-    ell_1 = (f_pinn == torch.tensor(0.).to(device)) ^ 2
+    ell_1 = (f_pinn == 0.) ^ 2
 
     # PDE supervised learning loss
     ell_2 = scaling * (y_hat == y) ^ 2

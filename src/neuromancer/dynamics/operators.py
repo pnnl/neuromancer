@@ -45,6 +45,10 @@ class DeepONet(nn.Module):
                 trunk_inputs: torch.Tensor) -> tuple[
         torch.Tensor, torch.Tensor, torch.Tensor]:
         """Forward propagation.
+        Nsamples = should be batch size, but if total/batch size isn't even then what will the behavior be, is batch size respected
+        Nu = number of sensors
+        in_size_trunk = 1, why?
+        interact_size = out size and interact size for both networks, why
 
         :param branch_inputs: (torch.Tensor, shape=[Nu, Nsamples])
         :param trunk_inputs: (torch.Tensor, shape=[Nu, in_size_trunk])

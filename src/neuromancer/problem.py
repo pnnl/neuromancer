@@ -342,7 +342,7 @@ class Problem(nn.Module):
             node.unfreeze()
 
     def __repr__(self):
-        s = "### MODEL SUMMARY ###\n\nnodeS:"
+        s = "### MODEL SUMMARY ###\n\nNODES:"
         if len(self.nodes) > 0:
             for c in self.nodes:
                 s += f"\n  {repr(c)}"

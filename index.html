@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeuroMANCER &mdash; NeuroMANCER 1.3.3 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=fd3f3429" />
+
+  
+    <link rel="shortcut icon" href="_static/tiny_dadaist.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=28d163b9"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Dynamics" href="dynamics.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            NeuroMANCER
+              <img src="_static/dadaist.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="dynamics.html">Dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="activations.html">Activations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="blocks.html">Blocks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataset.html">Dataset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="estimators.html">Estimators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="loggers.html">Loggers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="operators.html">Operators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot.html">Plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="problem.html">Problem</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rnn.html">RNN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulators.html">Simulators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trainer.html">Trainer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="visuals.html">Visuals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="arg.html">Arg</a></li>
+<li class="toctree-l1"><a class="reference internal" href="callbacks.html">Callbacks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="component.html">Component</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constraint.html">Constraint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gradients.html">Gradients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bounds.html">Bounds</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gnn.html">GNN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interpolation.html">Interpolation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="loss.html">Loss</a></li>
+<li class="toctree-l1"><a class="reference internal" href="maps.html">Maps</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ode.html">ODE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pwa_maps.html">PWA Maps</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulator.html">Simulator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="physics.html">Physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="psl/index.html">PSL: Python Systems Library v1.2</a></li>
+<li class="toctree-l1"><a class="reference internal" href="slim/index.html">SLiM: Structured Linear Maps</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">NeuroMANCER</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">NeuroMANCER</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="neuromancer">
+<h1>NeuroMANCER<a class="headerlink" href="#neuromancer" title="Link to this heading"></a></h1>
+<img alt="_images/class_diagram.png" src="_images/class_diagram.png" />
+<section id="additional-documentation">
+<h2>Additional Documentation<a class="headerlink" href="#additional-documentation" title="Link to this heading"></a></h2>
+<p>Additional documentation for the library can be found in the <a class="reference external" href="https://github.com/pnnl/neuromancer/blob/master/Documentation.pdf">pdf
+form</a>.
+There is also an <a class="reference external" href="https://www.youtube.com/watch?v=YkFKz-DgC98">introduction
+video</a> covering core
+features of the library.</p>
+</section>
+<section id="getting-started">
+<h2>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h2>
+<p>Below is a Neuromancer syntax example for differentiable parametric programming</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">neuromancer</span> <span class="k">as</span> <span class="nn">nm</span>
+
+<span class="c1"># primal solution map to be trained</span>
+<span class="n">func</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">blocks</span><span class="o">.</span><span class="n">MLP</span><span class="p">(</span><span class="n">insize</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">outsize</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">hsizes</span><span class="o">=</span><span class="p">[</span><span class="mi">80</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">sol_map</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">maps</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span><span class="n">func</span><span class="p">,</span>
+        <span class="n">input_keys</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">],</span>
+        <span class="n">output_keys</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
+        <span class="n">name</span><span class="o">=</span><span class="s1">&#39;primal_map&#39;</span><span class="p">)</span>
+
+<span class="c1"># problem primal variables</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">constraints</span><span class="o">.</span><span class="n">variable</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)[:,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">constraints</span><span class="o">.</span><span class="n">variable</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)[:,</span> <span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+<span class="c1"># sampled problem parameters</span>
+<span class="n">p</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">constraints</span><span class="o">.</span><span class="n">variable</span><span class="p">(</span><span class="s1">&#39;p&#39;</span><span class="p">)</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">constraints</span><span class="o">.</span><span class="n">variable</span><span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">)</span>
+
+<span class="c1"># nonlinear objective function</span>
+<span class="n">f</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">a</span><span class="o">*</span><span class="p">(</span><span class="n">y</span><span class="o">-</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+<span class="n">obj</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">weight</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;obj&#39;</span><span class="p">)</span>
+
+<span class="c1"># constraints</span>
+<span class="n">con_1</span> <span class="o">=</span> <span class="mi">100</span><span class="o">*</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;=</span> <span class="n">y</span><span class="p">)</span>
+<span class="n">con_2</span> <span class="o">=</span> <span class="mi">100</span><span class="o">*</span><span class="p">((</span><span class="n">p</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">&lt;=</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">+</span><span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">con_3</span> <span class="o">=</span> <span class="mi">100</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">+</span><span class="n">y</span><span class="o">**</span><span class="mi">2</span> <span class="o">&lt;=</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="c1"># create constrained optimization loss</span>
+<span class="n">objectives</span> <span class="o">=</span> <span class="p">[</span><span class="n">obj</span><span class="p">]</span>
+<span class="n">constraints</span> <span class="o">=</span> <span class="p">[</span><span class="n">con_1</span><span class="p">,</span> <span class="n">con_2</span><span class="p">,</span> <span class="n">con_3</span><span class="p">]</span>
+<span class="n">loss</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">PenaltyLoss</span><span class="p">(</span><span class="n">objectives</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
+<span class="c1"># construct constrained optimization problem</span>
+<span class="n">components</span> <span class="o">=</span> <span class="p">[</span><span class="n">sol_map</span><span class="p">]</span>
+<span class="n">problem</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">Problem</span><span class="p">(</span><span class="n">components</span><span class="p">,</span> <span class="n">loss</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="conda-install">
+<h2>Conda install<a class="headerlink" href="#conda-install" title="Link to this heading"></a></h2>
+<p>First clone the neuromancer library.
+Conda install is recommended for GPU acceleration.
+In many cases the following simple install should work for the specified OS</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>user@machine:~$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>-b<span class="w"> </span>master<span class="w"> </span>https://github.com/pnnl/neuromancer.git<span class="w"> </span>--single-branch
+</pre></div>
+</div>
+</section>
+<section id="install-dependencies">
+<h2>Install dependencies<a class="headerlink" href="#install-dependencies" title="Link to this heading"></a></h2>
+<section id="ubuntu">
+<h3>Ubuntu<a class="headerlink" href="#ubuntu" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>linux_env.yml
+$<span class="w"> </span>conda<span class="w"> </span>activate<span class="w"> </span>neuromancer
+</pre></div>
+</div>
+</section>
+<section id="windows">
+<h3>Windows<a class="headerlink" href="#windows" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>windows_env.yml
+$<span class="w"> </span>conda<span class="w"> </span>activate<span class="w"> </span>neuromancer
+<span class="o">(</span>neuromancer<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>defaults<span class="w"> </span>intel-openmp<span class="w"> </span>-f
+</pre></div>
+</div>
+</section>
+<section id="macos-apple-m1">
+<h3>MacOS (Apple M1)<a class="headerlink" href="#macos-apple-m1" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>osxarm64_env.yml
+$<span class="w"> </span>conda<span class="w"> </span>activate<span class="w"> </span>neuromancer
+</pre></div>
+</div>
+</section>
+<section id="other-operating-system">
+<h3>Other operating system<a class="headerlink" href="#other-operating-system" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>neuromancer<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.10.4
+$<span class="w"> </span>conda<span class="w"> </span>activate<span class="w"> </span>neuromancer
+<span class="o">(</span>neuromancer<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>conda<span class="w"> </span>install<span class="w"> </span>pytorch<span class="w"> </span>pytorch-cuda<span class="o">=</span><span class="m">11</span>.6<span class="w"> </span>-c<span class="w"> </span>pytorch<span class="w"> </span>-c<span class="w"> </span>nvidia
+<span class="c1">## OR (for Mac): conda install pytorch -c pytorch</span>
+<span class="o">(</span>neuromancer<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>conda<span class="w"> </span>config<span class="w"> </span>--append<span class="w"> </span>channels<span class="w"> </span>conda-forge
+<span class="o">(</span>neuromancer<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>conda<span class="w"> </span>install<span class="w"> </span>scipy<span class="w"> </span>numpy<span class="w"> </span>matplotlib<span class="w"> </span>scikit-learn<span class="w"> </span>pandas<span class="w"> </span>dill<span class="w"> </span>mlflow<span class="w"> </span><span class="nv">pydot</span><span class="o">=</span><span class="m">1</span>.4.2<span class="w"> </span>pyts<span class="w"> </span>numba
+<span class="o">(</span>neuromancer<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>conda<span class="w"> </span>install<span class="w"> </span><span class="nv">networkx</span><span class="o">=</span><span class="m">3</span>.0<span class="w"> </span>plum-dispatch
+<span class="o">(</span>neuromancer<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>anaconda<span class="w"> </span>pytest<span class="w"> </span>hypothesis
+<span class="o">(</span>neuromancer<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>conda<span class="w"> </span>install<span class="w"> </span>cvxpy<span class="w"> </span>cvxopt<span class="w"> </span>casadi<span class="w"> </span>seaborn<span class="w"> </span>imageio
+<span class="o">(</span>neuromancer<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>conda<span class="w"> </span>install<span class="w"> </span>tqdm<span class="w"> </span>torchdiffeq<span class="w"> </span>toml
+<span class="c1">## (for Windows): conda install -c defaults intel-openmp -f</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="install-neuromancer-ecosystem">
+<h2>Install neuromancer ecosystem<a class="headerlink" href="#install-neuromancer-ecosystem" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">(</span>neuromancer<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="w"> </span>--no-deps
+</pre></div>
+</div>
+</section>
+<section id="pip-install">
+<h2>Pip install<a class="headerlink" href="#pip-install" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e.<span class="o">[</span>docs,tests,examples<span class="o">]</span>
+</pre></div>
+</div>
+<p>See the <cite>pyproject.toml</cite> file for reference.</p>
+</section>
+<section id="test-neuromancer-install">
+<h2>Test NeuroMANCER install<a class="headerlink" href="#test-neuromancer-install" title="Link to this heading"></a></h2>
+<p>Run pytest on the test folder. It should take about 2 minutes to run the
+tests on CPU. There will be a lot of warnings that you can safely
+ignore. These warnings will be cleaned up in a future release.</p>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h2>
+<p>For detailed examples of NeuroMANCER usage for control, system
+identification, and parametric programming as well as tutorials for
+basic usage, see the scripts in the examples folder.</p>
+</section>
+<section id="community">
+<h2>Community<a class="headerlink" href="#community" title="Link to this heading"></a></h2>
+<section id="contributing-examples">
+<h3>Contributing examples<a class="headerlink" href="#contributing-examples" title="Link to this heading"></a></h3>
+<p>If you have an example of using NeuroMANCER to solve an interesting
+problem, or of using NeuroMANCER in a unique way, we would love to see
+it incorporated into our current library of examples. To submit an
+example, create a folder for your example/s in the example folder if
+there isn’t currently and applicable folder and place either your
+executable python file or notebook file there. Push your code back to
+github and then submit a pull request. Please make sure to note in a
+comment at the top of your code if there are additional dependencies to
+run your example and how to install those dependencies.</p>
+</section>
+<section id="contributing-code">
+<h3>Contributing code<a class="headerlink" href="#contributing-code" title="Link to this heading"></a></h3>
+<p>We welcome contributions to NeuroMANCER. Please accompany contributions
+with some lightweight unit tests via pytest (see test/ folder for some
+examples of easy to compose unit tests using pytest). In addition to
+unit tests a script utilizing introduced new classes or modules should
+be placed in the examples folder. To contribute a new feature please
+submit a pull request.</p>
+</section>
+<section id="reporting-issues-or-bugs">
+<h3>Reporting issues or bugs<a class="headerlink" href="#reporting-issues-or-bugs" title="Link to this heading"></a></h3>
+<p>If you find a bug in the code or want to request a new feature, please
+open an issue.</p>
+</section>
+<section id="neuromancer-development-plan">
+<h3>NeuroMANCER development plan<a class="headerlink" href="#neuromancer-development-plan" title="Link to this heading"></a></h3>
+<p>Here are some upcoming features we plan to develop. Please let us know
+if you would like to get involved and contribute so we may be able to
+coordinate on development. If there is a feature that you think would be
+highly valuable but not included below, please open an issue and let us
+know your thoughts.</p>
+<ul class="simple">
+<li><p>Faster dynamics modeling via Torchscript</p></li>
+<li><p>Control and modelling for networked systems</p></li>
+<li><p>Easy to implement modeling and control with uncertainty
+quantification</p></li>
+<li><p>Online learning examples</p></li>
+<li><p>Benchmark examples of DPC compared to deep RL</p></li>
+<li><p>Conda and pip package distribution</p></li>
+<li><p>CVXPY-like interface for optimization via Problem.solve method</p></li>
+<li><p>More versatile and simplified time series dataloading</p></li>
+<li><p>Pytorch Lightning trainer compatibility</p></li>
+</ul>
+</section>
+</section>
+<section id="publications">
+<h2>Publications<a class="headerlink" href="#publications" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://aps.arxiv.org/abs/2207.04962">James Koch, Zhao Chen, Aaron Tuor, Jan Drgona, Draguna Vrabie,
+Structural Inference of Networked Dynamical Systems with Universal
+Differential Equations, arXiv:2207.04962,
+(2022)</a></p></li>
+<li><p><a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S2405896322015877">Ján Drgoňa, Sayak Mukherjee, Aaron Tuor, Mahantesh Halappanavar,
+Draguna Vrabie, Learning Stochastic Parametric Differentiable
+Predictive Control Policies, IFAC ROCOND conference
+(2022)</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2205.10728">Sayak Mukherjee, Ján Drgoňa, Aaron Tuor, Mahantesh Halappanavar,
+Draguna Vrabie, Neural Lyapunov Differentiable Predictive Control,
+IEEE Conference on Decision and Control Conference
+2022</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2208.02319">Wenceslao Shaw Cortez, Jan Drgona, Aaron Tuor, Mahantesh
+Halappanavar, Draguna Vrabie, Differentiable Predictive Control with
+Safety Guarantees: A Control Barrier Function Approach, IEEE
+Conference on Decision and Control Conference
+2022</a></p></li>
+<li><p><a class="reference external" href="https://ieeexplore.ieee.org/document/9867379">Ethan King, Jan Drgona, Aaron Tuor, Shrirang Abhyankar, Craig
+Bakker, Arnab Bhattacharya, Draguna Vrabie, Koopman-based
+Differentiable Predictive Control for the Dynamics-Aware Economic
+Dispatch Problem, 2022 American Control Conference
+(ACC)</a></p></li>
+<li><p><a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S0378778821002760">Drgoňa, J., Tuor, A. R., Chandan, V., &amp; Vrabie, D. L.,
+Physics-constrained deep learning of multi-zone building thermal
+dynamics. Energy and Buildings, 243, 110992,
+(2021)</a></p></li>
+<li><p><a class="reference external" href="https://ieeexplore.ieee.org/document/9482930">E. Skomski, S. Vasisht, C. Wight, A. Tuor, J. Drgoňa and D. Vrabie,
+“Constrained Block Nonlinear Neural Dynamical Models,” 2021 American
+Control Conference (ACC), 2021, pp. 3993-4000, doi:
+10.23919/ACC50511.2021.9482930.</a></p></li>
+<li><p><a class="reference external" href="https://proceedings.mlr.press/v144/skomski21a.html">Skomski, E., Drgoňa, J., &amp; Tuor, A. (2021, May). Automating
+Discovery of Physics-Informed Neural State Space Models via Learning
+and Evolution. In Learning for Dynamics and Control (pp. 980-991).
+PMLR.</a></p></li>
+<li><p><a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S2405896321012933">Drgoňa, J., Tuor, A., Skomski, E., Vasisht, S., &amp; Vrabie, D. (2021).
+Deep Learning Explicit Differentiable Predictive Control Laws for
+Buildings. IFAC-PapersOnLine, 54(6),
+14-19.</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2004.10883">Tuor, A., Drgona, J., &amp; Vrabie, D. (2020). Constrained neural
+ordinary differential equations with stability guarantees. arXiv
+preprint arXiv:2004.10883.</a></p></li>
+<li><p><a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S0959152422000981">Drgona, Jan, et al. “Differentiable Predictive Control: An MPC
+Alternative for Unknown Nonlinear Systems using Constrained Deep
+Learning.” Journal of Process Control Volume 116, August 2022, Pages
+80-92</a></p></li>
+<li><p><a class="reference external" href="https://ieeexplore.ieee.org/document/9809789">Drgona, J., Skomski, E., Vasisht, S., Tuor, A., &amp; Vrabie, D. (2020).
+Dissipative Deep Neural Dynamical Systems, in IEEE Open Journal of
+Control Systems, vol. 1, pp. 100-112,
+2022</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2004.11184">Drgona, J., Tuor, A., &amp; Vrabie, D., Learning Constrained Adaptive
+Differentiable Predictive Control Policies With Guarantees, arXiv
+preprint arXiv:2004.11184,
+(2020)</a></p></li>
+</ul>
+</section>
+<section id="cite-as">
+<h2>Cite as<a class="headerlink" href="#cite-as" title="Link to this heading"></a></h2>
+<div class="highlight-bib notranslate"><div class="highlight"><pre><span></span><span class="nc">@article</span><span class="p">{</span><span class="nl">Neuromancer2022</span><span class="p">,</span>
+<span class="w">  </span><span class="na">title</span><span class="p">=</span><span class="s">{{NeuroMANCER: Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations}}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">author</span><span class="p">=</span><span class="s">{Tuor, Aaron and Drgona, Jan and Skomski, Mia and Koch, James and Chen, Zhao and Dernbach, Stefan and Legaard, Christian Møldrup and Vrabie, Draguna}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">Url</span><span class="p">=</span><span class="w"> </span><span class="s">{https://github.com/pnnl/neuromancer}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">year</span><span class="p">=</span><span class="s">{2022}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Authors: Authors: Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen,
+Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro</p>
+</section>
+<section id="acknowledgements">
+<h2>Acknowledgements<a class="headerlink" href="#acknowledgements" title="Link to this heading"></a></h2>
+<p>This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research’s “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects.
+PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.</p>
+</section>
+<section id="documentation">
+<h2>Documentation<a class="headerlink" href="#documentation" title="Link to this heading"></a></h2>
+<img alt="_images/class_diagram.png" src="_images/class_diagram.png" />
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Modules:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="dynamics.html">Dynamics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="activations.html">Activations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="blocks.html">Blocks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataset.html">Dataset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="estimators.html">Estimators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="loggers.html">Loggers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="operators.html">Operators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot.html">Plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="problem.html">Problem</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rnn.html">RNN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulators.html">Simulators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trainer.html">Trainer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="visuals.html">Visuals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="arg.html">Arg</a></li>
+<li class="toctree-l1"><a class="reference internal" href="callbacks.html">Callbacks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="component.html">Component</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constraint.html">Constraint</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gradients.html">Gradients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bounds.html">Bounds</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gnn.html">GNN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interpolation.html">Interpolation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="loss.html">Loss</a></li>
+<li class="toctree-l1"><a class="reference internal" href="maps.html">Maps</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ode.html">ODE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pwa_maps.html">PWA Maps</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulator.html">Simulator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="physics.html">Physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="psl/index.html">PSL: Python Systems Library v1.2</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="psl/autonomous.html">Autonomous</a></li>
+<li class="toctree-l2"><a class="reference internal" href="psl/emulator.html">Emulator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="psl/nonautonomous.html">Nonautonomous</a></li>
+<li class="toctree-l2"><a class="reference internal" href="psl/perturb.html">Perturb</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="slim/index.html">SLiM: Structured Linear Maps</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="slim/index.html#benchmarks">Benchmarks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dynamics.html" class="btn btn-neutral float-right" title="Dynamics" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen, Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

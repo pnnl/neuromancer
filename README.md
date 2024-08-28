@@ -318,7 +318,7 @@ conda activate neuromancer
 conda install -c defaults intel-openmp -f
 ```
 
-##### MacOS (Apple M1)
+##### MacOS (Apple Silicon)
 
 ``` bash
 conda env create -f osxarm64_env.yml
@@ -350,6 +350,21 @@ From the top level directory of cloned neuromancer
 
 ```bash
 pip install -e . --no-deps
+```
+
+### Install Graphviz (optional)
+In order to use the Problem graph plots, we recommend installing Graphviz system-wide. Note that this feature is optional.
+
+#### For Windows:
+Package must be installed manually: [Graphviz website](https://graphviz.org/download/)
+
+#### For Linux (Debian, Ubuntu)
+```bash
+sudo apt install graphviz
+```
+#### For MacOS
+```bash
+brew install graphviz
 ```
 
 ### Test NeuroMANCER install

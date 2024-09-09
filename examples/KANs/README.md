@@ -12,7 +12,7 @@ Examples of learning multi-fidelity data with MFKANs:
 
 
 ## Kolmogorov-Arnold Networks (KANs)
-Based on the Kolmogorov-Arnold representation theorem, KANs offer an alternative architecture: where traditional neural networks utilize fixed activation functions, KANs employ learnable activation functions on the edges of the network, replacing linear weight parameters with parametrized spline functions. This fundamental shift sometimes enhances model interpretability and improves computational efficiency and accuracy [1]. KANs are available on Neuromancer via `blocks.KANBlock`, which leverages the efficient-kan implementation of [2]. Moreover, users can leverage the finite basis KANs (FBKANs), a domain decomposition method for KANs proposed by Howard et al. (2024)[3] by simply setting the `num_domains` argument in `blocks.KANBlock`.
+Based on the Kolmogorov-Arnold representation theorem, KANs offer an alternative architecture: where traditional neural networks utilize fixed activation functions, KANs employ learnable activation functions on the edges of the network, replacing linear weight parameters with parametrized spline functions. This fundamental shift sometimes enhances model interpretability and improves computational efficiency and accuracy [1]. KANs are available on Neuromancer via `blocks.KANBlock`, which leverages the efficient-kan implementation of [2]. Moreover, users can leverage the finite basis KANs (FBKANs), a domain decomposition method for KANs proposed by Howard et al. (2024)[3] by simply setting the `num_domains` argument in `blocks.KANBlock`. Users can also leverage multi-fidelity KANs (MFKANs) via `blocks.MultiFidelityKAN`.
 
 ### References
 

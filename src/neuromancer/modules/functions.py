@@ -4,6 +4,7 @@ Set of useful function transformations
 """
 
 import torch
+import numpy as np
 
 def bounds_scaling(x, xmin, xmax, scaling=1.):
     """
@@ -32,6 +33,49 @@ def bounds_clamp(x, xmin=None, xmax=None):
         x = x - torch.relu(x - xmax)
     return x
 
+
+def w_jl(x, num_domains, delta=1.9):
+    """
+    Window functions for finite-basis domain decomposition.
+    :param: x: domain coordinates.
+    :param: num_domains: number of domains. Must be a magic square number.
+    :param: delta: overlapping ratio between window functions.
+    :return w: partition of unit window functions.
+    """
+    eps = 1e-12  # Small epsilon to prevent division by zero
+    
+    def w_jl_i(x_i, n_domains, x_min, x_max):
+        jvec = torch.arange(n_domains, device=x_i.device) + 1
+        muvec = x_min + (jvec - 1) * (x_max - x_min) / (n_domains - 1)
+        muvec = muvec.unsqueeze(0).expand(x_i.shape[0], n_domains)
+        u = x_i.repeat(1, n_domains)
+        sigma = (x_max - x_min) * (delta / 2.0) / (n_domains - 1)
+
+        z = (u - muvec) / (sigma + eps)
+        w_jl = ((1 + torch.cos(np.pi * z)) / 2) ** 2
+        w_jl = torch.where(torch.abs(z) < 1, w_jl, torch.zeros_like(w_jl))
+        return w_jl
+
+    n_dims = x.shape[1]
+    if n_dims == 1:
+        x_min, x_max = x.min(), x.max()
+        w = w_jl_i(x, num_domains, x_min, x_max)
+    elif n_dims == 2:
+        n_per_dim = int(np.sqrt(num_domains))
+        if n_per_dim ** 2 != num_domains:
+            raise ValueError("num_domains must be a perfect square for 2D inputs.")
+        x_min_x, x_max_x = x[:, 0].min(), x[:, 0].max()
+        x_min_y, x_max_y = x[:, 1].min(), x[:, 1].max()
+        w1 = w_jl_i(x[:, 0:1], n_per_dim, x_min_x, x_max_x)
+        w2 = w_jl_i(x[:, 1:2], n_per_dim, x_min_y, x_max_y)  # Corrected slice
+        w = torch.einsum('bi,bj->bij', w1, w2).reshape(x.shape[0], -1)
+        if w.shape[1] > num_domains:
+            w = w[:, :num_domains]  # Trim if necessary
+    else:
+        raise ValueError("Only 1D and 2D inputs are currently supported")
+
+    s = torch.sum(w, dim=1, keepdim=True)
+    return w / (s + eps)
 
 functions = {
     "bounds_scaling": bounds_scaling,

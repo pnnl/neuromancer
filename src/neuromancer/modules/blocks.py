@@ -125,7 +125,7 @@ def set_model_dropout_mode(model, at_train=None, at_test=None):
 
 class MLP(Block):
     """
-    Multi-Layer Perceptron consistent with blocks interface, now with support for multiple domains
+    Multi-Layer Perceptron consistent with blocks interface
     """
 
     def __init__(
@@ -137,9 +137,9 @@ class MLP(Block):
         nonlin=SoftExponential,
         hsizes=[64],
         linargs=dict(),
-        num_domains=1,
     ):
         """
+
         :param insize: (int) dimensionality of input
         :param outsize: (int) dimensionality of output
         :param bias: (bool) Whether to use bias
@@ -147,52 +147,38 @@ class MLP(Block):
         :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape
         :param hsizes: (list of ints) List of hidden layer sizes
         :param linargs: (dict) Arguments for instantiating linear layer
-        :param num_domains: (int) Number of domains for finite-basis domain decomposition
+        :param dropout: (float) Dropout probability
         """
         super().__init__()
         self.in_features, self.out_features = insize, outsize
         self.nhidden = len(hsizes)
-        self.num_domains = num_domains
-
-        self.domain_layers = nn.ModuleList()
-        for _ in range(num_domains):
-            sizes = [insize] + hsizes + [outsize]
-            layers = nn.ModuleList()
-            for k in range(self.nhidden + 1):
-                layers.append(nn.ModuleDict({
-                    'linear': linear_map(sizes[k], sizes[k + 1], bias=bias, **linargs),
-                    'nonlin': nonlin() if k < self.nhidden else nn.Identity()
-                }))
-            self.domain_layers.append(layers)
+        sizes = [insize] + hsizes + [outsize]
+        self.nonlin = nn.ModuleList(
+            [nonlin() for k in range(self.nhidden)] + [nn.Identity()]
+        )
+        self.linear = nn.ModuleList(
+            [
+                linear_map(sizes[k], sizes[k + 1], bias=bias, **linargs)
+                for k in range(self.nhidden + 1)
+            ]
+        )
 
     def reg_error(self):
-        return sum([layer['linear'].reg_error() for domain in self.domain_layers for layer in domain if hasattr(layer['linear'], "reg_error")])
+        return sum([k.reg_error() for k in self.linear if hasattr(k, "reg_error")])
 
     def block_eval(self, x):
         """
+
         :param x: (torch.Tensor, shape=[batchsize, insize])
         :return: (torch.Tensor, shape=[batchsize, outsize])
         """
-        if self.num_domains == 1:
-            for layer in self.domain_layers[0]:
-                x = layer['nonlin'](layer['linear'](x))
-            return x
-        else:
-            w = window_functions(x, self.num_domains)
-            
-            domain_outputs = torch.zeros(x.shape[0], self.num_domains, self.out_features, device=x.device)
-            
-            for i, domain_layers in enumerate(self.domain_layers):
-                domain_x = x
-                for layer in domain_layers:
-                    domain_x = layer['nonlin'](layer['linear'](domain_x))
-                domain_outputs[:, i, :] = domain_x
-            
-            x_final = torch.sum(w.unsqueeze(-1) * domain_outputs, dim=1)
-            
-            return x_final
-            
+        for lin, nlin in zip(self.linear, self.nonlin):
+            x = nlin(lin(x))
+        return x
 
+
+
+            
 
 class KANLinear(torch.nn.Module):
     """
@@ -522,26 +508,21 @@ class KANBlock(Block):
         self.verbose = verbose
 
     def block_eval(self, x):
-        if self.num_domains == 1:
-            for layer in self.kan_layers[0]:
+        def apply_layers(x, layers):
+            for layer in layers:
                 x = layer(x)
             return x
+
+        # Compute outputs for all domains
+        domain_outputs = [apply_layers(x, domain_layers) for domain_layers in self.kan_layers]
+        domain_outputs = torch.stack(domain_outputs, dim=1)  # Shape: [batchsize, num_domains, out_features]
+
+        if self.num_domains == 1:
+            x_final = domain_outputs.squeeze(1)
         else:
-            w = window_functions(x, self.num_domains)
-            
-            x_domain_outputs = torch.zeros(x.shape[0], self.num_domains, self.out_features, device=x.device)
-            
-            for i, domain_layers in enumerate(self.kan_layers):
-                x_domain = x
-                for layer in domain_layers:
-                    x_domain = layer(x_domain)
-                x_domain_outputs[:, i, :] = x_domain
-            
-            x_final = torch.sum(w.unsqueeze(-1) * x_domain_outputs, dim=1)
-            
-            return x_final
-
-
+            w = window_functions(x, self.num_domains)  # Shape: [batchsize, num_domains]
+            x_final = torch.sum(w.unsqueeze(-1) * domain_outputs, dim=1)
+        return x_final
 
     def regularization_loss(self, regularize_activation=1.0, regularize_entropy=1.0):
         return sum(

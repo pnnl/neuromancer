@@ -4,6 +4,7 @@ Set of useful function transformations
 """
 
 import torch
+import numpy as np
 
 def bounds_scaling(x, xmin, xmax, scaling=1.):
     """

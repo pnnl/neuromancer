@@ -33,7 +33,7 @@ class BasicLogger:
 
     def log_parameters(self):
         """
-        Pring experiment parameters to stdout
+        Print experiment parameters to stdout
 
         :param args: (Namespace) returned by argparse.ArgumentParser.parse_args()
         """

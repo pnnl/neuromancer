@@ -13,8 +13,7 @@ from abc import ABC, abstractmethod
 import neuromancer.slim as slim
 import neuromancer.modules.rnn as rnn
 from neuromancer.modules.activations import soft_exp, SoftExponential, SmoothedReLU
-
-
+from neuromancer.modules.functions import bounds_clamp, bounds_scaling, window_functions
 
 
 
@@ -123,44 +122,6 @@ def set_model_dropout_mode(model, at_train=None, at_test=None):
 
     model.apply(_apply_fn)
 
-def w_jl(x, num_domains, delta=1.9):
-    """
-    Window functions for finite-basis domain decomposition.
-    """
-    eps = 1e-12  # Small epsilon to prevent division by zero
-    
-    def w_jl_i(x_i, n_domains, x_min, x_max):
-        jvec = torch.arange(n_domains, device=x_i.device) + 1
-        muvec = x_min + (jvec - 1) * (x_max - x_min) / (n_domains - 1)
-        muvec = muvec.unsqueeze(0).expand(x_i.shape[0], n_domains)
-        u = x_i.repeat(1, n_domains)
-        sigma = (x_max - x_min) * (delta / 2.0) / (n_domains - 1)
-
-        z = (u - muvec) / (sigma + eps)
-        w_jl = ((1 + torch.cos(np.pi * z)) / 2) ** 2
-        w_jl = torch.where(torch.abs(z) < 1, w_jl, torch.zeros_like(w_jl))
-        return w_jl
-
-    n_dims = x.shape[1]
-    if n_dims == 1:
-        x_min, x_max = x.min(), x.max()
-        w = w_jl_i(x, num_domains, x_min, x_max)
-    elif n_dims == 2:
-        n_per_dim = int(np.sqrt(num_domains))
-        if n_per_dim ** 2 != num_domains:
-            raise ValueError("num_domains must be a perfect square for 2D inputs.")
-        x_min_x, x_max_x = x[:, 0].min(), x[:, 0].max()
-        x_min_y, x_max_y = x[:, 1].min(), x[:, 1].max()
-        w1 = w_jl_i(x[:, 0:1], n_per_dim, x_min_x, x_max_x)
-        w2 = w_jl_i(x[:, 1:2], n_per_dim, x_min_y, x_max_y)  # Corrected slice
-        w = torch.einsum('bi,bj->bij', w1, w2).reshape(x.shape[0], -1)
-        if w.shape[1] > num_domains:
-            w = w[:, :num_domains]  # Trim if necessary
-    else:
-        raise ValueError("Only 1D and 2D inputs are currently supported")
-
-    s = torch.sum(w, dim=1, keepdim=True)
-    return w / (s + eps)
 
 class MLP(Block):
     """
@@ -217,7 +178,7 @@ class MLP(Block):
                 x = layer['nonlin'](layer['linear'](x))
             return x
         else:
-            w = w_jl(x, self.num_domains)
+            w = window_functions(x, self.num_domains)
             
             domain_outputs = torch.zeros(x.shape[0], self.num_domains, self.out_features, device=x.device)
             
@@ -232,15 +193,6 @@ class MLP(Block):
             return x_final
             
 
-def sigmoid_scale(x, min, max):
-    return (max - min) * torch.sigmoid(x) + min
-
-
-def relu_clamp(x, min, max):
-    x = x + torch.relu(-x + min)
-    x = x - torch.relu(x - max)
-    return x
-    
 
 class KANLinear(torch.nn.Module):
     """
@@ -575,7 +527,7 @@ class KANBlock(Block):
                 x = layer(x)
             return x
         else:
-            w = w_jl(x, self.num_domains)
+            w = window_functions(x, self.num_domains)
             
             x_domain_outputs = torch.zeros(x.shape[0], self.num_domains, self.out_features, device=x.device)
             
@@ -624,7 +576,7 @@ class MLP_bounds(MLP):
     Multi-Layer Perceptron consistent with blocks interface
     """
 
-    bound_methods = {"sigmoid_scale": sigmoid_scale, "relu_clamp": relu_clamp}
+    bound_methods = {"sigmoid_scale": bounds_scaling, "relu_clamp": bounds_clamp}
 
     def __init__(
         self,

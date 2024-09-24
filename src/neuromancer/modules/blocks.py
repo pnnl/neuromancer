@@ -13,8 +13,7 @@ from abc import ABC, abstractmethod
 import neuromancer.slim as slim
 import neuromancer.modules.rnn as rnn
 from neuromancer.modules.activations import soft_exp, SoftExponential, SmoothedReLU
-from neuromancer.modules.functions import bounds_clamp, bounds_scaling
-
+from neuromancer.modules.functions import bounds_clamp, bounds_scaling, window_functions
 
 
 
@@ -47,7 +46,7 @@ class Block(nn.Module, ABC):
 
 class Linear(Block):
     """
-    Linear map consistent with block interface
+    Linear map consistent with block interface.
     """
 
     def __init__(
@@ -89,7 +88,8 @@ class Linear(Block):
 
 class Dropout(Block):
     def __init__(self, p=0.0, at_train=False, at_test=True):
-        """Wrapper for standard dropout that allows its use at test time.
+        """
+        Wrapper for standard dropout that allows its use at test time.
         By default, dropout is disabled during training as it appears difficult
         to train models with it enabled.
 
@@ -110,8 +110,9 @@ class Dropout(Block):
 
 
 def set_model_dropout_mode(model, at_train=None, at_test=None):
-    """Change dropout mode, useful for enabling MC sampling during inference time."""
-
+    """
+    Change dropout mode, useful for enabling MC sampling during inference time.
+    """
     def _apply_fn(x):
         if isinstance(x, Dropout):
             if at_test is not None:
@@ -175,6 +176,9 @@ class MLP(Block):
             x = nlin(lin(x))
         return x
 
+
+
+            
 
 class KANLinear(torch.nn.Module):
     """
@@ -341,53 +345,48 @@ class KANLinear(torch.nn.Module):
         return base_output + spline_output
 
     @torch.no_grad()
-    def update_grid(self, x: torch.Tensor, margin=0.01):
-        assert x.dim() == 2 and x.size(1) == self.in_features
-        batch = x.size(0)
-
-        splines = self.b_splines(x)  # (batch, in, coeff)
-        splines = splines.permute(1, 0, 2)  # (in, batch, coeff)
-        orig_coeff = self.scaled_spline_weight  # (out, in, coeff)
-        orig_coeff = orig_coeff.permute(1, 2, 0)  # (in, coeff, out)
-        unreduced_spline_output = torch.bmm(splines, orig_coeff)  # (in, batch, out)
-        unreduced_spline_output = unreduced_spline_output.permute(
-            1, 0, 2
-        )  # (batch, in, out)
-
-        # sort each channel individually to collect data distribution
-        x_sorted = torch.sort(x, dim=0)[0]
-        grid_adaptive = x_sorted[
-            torch.linspace(
-                0, batch - 1, self.grid_size + 1, dtype=torch.int64, device=x.device
-            )
-        ]
-
-        uniform_step = (x_sorted[-1] - x_sorted[0] + 2 * margin) / self.grid_size
-        grid_uniform = (
-            torch.arange(
-                self.grid_size + 1, dtype=torch.float32, device=x.device
-            ).unsqueeze(1)
-            * uniform_step
-            + x_sorted[0]
-            - margin
-        )
-
-        grid = self.grid_eps * grid_uniform + (1 - self.grid_eps) * grid_adaptive
-        grid = torch.concatenate(
-            [
-                grid[:1]
-                - uniform_step
-                * torch.arange(self.spline_order, 0, -1, device=x.device).unsqueeze(1),
-                grid,
-                grid[-1:]
-                + uniform_step
-                * torch.arange(1, self.spline_order + 1, device=x.device).unsqueeze(1),
-            ],
-            dim=0,
-        )
-
-        self.grid.copy_(grid.T)
-        self.spline_weight.data.copy_(self.curve2coeff(x, unreduced_spline_output))
+    def update_grid(self, _x, margin=0.01):
+        for _,x in _x.items():
+            if torch.is_tensor(x):
+                if x.dim() == 2 and x.size(1) == self.in_features: 
+                    batch = x.size(0)
+                    splines = self.b_splines(x)  # (batch, in, coeff)
+                    splines = splines.permute(1, 0, 2)  # (in, batch, coeff)
+                    orig_coeff = self.scaled_spline_weight  # (out, in, coeff)
+                    orig_coeff = orig_coeff.permute(1, 2, 0)  # (in, coeff, out)
+                    unreduced_spline_output = torch.bmm(splines, orig_coeff)  # (in, batch, out)
+                    unreduced_spline_output = unreduced_spline_output.permute(1, 0, 2)  # (batch, in, out)
+            
+                    # sort each channel individually to collect data distribution
+                    x_sorted = torch.sort(x, dim=0)[0]
+                    grid_adaptive = x_sorted[torch.linspace(0, batch - 1, self.grid_size + 1, dtype=torch.int64, device=x.device)]
+            
+                    uniform_step = (x_sorted[-1] - x_sorted[0] + 2 * margin) / self.grid_size
+                    grid_uniform = (
+                        torch.arange(
+                            self.grid_size + 1, dtype=torch.float32, device=x.device
+                        ).unsqueeze(1)
+                        * uniform_step
+                        + x_sorted[0]
+                        - margin
+                    )
+            
+                    grid = self.grid_eps * grid_uniform + (1 - self.grid_eps) * grid_adaptive
+                    grid = torch.concatenate(
+                        [
+                            grid[:1]
+                            - uniform_step
+                            * torch.arange(self.spline_order, 0, -1, device=x.device).unsqueeze(1),
+                            grid,
+                            grid[-1:]
+                            + uniform_step
+                            * torch.arange(1, self.spline_order + 1, device=x.device).unsqueeze(1),
+                        ],
+                        dim=0,
+                    )
+            
+                    self.grid.copy_(grid.T)
+                    self.spline_weight.data.copy_(self.curve2coeff(x, unreduced_spline_output))
 
     def regularization_loss(self, regularize_activation=1.0, regularize_entropy=1.0):
         """
@@ -454,16 +453,16 @@ class KAN(torch.nn.Module):
             layer.regularization_loss(regularize_activation, regularize_entropy)
             for layer in self.layers
         )
-
+        
 
 class KANBlock(Block):
     def __init__(
         self,
         insize,
         outsize,
-        num_layers=1,
-        hidden_size=None,
-        grid_size=5,
+        hsizes=[64],
+        num_domains=1,
+        grid_sizes=[5],
         spline_order=3,
         scale_noise=0.1,
         scale_base=1.0,
@@ -472,48 +471,86 @@ class KANBlock(Block):
         base_activation=torch.nn.SiLU,
         grid_eps=0.02,
         grid_range=[-1, 1],
+        grid_updates=None,
+        verbose=False,
     ):
         super().__init__()
         self.in_features = insize
         self.out_features = outsize
+        self.num_domains = num_domains
+        self.spline_order = spline_order
+
         self.kan_layers = nn.ModuleList()
-
-        if hidden_size is None:
-            hidden_size = outsize
-
-        layer_sizes = [insize] + [hidden_size] * (num_layers - 1) + [outsize]
-        for in_features, out_features in zip(layer_sizes[:-1], layer_sizes[1:]):
-            self.kan_layers.append(
-                KANLinear(
-                    in_features,
-                    out_features,
-                    grid_size=grid_size,
-                    spline_order=spline_order,
-                    scale_noise=scale_noise,
-                    scale_base=scale_base,
-                    scale_spline=scale_spline,
-                    enable_standalone_scale_spline=enable_standalone_scale_spline,
-                    base_activation=base_activation,
-                    grid_eps=grid_eps,
-                    grid_range=grid_range,
+        for _ in range(num_domains):
+            layers = nn.ModuleList()
+            layer_sizes = [insize] + hsizes + [outsize]
+            for in_features, out_features in zip(layer_sizes[:-1], layer_sizes[1:]):
+                layers.append(
+                    KANLinear(
+                        in_features,
+                        out_features,
+                        grid_size=grid_sizes[0],
+                        spline_order=spline_order,
+                        scale_noise=scale_noise,
+                        scale_base=scale_base,
+                        scale_spline=scale_spline,
+                        enable_standalone_scale_spline=enable_standalone_scale_spline,
+                        base_activation=base_activation,
+                        grid_eps=grid_eps,
+                        grid_range=grid_range,
+                    )
                 )
-            )
+            self.kan_layers.append(layers)
+
+        self.grid_sizes = grid_sizes
+        self.grid_updates = grid_updates or []
+        self.current_grid_index = 0
+        self.verbose = verbose
 
     def block_eval(self, x):
-        for layer in self.kan_layers:
-            x = layer(x)
-        return x
+        def apply_layers(x, layers):
+            for layer in layers:
+                x = layer(x)
+            return x
+
+        # Compute outputs for all domains
+        domain_outputs = [apply_layers(x, domain_layers) for domain_layers in self.kan_layers]
+        domain_outputs = torch.stack(domain_outputs, dim=1)  # Shape: [batchsize, num_domains, out_features]
+
+        if self.num_domains == 1:
+            x_final = domain_outputs.squeeze(1)
+        else:
+            w = window_functions(x, self.num_domains)  # Shape: [batchsize, num_domains]
+            x_final = torch.sum(w.unsqueeze(-1) * domain_outputs, dim=1)
+        return x_final
 
     def regularization_loss(self, regularize_activation=1.0, regularize_entropy=1.0):
         return sum(
             layer.regularization_loss(regularize_activation, regularize_entropy)
-            for layer in self.kan_layers
+            for domain_layers in self.kan_layers
+            for layer in domain_layers
         )
 
-    def update_grid(self, x: torch.Tensor, margin=0.01):
-        for layer in self.kan_layers:
-            layer.update_grid(x, margin=margin)
+    def update_grid(self, x, margin=0.01):
+        if isinstance(x, dict):
+            x = next(iter(x.values()))
+            
+        for domain_layers in self.kan_layers:
+            for layer in domain_layers:
+                layer.update_grid(x, margin=margin)
 
+    def update_epoch(self, epoch, x):
+        if self.current_grid_index < len(self.grid_updates) and epoch >= self.grid_updates[self.current_grid_index]:
+            new_grid_size = self.grid_sizes[self.current_grid_index]
+            if self.verbose:
+                print(f"Updating grid size to {new_grid_size} at epoch {epoch}")
+                        
+            for domain_layers in self.kan_layers:
+                for layer in domain_layers:
+                    layer.grid_size = new_grid_size
+                    layer.reset_parameters()  # Reinitialize parameters with new grid size
+                    layer.update_grid(x)  # Update the grid with the current batch
+            self.current_grid_index += 1
 
 class MLP_bounds(MLP):
     """

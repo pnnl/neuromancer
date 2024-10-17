@@ -17,7 +17,6 @@ from neuromancer.modules.functions import bounds_clamp, bounds_scaling, w_jl
 
 
 
-
 class Block(nn.Module, ABC):
     """
     Canonical abstract class of the block function approximator
@@ -47,7 +46,7 @@ class Block(nn.Module, ABC):
 
 class Linear(Block):
     """
-    Linear map consistent with block interface
+    Linear map consistent with block interface.
     """
 
     def __init__(
@@ -89,7 +88,8 @@ class Linear(Block):
 
 class Dropout(Block):
     def __init__(self, p=0.0, at_train=False, at_test=True):
-        """Wrapper for standard dropout that allows its use at test time.
+        """
+        Wrapper for standard dropout that allows its use at test time.
         By default, dropout is disabled during training as it appears difficult
         to train models with it enabled.
 
@@ -110,8 +110,9 @@ class Dropout(Block):
 
 
 def set_model_dropout_mode(model, at_train=None, at_test=None):
-    """Change dropout mode, useful for enabling MC sampling during inference time."""
-
+    """
+    Change dropout mode, useful for enabling MC sampling during inference time.
+    """
     def _apply_fn(x):
         if isinstance(x, Dropout):
             if at_test is not None:
@@ -637,7 +638,12 @@ class MultiFidelityKAN(Block):
                     grid_updates=grid_updates,
                     verbose=verbose
                 )
-            )
+            self.kan_layers.append(layers)
+
+        self.grid_sizes = grid_sizes
+        self.grid_updates = grid_updates or []
+        self.current_grid_index = 0
+        self.verbose = verbose
 
     def block_eval(self, x):
         # First layer (pre-trained single-fidelity KAN)
@@ -664,7 +670,6 @@ class MultiFidelityKAN(Block):
 
     def get_alpha_loss(self):
         return sum(10.*torch.pow(alpha, 2) for alpha in self.alpha)
-
 
 
 class MLP_bounds(MLP):
@@ -1353,6 +1358,62 @@ class InterpolateAddMultiply(nn.Module):
         return soft_exp(self.alpha, soft_exp(-self.alpha, p) + soft_exp(-self.alpha, q))
 
 
+class Transformer(Block):
+    """
+    This wraps the torch.nn.TransformerEncoder and torch.nn.TransformerEncoderLayer class consistent with the blocks interface
+    to give output which is a linear map from final hidden state. Decoder is a linear layer from slim.Linear however
+    can be extended to torch.nn.TransformerDecoder for future iterations.
+    """
+
+    def __init__(self,
+                 insize = 11,
+                 outsize = 1,
+                 num_heads = 3,
+                 dropout=0.0,
+                 bias=True,
+                 linear_map=slim.Linear,
+                 nonlin=None,
+                 hsizes=3,
+                 linargs=dict()):
+        
+        '''   
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param num_heads: (int) number of attention head blocks (must be divisible by insize)
+        :param dropout: (float) dropout probability
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Linear map class from neuromancer.slim.linear
+        :param nonlin: (callable) Not used in this module
+        :param hsizes: (list of ints) 
+        :param linargs: (dict) Not used in this module
+
+        
+        '''
+        super(Transformer, self).__init__()
+
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=insize, nhead=num_heads, dropout=dropout,batch_first=True) #feature size must be divisible by nhead
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=hsizes)        
+        self.decoder = linear_map(insize, outsize, bias=bias, **linargs) #decoder is just linear layer
+        self.init_weights()
+
+
+    def init_weights(self):
+        initrange = 0.1    
+        self.decoder.bias.data.zero_()
+        self.decoder.weight.data.uniform_(-initrange, initrange)
+
+    def _generate_square_subsequent_mask(self, sz):
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask
+
+    def block_eval(self, src):
+        mask = self._generate_square_subsequent_mask(len(src))
+        output = self.transformer_encoder(src,mask)
+        output = self.decoder(output)
+        return output
+
+
 blocks = {
     "mlp": MLP,
     "mlp_dropout": MLPDropout,
@@ -1367,6 +1428,7 @@ blocks = {
     "icnn": InputConvexNN,
     "pos_def": PosDef,
     "kan": KANBlock,
-    "stacked_mlp": StackedMLP
+    "stacked_mlp": StackedMLP,
+    "transformer": Transformer
 }
 

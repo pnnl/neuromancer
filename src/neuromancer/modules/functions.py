@@ -41,6 +41,7 @@ def w_jl(x, num_domains, delta=1.9):
     :param: num_domains: number of domains. Must be a magic square number.
     :param: delta: overlapping ratio between window functions.
     :return w: partition of unit window functions.
+
     """
     eps = 1e-12  # Small epsilon to prevent division by zero
     

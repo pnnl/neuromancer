@@ -34,13 +34,14 @@ def bounds_clamp(x, xmin=None, xmax=None):
     return x
 
 
-def window_functions(x, num_domains, delta=1.9):
+def w_jl(x, num_domains, delta=1.9):
     """
     Window functions for finite-basis domain decomposition.
-    :param x: input tensor representing the domain.
-    :param num_domains: number of domains. Must be a perfect square.
-    :param delta: overlapping ratio. Higher = more overlapping.
-    :return w/(s+eps): weighted window functions.
+    :param: x: domain coordinates.
+    :param: num_domains: number of domains. Must be a magic square number.
+    :param: delta: overlapping ratio between window functions.
+    :return w: partition of unit window functions.
+
     """
     eps = 1e-12  # Small epsilon to prevent division by zero
     
@@ -76,7 +77,6 @@ def window_functions(x, num_domains, delta=1.9):
 
     s = torch.sum(w, dim=1, keepdim=True)
     return w / (s + eps)
-
 
 functions = {
     "bounds_scaling": bounds_scaling,

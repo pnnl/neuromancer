@@ -1081,6 +1081,57 @@ class RNN(Block):
         return self.output(hiddens[-1])
 
 
+class PytorchLSTM(Block):
+
+    """
+    This wraps the torch.nn.LSTM class consistent with the blocks interface
+    to give output which is a linear map from final hidden state and cell state.
+    """
+
+    def __init__(
+        self,
+        insize,
+        outsize,
+        bias=True,
+        linear_map=slim.Linear,
+        nonlin=SoftExponential,
+        hsizes=[10],
+        num_layers=1,
+        linargs=dict(),
+    ):
+        """
+
+        :param insize: (int) dimensionality of input
+        :param outsize: (int) dimensionality of output
+        :param bias: (bool) Whether to use bias
+        :param linear_map: (class) Linear map class from neuromancer.slim.linear
+        :param nonlin: (callable) Elementwise nonlinearity which takes as input torch.Tensor and outputs torch.Tensor of same shape
+        :param hsizes: (list of ints) List of hidden layer sizes
+        :param linargs: (dict) Arguments for instantiating linear layer
+        """
+        super().__init__()
+        assert len(set(hsizes)) == 1
+        self.in_features, self.out_features = insize, outsize
+        self.lstm = nn.LSTM(insize, hsizes[0], num_layers=num_layers, bias=bias, batch_first=False)
+        self.output = linear_map(hsizes[-1], outsize, bias=bias, **linargs)
+
+    def reg_error(self):
+        return self.output.reg_error()
+
+    def block_eval(self, x):
+        """
+
+        :param x: (torch.Tensor, shape=[nsteps, batchsize, dim]) Input sequence is expanded for order 2 tensors
+        :return: (torch.Tensor, shape=[batchsize, outsize]) Returns linear transform of final hidden state and cell state of LSTM.
+        """
+        if len(x.shape) == 2:
+            x = x.reshape(1, *x.shape)
+        elif len(x.shape) == 3:
+            x = x.permute(1, 0, 2)
+        _, (hiddens, _) = self.lstm(x)
+        return self.output(hiddens[-1])
+
+
 class BilinearTorch(Block):
     """
     Wraps torch.nn.Bilinear to be consistent with the blocks interface
@@ -1215,6 +1266,7 @@ blocks = {
     "icnn": InputConvexNN,
     "pos_def": PosDef,
     "kan": KANBlock,
-    "stacked_mlp": StackedMLP
+    "stacked_mlp": StackedMLP,
+    "pytorch_lstm": PytorchLSTM
 }
 

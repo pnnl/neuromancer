@@ -73,12 +73,12 @@ class LSTMModel(nn.Module):
             input_size=input_size, 
             hidden_size=hidden_size, 
             num_layers=num_layers, 
-            batch_first=True) # TODO fix batch_first
+            batch_first=True)
         self.linear = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
-        out, _ = self.lstm(x)
-        out = self.linear(out[:, -1, :])
+        _, (hiddens, _) = self.lstm(x)
+        out = self.linear(hiddens[-1])
         return out
 
 
@@ -97,16 +97,16 @@ device = "cpu"
 train_dataset = TimeSeriesDataset(X_train, y_train)
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
 
+
 #%%
-
 # Initialize the model, loss function, and optimizer
-#model = LSTMModel(input_size, hidden_size, output_size)
 
-model_torch = LSTMModel(
+lstm_torch = LSTMModel(
     input_size=1, 
     output_size=1, 
     num_layers=num_layers, 
     hidden_size=hidden_size)
+
 
 #%% Initialize Neuromancer blocks
 
@@ -116,29 +116,30 @@ from neuromancer import slim
 
 
 block_rnn = blocks.RNN(
-    insize=1, outsize=1,
-    bias=False,
+    insize=1, 
+    outsize=1,
+    bias=True,
     linear_map=slim.linear.SVDLinear,
     nonlin=activations.BLU,
-    hsizes=[50] * 1)
+    hsizes=[hidden_size] * 1)
 
 block_rnn_torch = blocks.PytorchRNN(
     insize=1,
     outsize=1,
-    hsizes=[50]*1
+    hsizes=[hidden_size]*1
 )
 
 block_lstm = blocks.PytorchLSTM(
     insize=1, 
     outsize=1, 
-    hsizes=[50] * 1,
-    num_layers=1
+    hsizes=[hidden_size] * 1,
+    num_layers=num_layers
 )
 
 
-#%%
+#%% Train and evaluate the selected model
 
-model = model_torch
+model = block_lstm
 model = model.to(device)
 
 
@@ -159,7 +160,7 @@ for epoch in range(num_epochs):
             inputs = inputs.to(device)
             targets = targets.to(device)
 
-            outputs = model(inputs)            
+            outputs = model(inputs)
             loss = criterion(outputs, targets)
             optimizer.zero_grad()
             loss.backward()

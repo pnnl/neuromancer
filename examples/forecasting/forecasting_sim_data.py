@@ -38,13 +38,7 @@ sys.show(sim_data)
 
 #%% Convert into pandas dataframe
 
-df_all = pd.DataFrame(sim_data['Y'], columns=['y0', 'y1', 'y2'])
-df_all
-
-
-#%% Choose variable to forecast
-
-df = pd.DataFrame(df_all['y0'])
+df = pd.DataFrame(sim_data['Y'], columns=['y0', 'y1', 'y2'])
 df
 
 
@@ -90,7 +84,7 @@ input_size = X_train.shape[2]
 hidden_size = 64
 num_layers = 1
 output_size = 1
-learning_rate = 0.002
+learning_rate = 0.003
 num_epochs = 100
 batch_size = 64
 device = "cpu"
@@ -110,22 +104,16 @@ from neuromancer import slim
 
 
 block_rnn = blocks.RNN(
-    insize=1, 
-    outsize=1,
+    insize=input_size, 
+    outsize=input_size,
     bias=True,
     linear_map=slim.linear.SVDLinear,
     nonlin=activations.BLU,
     hsizes=[hidden_size] * 1)
 
-block_rnn_torch = blocks.PytorchRNN(
-    insize=1,
-    outsize=1,
-    hsizes=[hidden_size]*1
-)
-
 block_lstm = blocks.PytorchLSTM(
-    insize=1, 
-    outsize=1, 
+    insize=input_size, 
+    outsize=input_size, 
     hsizes=[hidden_size] * 1,
     num_layers=num_layers
 )
@@ -189,15 +177,17 @@ for model in models:
                     
 
     # Visualize predictions against actual data
-    plt.figure(figsize=(10, 6))
-    #plt.plot(df.index[:train_size], df.values[:train_size], label='Observed')
-    plt.plot(df.index[train_size+seq_length*2:], y_test_scaled, label='Real')
-    plt.plot(df.index[train_size+seq_length*2:], y_pred_scaled, label='Predicted')
-    plt.xlabel('Timestamp')
-    plt.ylabel('Target')
-    plt.title(f'Forecasting using {model._get_name()} (MAE = {mae:.3f})')
-    plt.legend()
+    fig, axs = plt.subplots(3)
+    fig.suptitle(f'Forecasting using {model._get_name()} (MAE = {mae:.3f})')
+
+    for i in range(3):
+        axs[i].plot(df.index[train_size+seq_length*2:], y_test_scaled[:,i], label='Real')
+        axs[i].plot(df.index[train_size+seq_length*2:], y_pred_scaled[:,i], label='Predicted')
+        axs[i].set(ylabel=f'{df.columns[i]}')
+        axs[i].grid()
+        axs[i].legend()
+
     plt.show()
 
 
-# %%
+#%%

@@ -1,5 +1,5 @@
-#%% Load forecasting on UCI Electricity Load Diagrams 2011-2014 dataset (https://archive.ics.uci.edu/dataset/321/electricityloaddiagrams20112014)
-# Downloads and preproceses the data. Then, trains RNN or LSTM model from Neuromancer blocks and plots the load forecast.
+#%% Load forecasting on Short-term electricity load forecasting (Panama case study) (https://data.mendeley.com/datasets/byx7sztj59/1)
+# Downloads and preproceses the data. Then, trains an LSTM model from Neuromancer blocks and plots the forecast.
 
 #%% Imports
 

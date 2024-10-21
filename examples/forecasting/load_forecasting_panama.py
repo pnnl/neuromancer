@@ -79,7 +79,7 @@ df_rbf.plot(subplots=True, figsize=(14, 8),
 df = pd.concat([df, df_rbf], axis=1)
 df
 
-#%% Select relevant features
+#%% Drop uninformative features
 
 # Column descriptions (from https://data.mendeley.com/datasets/byx7sztj59/1/files/6952a984-f474-437f-8640-67d773caea93)
 # nat_demand: National electricity load (Target or Dependent variable) (MWh)
@@ -98,6 +98,12 @@ df
 # Holiday_ID: Unique identification number integer
 # holiday: Holiday binary indicator 1 = holiday, 0 = regular day
 # school: School period binary indicator 1 = school, 0 = vacations
+
+excluded_cols = ['Holiday_ID', 'day_of_year']
+excluded_cols.extend(df_rbf.columns)
+df = df.drop(columns=excluded_cols)
+
+
 
 #%%
 # Split the data into training and test sets
@@ -256,6 +262,8 @@ for epoch in range(num_epochs):
                 print(f"Root Mean Squared Error (RMSE): {rmse}")
                 mae = mean_absolute_error(y_test_scaled, y_pred_scaled)
                 print(f"Mean Absolute Error (MAE): {mae:.2f}")
+                mape = mean_absolute_percentage_error(y_test_scaled, y_pred_scaled) * 100
+                print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
 
 
 #%%
@@ -269,5 +277,6 @@ plt.title('Electricity Consumption Forecasting')
 plt.grid()
 plt.legend()
 plt.show()
+
 
 # %%

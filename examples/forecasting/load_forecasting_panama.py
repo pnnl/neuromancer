@@ -161,10 +161,10 @@ class PanamaLoadDataset(Dataset):
 #%%
 # Hyperparameters
 input_size = X_train.shape[2]
-hidden_size = 96
+hidden_size = 64
 num_layers = 2
 output_size = 1
-learning_rate = 0.001
+learning_rate = 0.00001
 num_epochs = 100
 batch_size = 64
 device = "cuda"
@@ -208,7 +208,7 @@ model = model.to(device)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-EVAL_PERIOD = 5
+EVAL_PERIOD = 10
 
 # Training the model
 for epoch in range(num_epochs):

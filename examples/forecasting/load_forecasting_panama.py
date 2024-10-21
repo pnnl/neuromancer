@@ -110,7 +110,7 @@ df_test = df[train_size + seq_length:] # add gap between train and test datasets
 
 #%%
 # Scale the data
-scaler = MinMaxScaler()
+scaler = MinMaxScaler(feature_range=(-1,1))
 train_data = scaler.fit_transform(df_train)
 train_data
 

@@ -167,7 +167,7 @@ class BuildingEnvelope(ODE_NonAutonomous):
         y = self.C @ x + F
         return x, y
 
-    def get_simulation_args(self, nsim, x0, U, D):
+    def get_simulation_args(self, nsim=None, x0=None, U=None, D=None):
         nsim = self.nsim if nsim is None else nsim
         x0 = self.get_x0() if x0 is None else x0
         D = self.get_D(nsim+1) if D is None else D
@@ -235,8 +235,6 @@ if __name__ == '__main__':
         print(n)
         s = system(backend='torch')
         out = s.simulate(nsim=5)
-
-
         print({k: v.shape for k, v in out.items()})
 
     for n, system in systems.items():

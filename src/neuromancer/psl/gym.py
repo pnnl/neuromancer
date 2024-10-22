@@ -2,45 +2,66 @@ from scipy.io import loadmat
 from gym import spaces, Env
 
 import numpy as np
-from neuromancer.psl.nonautonomous import systems, ODE_NonAutonomous
-
-def disturbance(file='../../TimeSeries/disturb.mat', n_sim=8064):
-    return loadmat(file)['D'][:, :n_sim].T # n_sim X 3
+from neuromancer.psl.building_envelope import BuildingEnvelope, systems
 
 
-class GymWrapper(Env):
-    """Custom Environment that follows gym interface"""
-    metadata = {'render.modes': ['human']}
+class BuildingEnv(Env):
+    """Custom Gym Environment for simulating building energy systems.
 
-    def __init__(self, simulator, U=None, ninit=None, nsim=None, ts=None, x0=None,
-                 perturb=[lambda: 0. , lambda: 1.]):
+    This environment models the dynamics of a building's thermal system, 
+    allowing for control actions to be taken and observing the resulting 
+    thermal comfort levels. The environment adheres to the OpenAI Gym 
+    interface, providing methods for stepping through the simulation, 
+    resetting the state, and rendering the environment.
 
+    Attributes:
+        metadata (dict): Information about the rendering modes available.
+        ymin (float): Minimum threshold for thermal comfort.
+        ymax (float): Maximum threshold for thermal comfort.
+    """
+
+    def __init__(self, simulator, seed=None, fully_observable=True):
         super().__init__()
-        if isinstance(simulator, ODE_NonAutonomous):
-            self.simulator = simulator
+        if isinstance(simulator, BuildingEnvelope):
+            self.sys = simulator
         else:
-            self.simulator = systems[simulator](U=U, ninit=ninit, nsim=nsim, ts=ts, x0=x0, norm_func=norm_func)
-        self.action_space = spaces.Box(-np.inf, np.inf, shape=self.simulator.get_U().shape[-1], dtype=np.float32)
-        self.observation_space = spaces.Box(-np.inf, np.inf, shape=self.simulator.x0.shape,dtype=np.float32)
-        self.perturb = perturb
+            self.sys = systems[simulator](seed=seed)
+        self.action_space = spaces.Box(
+            self.sys.umin, self.sys.umax, shape=self.sys.umin.shape, dtype=np.float32)
+        self.observation_space = spaces.Box(
+            -np.inf, np.inf, shape=self.sys.x0.shape, dtype=np.float32)
+        self.fully_observable = fully_observable
+        self.reset()
 
     def step(self, action):
-        self.x = self.A*np.asmatrix(self.x).reshape(4, 1) + self.B*action.T + self.E*(self.D[self.tstep].reshape(3,1))
-        self.y = (self.C * np.asmatrix(self.x)).flatten()
-        self.tstep += 1
-        observation = (self.y, self.x)[self.fully_observable].astype(np.float32)
-        self.X_out = np.concatenate([self.X_out, np.array(self.x.reshape([1, 4]))])
-        return np.array(observation).flatten(), self.reward(), self.tstep == self.X.shape[0], {'xout': self.X_out}
+        u = np.asarray(action)
+        d = self.sys.get_D(1).flatten()
+        self.x, self.y = self.sys.equations(self.x, u, d)
+        self.t += 1
+        self.X_rec = np.append(self.X_rec, self.x)
+        reward = self.reward(u, self.y)
+        done = self.t == self.sys.nsim
+        return self.obs, reward, done, dict(X_rec=self.X_rec)
+    
+    def reward(self, u, y, ymin=21.0, ymax=23.0):
+        # energy minimization
+        action_loss = 0.1 * np.sum(u > 0.0)
 
-    def reset(self, dset='train'):
+        # thermal comfort 
+        inbound_reward = 5. * np.sum((ymin < y) & (y < ymax))
 
-        self.tstep = 0
-        observation = (self.y, self.x)[self.fully_observable].astype(np.float32)
-        self.X_out = np.empty(shape=[0, 4])
-        return np.array(observation).flatten()
+        return inbound_reward - action_loss
+    
+    @property
+    def obs(self):
+        return (self.y, self.x)[self.fully_observable].astype(np.float32)
+
+    def reset(self):
+        self.t = 0
+        self.x = self.sys.x0
+        self.y = self.sys.C * self.x
+        self.X_rec = np.empty(shape=[0, 4])
+        return self.obs
 
     def render(self, mode='human'):
-        print('render')
-
-systems = {k: GymWrapper for k in GymWrapper.envs}
-
+        pass

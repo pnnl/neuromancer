@@ -23,24 +23,25 @@ class BuildingEnv(Env):
     def __init__(self, simulator, seed=None, fully_observable=True):
         super().__init__()
         if isinstance(simulator, BuildingEnvelope):
-            self.sys = simulator
+            self.model = simulator
         else:
-            self.sys = systems[simulator](seed=seed)
+            self.model = systems[simulator](seed=seed)
         self.action_space = spaces.Box(
-            self.sys.umin, self.sys.umax, shape=self.sys.umin.shape, dtype=np.float32)
+            self.model.umin, self.model.umax, shape=self.model.umin.shape, dtype=np.float32)
         self.observation_space = spaces.Box(
-            -np.inf, np.inf, shape=self.sys.x0.shape, dtype=np.float32)
+            -np.inf, np.inf, shape=self.model.x0.shape, dtype=np.float32)
         self.fully_observable = fully_observable
         self.reset()
 
     def step(self, action):
         u = np.asarray(action)
-        d = self.sys.get_D(1).flatten()
-        self.x, self.y = self.sys.equations(self.x, u, d)
+        d = self.model.get_D(1).flatten()
+        # model should accept either 1D arrays or 2D (n, 1) arrays
+        self.x, self.y = self.model(self.x, u, d)
         self.t += 1
         self.X_rec = np.append(self.X_rec, self.x)
         reward = self.reward(u, self.y)
-        done = self.t == self.sys.nsim
+        done = self.t == self.model.nsim
         return self.obs, reward, done, dict(X_rec=self.X_rec)
     
     def reward(self, u, y, ymin=21.0, ymax=23.0):
@@ -58,8 +59,8 @@ class BuildingEnv(Env):
 
     def reset(self):
         self.t = 0
-        self.x = self.sys.x0
-        self.y = self.sys.C * self.x
+        self.x = self.model.x0
+        self.y = self.model.C * self.x
         self.X_rec = np.empty(shape=[0, 4])
         return self.obs
 

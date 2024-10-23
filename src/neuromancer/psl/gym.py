@@ -1,7 +1,7 @@
-from scipy.io import loadmat
-from gym import spaces, Env
-
 import numpy as np
+from gymnasium import spaces, Env
+from gymnasium.envs.registration import register
+from neuromancer.utils import seed_everything
 from neuromancer.psl.building_envelope import BuildingEnvelope, systems
 
 
@@ -31,18 +31,19 @@ class BuildingEnv(Env):
         self.observation_space = spaces.Box(
             -np.inf, np.inf, shape=self.model.x0.shape, dtype=np.float32)
         self.fully_observable = fully_observable
-        self.reset()
+        self.reset(seed=seed)
 
     def step(self, action):
         u = np.asarray(action)
         d = self.model.get_D(1).flatten()
-        # model should accept either 1D arrays or 2D (n, 1) arrays
+        # expect the model to accept both 1D arrays and 2D arrays
         self.x, self.y = self.model(self.x, u, d)
         self.t += 1
         self.X_rec = np.append(self.X_rec, self.x)
         reward = self.reward(u, self.y)
         done = self.t == self.model.nsim
-        return self.obs, reward, done, dict(X_rec=self.X_rec)
+        truncated = False
+        return self.obs, reward, done, truncated, dict(X_rec=self.X_rec)
     
     def reward(self, u, y, ymin=21.0, ymax=23.0):
         # energy minimization
@@ -57,12 +58,21 @@ class BuildingEnv(Env):
     def obs(self):
         return (self.y, self.x)[self.fully_observable].astype(np.float32)
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        seed_everything(seed)
         self.t = 0
         self.x = self.model.x0
         self.y = self.model.C * self.x
         self.X_rec = np.empty(shape=[0, 4])
-        return self.obs
+        return self.obs, dict(X_rec=self.X_rec)
 
     def render(self, mode='human'):
         pass
+
+
+for env_id in systems:
+    register(
+        env_id,
+        entry_point='neuromancer.psl.gym:BuildingEnv',
+        kwargs=dict(simulator=env_id),
+    )

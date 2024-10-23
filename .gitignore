@@ -172,3 +172,4 @@ building_parameters/
 
 *.dot
 *.png
+runs/

@@ -1,2 +1,3 @@
-gym
-ray[rllib]
+gymnasium
+tyro
+tqdm

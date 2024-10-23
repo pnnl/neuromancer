@@ -198,9 +198,12 @@ def run():
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
 
-    prog_bar = tqdm.trange(1, args.num_iterations + 1, desc="PPO training")
-    prog_postfix = {}
-    for iteration in prog_bar:
+    def show_progress(bar=tqdm.trange(1, args.num_iterations + 1), postfix={}, **kwargs):
+        postfix.update(kwargs)
+        bar.set_postfix(postfix)
+        return bar
+    
+    for iteration in show_progress():
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
@@ -228,8 +231,7 @@ def run():
             if "final_info" in infos:
                 for info in infos["final_info"]:
                     if info and "episode" in info:
-                        prog_postfix.update(steps=global_step, reward=info["episode"]["r"].mean())
-                        prog_bar.set_postfix(prog_postfix)
+                        show_progress(steps=global_step, reward=info["episode"]["r"].mean())
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
@@ -325,8 +327,7 @@ def run():
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
-        prog_postfix.update(SPS=int(global_step / (time.time() - start_time)))
-        prog_bar.set_postfix(prog_postfix)
+        show_progress(SPS=int(global_step / (time.time() - start_time)))
 
     if args.save_model:
         model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"

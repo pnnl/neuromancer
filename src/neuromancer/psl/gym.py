@@ -45,14 +45,14 @@ class BuildingEnv(Env):
         truncated = False
         return self.obs, reward, done, truncated, dict(X_rec=self.X_rec)
     
-    def reward(self, u, y, ymin=21.0, ymax=23.0):
-        # energy minimization
-        action_loss = 0.1 * np.sum(u > 0.0)
+    def reward(self, u, y, ymin=20.0, ymax=22.0):
+        # power consumption minimization (u in W)
+        pc_loss = 0.001 * np.sum(u)
 
-        # thermal comfort 
-        inbound_reward = 5. * np.sum((ymin < y) & (y < ymax))
+        # thermal comfort (y in °C)
+        comfort_reward = 1. * np.sum((ymin < y) & (y < ymax))
 
-        return inbound_reward - action_loss
+        return comfort_reward - pc_loss
     
     @property
     def obs(self):

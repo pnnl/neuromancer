@@ -357,3 +357,7 @@ def run():
 
     envs.close()
     writer.close()
+    
+
+if __name__ == "__main__":
+    run()

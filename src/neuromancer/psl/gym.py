@@ -70,6 +70,7 @@ class BuildingEnv(Env):
         pass
 
 
+# allow the custom envs to be directly instantiated by gym.make(env_id)
 for env_id in systems:
     register(
         env_id,

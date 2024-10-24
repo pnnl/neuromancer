@@ -106,7 +106,7 @@ def create_timeseries(data, len_sequence):
     X, y = [], []
     for i in range(len(data) - len_sequence):
         X.append(data[i:i+len_sequence])
-        y.append(data[i+len_sequence][0])
+        y.append(data[i+len_sequence][0]) # columm 0 is the load
 
     X, y = np.array(X), np.array(y).reshape(-1,1)
     return X, y

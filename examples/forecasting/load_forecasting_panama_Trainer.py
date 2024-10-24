@@ -3,18 +3,15 @@
 
 #%% Imports
 
-import io
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import requests
+from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
-from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error
-from tqdm import tqdm
-import zipfile
 
 
 #%% Set numpy and torch seeds for reproducibility
@@ -33,51 +30,14 @@ file_name = "continuous_dataset.csv"
 with open(file_name, "wb") as file:
     file.write(response.content)
 
-#%% Read csv file as Pandas dataframe
+
+#%% Read csv file as Pandas dataframe and set index
 
 df = pd.read_csv(file_name)
-df
-
-
-#%% Read as pandas dataframe and set index
-
 df = df.set_index("datetime")
 df.index = pd.to_datetime(df.index)
 df
 
-
-#%% Encode time information using Radial Basis Functions (RBFs)
-
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from datetime import date
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.metrics import mean_absolute_error
-from sklego.preprocessing import RepeatingBasisFunction
-
-
-df["day_of_year"] = df.index.day_of_year
-rbf = RepeatingBasisFunction(n_periods=12,
-                         	column="day_of_year",
-                         	input_range=(1,365),
-                         	remainder="drop")
-rbf.fit(df)
-df_rbf = pd.DataFrame(
-    index=df.index,
-    data=rbf.transform(df),
-    columns=[f'rbf_{i}' for i in range(12)]
-)
-
-df_rbf.plot(subplots=True, figsize=(14, 8),
-     	sharex=True, title="Radial Basis Functions",
-     	legend=False)
-
-#%% Concat dfs
-
-df = pd.concat([df, df_rbf], axis=1)
-df
 
 #%% Drop uninformative features
 
@@ -99,8 +59,7 @@ df
 # holiday: Holiday binary indicator 1 = holiday, 0 = regular day
 # school: School period binary indicator 1 = school, 0 = vacations
 
-excluded_cols = ['Holiday_ID', 'day_of_year']
-excluded_cols.extend(df_rbf.columns) # also exclude encoded time features, as they do not contribute
+excluded_cols = ['Holiday_ID']
 df = df.drop(columns=excluded_cols)
 
 
@@ -141,7 +100,7 @@ val_data, test_data
 
 
 #%%
-# Create sequential data with a window size of 72
+# Create sequential data with a arbitrary window size
 
 def create_timeseries(data, len_sequence):
     X, y = [], []
@@ -158,8 +117,11 @@ X_test, y_test = create_timeseries(test_data, seq_length)
 
 
 #%%
-
 # Create a custom dataset class for PyTorch DataLoader
+
+from neuromancer.dataset import default_collate
+
+
 class PanamaLoadDataset(Dataset):
     def __init__(self, X, y, type="Train"):
         self.X = torch.tensor(X, dtype=torch.float32)
@@ -193,7 +155,7 @@ class PanamaLoadDataset(Dataset):
             }
 
 
-#%%
+#%% Set experiment hyperparameters and train, val, test data sets
 # Hyperparameters
 input_size = X_train.shape[2]
 hidden_size = 64
@@ -215,11 +177,9 @@ test_dataset = PanamaLoadDataset(X_test, y_test, type="Test")
 test_loader = DataLoader(test_dataset, batch_size=batch_size, collate_fn = test_dataset.collate_fn, shuffle=False)
 
 
-#%% Initialize Neuromancer blocks
+#%% Initialize the neural network from Neuromancer blocks
 
 from neuromancer.modules import blocks
-from neuromancer.modules import activations
-from neuromancer import slim
 
 
 block_lstm = blocks.PytorchLSTM(
@@ -231,18 +191,14 @@ block_lstm = blocks.PytorchLSTM(
     nonlin=torch.nn.ReLU, 
 )
 
-#%%
+#%% Use Neuromancer to define the Node, objective, constraints and problem
 
-from neuromancer.psl import plot
-from neuromancer import psl
 from neuromancer.system import Node
 from neuromancer.trainer import Trainer
 from neuromancer.problem import Problem
 from neuromancer.loggers import BasicLogger
-from neuromancer.dataset import *
-from neuromancer.constraint import variable, Loss,Objective
+from neuromancer.constraint import variable
 from neuromancer.loss import PenaltyLoss
-from neuromancer.modules import blocks
 
 
 model = block_lstm
@@ -255,16 +211,11 @@ nodes = [lstm_node] #slice the target to load dim, then pass inputs into model
 predicted = variable('predicted')
 real = variable('Y')
 
-
-#%%
-#we choose a MSE loss function to assess the quality of a model's predictions by measuring how closely they align with the ground truth.
-MSE = (real == predicted)^2
+MSE = (real == predicted)^2 # Choose mean squared error as the loss function.
 MSE.name='mse'
-
 
 constraints = []
 objectives = [MSE] 
-
 
 # create constrained optimization loss
 loss_ = PenaltyLoss(objectives, constraints)
@@ -279,7 +230,8 @@ batch_size = 64
 logger = BasicLogger(args=None, savedir='test', verbosity=1,
                         stdout=['dev_loss', 'train_loss'])
 
-problem
+problem.show()
+
 
 #%% Initiate Trainer
 
@@ -290,8 +242,8 @@ N_EPOCHS = 100
 trainer = Trainer(
     problem,
     train_loader,
-    val_loader, # TODO fix
-    test_loader, # TODO fix
+    val_loader,
+    test_loader,
     optimizer,
     patience=100,
     warmup=500,
@@ -305,10 +257,10 @@ trainer = Trainer(
 )
 
 best_model = trainer.train()
+problem.load_state_dict(best_model)
 
 
-
-# %% Testing on test set
+# %% Test the model on test set, show performance metrics and plot forecasts
 
 # Define a function to compute inverse transform of target variable only
 
@@ -316,8 +268,6 @@ def inverse_tranform_y(y_scaled):
     y = y_scaled - scaler.min_[0]
     y = y / scaler.scale_[0]
     return y
-
-criterion = nn.MSELoss()
 
 
 print("Testing on test set...")
@@ -327,7 +277,6 @@ with torch.no_grad():
     y_test_tensor = torch.tensor(y_test, dtype=torch.float32).to(device)
 
     y_pred = model(X_test_tensor)#.numpy()
-    loss_val = criterion(y_pred, y_test_tensor)
 
     y_pred_scaled = inverse_tranform_y(y_pred.cpu())
     y_test_scaled = inverse_tranform_y(y_test)

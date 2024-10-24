@@ -170,6 +170,4 @@ cython_debug/
 
 building_parameters/
 
-*.dot
-*.png
 runs/

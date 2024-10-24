@@ -14,6 +14,8 @@ import tyro
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
+from neuromancer.rl.utils import make_env
+
 
 @dataclass
 class Args:
@@ -83,25 +85,6 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
-
-
-def make_env(env_id, idx, capture_video, run_name, gamma):
-    def thunk():
-        if capture_video and idx == 0:
-            env = gym.make(env_id, render_mode="rgb_array")
-            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
-        else:
-            env = gym.make(env_id)
-        env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
-        env = gym.wrappers.RecordEpisodeStatistics(env)
-        env = gym.wrappers.ClipAction(env)
-        env = gym.wrappers.NormalizeObservation(env)
-        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
-        env = gym.wrappers.NormalizeReward(env, gamma=gamma)
-        env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
-        return env
-
-    return thunk
 
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):

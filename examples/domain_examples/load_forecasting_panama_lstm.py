@@ -231,8 +231,7 @@ loss_ = PenaltyLoss(objectives, constraints)
 # construct constrained optimization problem
 problem = Problem(nodes, loss_)
 
-optimizer = torch.optim.Adam(block_lstm.parameters(), lr=0.005) #we choose the Adam optimizer because it reports to have a faster convergence and little memory requirements
-
+optimizer = torch.optim.Adam(block_lstm.parameters(), lr=0.005)
 logger = BasicLogger(args=None, savedir='test', verbosity=1,
                         stdout=['dev_loss', 'train_loss'])
 

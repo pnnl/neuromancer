@@ -14,9 +14,19 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 
-#%% Set numpy and torch seeds for reproducibility
+#%% Set numpy and torch seeds for reproducibility, and choose device automatically
 torch.manual_seed(0)
 np.random.seed(0)
+
+# Device configuration
+if torch.backends.mps.is_available():
+    device = torch.device('mps')
+elif torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
+
+print(f"Using device: {device}")
 
 
 #%% Download data set
@@ -64,7 +74,7 @@ df = df.drop(columns=excluded_cols)
 
 
 #%%
-# Split the data into training and test sets
+# Split the data into training, validation and test sets
 
 seq_length = 72 # lookback = 72 hours
 train_split = 0.7
@@ -90,13 +100,13 @@ df_test = df[val_end+seq_length:] # add gap between train and test datasets to p
 # Fit scaler to train data and scale train data
 scaler = MinMaxScaler(feature_range=(-1,1))
 train_data = scaler.fit_transform(df_train)
-train_data
+train_data.min(), train_data.max()
+
 
 #%% Transform val and test data using the scaler parameters for train data
 
 val_data = scaler.transform(df_val)
 test_data = scaler.transform(df_test)
-val_data, test_data
 
 
 #%%
@@ -164,7 +174,6 @@ output_size = 1
 learning_rate = 0.00001
 num_epochs = 100
 batch_size = 64
-device = "cuda"
 
 # Create data loaders
 train_dataset = PanamaLoadDataset(X_train, y_train, type="Train")
@@ -206,7 +215,7 @@ model = model.to(device)
 
 lstm_node = Node(model, ['X'],['predicted'], name = 'lstm')
 
-nodes = [lstm_node] #slice the target to load dim, then pass inputs into model
+nodes = [lstm_node]
 
 predicted = variable('predicted')
 real = variable('Y')
@@ -222,11 +231,8 @@ loss_ = PenaltyLoss(objectives, constraints)
 # construct constrained optimization problem
 problem = Problem(nodes, loss_)
 
-# create constrained optimization loss
-#loss = PenaltyLoss(objectives, constraints)
 optimizer = torch.optim.Adam(block_lstm.parameters(), lr=0.005) #we choose the Adam optimizer because it reports to have a faster convergence and little memory requirements
 
-batch_size = 64
 logger = BasicLogger(args=None, savedir='test', verbosity=1,
                         stdout=['dev_loss', 'train_loss'])
 
@@ -245,8 +251,8 @@ trainer = Trainer(
     val_loader,
     test_loader,
     optimizer,
-    patience=100,
-    warmup=500,
+    patience=5,
+    warmup=30,
     epochs=N_EPOCHS,
     eval_metric="dev_loss",
     train_metric="train_loss",
@@ -255,7 +261,6 @@ trainer = Trainer(
     logger=logger,
     device=device
 )
-
 best_model = trainer.train()
 problem.load_state_dict(best_model)
 
@@ -301,6 +306,29 @@ plt.title('Panama Electricity Load Forecasting')
 plt.grid()
 plt.legend()
 plt.show()
+
+
+#%% Randomly choose 72-hour intervals to show forecasts
+
+import random
+
+
+random.seed(0)
+num_samples = 10
+forecast_window = 72
+
+start_idxs = random.sample(range(len(y_pred_scaled)), num_samples)
+
+for idx in start_idxs:
+
+    plt.plot(y_test_scaled[idx:idx+forecast_window], label='Real', marker='o')
+    plt.plot(y_pred_scaled[idx:idx+forecast_window], label='Predicted', marker='x')
+
+    plt.ylabel('Electricity Load (MWh)')
+    plt.xlabel('Time (Hours)')
+    plt.grid()
+    plt.legend()
+    plt.show()
 
 
 # %%

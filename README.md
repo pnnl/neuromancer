@@ -3,7 +3,12 @@
   <img src="figs/Neuromancer.png" width="250">  
 </p>
 
-# NeuroMANCER v1.5.1
+# NeuroMANCER v1.5.2
+
+[![PyPi Version](https://img.shields.io/pypi/v/neuromancer)](https://pypi.org/project/neuromancer)
+[![License](https://img.shields.io/badge/license-BSD-blue.svg)](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md)
+[![Documentation](https://img.shields.io/badge/docs-online-blue.svg)](https://pnnl.github.io/neuromancer/)
+![Lightning](https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white)
 
 **Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations (NeuroMANCER)**
 is an open-source differentiable programming (DP) library for solving parametric constrained optimization problems, 
@@ -12,33 +17,48 @@ NeuroMANCER is written in [PyTorch](https://pytorch.org/) and allows for systema
 integration of machine learning with scientific computing for creating end-to-end 
 differentiable models and algorithms embedded with prior knowledge and physics.
 
-### ⭐ Now available on PyPi! ⭐
-![Static Badge](https://img.shields.io/badge/pip_install-neuromancer-blue)
- ![PyPI - Version](https://img.shields.io/pypi/v/neuromancer)
+---
+
+## Table of Contents
+1. [Overview](#overview)
+2. [Key Features](#key-features)
+3. [What's New in v1.5.2](#whats-new)
+4. [Getting Started](#getting-started)
+5. [Tutorials](#domain-examples)
+5. [Installation](#installation)
+6. [Documentation and User Guides](#documentation-and-user-guides)
 
 
-### New in v1.5.1
-#### Lightning Enhancements 
-![Lightning](https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white)
-Further integration enhancements with PyTorch Lightning (https://lightning.ai/docs/pytorch/stable/). We now support all Lightning hooks, which are modular logic blocks that make defining custom training/validation/etc logic very easy and user-friendly.
+---
 
-We have also released a *Lightning Studio* course on **Differentiable Predictive Control**: <a target="_blank" href="https://lightning.ai/rahulbirmiwal/studios/differential-predictive-control-with-neuromancer">
-  <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio" style="width:100px; height:auto;"/>
-</a>!
-
-Lightning Studios are powerful, AI development platforms. They essentially act as extremely user-friendly virtual machines, but accessible through your browser! Please see https://lightning.ai/studios for more information. 
+### Key Features
+* **Learn To Model, Learn To Control, Learn To Optimize**: Our library is built to provide end users a multitude of tools to solve Learning To Optimize (L2O), Learning To Model (L2M), and Learning To Control (L2C) tasks. Tackle advanced constrained parametric optimization, model fluid dynamics using physics-informed neural networks, or learn how to control indoor air temperature in buildings to maximize building efficiency.
+* **Symbolic programming** interface makes it very easy to define embed prior knowledge of physics, domain knowledge, and constraints into those learning paradigms. 
+* **Comprehensive Learning Tools**: Access a wide array of tutorials and example applications—from basic system identification to advanced predictive control—making it easy for users to learn and apply NeuroMANCER to real-world problems.
+* **State-of-the-art methods**: NeuroMANCER is up-to-date with SOTA methods such as Kolgomorov-Arnold Networks for advanced system identification and function approximation, and SINDy
 
 
-#### TorchSDE Integration
-* We have begun integration with the TorchSDE library (https://github.com/google-research/torchsde/tree/master) TorchSDE provides stochastic differential equation solvers with GPU spport and efficient backpropagation. 
-* Neuromancer already has robust and extensive library for Neural ODEs and ODE solvers. We extend that functionality to the stochastic case by incorporating TorchSDE solvers. To motivate and teach the user how one progresses from neural ODEs to "neural SDEs" we have written a lengthy notebook -- [sde_walkthrough.ipynb](examples/SDEs/sde_walkthrough.ipynb)
+## What's New in v1.5.2
+### Load Forecasting Capabilities 
+We expand our energy systems domain examples with load forecasting for buildings. 
+We showcase the use of time-series modelling and forecasting using the Short-Term Electricity Load Forecasting (Panama case study) dataset. We have a coup 
 
-#### Stacked Physics-Informed Neural Networks
-* Neuromancer now supports Stacked Physics-Informed Neural Networks. This architecture, based on the work of [Howard et al. (2023)](https://arxiv.org/abs/2311.06483), consists of stacking multifidelity networks via composition, allowing a progressive improvement of learned solutions. This formulation is especially useful for highly oscillatory problems. We illustrate an example of its usage with the solution of a damped harmonic oscillator using PINN: [Part_5_Pendulum_Stacked.ipynb](examples/PDEs/Part_5_Pendulum_Stacked.ipynb)
+Within this introductory notebook, NeuroMANCER can now bring more advanced state-of-the-art (SOTA) models into the existing library, increasing the breadth of models available to end-users as well as broadening prospective new users.
 
-#### SINDy
+Specifically, the Transformer model is incorporated into the blocks.py module, allowing for end-users to load an out-of-the-box network using the blocks interface on NeuroMANCER.
 
-* Sparse Identification of Nonlinear Dynamics (SINDy) is a powerful method which uses sparse regression to identify a small number of active terms in dynamic systems, allowing for interpretable and efficient modeling of complex, nonlinear dynamics. We now enable users to leverage this technique for sparse physics-informed system identification. Checkout the notebook here [Part_9_SINDy.ipynb](examples/ODEs/Part_9_SINDy.ipynb)
+Complimentary to the Energy Load Forecasting Notebook using a multi-layered perceptron (MLP), this notebook offers a tutorial for energy-load modeling using historical weather features as inputs to a vanilla Transformer model. This tutorial also allows for the capability of forecasting future timesteps when future weather forecasts are inaccessible or too uncertain.
+
+
+### Finite-Basis Kolgomorov Arnold Networks
+
+Kolmogorov-Arnold networks (KANs) have attracted attention recently as an alternative to multilayer
+perceptrons (MLPs) for scientific machine learning. However, KANs can be expensive to train, even
+for relatively small networks. We have implemented an FBKAN block (FBPINNs),
+for domain decomposition method for KANs that allows for several small
+KANs to be trained in parallel to give accurate solutions for multiscale problems.
+
+
 
 **New Colab Examples:**
 > ⭐ [Custom Training Via Lightning Hooks ](#lightning-integration-examples)
@@ -50,7 +70,11 @@ Lightning Studios are powerful, AI development platforms. They essentially act a
 > ⭐ [Part 9: Sparse Identification of Nonlinear Dynamics (SINDy) ](#ordinary-differential-equation-examples)
 
 
-## Features and Examples
+## Getting Started
+
+```
+pip install neuromancer
+```
 
 Extensive set of tutorials can be found in the 
 [examples](https://github.com/pnnl/neuromancer/tree/master/examples) folder.
@@ -58,7 +82,9 @@ Interactive notebook versions of examples are available on Google Colab!
 Test out NeuroMANCER functionality before cloning the repository and setting up an
 environment.
 
-### Intro to NeuroMANCER
+The notebooks below introduce the core abstractions of the NeuroMANCER library, in particular our symbolic programming interface and Node classes. 
+
+### Symbolic Variables, Nodes, Constraints, Objectives, and Systems Classes
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_1_linear_regression.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 Part 1: Linear regression in PyTorch vs NeuroMANCER.  
@@ -70,101 +96,10 @@ Part 2: NeuroMANCER syntax tutorial: variables, constraints, and objectives.
 Part 3: NeuroMANCER syntax tutorial: modules, Node, and System class.
 
 
-### Learning to Optimize (L2O) for Parametric Programming
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-Part 1: Learning to solve a constrained optimization problem.
+### PyTorch Lightning Integration
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_2_pQP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-Part 2: Learning to solve a quadratically-constrained optimization problem.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_3_pNLP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-Part 3: Learning to solve a set of 2D constrained optimization problems.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
-Part 4: Learning to solve a constrained optimization problem with the projected gradient.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_5_cvxpy_layers.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
-Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasible set.  
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_6_pQp_lopoCorrection.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
-Part 6: Learning to optimize with metric learning for Operator Splitting layers.  
-
-### System Identification of Ordinary Differential Equations (ODEs)
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_1_NODE.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Neural Ordinary Differential Equations (NODEs)
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_2_param_estim_ODE.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Parameter estimation of ODE system
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_3_UDE.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Universal Differential Equations (UDEs)
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_4_nonauto_NODE.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: NODEs with exogenous inputs
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_5_nonauto_NSSM.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Neural State Space Models (NSSMs) with exogenous inputs
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_6_NetworkODE.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Data-driven modeling of resistance-capacitance (RC) network ODEs
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_7_DeepKoopman.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 7: Deep Koopman operator
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_8_nonauto_DeepKoopman.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 8: control-oriented Deep Koopman operator
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_9_SINDy.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 9: Sparse Identification of Nonlinear Dynamics (SINDy)
-
-
-### Physics-Informed Neural Networks (PINNs) for Partial Differential Equations (PDEs) and Ordinary Differential Equations (ODEs)
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Diffusion Equation
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_2_PINN_BurgersEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Burgers' Equation
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_3_PINN_BurgersEquation_inverse.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Burgers' Equation w/ Parameter Estimation (Inverse Problem)
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_4_PINN_LaplaceEquationSteadyState.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Laplace's Equation (steady-state)
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_5_Pendulum_Stacked.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Damped Pendulum (stacked PINN)
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_6_PINN_NavierStokesCavitySteady_KAN.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Navier-Stokes equation (lid-driven cavity flow, steady-state, KAN)
-
-### Learning to Control (L2C) with Differentiable Models
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Learning to stabilize a linear dynamical system.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_2_stabilize_ODE.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Learning to stabilize a nonlinear differential equation.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_3_ref_tracking_ODE.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Learning to control a nonlinear differential equation.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_4_NODE_control.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Learning neural ODE model and control policy for an unknown dynamical system.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_5_neural_Lyapunov.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Learning neural Lyapunov function for a nonlinear dynamical system.
-
-### Domain Examples 
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_building_control.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Learning to Control Indoor Air Temperature in Buildings.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_PSH.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Learning to Control an Pumped-Hydroelectricity Energy Storage System.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_building_dynamics.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Learning Building Thermal Dynamics using Neural ODEs.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_RC_networks.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Data-driven modeling of a Resistance-Capacitance network with Neural ODEs.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_swing_equation.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Learning Swing Equation Dynamics using Neural ODEs.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NSSM_building_dynamics.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Learning Building Thermal Dynamics using Neural State Space Models.
-
-### Lightning Integration Examples 
+We have integrated PyTorch Lightning to streamline code, enable custom training logic, support GPU and multi-GPU setups, and handle large-scale, memory-intensive learning tasks.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_1_lightning_basics_tutorial.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Lightning Integration Basics.
@@ -172,23 +107,11 @@ Part 6: Learning to optimize with metric learning for Operator Splitting layers.
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_2_lightning_advanced_and_gpu_tutorial.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Lightning Advanced Features and Automatic GPU Support.
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_4_lightning_wanb_hyperparameter_tuning.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Hyperparameter Tuning With Lightning & WandB
-
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/other_examples/lightning_custom_training_example.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
- 
 
-### Stochastic Differential Equations (SDEs) 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/SDEs/sde_walkthrough.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> LatentSDEs: "System Identification" of Stochastic Processes using Neuromancer x TorchSDE
-
-
-## Documentation
-The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/). 
-There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 
-core features of the library. 
-
+### Example
+Quick example for how to solve parametric constrained optimization problem using NeuroMANCER, leveraging our symbolic programming interface, Node and Variable, Blocks, SLiM library, and PenaltyLoss classes. 
 
 ```python 
 # Neuromancer syntax example for constrained optimization
@@ -222,156 +145,143 @@ loss = nm.loss.PenaltyLoss(objectives=[obj], constraints=[con_1, con_2])
 problem = nm.problem.Problem(nodes=[map], loss=loss)
 ```
 
-![UML diagram](figs/class_diagram.png)
-*UML diagram of NeuroMANCER classes.*
+
+## Domain Examples
+
+NeuroMANCER is built to tackle a variety of domain-specific modeling and control problems using its array of methods. Here we show how to model and control building energy systems, as well as apply load forecasting techniques. 
+
+For more in-depth coverage of our methods, please see our general [Tutorials](#tutorials) section below. 
+
+### Energy Systems
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_building_dynamics.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning Building Thermal Dynamics using Neural ODEs 
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_RC_networks.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Multi-zone Building Thermal Dynamics Resistance-Capacitance network with Neural ODEs
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_swing_equation.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning Swing Equation Dynamics using Neural ODEs
+
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_building_control.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Indoor Air Temperature in Buildings
+
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/HVAC_load_forecasting.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Energy Load Forecasting for the Air Handling System of an Office Building with MLP and CNN models
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/building_load_forecasting_Transformers.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  Energy Load Forecasting for Building with Transformers Model
+
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_PSH.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Pumped-storage Hyrdoelectricity System
+
+
+## Tutorials on Methods for Modeling, Optimization, and Control
+### Learning to Optimize (L2O) Parametric Programming
+
+Neuromancer allows you to formulate and solve a broad class of parametric optimization problems leveraging machine learning to learn the solutions to such problems. 
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+Part 1: Learning to solve a constrained optimization problem.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_2_pQP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+Part 2: Learning to solve a quadratically-constrained optimization problem.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_3_pNLP.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+Part 3: Learning to solve a set of 2D constrained optimization problems.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_4_projectedGradient.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
+Part 4: Learning to solve a constrained optimization problem with the projected gradient.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_5_cvxpy_layers.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
+Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasible set.  
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_6_pQp_lopoCorrection.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> 
+Part 6: Learning to optimize with metric learning for Operator Splitting layers.  
+
+### Learning to Control (L2C)
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Learning to stabilize a linear dynamical system.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_2_stabilize_ODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Learning to stabilize a nonlinear differential equation.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_3_ref_tracking_ODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Learning to control a nonlinear differential equation.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_4_NODE_control.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Learning neural ODE model and control policy for an unknown dynamical system.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_5_neural_Lyapunov.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Learning neural Lyapunov function for a nonlinear dynamical system.
+
+### Function Approximation
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/feature/fbkans/examples/KANs/p1_fbkan_vs_kan_noise_data_1d.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: A comparison of KANs and FBKANs in learning a 1D multiscale function with noise
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/feature/fbkans/examples/KANs/p2_fbkan_vs_kan_noise_data_2d.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: A comparison of KANs and FBKANs in learning a 2D multiscale function with noise
+
+
+### Neural Operators
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_1_NODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Neural Ordinary Differential Equations (NODEs)
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_2_param_estim_ODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Parameter estimation of ODE system
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_3_UDE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Universal Differential Equations (UDEs)
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_4_nonauto_NODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: NODEs with exogenous inputs
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_5_nonauto_NSSM.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Neural State Space Models (NSSMs) with exogenous inputs
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_6_NetworkODE.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Data-driven modeling of resistance-capacitance (RC) network ODEs
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_7_DeepKoopman.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 7: Deep Koopman operator
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_8_nonauto_DeepKoopman.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 8: control-oriented Deep Koopman operator
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_9_SINDy.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 9: Sparse Identification of Nonlinear Dynamics (SINDy)
+
+
+### Physics-Informed Neural Networks (PINNs)
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Diffusion Equation
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_2_PINN_BurgersEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Burgers' Equation
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_3_PINN_BurgersEquation_inverse.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Burgers' Equation w/ Parameter Estimation (Inverse Problem)
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_4_PINN_LaplaceEquationSteadyState.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Laplace's Equation (steady-state)
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_5_Pendulum_Stacked.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Damped Pendulum (stacked PINN)
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_6_PINN_NavierStokesCavitySteady_KAN.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Navier-Stokes equation (lid-driven cavity flow, steady-state, KAN)
+
+### Stochastic Differential Equations (SDEs) 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/SDEs/sde_walkthrough.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> LatentSDEs: "System Identification" of Stochastic Processes using Neuromancer x TorchSDE
+
+
+
+
+## Documentation and User Guides
+The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/). 
+There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 
+core features of the library. 
+
+For more information, including those for developers, please go to our [Developer and User Guide](USER_GUIDE.md)
 
 
 ## Installation
-
-### PIP Install (recommended)
-
-Consider using a dedicated virtual environment (conda or otherwise) with Python 3.9+ installed. 
-
-```bash
+Simply run 
+```
 pip install neuromancer
 ```
-Example usage: 
-
-```bash
-import torch
-from neuromancer.system import Node
-
-fun_1 = lambda x1, x2: 2.*x1 - x2**2
-node_3 = Node(fun_1, ['y1', 'y2'], ['y3'], name='quadratic')
-# evaluate forward pass of the node with dictionary input dataset
-print(node_3({'y1': torch.rand(2), 'y2': torch.rand(2)}))
-
-```
-### Manual Install
-
-First clone the neuromancer package.
-A dedicated virtual environment (conda or otherwise) is recommended. 
-
-Note: If you have a previous neuromancer env it would be best at this point to create a new environment given the following instructions.
-
-```bash
-git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
-```
-
-#### Create and activate virtual environment
-
-``` bash
-conda create -n neuromancer python=3.10.4
-conda activate neuromancer
-```
-
-#### Install neuromancer and all dependencies.
-From top level directory of cloned neuromancer run:
-
-```bash
-pip install -e.[docs,tests,examples]
-```
-
-OR, for zsh users:
-```zsh
-pip install -e.'[docs,tests,examples]'
-```
-
-See the `pyproject.toml` file for reference.
-
-``` toml
-[project.optional-dependencies]
-tests = ["pytest", "hypothesis"]
-examples = ["casadi", "cvxpy", "imageio", "cvxpylayers"]
-docs = ["sphinx", "sphinx-rtd-theme"]
-```
-
-#### Note on pip install with `examples` on MacOS (Apple M1)
-Before CVXPY can be installed on Apple M1, you must install `cmake` via Homebrew:
-
-```zsh
-brew install cmake
-```
-
-See [CVXPY installation instructions](https://www.cvxpy.org/install/index.html) for more details.
-
-
-### Conda install
-Conda install is recommended for GPU acceleration. 
-
-> ❗️Warning: `linux_env.yml`, `windows_env.yml`, and `osxarm64_env.yml` are out of date. Manual installation of dependencies is recommended for conda.
-
-
-#### Create environment & install dependencies
-##### Ubuntu
-
-``` bash
-conda env create -f linux_env.yml
-conda activate neuromancer
-```
-
-##### Windows
-
-``` bash
-conda env create -f windows_env.yml
-conda activate neuromancer
-conda install -c defaults intel-openmp -f
-```
-
-##### MacOS (Apple Silicon)
-
-``` bash
-conda env create -f osxarm64_env.yml
-conda activate neuromancer
-```
-
-##### Other (manually install all dependencies)
-
-!!! Pay attention to comments for non-Linux OS !!!
-
-``` bash
-conda create -n neuromancer python=3.10.4
-conda activate neuromancer
-conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
-## OR (for Mac): conda install pytorch -c pytorch
-conda config --append channels conda-forge
-conda install scipy numpy"<1.24.0" matplotlib scikit-learn pandas dill mlflow pydot=1.4.2 pyts numba
-conda install networkx=3.0 plum-dispatch=1.7.3 
-conda install -c anaconda pytest hypothesis
-conda install cvxpy cvxopt casadi seaborn imageio
-conda install tqdm torchdiffeq toml
-conda install lightning wandb -c conda-forge
-## (for Windows): conda install -c defaults intel-openmp -f
-```
-
-#### Install NeuroMANCER package
-From the top level directory of cloned neuromancer
-(in the activated environment where the dependencies have been installed):
-
-```bash
-pip install -e . --no-deps
-```
-
-### Install Graphviz (optional)
-In order to use the Problem graph plots, we recommend installing Graphviz system-wide. Note that this feature is optional.
-
-#### For Windows:
-Package must be installed manually: [Graphviz website](https://graphviz.org/download/)
-
-#### For Linux (Debian, Ubuntu)
-```bash
-sudo apt install graphviz
-```
-#### For MacOS
-```bash
-brew install graphviz
-```
-
-### Test NeuroMANCER install
-Run pytest on the [tests folder](https://github.com/pnnl/neuromancer/tree/master/tests). 
-It should take about 2 minutes to run the tests on CPU. 
-There will be a lot of warnings that you can safely ignore. These warnings will be cleaned 
-up in a future release.
+For manual installation please refer to  [Installation Instructions](installation.md)
 
 ## Community Information
 We welcome contributions and feedback from the open-source community!  

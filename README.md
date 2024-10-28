@@ -39,15 +39,9 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 
 
 ## What's New in v1.5.2
-### Load Forecasting Capabilities 
+### Load Forecasting Capabilities and Transformers
 We expand our energy systems domain examples with load forecasting for buildings. 
-We showcase the use of time-series modelling and forecasting using the Short-Term Electricity Load Forecasting (Panama case study) dataset. We have a coup 
-
-Within this introductory notebook, NeuroMANCER can now bring more advanced state-of-the-art (SOTA) models into the existing library, increasing the breadth of models available to end-users as well as broadening prospective new users.
-
-Specifically, the Transformer model is incorporated into the blocks.py module, allowing for end-users to load an out-of-the-box network using the blocks interface on NeuroMANCER.
-
-Complimentary to the Energy Load Forecasting Notebook using a multi-layered perceptron (MLP), this notebook offers a tutorial for energy-load modeling using historical weather features as inputs to a vanilla Transformer model. This tutorial also allows for the capability of forecasting future timesteps when future weather forecasts are inaccessible or too uncertain.
+We showcase the use of time-series modelling and forecasting using the Short-Term Electricity Load Forecasting (Panama case study) dataset. We demonstrate forecasting capaibilities using a Transformer model, a new block added to our (neural) blocks.py, as well as other standard blocks. We also utilize historical weather data to assist in energy forecasting. 
 
 
 ### Finite-Basis Kolgomorov Arnold Networks
@@ -61,14 +55,9 @@ KANs to be trained in parallel to give accurate solutions for multiscale problem
 
 
 **New Colab Examples:**
-> ⭐ [Custom Training Via Lightning Hooks ](#lightning-integration-examples)
+> ⭐ [Load Forecasting](#energy-systems)
 
-> ⭐ [Latent Stochastic Differential Equations ](#stochastic-differential-equation-examples)
-
-> ⭐ [Stacked Physics-Informed Neural Networks ](examples/PDEs/Part_5_Pendulum_Stacked.ipynb)
-
-> ⭐ [Part 9: Sparse Identification of Nonlinear Dynamics (SINDy) ](#ordinary-differential-equation-examples)
-
+> ⭐ [Function Approximation with Kolgomorov-Arnold Networks ](#function-approximation)
 
 ## Getting Started
 
@@ -77,7 +66,7 @@ pip install neuromancer
 ```
 
 Extensive set of tutorials can be found in the 
-[examples](https://github.com/pnnl/neuromancer/tree/master/examples) folder.
+[examples](https://github.com/pnnl/neuromancer/tree/master/examples) folder and the [Tutorials](#domain-examples) below.
 Interactive notebook versions of examples are available on Google Colab!
 Test out NeuroMANCER functionality before cloning the repository and setting up an
 environment.
@@ -150,7 +139,7 @@ problem = nm.problem.Problem(nodes=[map], loss=loss)
 
 NeuroMANCER is built to tackle a variety of domain-specific modeling and control problems using its array of methods. Here we show how to model and control building energy systems, as well as apply load forecasting techniques. 
 
-For more in-depth coverage of our methods, please see our general [Tutorials](#tutorials) section below. 
+For more in-depth coverage of our methods, please see our general [Tutorials](#tutorials-on-methods-for-modeling-optimization-and-control) section below. 
 
 ### Energy Systems
 
@@ -182,7 +171,7 @@ For more in-depth coverage of our methods, please see our general [Tutorials](#t
 ## Tutorials on Methods for Modeling, Optimization, and Control
 ### Learning to Optimize (L2O) Parametric Programming
 
-Neuromancer allows you to formulate and solve a broad class of parametric optimization problems leveraging machine learning to learn the solutions to such problems. 
+Neuromancer allows you to formulate and solve a broad class of parametric optimization problems leveraging machine learning to learn the solutions to such problems. [More information on Parametric programming](https://github.com/pnnl/neuromancer/tree/develop/examples/parametric_programming)
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 Part 1: Learning to solve a constrained optimization problem.
@@ -203,6 +192,8 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 Part 6: Learning to optimize with metric learning for Operator Splitting layers.  
 
 ### Learning to Control (L2C)
+Neuromancer allows you to learn control policies for full spectrum of white/grey/black-box dynamical systems, subject to choice constraints and objective functions. 
+[More information on Differential Predictive Control](https://github.com/pnnl/neuromancer/tree/develop/examples/control)
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Learning to stabilize a linear dynamical system.
@@ -220,11 +211,14 @@ Part 6: Learning to optimize with metric learning for Operator Splitting layers.
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 5: Learning neural Lyapunov function for a nonlinear dynamical system.
 
 ### Function Approximation
+Neuromancer is up-to-date with state-of-the-art methods. Here we showcase the powerful Kolgomorov-Arnold networks [More information on Kolgomorov-Arnold Networks](https://github.com/pnnl/neuromancer/tree/develop/examples/KANs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/feature/fbkans/examples/KANs/p1_fbkan_vs_kan_noise_data_1d.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: A comparison of KANs and FBKANs in learning a 1D multiscale function with noise
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/feature/fbkans/examples/KANs/p2_fbkan_vs_kan_noise_data_2d.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: A comparison of KANs and FBKANs in learning a 2D multiscale function with noise
 
 
 ### Neural Operators
+Neuromancer allows one to use machine learning, prior physics and domain knowledge, to construct mathematical and differentiabl models of dynamical systems given the measured observations of the system behavior.
+[More information on System ID via Neural State Space Models and ODEs](https://github.com/pnnl/neuromancer/tree/develop/examples/ODEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_1_NODE.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Neural Ordinary Differential Equations (NODEs)
 
@@ -254,6 +248,7 @@ Part 6: Learning to optimize with metric learning for Operator Splitting layers.
 
 
 ### Physics-Informed Neural Networks (PINNs)
+Neuromancer's symbolic programming design is perfectly suited for solving PINNs. [More information on PINNs](https://github.com/pnnl/neuromancer/tree/develop/examples/PDEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_1_PINN_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Diffusion Equation
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_2_PINN_BurgersEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Burgers' Equation
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_3_PINN_BurgersEquation_inverse.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Burgers' Equation w/ Parameter Estimation (Inverse Problem)
@@ -262,6 +257,7 @@ Part 6: Learning to optimize with metric learning for Operator Splitting layers.
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/PDEs/Part_6_PINN_NavierStokesCavitySteady_KAN.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 6: Navier-Stokes equation (lid-driven cavity flow, steady-state, KAN)
 
 ### Stochastic Differential Equations (SDEs) 
+Neuromancer has been integrated with TorchSDE to handle stochastic dynamical systems. [More information on SDEs](https://github.com/pnnl/neuromancer/tree/develop/examples/SDEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/SDEs/sde_walkthrough.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> LatentSDEs: "System Identification" of Stochastic Processes using Neuromancer x TorchSDE
 
@@ -281,7 +277,7 @@ Simply run
 ```
 pip install neuromancer
 ```
-For manual installation please refer to  [Installation Instructions](installation.md)
+For manual installation please refer to  [Installation Instructions](INSTALLATION.md)
 
 ## Community Information
 We welcome contributions and feedback from the open-source community!  

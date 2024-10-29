@@ -35,7 +35,7 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 * **Learn To Model, Learn To Control, Learn To Optimize**: Our library is built to provide end users a multitude of tools to solve Learning To Optimize (L2O), Learning To Model (L2M), and Learning To Control (L2C) tasks. Tackle advanced constrained parametric optimization, model fluid dynamics using physics-informed neural networks, or learn how to control indoor air temperature in buildings to maximize building efficiency.
 * **Symbolic programming** interface makes it very easy to define embed prior knowledge of physics, domain knowledge, and constraints into those learning paradigms. 
 * **Comprehensive Learning Tools**: Access a wide array of tutorials and example applications—from basic system identification to advanced predictive control—making it easy for users to learn and apply NeuroMANCER to real-world problems.
-* **State-of-the-art methods**: NeuroMANCER is up-to-date with SOTA methods such as Kolgomorov-Arnold Networks for advanced system identification and function approximation, and SINDy
+* **State-of-the-art methods**: NeuroMANCER is up-to-date with SOTA methods such as Kolgomorov-Arnold Networks (KANs) for function approximation, neural ordinary differential equations (NODEs) and sparse identification of non-linear dynamics (SINDy) for learning to model dynamical systems, and differentiable convex optimization layers for safety constraints in learning to optimize and learning to control.
 
 
 ## What's New in v1.5.2

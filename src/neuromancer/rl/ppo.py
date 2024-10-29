@@ -94,16 +94,16 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, envs, actor=None, critic=None):
         super().__init__()
-        self.critic = nn.Sequential(
+        self.critic = critic or nn.Sequential(
             layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
             nn.LeakyReLU(),
             layer_init(nn.Linear(64, 64)),
             nn.LeakyReLU(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
-        self.actor_mean = nn.Sequential(
+        self.actor_mean = actor or nn.Sequential(
             layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
             nn.LeakyReLU(),
             layer_init(nn.Linear(64, 64)),

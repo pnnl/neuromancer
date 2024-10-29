@@ -13,15 +13,14 @@ from neuromancer.psl.gym import BuildingEnv
 from neuromancer.psl.signals import step as step_signal
 from neuromancer.plot import pltCL
 from ppo import Agent, Args, run as ppo_run
-from nssm import NSSMTrainer
+from neuromancer.rl.gym_nssm import NSSMTrainer
+from neuromancer.rl.gym_dpc import DPCTrainer  # Import the DPCTrainer class
 
 # Step 1: Define the physical system model using ODEs
 env = BuildingEnv(simulator='SimpleSingleZone')
 sys = env.model
-nsim = 8000
-sim = sys.simulate(nsim=nsim, x0=sys.get_x0(), U=sys.get_U(nsim + 1))
 
-# Step 2: Collect real-world and simulated data
+# Step 2: Collect data
 nsteps = 100
 n_samples = 1000
 x_min = 18.0
@@ -47,50 +46,11 @@ dev_loader = DataLoader(dev_data, batch_size=batch_size, collate_fn=dev_data.col
 
 # Step 3: Train the Neural State Space Model (NSSM)
 nssm_trainer = NSSMTrainer(env, batch_size=100, epochs=1)
-dynamics_model = nssm_trainer.train(nsim=2000, nsteps=2)
+dynamics_model = nssm_trainer.train(nsim=2000, nsteps=2, niters=1)
 
 # Step 4: Pre-train the policy network using DPC
-A = torch.tensor(sys.params[2]['A'])
-B = torch.tensor(sys.params[2]['Beta'])
-C = torch.tensor(sys.params[2]['C'])
-E = torch.tensor(sys.params[2]['E'])
-umin = torch.tensor(sys.umin)
-umax = torch.tensor(sys.umax)
-
-xnext = lambda x, u, d: x @ A.T + u @ B.T + d @ E.T
-state_model = Node(xnext, ['x', 'u', 'd'], ['x'], name='SSM')
-ynext = lambda x: x @ C.T
-output_model = Node(ynext, ['x'], ['y'], name='y=Cx')
-
-dist_model = lambda d: d[:, sys.d_idx]
-dist_obsv = Node(dist_model, ['d'], ['d_obsv'], name='dist_obsv')
-
-net = blocks.MLP_bounds(insize=sys.ny + 2 * sys.ny + sys.nd, outsize=sys.nu, hsizes=[32, 32], nonlin=nn.GELU, min=umin, max=umax)
-policy = Node(net, ['y', 'ymin', 'ymax', 'd_obsv'], ['u'], name='policy')
-
-cl_system = System([dist_obsv, policy, state_model, output_model], nsteps=nsteps, name='cl_system')
-
-y = variable('y')
-u = variable('u')
-ymin = variable('ymin')
-ymax = variable('ymax')
-
-action_loss = 0.01 * (u == 0.0)
-du_loss = 0.1 * (u[:, :-1, :] - u[:, 1:, :] == 0.0)
-state_lower_bound_penalty = 50.0 * (y > ymin)
-state_upper_bound_penalty = 50.0 * (y < ymax)
-
-objectives = [action_loss, du_loss]
-constraints = [state_lower_bound_penalty, state_upper_bound_penalty]
-
-loss = PenaltyLoss(objectives, constraints)
-problem = Problem([cl_system], loss)
-
-epochs = 200
-optimizer = torch.optim.AdamW(problem.parameters(), lr=0.001)
-trainer = Trainer(problem, train_loader, dev_loader, optimizer=optimizer, epochs=epochs, train_metric='train_loss', eval_metric='dev_loss', warmup=epochs)
-best_model = trainer.train()
-trainer.model.load_state_dict(best_model)
+dpc_trainer = DPCTrainer(env, batch_size=100, epochs=200)
+best_model = dpc_trainer.train(nsim=2000, nsteps=2, niters=5)
 
 # Step 5: Train the policy network using DRL
 args = Args(
@@ -123,11 +83,11 @@ ymax_val = ymin_val + 2.0
 torch_dist = torch.tensor(sys.get_D(nsteps_test + 1)).unsqueeze(0)
 x0 = torch.tensor(sys.get_x0()).reshape(1, 1, sys.nx)
 data = {'x': x0, 'y': x0[:, :, [3]], 'ymin': ymin_val, 'ymax': ymax_val, 'd': torch_dist}
-cl_system.nsteps = nsteps_test
-trajectories = cl_system(data)
+dpc_trainer.cl_system.nsteps = nsteps_test
+trajectories = dpc_trainer.cl_system(data)
 
-Umin = umin * np.ones([nsteps_test, sys.nu])
-Umax = umax * np.ones([nsteps_test, sys.nu])
+Umin = dpc_trainer.env.model.umin * np.ones([nsteps_test, sys.nu])
+Umax = dpc_trainer.env.model.umax * np.ones([nsteps_test, sys.nu])
 Ymin = trajectories['ymin'].detach().reshape(nsteps_test + 1, sys.ny)
 Ymax = trajectories['ymax'].detach().reshape(nsteps_test + 1, sys.ny)
 

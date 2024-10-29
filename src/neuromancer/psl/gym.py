@@ -20,12 +20,12 @@ class BuildingEnv(Env):
         ymax (float): Maximum threshold for thermal comfort.
     """
 
-    def __init__(self, simulator, seed=None, fully_observable=True):
+    def __init__(self, simulator, seed=None, fully_observable=True, backend='numpy'):
         super().__init__()
         if isinstance(simulator, BuildingEnvelope):
             self.model = simulator
         else:
-            self.model = systems[simulator](seed=seed)
+            self.model = systems[simulator](seed=seed, backend=backend)
         self.action_space = spaces.Box(
             self.model.umin, self.model.umax, shape=self.model.umin.shape, dtype=np.float32)
         self.observation_space = spaces.Box(
@@ -59,7 +59,7 @@ class BuildingEnv(Env):
     
     @property
     def obs(self):
-        return (self.y, self.x)[self.fully_observable].astype(np.float32)
+        return (self.y, self.x)[self.fully_observable]
 
     def reset(self, seed=None, options=None):
         seed_everything(seed)

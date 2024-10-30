@@ -84,7 +84,7 @@ class NSSMTrainer:
             m = self.env.model.stats[key]['mean']
             s = self.env.model.stats[key]['std']
             x = self.normalize(sim[key], m, s).reshape(nbatches, nsteps, -1)
-            x = torch.tensor(x, dtype=torch.float32)
+            x = torch.as_tensor(x, dtype=torch.float32)
             sim[key] = x
         sim['yn'] = sim['Y'][:, :1, :]
         ds = DictDataset(sim, name=name)

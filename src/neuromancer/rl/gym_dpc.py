@@ -46,7 +46,6 @@ class DPCTrainer:
         
         # Augment input features with NSSM estimation
         if nssm is not None:
-            assert isinstance(nssm, nn.Module)
             nssm.eval()
             nssm = Node(nssm, ['x', 'u', 'd'], ['xh'], name='NSSM')
             insize += nx
@@ -57,6 +56,7 @@ class DPCTrainer:
                                 outsize=nu, hsizes=self.hsizes,
                                 nonlin=activations['gelu'],
                                 min=umin, max=umax)
+        self.policy = net
         policy = Node(net, invars, ['u'], name='policy')
 
         # Closed-loop system model
@@ -86,9 +86,8 @@ class DPCTrainer:
         self.loss = PenaltyLoss(objectives, constraints)
         self.problem = Problem([self.cl_system], self.loss)
 
-        # Set up optimizer and trainer
+        # Set up optimizer
         self.optimizer = torch.optim.AdamW(self.problem.parameters(), lr=self.lr)
-        self.trainer = Trainer(self.problem, None, None, self.optimizer, epochs=self.epochs)
 
     def get_simulation_data(self, nsim, nsteps, n_samples):
         sys = self.env.model
@@ -104,12 +103,10 @@ class DPCTrainer:
         batched_xmin = xmin.reshape([n_samples, nsteps+1, nref])
         batched_xmax = batched_xmin+2.0
         # get sampled disturbance trajectories from the simulation model
-        list_dist = [torch.tensor(sys.get_D(nsteps))
-                    for k in range(n_samples)]
+        list_dist = [torch.as_tensor(sys.get_D(nsteps)) for k in range(n_samples)]
         batched_dist = torch.stack(list_dist, dim=0)
         # get sampled initial conditions
-        list_x0 = [torch.tensor(sys.get_x0().reshape(1, nx))
-                    for k in range(n_samples)]
+        list_x0 = [torch.as_tensor(sys.get_x0().reshape(1, nx)) for k in range(n_samples)]
         batched_x0 = torch.stack(list_x0, dim=0)
         # Training dataset
         train_data = DictDataset({'x': batched_x0,
@@ -126,12 +123,10 @@ class DPCTrainer:
         batched_xmin = xmin.reshape([n_samples, nsteps+1, nref])
         batched_xmax = batched_xmin+2.0
         # get sampled disturbance trajectories from the simulation model
-        list_dist = [torch.tensor(sys.get_D(nsteps))
-                    for k in range(n_samples)]
+        list_dist = [torch.as_tensor(sys.get_D(nsteps)) for k in range(n_samples)]
         batched_dist = torch.stack(list_dist, dim=0)
         # get sampled initial conditions
-        list_x0 = [torch.tensor(sys.get_x0().reshape(1, nx))
-                    for k in range(n_samples)]
+        list_x0 = [torch.as_tensor(sys.get_x0().reshape(1, nx)) for k in range(n_samples)]
         batched_x0 = torch.stack(list_x0, dim=0)
         # Development dataset
         dev_data = DictDataset({'x': batched_x0,
@@ -152,7 +147,7 @@ class DPCTrainer:
 
     def train(self, nsim=8000, nsteps=100, nsamples=1000):
         train_loader, dev_loader = self.get_simulation_data(nsim, nsteps, nsamples)
-        #  Neuromancer trainer
+        
         trainer = Trainer(
             self.problem,
             train_loader, dev_loader,
@@ -162,10 +157,14 @@ class DPCTrainer:
             eval_metric='dev_loss',
             warmup=self.epochs,
         )
+        
         # Train control policy
         best_model = trainer.train()
+        
         # load best trained model
         trainer.model.load_state_dict(best_model)
+        
+        return trainer.model
 
     def test(self, nsteps_test=2000):
         sys = self.env.model

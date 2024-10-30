@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -10,53 +11,60 @@ from neuromancer.loss import PenaltyLoss
 from neuromancer.modules import blocks
 from neuromancer.modules.activations import activations
 from neuromancer.psl.gym import BuildingEnv
+from neuromancer.plot import pltCL
 import neuromancer.psl as psl
-import numpy as np
 
 class DPCTrainer:
-    def __init__(self, env, hsizes=[32, 32], lr=0.001, batch_size=100, epochs=200):
+    def __init__(self, env, hsizes=[32, 32], lr=0.001, batch_size=100, epochs=200, xlim=(18, 22), nssm=None):
         self.env = env
         self.lr = lr
         self.hsizes = hsizes
         self.batch_size = batch_size
         self.epochs = epochs
+        self.xmin, self.xmax = xlim
 
         sys = self.env.model
 
         # Extract system parameters
-        A = torch.tensor(sys.params[2]['A'])
-        B = torch.tensor(sys.params[2]['Beta'])
-        C = torch.tensor(sys.params[2]['C'])
-        E = torch.tensor(sys.params[2]['E'])
         umin = torch.tensor(sys.umin)
         umax = torch.tensor(sys.umax)
         nx = sys.nx
         nu = sys.nu
-        nd = E.shape[1]
         nd_obsv = sys.nd
         ny = sys.ny
         nref = sys.ny
-        y_idx = 3
 
         # Define state-space model
-        xnext = lambda x, u, d: x @ A.T + u @ B.T + d @ E.T
-        state_model = Node(xnext, ['x', 'u', 'd'], ['x'], name='SSM')
-        ynext = lambda x: x @ C.T
-        output_model = Node(ynext, ['x'], ['y'], name='y=Cx')
+        state_model = Node(sys, ['x', 'u', 'd'], ['x', 'y'], name='SSM')
 
         # Partially observable disturbance model
         dist_model = lambda d: d[:, sys.d_idx]
         dist_obsv = Node(dist_model, ['d'], ['d_obsv'], name='dist_obsv')
+        
+        insize = ny + 2*nref + nd_obsv
+        invars = ['y', 'ymin', 'ymax', 'd_obsv']
+        
+        # Augment input features with NSSM estimation
+        if nssm is not None:
+            assert isinstance(nssm, nn.Module)
+            nssm.eval()
+            nssm = Node(nssm, ['x', 'u', 'd'], ['xh'], name='NSSM')
+            insize += nx
+            invars.append('xh')
 
         # Neural net control policy
-        net = blocks.MLP_bounds(insize=ny + 2*nref + nd_obsv,
+        net = blocks.MLP_bounds(insize=insize,
                                 outsize=nu, hsizes=self.hsizes,
                                 nonlin=activations['gelu'],
                                 min=umin, max=umax)
-        policy = Node(net, ['y', 'ymin', 'ymax', 'd_obsv'], ['u'], name='policy')
+        policy = Node(net, invars, ['u'], name='policy')
 
         # Closed-loop system model
-        self.cl_system = System([dist_obsv, policy, state_model, output_model],
+        if nssm is not None:
+            nodes = [dist_obsv, policy, nssm, state_model]
+        else:
+            nodes = [dist_obsv, policy, state_model]
+        self.cl_system = System(nodes,
                                 nsteps=100,
                                 name='cl_system')
 
@@ -82,70 +90,129 @@ class DPCTrainer:
         self.optimizer = torch.optim.AdamW(self.problem.parameters(), lr=self.lr)
         self.trainer = Trainer(self.problem, None, None, self.optimizer, epochs=self.epochs)
 
-    def get_simulation_data(self, nsim, nsteps, ts, name='data'):
-        nsim = nsim // nsteps * nsteps
-        sim = self.env.model.simulate(nsim=nsim, ts=ts)
-        sim = {k: sim[k] for k in ['X', 'Y', 'U', 'D']}
-        nbatches = nsim // nsteps
-        for key in sim:
-            m = self.env.model.stats[key]['mean']
-            s = self.env.model.stats[key]['std']
-            x = self.normalize(sim[key], m, s).reshape(nbatches, nsteps, -1)
-            x = torch.tensor(x, dtype=torch.float32)
-            sim[key] = x
-        sim['yn'] = sim['Y'][:, :1, :]
-        ds = DictDataset(sim, name=name)
-        return DataLoader(ds, batch_size=self.batch_size, collate_fn=ds.collate_fn, shuffle=True)
+    def get_simulation_data(self, nsim, nsteps, n_samples):
+        sys = self.env.model
+        nx = sys.nx
+        nref = sys.ny
+        y_idx = 3
+        x_min, x_max = self.xmin, self.xmax
+    
+        #  sampled references for training the policy
+        list_xmin = [x_min+(x_max-x_min)*torch.rand(1, 1)*torch.ones(nsteps+1, nref)
+                    for k in range(n_samples)]
+        xmin = torch.cat(list_xmin)
+        batched_xmin = xmin.reshape([n_samples, nsteps+1, nref])
+        batched_xmax = batched_xmin+2.0
+        # get sampled disturbance trajectories from the simulation model
+        list_dist = [torch.tensor(sys.get_D(nsteps))
+                    for k in range(n_samples)]
+        batched_dist = torch.stack(list_dist, dim=0)
+        # get sampled initial conditions
+        list_x0 = [torch.tensor(sys.get_x0().reshape(1, nx))
+                    for k in range(n_samples)]
+        batched_x0 = torch.stack(list_x0, dim=0)
+        # Training dataset
+        train_data = DictDataset({'x': batched_x0,
+                                'y': batched_x0[:, :, [y_idx]],
+                                'ymin': batched_xmin,
+                                'ymax': batched_xmax,
+                                'd': batched_dist},
+                                name='train')
 
-    def normalize(self, x, mean, std):
-        return (x - mean) / std
+        # references for dev set
+        list_xmin = [x_min+(x_max-x_min)*torch.rand(1, 1)*torch.ones(nsteps+1, nref)
+                    for k in range(n_samples)]
+        xmin = torch.cat(list_xmin)
+        batched_xmin = xmin.reshape([n_samples, nsteps+1, nref])
+        batched_xmax = batched_xmin+2.0
+        # get sampled disturbance trajectories from the simulation model
+        list_dist = [torch.tensor(sys.get_D(nsteps))
+                    for k in range(n_samples)]
+        batched_dist = torch.stack(list_dist, dim=0)
+        # get sampled initial conditions
+        list_x0 = [torch.tensor(sys.get_x0().reshape(1, nx))
+                    for k in range(n_samples)]
+        batched_x0 = torch.stack(list_x0, dim=0)
+        # Development dataset
+        dev_data = DictDataset({'x': batched_x0,
+                                'y': batched_x0[:, :, [y_idx]],
+                                'ymin': batched_xmin,
+                                'ymax': batched_xmax,
+                                'd': batched_dist},
+                                name='dev')
 
-    def train(self, nsim=2000, nsteps=2, niters=5):
-        ts = self.env.model.ts
-        train_loader, dev_loader, test_loader = [
-            self.get_simulation_data(nsim=nsim, nsteps=nsteps, ts=ts, name=name) 
-            for name in ['train', 'dev', 'test']
-        ]
+        # torch dataloaders
+        train_loader = torch.utils.data.DataLoader(train_data, batch_size=self.batch_size,
+                                                collate_fn=train_data.collate_fn,
+                                                shuffle=False)
+        dev_loader = torch.utils.data.DataLoader(dev_data, batch_size=self.batch_size,
+                                                collate_fn=dev_data.collate_fn,
+                                                shuffle=False)
+        return train_loader, dev_loader
 
-        self.trainer.train_data = train_loader
-        self.trainer.dev_data = dev_loader
-        self.trainer.test_data = test_loader
-
-        for i in range(niters):
-            print(f'Training with nsteps={nsteps}')
-            best_model = self.trainer.train()
-            print({k: float(v) for k, v in self.trainer.test(best_model).items() if 'loss' in k})
-            if i == niters - 1:
-                break
-            nsteps *= 2
-            self.trainer.train_data, self.trainer.dev_data, self.trainer.test_data = [
-                self.get_simulation_data(nsim=nsim, nsteps=nsteps, ts=ts, name=name) 
-                for name in ['train', 'dev', 'test']
-            ]
-            self.trainer.badcount = 0
-
-        return best_model
+    def train(self, nsim=8000, nsteps=100, nsamples=1000):
+        train_loader, dev_loader = self.get_simulation_data(nsim, nsteps, nsamples)
+        #  Neuromancer trainer
+        trainer = Trainer(
+            self.problem,
+            train_loader, dev_loader,
+            optimizer=self.optimizer,
+            epochs=self.epochs,
+            train_metric='train_loss',
+            eval_metric='dev_loss',
+            warmup=self.epochs,
+        )
+        # Train control policy
+        best_model = trainer.train()
+        # load best trained model
+        trainer.model.load_state_dict(best_model)
 
     def test(self, nsteps_test=2000):
         sys = self.env.model
-        x_min = 18.
-        x_max = 22.
+        umin = torch.tensor(sys.umin)
+        umax = torch.tensor(sys.umax)
+        nx = sys.nx
+        nu = sys.nu
+        ny = sys.ny
+        nd = sys.nd
+        nref = sys.ny
+        x_min, x_max = self.xmin, self.xmax
+        y_idx = 3
+
+        # generate reference
         np_refs = psl.signals.step(nsteps_test+1, 1, min=x_min, max=x_max, randsteps=5)
         ymin_val = torch.tensor(np_refs, dtype=torch.float32).reshape(1, nsteps_test+1, 1)
-        ymax_val = ymin_val + 2.0
+        ymax_val = ymin_val+2.0
+        # generate disturbance signal
         torch_dist = torch.tensor(sys.get_D(nsteps_test+1)).unsqueeze(0)
-        x0 = torch.tensor(sys.get_x0()).reshape(1, 1, sys.nx)
+        # initial data for closed loop simulation
+        x0 = torch.tensor(sys.get_x0()).reshape(1, 1, nx)
         data = {'x': x0,
-                'y': x0[:, :, [3]],
+                'y': x0[:, :, [y_idx]],
                 'ymin': ymin_val,
                 'ymax': ymax_val,
                 'd': torch_dist}
         self.cl_system.nsteps = nsteps_test
+        # perform closed-loop simulation
         trajectories = self.cl_system(data)
-        return trajectories
+
+        # constraints bounds
+        Umin = umin * np.ones([nsteps_test, nu])
+        Umax = umax * np.ones([nsteps_test, nu])
+        Ymin = trajectories['ymin'].detach().reshape(nsteps_test+1, nref)
+        Ymax = trajectories['ymax'].detach().reshape(nsteps_test+1, nref)
+        # plot closed loop trajectories
+        pltCL(Y=trajectories['y'].detach().reshape(nsteps_test+1, ny),
+            R=Ymax,
+            X=trajectories['x'].detach().reshape(nsteps_test+1, nx),
+            D=trajectories['d'].detach().reshape(nsteps_test+1, nd),
+            U=trajectories['u'].detach().reshape(nsteps_test, nu),
+            Umin=Umin, Umax=Umax, Ymin=Ymin, Ymax=Ymax)
+
+
 
 if __name__ == '__main__':
-    env = BuildingEnv(simulator='SimpleSingleZone')
-    trainer = DPCTrainer(env, batch_size=100, epochs=10)
-    best_model = trainer.train(nsim=2000, nsteps=2)
+    env = BuildingEnv(simulator='SimpleSingleZone', backend='torch')
+    trainer = DPCTrainer(env, batch_size=100, epochs=10, nssm=None)
+    best_model = trainer.train(nsim=100, nsteps=100, nsamples=100)
     trajectories = trainer.test(nsteps_test=2000)

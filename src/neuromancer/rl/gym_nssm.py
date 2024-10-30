@@ -57,8 +57,7 @@ class NSSMTrainer:
         fd = blocks.MLP(nd, ny, bias=True, linear_map=torch.nn.Linear,
                         nonlin=torch.nn.ReLU, hsizes=self.hsizes)
 
-        ssm = SSM(fx, fu, fd, ny, nu, nd)
-        self.model = Node(ssm, ['yn', 'U', 'D'], ['yn'], name='NSSM')
+        self.net = SSM(fx, fu, fd, ny, nu, nd)
 
         y = variable("Y")
         yhat = variable('yn')[:, :-1, :]
@@ -98,7 +97,8 @@ class NSSMTrainer:
             for name in ['train', 'dev', 'test']
         ]
 
-        dynamics = System([self.model], name='system')
+        model = Node(self.net, ['yn', 'U', 'D'], ['yn'], name='NSSM')
+        dynamics = System([model], name='system')
         problem = Problem([dynamics], self.loss)
         optimizer = torch.optim.Adam(problem.parameters(), lr=self.lr)
 

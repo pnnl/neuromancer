@@ -181,7 +181,7 @@ class DPCTrainer:
 
         # generate reference
         np_refs = psl.signals.step(nsteps_test+1, 1, min=x_min, max=x_max, randsteps=5)
-        ymin_val = torch.tensor(np_refs, dtype=torch.float32).reshape(1, nsteps_test+1, 1)
+        ymin_val = torch.tensor(np_refs, dtype=torch.float32).reshape(1, -1, 1)
         ymax_val = ymin_val+2.0
         # generate disturbance signal
         torch_dist = torch.tensor(sys.get_D(nsteps_test+1)).unsqueeze(0)
@@ -199,13 +199,13 @@ class DPCTrainer:
         # constraints bounds
         Umin = umin * np.ones([nsteps_test, nu])
         Umax = umax * np.ones([nsteps_test, nu])
-        Ymin = trajectories['ymin'].detach().reshape(nsteps_test+1, nref)
-        Ymax = trajectories['ymax'].detach().reshape(nsteps_test+1, nref)
+        Ymin = trajectories['ymin'].detach().reshape(-1, nref)
+        Ymax = trajectories['ymax'].detach().reshape(-1, nref)
         # plot closed loop trajectories
-        pltCL(Y=trajectories['y'].detach().reshape(nsteps_test+1, ny),
+        pltCL(Y=trajectories['y'].detach().reshape(-1, ny),
             R=Ymax,
-            X=trajectories['x'].detach().reshape(nsteps_test+1, nx),
-            D=trajectories['d'].detach().reshape(nsteps_test+1, nd),
+            X=trajectories['x'].detach().reshape(-1, nx),
+            D=trajectories['d'].detach().reshape(-1, nd),
             U=trajectories['u'].detach().reshape(nsteps_test, nu),
             Umin=Umin, Umax=Umax, Ymin=Ymin, Ymax=Ymax)
 

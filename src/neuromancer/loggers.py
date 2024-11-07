@@ -33,7 +33,7 @@ class BasicLogger:
 
     def log_parameters(self):
         """
-        Pring experiment parameters to stdout
+        Print experiment parameters to stdout
 
         :param args: (Namespace) returned by argparse.ArgumentParser.parse_args()
         """
@@ -84,6 +84,50 @@ class BasicLogger:
 
     def clean_up(self):
         pass
+
+class LossLogger(BasicLogger):
+    def __init__(self, args=None, savedir='test', verbosity=10,
+                 stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
+                         'nstep_dev_ref_loss', 'loop_dev_ref_loss')):
+        super().__init__(args, savedir, verbosity, stdout)
+        self.losses = {'train': [], 'dev': [], 'test': []}  # Initialize losses dictionary
+
+    def log_metrics(self, output, step=None):
+        """
+        Print metrics to stdout and store loss values.
+
+        :param output: (dict {str: tensor}) Will only record 0d tensors (scalars)
+        :param step: (int) Epoch of training
+        """
+        if step is None:
+            step = self.step
+        else:
+            self.step = step
+        if step % self.verbosity == 0:
+            elapsed_time = time.time() - self.start_time 
+            entries = [f'epoch: {step}']
+            for k, v in output.items():
+                try:
+                    if k in self.stdout:
+                        entries.append(f'{k}: {v.item():.5f}')
+                        # Collect the loss values based on type
+                        if 'loss' in k.lower():
+                            if 'train' in k.lower():
+                                self.losses['train'].append(v.item())
+                            elif 'dev' in k.lower():
+                                self.losses['dev'].append(v.item())
+                            elif 'test' in k.lower():
+                                self.losses['test'].append(v.item())
+                except (ValueError, AttributeError) as e:
+                    pass
+            entries.append(f'eltime: {elapsed_time: .5f}')
+            print('\t'.join([e for e in entries if 'reg_error' not in e]))
+
+    def get_losses(self):
+        """
+        Returns a dictionary of recorded loss values for train, dev, and test.
+        """
+        return {k: v for k, v in self.losses.items() if v} 
 
 
 class MLFlowLogger(BasicLogger):
@@ -172,4 +216,5 @@ class MLFlowLogger(BasicLogger):
         """
         shutil.rmtree(self.savedir)
         mlflow.end_run()
+
 

@@ -1,5 +1,10 @@
 
 ##  Release notes
+### Version 1.5.2 Release Notes
++ New feature: Multi-fidelty Kolgomorov Arnold Networks for SOTA function approximation
++ New feature: Load forecasting on building energy systems tutorials
++ New feature: Transformer block 
+
 
 ### Version 1.5.1 Release Notes
 + Enhancement: Now supports integration of all Lightning hooks into the Neuromancer Lightning trainer. Please refer to Lightning examples README for more information

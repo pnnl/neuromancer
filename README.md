@@ -23,9 +23,9 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 1. [Overview](#overview)
 2. [Key Features](#key-features)
 3. [What's New in v1.5.2](#whats-new)
-4. [Getting Started](#getting-started)
-5. [Tutorials](#domain-examples)
-5. [Installation](#installation)
+4. [Installation](#installation)
+5. [Getting Started](#getting-started)
+6. [Tutorials](#domain-examples)
 6. [Documentation and User Guides](#documentation-and-user-guides)
 
 
@@ -59,19 +59,25 @@ KANs to be trained in parallel to give accurate solutions for multiscale problem
 
 > ⭐ [Function Approximation with Kolgomorov-Arnold Networks ](#function-approximation)
 
-## Getting Started
 
+
+## Installation
+Simply run 
 ```
 pip install neuromancer
 ```
+For manual installation, please refer to  [Installation Instructions](INSTALLATION.md)
 
-Extensive set of tutorials can be found in the 
+
+## Getting Started
+
+An extensive set of tutorials can be found in the 
 [examples](https://github.com/pnnl/neuromancer/tree/master/examples) folder and the [Tutorials](#domain-examples) below.
 Interactive notebook versions of examples are available on Google Colab!
 Test out NeuroMANCER functionality before cloning the repository and setting up an
 environment.
 
-The notebooks below introduce the core abstractions of the NeuroMANCER library, in particular our symbolic programming interface and Node classes. 
+The notebooks below introduce the core abstractions of the NeuroMANCER library, in particular, our symbolic programming interface and Node classes. 
 
 ### Symbolic Variables, Nodes, Constraints, Objectives, and Systems Classes
 
@@ -262,13 +268,6 @@ We have integrated PyTorch Lightning to streamline code, enable custom training 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/other_examples/lightning_custom_training_example.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
 
-
-## Installation
-Simply run 
-```
-pip install neuromancer
-```
-For manual installation, please refer to  [Installation Instructions](INSTALLATION.md)
 
 ## Documentation and User Guides
 The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/). 

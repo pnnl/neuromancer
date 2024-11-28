@@ -1,46 +1,94 @@
-from scipy.io import loadmat
-from gym import spaces, Env
-
 import numpy as np
-from neuromancer.psl.nonautonomous import systems, ODE_NonAutonomous
+import torch
+from gymnasium import spaces, Env
+from gymnasium.envs.registration import register
+from neuromancer.utils import seed_everything
+from neuromancer.psl.building_envelope import BuildingEnvelope, systems
 
-def disturbance(file='../../TimeSeries/disturb.mat', n_sim=8064):
-    return loadmat(file)['D'][:, :n_sim].T # n_sim X 3
 
+class BuildingEnv(Env):
+    """Custom Gym Environment for simulating building energy systems.
 
-class GymWrapper(Env):
-    """Custom Environment that follows gym interface"""
-    metadata = {'render.modes': ['human']}
+    This environment models the dynamics of a building's thermal system, 
+    allowing for control actions to be taken and observing the resulting 
+    thermal comfort levels. The environment adheres to the OpenAI Gym 
+    interface, providing methods for stepping through the simulation, 
+    resetting the state, and rendering the environment.
 
-    def __init__(self, simulator, U=None, ninit=None, nsim=None, ts=None, x0=None,
-                 perturb=[lambda: 0. , lambda: 1.]):
+    Attributes:
+        metadata (dict): Information about the rendering modes available.
+        ymin (float): Minimum threshold for thermal comfort.
+        ymax (float): Maximum threshold for thermal comfort.
+    """
 
+    def __init__(self, simulator, seed=None, fully_observable=False, 
+                 ymin=20.0, ymax=22.0, backend='numpy'):
         super().__init__()
-        if isinstance(simulator, ODE_NonAutonomous):
-            self.simulator = simulator
+        if isinstance(simulator, BuildingEnvelope):
+            self.model = simulator
         else:
-            self.simulator = systems[simulator](U=U, ninit=ninit, nsim=nsim, ts=ts, x0=x0, norm_func=norm_func)
-        self.action_space = spaces.Box(-np.inf, np.inf, shape=self.simulator.get_U().shape[-1], dtype=np.float32)
-        self.observation_space = spaces.Box(-np.inf, np.inf, shape=self.simulator.x0.shape,dtype=np.float32)
-        self.perturb = perturb
+            self.model = systems[simulator](seed=seed, backend=backend)
+        self.fully_observable = fully_observable
+        self.ymin = ymin
+        self.ymax = ymax
+        obs, _ = self.reset(seed=seed)
+        self.action_space = spaces.Box(
+            self.model.umin, self.model.umax, shape=self.model.umin.shape, dtype=np.float32)
+        self.observation_space = spaces.Box(
+            -np.inf, np.inf, shape=[len(obs)], dtype=np.float32)
 
     def step(self, action):
-        self.x = self.A*np.asmatrix(self.x).reshape(4, 1) + self.B*action.T + self.E*(self.D[self.tstep].reshape(3,1))
-        self.y = (self.C * np.asmatrix(self.x)).flatten()
-        self.tstep += 1
-        observation = (self.y, self.x)[self.fully_observable].astype(np.float32)
-        self.X_out = np.concatenate([self.X_out, np.array(self.x.reshape([1, 4]))])
-        return np.array(observation).flatten(), self.reward(), self.tstep == self.X.shape[0], {'xout': self.X_out}
+        u = np.asarray(action)
+        self.d = self.get_disturbance()
+        # expect the model to accept both 1D arrays and 2D arrays
+        self.x, self.y = self.model(self.x, u, self.d)
+        self.t += 1
+        self.X_rec = np.append(self.X_rec, self.x)
+        obs = self.get_obs()
+        reward = self.get_reward(u, self.y)
+        done = self.t == self.model.nsim
+        truncated = False
+        return obs, reward, done, truncated, dict(X_rec=self.X_rec)
+    
+    def get_reward(self, u, y, ymin=20.0, ymax=22.0):
+        # energy minimization
+        # u[0] is the nominal mass flow rate, u[1] is the temperature difference
+        q = self.model.get_q(u).sum()  # q is the heat flow in W
+        k = np.sum(u != 0.0)  # number of actions
+        action_loss = 0.01 * q + 0.01 * k
 
-    def reset(self, dset='train'):
+        # thermal comfort
+        comfort_reward = 5. * np.sum((ymin < y) & (y < ymax))  # y in °C
 
-        self.tstep = 0
-        observation = (self.y, self.x)[self.fully_observable].astype(np.float32)
-        self.X_out = np.empty(shape=[0, 4])
-        return np.array(observation).flatten()
+        return comfort_reward - action_loss
+    
+    def get_disturbance(self):
+        return self.model.get_D(1).flatten()
+    
+    def get_obs(self):
+        obs_mask = torch.as_tensor(self.model.C.flatten(), dtype=torch.bool)
+        self.y = self.x[obs_mask]
+        d = self.d if self.fully_observable else self.d[self.model.d_idx]
+        obs = self.x if self.fully_observable else self.y
+        obs = np.hstack([obs, self.ymin, self.ymax, d])
+        return obs.astype(np.float32)
+
+    def reset(self, seed=None, options=None):
+        seed_everything(seed)
+        self.t = 0
+        self.x = self.model.x0
+        self.d = self.get_disturbance()
+        self.X_rec = np.empty(shape=[0, 4])
+        return self.get_obs(), dict(X_rec=self.X_rec)
 
     def render(self, mode='human'):
-        print('render')
+        pass
 
-systems = {k: GymWrapper for k in GymWrapper.envs}
 
+# allow the custom envs to be directly instantiated by gym.make(env_id)
+for env_id in systems:
+    register(
+        env_id,
+        entry_point='neuromancer.psl.gym:BuildingEnv',
+        kwargs=dict(simulator=env_id),
+    )

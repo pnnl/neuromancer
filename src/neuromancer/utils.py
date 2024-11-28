@@ -1,4 +1,6 @@
-
+import os
+import random
+import numpy as np
 import torch
 import functools
 import lightning.pytorch as pl
@@ -34,3 +36,14 @@ def load_state_dict_lightning(problem, weight_path):
     weights = OrderedDict({key.replace('problem.', '', 1): value for key, value in weights.items()})
     problem.load_state_dict(weights)
     return problem
+
+def seed_everything(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    if seed is not None:
+        os.environ['PYTHONHASHSEED'] = str(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.mps.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = True

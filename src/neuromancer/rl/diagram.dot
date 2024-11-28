@@ -1,0 +1,31 @@
+digraph Hybrid_Control_System {
+    rankdir=LR; // Left to Right layout
+    node [shape=box, style=rounded];
+
+    // Components
+    physical_system [label="Physical System"];
+    system_model [label="System Model (ODE/SDE)"];
+    data [label="Time Series Dataset"];
+    nssm [label="Neural State Space Model (NSSM)"];
+    policy_model [label="Policy Model (Actor)"];
+    value_model [label="Value Model (Critic)"];
+    loss [label="System Loss"];
+    reward [label="RL Reward"];
+
+    // Workflow connections
+    physical_system -> data [label="Generate Data"];
+    physical_system -> system_model [label="Modelling"];
+    system_model -> data [label="Simulate Data"];
+    system_model -> loss [label="Loss Function"];
+    policy_model -> system_model [label="Decision Making"];
+    data -> nssm [label="NSSM Training Data"];
+    data -> system_model [label="DPC Training Data"];
+    nssm -> policy_model [label="Augment Inputs"];
+    nssm -> value_model [label="Augment Inputs"];
+    loss -> reward[label="Loss(DPC) - Loss(DRL)"];
+    loss -> policy_model[label="Optimize by DPC"];
+    reward -> value_model [label="Cumulative Return"];
+    system_model -> value_model [label="Observation"];
+    system_model -> policy_model [label="Observation"];
+    value_model -> policy_model [label="Optimize by DRL"];
+}

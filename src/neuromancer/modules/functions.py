@@ -81,6 +81,7 @@ def w_jl(x, num_domains, delta=1.9):
 functions = {
     "bounds_scaling": bounds_scaling,
     "bounds_clamp": bounds_clamp,
+    "window_functions": window_functions,
 }
 
 

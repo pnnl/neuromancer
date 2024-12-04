@@ -16,6 +16,7 @@ from neuromancer.problem import Problem
 from neuromancer.callbacks import Callback
 from neuromancer.problem import LitProblem
 from neuromancer.dataset import LitDataModule
+from neuromancer.modules.blocks import MultiFidelityKAN
 
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
@@ -249,6 +250,11 @@ class Trainer:
                         for node in self.model.nodes:
                             alpha_loss = node.callable.get_alpha_loss()
                             output[self.train_metric] += alpha_loss
+
+                    for node in self.model.nodes:
+                            if isinstance(node.callable, MultiFidelityKAN):
+                                kan_reg_loss = node.callable.regularization_loss()
+                                output[self.train_metric] += kan_reg_loss
 
                     self.optimizer.zero_grad()
                     output[self.train_metric].backward()

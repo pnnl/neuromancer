@@ -20,4 +20,4 @@ Based on the Kolmogorov-Arnold representation theorem, KANs offer an alternative
 
 [3] [Howard, Amanda A., et al. (2024) Finite basis Kolmogorov-Arnold networks: domain decomposition for data-diven and physics-informed problems.](https://arxiv.org/abs/2406.19662)
 
-[4] Howard, Amanda A., et al. (2024) Multi-fidelity Kolmogorov-Arnold networks.
+[4] [Howard, Amanda A., et al. (2024) Multifidelity Kolmogorov-Arnold networks.](https://arxiv.org/abs/2410.14764)

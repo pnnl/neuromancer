@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 import neuromancer.slim as slim
 import neuromancer.modules.rnn as rnn
 from neuromancer.modules.activations import soft_exp, SoftExponential, SmoothedReLU
-from neuromancer.modules.functions import bounds_clamp, bounds_scaling, w_jl
+from neuromancer.modules.functions import bounds_clamp, bounds_scaling, window_functions
 
 
 
@@ -123,7 +123,6 @@ def set_model_dropout_mode(model, at_train=None, at_test=None):
     model.apply(_apply_fn)
 
 
-
 class MLP(Block):
     """
     Multi-Layer Perceptron consistent with blocks interface
@@ -176,6 +175,10 @@ class MLP(Block):
         for lin, nlin in zip(self.linear, self.nonlin):
             x = nlin(lin(x))
         return x
+
+
+
+            
 
 class KANLinear(torch.nn.Module):
     """
@@ -389,13 +392,13 @@ class KANLinear(torch.nn.Module):
         """
         Approximate, memory-efficient implementation of the regularization loss.
         """
-        l1_fake = (self.spline_weight.abs()**2).mean(-1)
+        l1_fake = self.spline_weight.abs().mean(-1)
         regularization_loss_activation = l1_fake.sum()
         p = l1_fake / regularization_loss_activation
-        #regularization_loss_entropy = -torch.sum(p * p.log())
+        regularization_loss_entropy = -torch.sum(p * p.log())
         return (
             regularize_activation * regularization_loss_activation
-            #+ regularize_entropy * regularization_loss_entropy
+            + regularize_entropy * regularization_loss_entropy
         )
 
 
@@ -505,28 +508,23 @@ class KANBlock(Block):
         self.verbose = verbose
 
     def block_eval(self, x):
-        if self.num_domains == 1:
-            for layer in self.kan_layers[0]:
+        def apply_layers(x, layers):
+            for layer in layers:
                 x = layer(x)
             return x
+
+        # Compute outputs for all domains
+        domain_outputs = [apply_layers(x, domain_layers) for domain_layers in self.kan_layers]
+        domain_outputs = torch.stack(domain_outputs, dim=1)  # Shape: [batchsize, num_domains, out_features]
+
+        if self.num_domains == 1:
+            x_final = domain_outputs.squeeze(1)
         else:
-            w = w_jl(x, self.num_domains)
-            
-            x_domain_outputs = torch.zeros(x.shape[0], self.num_domains, self.out_features, device=x.device)
-            
-            for i, domain_layers in enumerate(self.kan_layers):
-                x_domain = x
-                for layer in domain_layers:
-                    x_domain = layer(x_domain)
-                x_domain_outputs[:, i, :] = x_domain
-            
-            x_final = torch.sum(w.unsqueeze(-1) * x_domain_outputs, dim=1)
-            
-            return x_final
+            w = window_functions(x, self.num_domains)  # Shape: [batchsize, num_domains]
+            x_final = torch.sum(w.unsqueeze(-1) * domain_outputs, dim=1)
+        return x_final
 
-
-
-    def regularization_loss(self, regularize_activation=0.1, regularize_entropy=1.0):
+    def regularization_loss(self, regularize_activation=1.0, regularize_entropy=1.0):
         return sum(
             layer.regularization_loss(regularize_activation, regularize_entropy)
             for domain_layers in self.kan_layers
@@ -638,7 +636,7 @@ class MultiFidelityKAN(Block):
                     grid_updates=grid_updates,
                     verbose=verbose
                 )
-            self.kan_layers.append(layers)
+            )
 
         self.grid_sizes = grid_sizes
         self.grid_updates = grid_updates or []
@@ -1428,7 +1426,7 @@ blocks = {
     "icnn": InputConvexNN,
     "pos_def": PosDef,
     "kan": KANBlock,
+    "multifidelity_kan": MultiFidelityKAN,
     "stacked_mlp": StackedMLP,
     "transformer": Transformer
 }
-

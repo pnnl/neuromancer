@@ -1,0 +1,38 @@
+{% extends "!layout.html" %}
+
+{%- block footer %} {{ super() }}
+
+  <style>
+    /* Sidebar header (and topbar for mobile) */
+    .wy-side-nav-search, .wy-nav-top {
+        background: #040452;
+    }
+    .wy-side-nave-search > .logo {
+        display: none;
+    }
+  </style>
+{%- endblock %}
+
+
+{%- block menu %}
+
+  {%- set toctree = toctree(
+  maxdepth=4,
+  collapse=False,
+  includehidden=theme_includehidden|tobool,
+  titles_only=theme_titles_only|tobool) %}
+
+  {{ toctree }}
+
+   <p class="caption" role="heading">
+     <span class="caption-text">Documentation</span>
+   </p>
+   {% if (pagename=="index") %}
+     <div class="local-toc">{{ toc }}</div>
+   {% else %}
+   <ul>
+     <li class="toctree-l1"><a class="reference internal" href="../index.html">Welcome</a></li>
+   </ul>
+   {% endif %}
+
+{%- endblock %}

@@ -1,42 +1,75 @@
+# external dependency: https://github.com/peaceiris/actions-gh-pages
+
+# GitHub Actions is a continuous integration platform that allows for a set of
+# actions to be executed on any trigger event associated with any branch of a
+# repository. GHA are defined in a yaml workflow (e.g., this file).
+#
+# For this particular workflow, update_docs.yml, will run on any push to the
+# master branch.
+
 name: Automate Documentation Build #name of action
 
 on: #trigger event
   push:
     branches:
-      - master #execute on a push to master branch
+      - master
 
 permissions:
-  contents: write #grant access to write to master branch
+  contents: write # need write access to master branch
+
+# GHA workflows are associated with a set of jobs. Each job is assigned a
+# GitHub-hosted runner. A set of job(s) gets triggered based on the "on" clause
+# at the top of of the workflow -- in this case, a single job is triggered on a
+# push to master.
 
 jobs: #define set of jobs. Here there is only one job, each job is instantiated on a Github-hosted runner
   docs: #name of the job
-    runs-on: ubuntu-latest #runner runs on latest version of Ubuntu
-    steps: #this job is associated with a series of steps
 
-      # step 1: syntax for telling GHA to use this repository's code as "root" directory. Rest of GHA is able to have access
+    # This job runs using the latest Ubuntu version.
+    runs-on: ubuntu-latest #runner runs on latest version of Ubuntu
+
+    # A job is defined as a set of steps. A step can be defined with a (uses,
+    # name, with, runs) block where uses defines the prerequisite steps needed
+    # for the runner to execute the associated runs(s).
+
+    steps: 
+
+      # We also tell the runner to use python using the
+      # GHA syntactical sugar "actions/setup-python@v3".
+
+      # Syntactic sugar to tell GHA to use this repository's code as
+      # "root" directory. 
       - uses: actions/checkout@v3
-      # step 2: #syntax for telling GHA to set-up Python on this runner associated for this whole job
+
+      # Syntactic sugar to tell GHA to set-up Python on this runner 
       - uses: actions/setup-python@v3
 
-      # Step 3: define a step that install dependencies (Sphinx etc) for this runner
-      - name: Install dependencies #name of this step
-        run: | #indicate that following script is meant to be multi-line
-          pip install sphinx sphinx_rtd_theme myst_parser 
+      # Install sphinx
+      - name: Install dependencies
+        run: | # indicate that following script is meant to be multi-line
+          pip install sphinx sphinx_rtd_theme myst_parser
 
-      # Step 4: Build docs using sphinx. TZ=UTC needed to circumvent a nuance of running Sphinx on GHA runner
+      # Build docs using sphinx.
+      # + uses neuromancer/docs/html directory in master branch as a temporary working directory.
+      # + TZ=UTC needed to circumvent a nuance of running Sphinx on GHA runner
       - name: Sphinx build
         run: |
           TZ=UTC sphinx-build docs html
-          
-      # Step 5: Deploy the newly built docs to gh-pages branch
-      - name: Deploy to GitHub Pages
-        #uses a github action "extension" called actions-gh-pages
-        uses: peaceiris/actions-gh-pages@v3
-        if: github.ref == 'refs/heads/master' #ensure that we are on the master branch
 
-        #following is syntax for using actions-gh-pages action
+
+      # Uses GHA extension called actions-gh-pages.
+      # (https://github.com/peaceiris/actions-gh-pages)
+      # Push the sphinx documentation to 'gh-pages' branch of the repo.
+      # The syntax used here is specific to actions-gh-pages.
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+
+        # Double-check that we are in the master branch
+        if: github.ref == 'refs/heads/master'
+
+        # syntax specific toactions-gh-pages action
         with:
-          publish_branch: gh-pages
+          publish_branch: gh-pages # branch to copy to (in repo root)
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: html/ #docs to publish to html directory
-          force_orphan: true #common command associated with deploying a GitHub Page
+          publish_dir: ./html # directory to copy files from
+          force_orphan: true # publish branch with only the latest commit

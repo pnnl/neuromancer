@@ -1,5 +1,6 @@
-# Minimal makefile for Sphinx documentation
-#
+# Makefile for manual build of Sphinx documentation.
+# Requires target build directory in a 2nd copy of the repository,
+# that has a different branch (gh-pages) checked out.
 
 # You can set these variables from the command line, and also
 # from the environment for the first two.

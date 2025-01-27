@@ -100,18 +100,17 @@ $ git push origin gh-pages
 ```
 .
 ├── Makefile
-├── _static                <- manual HTML links look here 
-│    └── Neuromancer.ico
-├── _templates             <- jinja templates
-│   ├── autosummary
-│   │   ├── class.rst
-│   │   └── module.rst
-│   └── layout.html
-├── conf.py                <- configure sphinx here
-├── copied                 <- contents copied to build directory 
+├── _static
+│   ├── Neuromancer.ico    <- manual HTML links look here 
+│   └── js
+│       └── custom.js
+├── copied                 <- contents of this directory copied to build directory 
 │   └── figs
-│       ├── class_diagram.png
-│       └── Neuromancer.png
+│       ├── Neuromancer.png
+│       └── class_diagram.png
+├── _templates
+│   └── layout.html        <- jinja templates
+├── conf.py                <- configure sphinx here
 ├── index.rst              <- gets converted to index.html
 │                             contains directive to autogenerate docs from
 │                             neuromancer source code

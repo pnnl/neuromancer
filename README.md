@@ -23,9 +23,9 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 1. [Overview](#overview)
 2. [Key Features](#key-features)
 3. [What's New in v1.5.2](#whats-new)
-4. [Getting Started](#getting-started)
-5. [Tutorials](#domain-examples)
-5. [Installation](#installation)
+4. [Installation](#installation)
+5. [Getting Started](#getting-started)
+6. [Tutorials](#domain-examples)
 6. [Documentation and User Guides](#documentation-and-user-guides)
 
 
@@ -59,19 +59,25 @@ KANs to be trained in parallel to give accurate solutions for multiscale problem
 
 > ⭐ [Function Approximation with Kolgomorov-Arnold Networks ](#function-approximation)
 
-## Getting Started
 
+
+## Installation
+Simply run 
 ```
 pip install neuromancer
 ```
+For manual installation, please refer to  [Installation Instructions](INSTALLATION.md)
 
-Extensive set of tutorials can be found in the 
+
+## Getting Started
+
+An extensive set of tutorials can be found in the 
 [examples](https://github.com/pnnl/neuromancer/tree/master/examples) folder and the [Tutorials](#domain-examples) below.
 Interactive notebook versions of examples are available on Google Colab!
 Test out NeuroMANCER functionality before cloning the repository and setting up an
 environment.
 
-The notebooks below introduce the core abstractions of the NeuroMANCER library, in particular our symbolic programming interface and Node classes. 
+The notebooks below introduce the core abstractions of the NeuroMANCER library, in particular, our symbolic programming interface and Node classes. 
 
 ### Symbolic Variables, Nodes, Constraints, Objectives, and Systems Classes
 
@@ -83,21 +89,6 @@ Part 2: NeuroMANCER syntax tutorial: variables, constraints, and objectives.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_3_node.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 Part 3: NeuroMANCER syntax tutorial: modules, Node, and System class.
-
-
-
-### PyTorch Lightning Integration
-
-We have integrated PyTorch Lightning to streamline code, enable custom training logic, support GPU and multi-GPU setups, and handle large-scale, memory-intensive learning tasks.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_1_lightning_basics_tutorial.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Lightning Integration Basics.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_2_lightning_advanced_and_gpu_tutorial.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Lightning Advanced Features and Automatic GPU Support.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/other_examples/lightning_custom_training_example.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
 
 ### Example
 Quick example for how to solve parametric constrained optimization problem using NeuroMANCER, leveraging our symbolic programming interface, Node and Variable, Blocks, SLiM library, and PenaltyLoss classes. 
@@ -262,22 +253,28 @@ Neuromancer has been integrated with TorchSDE to handle stochastic dynamical sys
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> LatentSDEs: "System Identification" of Stochastic Processes using Neuromancer x TorchSDE
 
 
+## Scalability and Customization
+
+### PyTorch Lightning Integration
+
+We have integrated PyTorch Lightning to streamline code, enable custom training logic, support GPU and multi-GPU setups, and handle large-scale, memory-intensive learning tasks.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_1_lightning_basics_tutorial.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Lightning Integration Basics.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_2_lightning_advanced_and_gpu_tutorial.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Lightning Advanced Features and Automatic GPU Support.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/other_examples/lightning_custom_training_example.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
 
 
 ## Documentation and User Guides
 The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/). 
 There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 
-core features of the library. 
+the core features of the library. 
 
 For more information, including those for developers, please go to our [Developer and User Guide](USER_GUIDE.md)
-
-
-## Installation
-Simply run 
-```
-pip install neuromancer
-```
-For manual installation please refer to  [Installation Instructions](INSTALLATION.md)
 
 ## Community Information
 We welcome contributions and feedback from the open-source community!  
@@ -295,6 +292,8 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 
 ## Publications 
++ [Bo Tang, Elias B. Khalil, Ján Drgoňa, Learning to Optimize for Mixed-Integer Non-linear Programming, arXiv:2410.11061, 2024](https://arxiv.org/abs/2410.11061)
++ [John Viljoen, Wenceslao Shaw Cortez, Jan Drgona, Sebastian East, Masayoshi Tomizuka, Draguna Vrabie, Differentiable Predictive Control for Robotics: A Data-Driven Predictive Safety Filter Approach, arXiv:2409.13817, 2024](https://arxiv.org/abs/2409.13817)
 + [Jan Drgona, Aaron Tuor, Draguna Vrabie, Learning Constrained Parametric Differentiable Predictive Control Policies With Guarantees, IEEE Transactions on Systems, Man, and Cybernetics: Systems, 2024](https://ieeexplore.ieee.org/abstract/document/10479163)
 + [Renukanandan Tumu, Wenceslao Shaw Cortez, Ján Drgoňa, Draguna L. Vrabie, Sonja Glavaski, Differentiable Predictive Control for Large-Scale Urban Road Networks, 	arXiv:2406.10433, 2024](https://arxiv.org/abs/2406.10433)
 + [Ethan King, James Kotary, Ferdinando Fioretto, Jan Drgona, Metric Learning to Accelerate Convergence of Operator Splitting Methods for Differentiable Parametric Programming, arXiv:2404.00882, 2024](https://arxiv.org/abs/2404.00882)

@@ -18,7 +18,7 @@ cd neuromancer
 pip install -e .[docs,tests,examples]
 ```
 
-For detailed manual installation instructions please refer to [Installation Insturctions](installation.md). 
+For detailed manual installation instructions please refer to [Installation Insturctions](https://github.com/pnnl/neuromancer/blob/master/INSTALLATION.md). 
 
 ## Code Structure
 ### Project Layout

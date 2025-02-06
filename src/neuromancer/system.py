@@ -38,10 +38,10 @@ class Node(nn.Module):
         """
         super().__init__()
         self.input_keys = [
-            var.name if isinstance(var, Variable) else var for var in input_keys
+            var.key if isinstance(var, Variable) else var for var in input_keys
         ]
         self.output_keys = [
-            var.name if isinstance(var, Variable) else var for var in output_keys
+            var.key if isinstance(var, Variable) else var for var in output_keys
         ]
         self.callable, self.name = callable, name
 

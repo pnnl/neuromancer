@@ -13,6 +13,7 @@ Sporadically sampled data can be handled prior with interpolation
 Different time scales can be handled with nested systems
 Networked systems seem like a natural fit here
 """
+
 import os
 import pydot
 import matplotlib.image as mpimg
@@ -20,23 +21,31 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 
+from neuromancer.constraint import Variable
+
 
 class Node(nn.Module):
     """
     Simple class to handle cyclic computational graph connections. input_keys and output_keys
     define computational node connections through intermediate dictionaries.
     """
+
     def __init__(self, callable, input_keys, output_keys, name=None):
         """
 
         :param callable: Input: All input arguments are assumed to be torch.Tensors (batchsize, dim)
                          Output: All outputs are assumed to be torch.Tensors (batchsize, dim)
-        :param input_keys: (list of str) For gathering inputs from intermediary data dictionary
-        :param output_keys: (list of str) For sending inputs to other nodes through intermediary data dictionary
+        :param input_keys: (list of str or Variable) For gathering inputs from intermediary data dictionary
+        :param output_keys: (list of str or Variable) For sending inputs to other nodes through intermediary data dictionary
         :param name: (str) Unique node identifier
         """
         super().__init__()
-        self.input_keys, self.output_keys = input_keys, output_keys
+        self.input_keys = [
+            var.name if isinstance(var, Variable) else var for var in input_keys
+        ]
+        self.output_keys = [
+            var.name if isinstance(var, Variable) else var for var in output_keys
+        ]
         self.callable, self.name = callable, name
 
     def forward(self, data):
@@ -75,6 +84,7 @@ class MovingHorizon(nn.Module):
     The MovingHorizon class buffers single time step inputs for time-delay modeling from past ndelay
     steps. This class is a wrapper which does data handling for modules which take 3-d input (batch, time, dim)
     """
+
     def __init__(self, module, ndelay=1, history=None):
         """
 
@@ -102,7 +112,9 @@ class MovingHorizon(nn.Module):
             self.history[k].append(input[k])
             if len(self.history[k]) == 1:
                 self.history[k] *= self.ndelay
-        inputs = {k: torch.stack(self.history[k][-self.ndelay:]) for k in self.input_keys}
+        inputs = {
+            k: torch.stack(self.history[k][-self.ndelay :]) for k in self.input_keys
+        }
         return self.module(inputs)
 
 
@@ -110,7 +122,8 @@ class System(nn.Module):
     """
     Simple implementation for arbitrary cyclic computation
     """
-    def __init__(self, nodes, name=None, nstep_key='X', init_func=None, nsteps=None):
+
+    def __init__(self, nodes, name=None, nstep_key="X", init_func=None, nsteps=None):
         """
 
         :param nodes: (list of Node objects)
@@ -131,31 +144,44 @@ class System(nn.Module):
 
     def graph(self):
         self._check_unique_names()
-        graph = pydot.Dot("problem", graph_type="digraph", splines="spline", rankdir="LR")
-        graph.add_node(pydot.Node("in", label="dataset", color='skyblue',
-                                  style='filled', shape="box"))
-        sim_loop = pydot.Cluster('sim_loop', color='cornsilk',
-                                 style='filled', label='system')
+        graph = pydot.Dot(
+            "problem", graph_type="digraph", splines="spline", rankdir="LR"
+        )
+        graph.add_node(
+            pydot.Node(
+                "in", label="dataset", color="skyblue", style="filled", shape="box"
+            )
+        )
+        sim_loop = pydot.Cluster(
+            "sim_loop", color="cornsilk", style="filled", label="system"
+        )
         input_keys = []
         output_keys = []
         nonames = 1
         for node in self.nodes:
             input_keys += node.input_keys
             output_keys += node.output_keys
-            if node.name is None or node.name == '':
-                node.name = f'node_{nonames}'
+            if node.name is None or node.name == "":
+                node.name = f"node_{nonames}"
                 nonames += 1
-            sim_loop.add_node(pydot.Node(node.name, label=node.name,
-                                         color='lavender',
-                                         style='filled',
-                                         shape="box"))
-        graph.add_node(pydot.Node('out', label='out', color='skyblue', style='filled', shape='box'))
+            sim_loop.add_node(
+                pydot.Node(
+                    node.name,
+                    label=node.name,
+                    color="lavender",
+                    style="filled",
+                    shape="box",
+                )
+            )
+        graph.add_node(
+            pydot.Node("out", label="out", color="skyblue", style="filled", shape="box")
+        )
         graph.add_subgraph(sim_loop)
 
         # build node connections in reverse order
         reverse_order_nodes = self.nodes[::-1]
         for idx_dst, dst in enumerate(reverse_order_nodes):
-            src_nodes = reverse_order_nodes[1+idx_dst:]
+            src_nodes = reverse_order_nodes[1 + idx_dst :]
             unique_common_keys = set()
             for idx_src, src in enumerate(src_nodes):
                 common_keys = set(src.output_keys) & set(dst.input_keys)
@@ -181,7 +207,7 @@ class System(nn.Module):
             for key in set(node.input_keys) & set(init_keys):
                 graph.add_edge(pydot.Edge("in", node.name, label=key))
             # build feedback connections for init nodes
-            feedback_src_nodes = reverse_order_nodes[:-1-idx_node]
+            feedback_src_nodes = reverse_order_nodes[: -1 - idx_node]
             if len(set(node.input_keys) & set(loop_keys) & set(init_keys)) > 0:
                 for key in node.input_keys:
                     for src in feedback_src_nodes:
@@ -192,8 +218,8 @@ class System(nn.Module):
         # build connections to the output of the system in a reversed order
         previous_output_keys = []
         for node in self.nodes[::-1]:
-            for key in (set(node.output_keys) - set(previous_output_keys)):
-                graph.add_edge(pydot.Edge(node.name, 'out', label=key))
+            for key in set(node.output_keys) - set(previous_output_keys):
+                graph.add_edge(pydot.Edge(node.name, "out", label=key))
             previous_output_keys += node.output_keys
 
         self.input_keys = list(set(init_keys))
@@ -203,17 +229,19 @@ class System(nn.Module):
     def show(self, figname=None):
         graph = self.graph()
         if figname is not None:
-            plot_func = {'svg': graph.write_svg,
-                         'png': graph.write_png,
-                         'jpg': graph.write_jpg}
-            ext = figname.split('.')[-1]
+            plot_func = {
+                "svg": graph.write_svg,
+                "png": graph.write_png,
+                "jpg": graph.write_jpg,
+            }
+            ext = figname.split(".")[-1]
             plot_func[ext](figname)
         else:
-            graph.write_png('system_graph.png')
-            img = mpimg.imread('system_graph.png')
-            os.remove('system_graph.png')
+            graph.write_png("system_graph.png")
+            img = mpimg.imread("system_graph.png")
+            os.remove("system_graph.png")
             plt.figure()
-            fig = plt.imshow(img, aspect='equal')
+            fig = plt.imshow(img, aspect="equal")
             fig.axes.get_xaxis().set_visible(False)
             fig.axes.get_yaxis().set_visible(False)
             plt.show()
@@ -221,9 +249,10 @@ class System(nn.Module):
     def _check_unique_names(self):
         num_unique = len([node.name for node in self.nodes])
         num_comp = len(self.nodes)
-        assert num_unique == num_comp, \
-            "All system nodes must have unique names " \
+        assert num_unique == num_comp, (
+            "All system nodes must have unique names "
             "to construct a computational graph."
+        )
 
     def cat(self, data3d, data2d):
         """
@@ -261,11 +290,15 @@ class System(nn.Module):
         :return: (dict: {str: Tensor}) data with outputs of nstep rollout of Node interactions
         """
         data = input_dict.copy()
-        nsteps = self.nsteps if self.nsteps is not None else data[self.nstep_key].shape[1]  # Infer number of rollout steps
+        nsteps = (
+            self.nsteps if self.nsteps is not None else data[self.nstep_key].shape[1]
+        )  # Infer number of rollout steps
         data = self.init(data)  # Set initial conditions of the system
         for i in range(nsteps):
             for node in self.nodes:
-                indata = {k: data[k][:, i] for k in node.input_keys}  # collect what the compute node needs from data nodes
+                indata = {
+                    k: data[k][:, i] for k in node.input_keys
+                }  # collect what the compute node needs from data nodes
                 outdata = node(indata)  # compute
                 data = self.cat(data, outdata)  # feed the data nodes
         return data  # return recorded system measurements

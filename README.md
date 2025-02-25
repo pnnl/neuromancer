@@ -3,7 +3,7 @@
   <img src="figs/Neuromancer.png" width="250">  
 </p>
 
-# NeuroMANCER v1.5.3
+# NeuroMANCER v1.5.2
 
 [![PyPi Version](https://img.shields.io/pypi/v/neuromancer)](https://pypi.org/project/neuromancer)
 [![License](https://img.shields.io/badge/license-BSD-blue.svg)](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md)
@@ -22,7 +22,7 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 ## Table of Contents
 1. [Overview](#overview)
 2. [Key Features](#key-features)
-3. [What's New in v1.5.3](#whats-new)
+3. [What's New in v1.5.2](#whats-new)
 4. [Installation](#installation)
 5. [Getting Started](#getting-started)
 6. [Tutorials](#domain-examples)
@@ -38,23 +38,26 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 * **State-of-the-art methods**: NeuroMANCER is up-to-date with SOTA methods such as Kolgomorov-Arnold Networks (KANs) for function approximation, neural ordinary differential equations (NODEs) and sparse identification of non-linear dynamics (SINDy) for learning to model dynamical systems, and differentiable convex optimization layers for safety constraints in learning to optimize and learning to control.
 
 
-## What's New in v1.5.3
-### The NeuroMANCER-GPT Assistant
+## What's New in v1.5.2
+### Load Forecasting Capabilities and Transformers
+We expand our energy systems domain examples with load forecasting for buildings. 
+We showcase the use of time-series modelling and forecasting using the Short-Term Electricity Load Forecasting (Panama case study) dataset. We demonstrate forecasting capaibilities using a Transformer model, a new block added to our (neural) blocks.py, as well as other standard blocks. We also utilize historical weather data to assist in energy forecasting. 
 
-We provide the easy-to-use scripts to convert the contents of the NeuroMANCER library in a way that is suitable for ingestion in RAG-based "LLM-assistant" pipelines. Please see [Assistant](https://github.com/pnnl/neuromancer/blob/master/assistant/README.md) to read more about how one can quickly spin-up an LLM model to help understand and code in NeuroMANCER. 
 
-### Building Control Comparison: Reinforcement Learning vs Differential Predictive Control Example
-We add to our growing library of building modeling and control tutorials a highly education and in-depth walkthrough of reinforcement learning (RL) methods and compare them to differential predictive control (DPC) in NeuroMANCER. This notebook shows that the while the RL solution is more adaptive, the DPC solution in NeuroMANCER is more energy-efficien, has smoother control actions, trains faster and is easier constraint enforcement.
-### Python 3.11 Version Support
-NeuroMANCER has been updated to support Python 3.11.
-### New Feature: Improved Node Class
-The Node class has been updated to accept instantiated Variable objects as well. The change is backwards-compatible and simplifies house-keeping for the user. 
+### Finite-Basis Kolgomorov Arnold Networks
 
+Kolmogorov-Arnold networks (KANs) have attracted attention recently as an alternative to multilayer
+perceptrons (MLPs) for scientific machine learning. However, KANs can be expensive to train, even
+for relatively small networks. We have implemented an FBKAN block (FBPINNs),
+for domain decomposition method for KANs that allows for several small
+KANs to be trained in parallel to give accurate solutions for multiscale problems.
 
 
 
 **New Colab Examples:**
-> ⭐ [Building Energy Systems Modeling and Control](#energy-systems)
+> ⭐ [Load Forecasting](#energy-systems)
+
+> ⭐ [Function Approximation with Kolgomorov-Arnold Networks ](#function-approximation)
 
 
 
@@ -154,10 +157,6 @@ For more in-depth coverage of our methods, please see our general [Tutorials](#t
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_PSH.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Pumped-storage Hyrdoelectricity System
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_PSH.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Indoor Air Temperature in Buildings With Safe Reinforcement Learning and Differentiable Predictive Control
-
 
 
 ## Tutorials on Methods for Modeling, Optimization, and Control

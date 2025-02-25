@@ -31,7 +31,7 @@
 
 ## PIP Install (Recommended)
 
-Using `pip` is the simplest way to install NeuroMANCER. It's recommended to use a dedicated virtual environment (e.g., `conda`, `venv`) with Python 3.9+.
+Using `pip` is the simplest way to install NeuroMANCER. It's recommended to use a dedicated virtual environment (e.g., `conda`, `venv`) with Python 3.11+.
 
 
 ## Manual Install

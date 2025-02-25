@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 
+from neuromancer.constraint import Variable
 
 class Node(nn.Module):
     """
@@ -31,12 +32,17 @@ class Node(nn.Module):
 
         :param callable: Input: All input arguments are assumed to be torch.Tensors (batchsize, dim)
                          Output: All outputs are assumed to be torch.Tensors (batchsize, dim)
-        :param input_keys: (list of str) For gathering inputs from intermediary data dictionary
-        :param output_keys: (list of str) For sending inputs to other nodes through intermediary data dictionary
+        :param input_keys: (list of str or Variable) For gathering inputs from intermediary data dictionary
+        :param output_keys: (list of str or Variable) For sending inputs to other nodes through intermediary data dictionary
         :param name: (str) Unique node identifier
         """
         super().__init__()
-        self.input_keys, self.output_keys = input_keys, output_keys
+        self.input_keys = [
+            var.key if isinstance(var, Variable) else var for var in input_keys
+        ]
+        self.output_keys = [
+            var.key if isinstance(var, Variable) else var for var in output_keys
+        ]
         self.callable, self.name = callable, name
 
     def forward(self, data):

@@ -328,7 +328,7 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 ## Development team
 
-**Active core developers**: [Jan Drgona](https://drgona.github.io/), [Rahul Birmiwal](https://www.linkedin.com/in/rahul-birmiwal009/), [Bruno Jacob](https://brunopjacob.github.io/)  
+**Active core developers**: [Jan Drgona](https://drgona.github.io/), [Rahul Birmiwal](https://www.linkedin.com/in/rahul-birmiwal009/), [Bruno Jacob](https://brunopjacob.github.io/), [Reilly Raab](https://reillyraab.com/about.html)  
 **Notable contributors**: [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/), Madelyn Shapiro, James Koch, Seth Briney, Bo Tang, Ethan King, Elliot Skomski, Zhao Chen, Christian Møldrup Legaard  
 **Scientific advisors**: Draguna Vrabie, Panos Stinis  
 

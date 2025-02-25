@@ -22,7 +22,7 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 ## Table of Contents
 1. [Overview](#overview)
 2. [Key Features](#key-features)
-3. [What's New in v1.5.3](#whats-new)
+3. [What's New in v1.5.3](#whats-new-in-v153)
 4. [Installation](#installation)
 5. [Getting Started](#getting-started)
 6. [Tutorials](#domain-examples)

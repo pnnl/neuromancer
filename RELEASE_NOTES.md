@@ -1,5 +1,11 @@
 
 ##  Release notes
+
+### Version 1.5.3 Release Notes
++ New feature: NeuroMANCER LLM Assistant configuration scripts
++ New feature: In-depth and educational notebook comparing and contrasting RL vs DPC for building energy systems control
++ New feature: Updated NODE class that can now accept instantiated Variables in the constructor
+
 ### Version 1.5.2 Release Notes
 + New feature: Multi-fidelty Kolgomorov Arnold Networks for SOTA function approximation
 + New feature: Load forecasting on building energy systems tutorials

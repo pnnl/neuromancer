@@ -31,7 +31,7 @@
 
 ## PIP Install (Recommended)
 
-Using `pip` is the simplest way to install NeuroMANCER. It's recommended to use a dedicated virtual environment (e.g., `conda`, `venv`) with Python 3.9+.
+Using `pip` is the simplest way to install NeuroMANCER. It's recommended to use a dedicated virtual environment (e.g., `conda`, `venv`) with Python 3.11+.
 
 
 ## Manual Install
@@ -48,7 +48,7 @@ git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
 ### Create and Activate Virtual Environment
 
 ``` bash
-conda create -n neuromancer python=3.10.4
+conda create -n neuromancer python=3.11
 conda activate neuromancer
 ```
 
@@ -118,7 +118,7 @@ conda activate neuromancer
 !!! Pay attention to comments for non-Linux OS !!!
 
 ``` bash
-conda create -n neuromancer python=3.10.4
+conda create -n neuromancer python=3.11
 conda activate neuromancer
 conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
 ## OR (for Mac): conda install pytorch -c pytorch

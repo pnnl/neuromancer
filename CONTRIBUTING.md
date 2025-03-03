@@ -45,8 +45,6 @@ be highly valuable but not included below, please open an issue and let us know 
 + Control and modelling for networked systems
 + Support for stochastic differential equations (SDEs)
 + Easy to implement modeling and control with uncertainty quantification
-+ Proximal operators for dealing with equality and inequality constraints
-+ Interface with CVXPYlayers
 + Online learning examples
 + Benchmark examples of DPC compared to deep RL
 + Conda and pip package distribution

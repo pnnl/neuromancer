@@ -3,7 +3,7 @@
   <img src="figs/Neuromancer.png" width="250">  
 </p>
 
-# NeuroMANCER v1.5.2
+# NeuroMANCER v1.5.3
 
 [![PyPi Version](https://img.shields.io/pypi/v/neuromancer)](https://pypi.org/project/neuromancer)
 [![License](https://img.shields.io/badge/license-BSD-blue.svg)](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md)
@@ -22,10 +22,10 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 ## Table of Contents
 1. [Overview](#overview)
 2. [Key Features](#key-features)
-3. [What's New in v1.5.2](#whats-new)
-4. [Getting Started](#getting-started)
-5. [Tutorials](#domain-examples)
-5. [Installation](#installation)
+3. [What's New in v1.5.3](#whats-new-in-v153)
+4. [Installation](#installation)
+5. [Getting Started](#getting-started)
+6. [Tutorials](#domain-examples)
 6. [Documentation and User Guides](#documentation-and-user-guides)
 
 
@@ -38,40 +38,43 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 * **State-of-the-art methods**: NeuroMANCER is up-to-date with SOTA methods such as Kolgomorov-Arnold Networks (KANs) for function approximation, neural ordinary differential equations (NODEs) and sparse identification of non-linear dynamics (SINDy) for learning to model dynamical systems, and differentiable convex optimization layers for safety constraints in learning to optimize and learning to control.
 
 
-## What's New in v1.5.2
-### Load Forecasting Capabilities and Transformers
-We expand our energy systems domain examples with load forecasting for buildings. 
-We showcase the use of time-series modelling and forecasting using the Short-Term Electricity Load Forecasting (Panama case study) dataset. We demonstrate forecasting capaibilities using a Transformer model, a new block added to our (neural) blocks.py, as well as other standard blocks. We also utilize historical weather data to assist in energy forecasting. 
+## What's New in v1.5.3
+### The NeuroMANCER-GPT Assistant
 
+We provide the easy-to-use scripts to convert the contents of the NeuroMANCER library in a way that is suitable for ingestion in RAG-based "LLM-assistant" pipelines. Please see [Assistant](https://github.com/pnnl/neuromancer/blob/develop/assistant/README.md) to read more about how one can quickly spin-up an LLM model to help understand and code in NeuroMANCER. 
 
-### Finite-Basis Kolgomorov Arnold Networks
+### Building Control Comparison: Reinforcement Learning vs Differential Predictive Control Example
+We add to our growing library of building modeling and control tutorials a highly education and in-depth walkthrough of reinforcement learning (RL) methods and compare them to differential predictive control (DPC) in NeuroMANCER. This notebook shows that the while the RL solution is more adaptive, the DPC solution in NeuroMANCER is more energy-efficien, has smoother control actions, trains faster and is easier constraint enforcement.
+### Python 3.11 Version Support
+NeuroMANCER has been updated to support Python 3.11.
+### New Feature: Improved Node Class
+The Node class has been updated to accept instantiated Variable objects as well. The change is backwards-compatible and simplifies house-keeping for the user. 
 
-Kolmogorov-Arnold networks (KANs) have attracted attention recently as an alternative to multilayer
-perceptrons (MLPs) for scientific machine learning. However, KANs can be expensive to train, even
-for relatively small networks. We have implemented an FBKAN block (FBPINNs),
-for domain decomposition method for KANs that allows for several small
-KANs to be trained in parallel to give accurate solutions for multiscale problems.
 
 
 
 **New Colab Examples:**
-> ⭐ [Load Forecasting](#energy-systems)
+> ⭐ [Building Energy Systems Modeling and Control](#energy-systems)
 
-> ⭐ [Function Approximation with Kolgomorov-Arnold Networks ](#function-approximation)
 
-## Getting Started
 
+## Installation
+Simply run 
 ```
 pip install neuromancer
 ```
+For manual installation, please refer to  [Installation Instructions](INSTALLATION.md)
 
-Extensive set of tutorials can be found in the 
+
+## Getting Started
+
+An extensive set of tutorials can be found in the 
 [examples](https://github.com/pnnl/neuromancer/tree/master/examples) folder and the [Tutorials](#domain-examples) below.
 Interactive notebook versions of examples are available on Google Colab!
 Test out NeuroMANCER functionality before cloning the repository and setting up an
 environment.
 
-The notebooks below introduce the core abstractions of the NeuroMANCER library, in particular our symbolic programming interface and Node classes. 
+The notebooks below introduce the core abstractions of the NeuroMANCER library, in particular, our symbolic programming interface and Node classes. 
 
 ### Symbolic Variables, Nodes, Constraints, Objectives, and Systems Classes
 
@@ -83,21 +86,6 @@ Part 2: NeuroMANCER syntax tutorial: variables, constraints, and objectives.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/tutorials/part_3_node.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 Part 3: NeuroMANCER syntax tutorial: modules, Node, and System class.
-
-
-
-### PyTorch Lightning Integration
-
-We have integrated PyTorch Lightning to streamline code, enable custom training logic, support GPU and multi-GPU setups, and handle large-scale, memory-intensive learning tasks.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_1_lightning_basics_tutorial.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Lightning Integration Basics.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_2_lightning_advanced_and_gpu_tutorial.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Lightning Advanced Features and Automatic GPU Support.
-
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/other_examples/lightning_custom_training_example.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
 
 ### Example
 Quick example for how to solve parametric constrained optimization problem using NeuroMANCER, leveraging our symbolic programming interface, Node and Variable, Blocks, SLiM library, and PenaltyLoss classes. 
@@ -166,6 +154,10 @@ For more in-depth coverage of our methods, please see our general [Tutorials](#t
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_PSH.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Pumped-storage Hyrdoelectricity System
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_PSH.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Indoor Air Temperature in Buildings With Safe Reinforcement Learning and Differentiable Predictive Control
+
 
 
 ## Tutorials on Methods for Modeling, Optimization, and Control
@@ -262,22 +254,28 @@ Neuromancer has been integrated with TorchSDE to handle stochastic dynamical sys
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> LatentSDEs: "System Identification" of Stochastic Processes using Neuromancer x TorchSDE
 
 
+## Scalability and Customization
+
+### PyTorch Lightning Integration
+
+We have integrated PyTorch Lightning to streamline code, enable custom training logic, support GPU and multi-GPU setups, and handle large-scale, memory-intensive learning tasks.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_1_lightning_basics_tutorial.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Lightning Integration Basics.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/Part_2_lightning_advanced_and_gpu_tutorial.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Lightning Advanced Features and Automatic GPU Support.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/other_examples/lightning_custom_training_example.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
 
 
 ## Documentation and User Guides
 The documentation for the library can be found [online](https://pnnl.github.io/neuromancer/). 
 There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 
-core features of the library. 
+the core features of the library. 
 
 For more information, including those for developers, please go to our [Developer and User Guide](USER_GUIDE.md)
-
-
-## Installation
-Simply run 
-```
-pip install neuromancer
-```
-For manual installation please refer to  [Installation Instructions](INSTALLATION.md)
 
 ## Community Information
 We welcome contributions and feedback from the open-source community!  
@@ -295,6 +293,8 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 
 ## Publications 
++ [Bo Tang, Elias B. Khalil, Ján Drgoňa, Learning to Optimize for Mixed-Integer Non-linear Programming, arXiv:2410.11061, 2024](https://arxiv.org/abs/2410.11061)
++ [John Viljoen, Wenceslao Shaw Cortez, Jan Drgona, Sebastian East, Masayoshi Tomizuka, Draguna Vrabie, Differentiable Predictive Control for Robotics: A Data-Driven Predictive Safety Filter Approach, arXiv:2409.13817, 2024](https://arxiv.org/abs/2409.13817)
 + [Jan Drgona, Aaron Tuor, Draguna Vrabie, Learning Constrained Parametric Differentiable Predictive Control Policies With Guarantees, IEEE Transactions on Systems, Man, and Cybernetics: Systems, 2024](https://ieeexplore.ieee.org/abstract/document/10479163)
 + [Renukanandan Tumu, Wenceslao Shaw Cortez, Ján Drgoňa, Draguna L. Vrabie, Sonja Glavaski, Differentiable Predictive Control for Large-Scale Urban Road Networks, 	arXiv:2406.10433, 2024](https://arxiv.org/abs/2406.10433)
 + [Ethan King, James Kotary, Ferdinando Fioretto, Jan Drgona, Metric Learning to Accelerate Convergence of Operator Splitting Methods for Differentiable Parametric Programming, arXiv:2404.00882, 2024](https://arxiv.org/abs/2404.00882)
@@ -328,7 +328,7 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 ## Development team
 
-**Active core developers**: [Jan Drgona](https://drgona.github.io/), [Rahul Birmiwal](https://www.linkedin.com/in/rahul-birmiwal009/), [Bruno Jacob](https://brunopjacob.github.io/)  
+**Active core developers**: [Jan Drgona](https://drgona.github.io/), [Rahul Birmiwal](https://www.linkedin.com/in/rahul-birmiwal009/), [Bruno Jacob](https://brunopjacob.github.io/), [Reilly Raab](https://reillyraab.com/about.html)  
 **Notable contributors**: [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/), Madelyn Shapiro, James Koch, Seth Briney, Bo Tang, Ethan King, Elliot Skomski, Zhao Chen, Christian Møldrup Legaard  
 **Scientific advisors**: Draguna Vrabie, Panos Stinis  
 
@@ -341,4 +341,3 @@ Made with [contrib.rocks](https://contrib.rocks).
 
 ## Acknowledgments
 This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research's “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects. This project was also supported from the U.S. Department of Energy, Advanced Scientific Computing Research program, under the Uncertainty Quantification for Multifidelity Operator Learning (MOLUcQ) project (Project No. 81739). PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.
-

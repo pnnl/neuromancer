@@ -11,11 +11,12 @@ authors = [
     { name = "Madelyn Shapiro", email = "madelyn.shapiro@pnnl.gov"},
     { name = "Rahul Birmiwal", email = "rahul.birmiwal@pnnl.gov"},
     { name = "Draguna Vrabie", email = "draguna.vrabie@pnnl.gov" },
-    { name = "Bruno Jacob", email = "bruno.jacbo@pnnl.gov" }
+    { name = "Bruno Jacob", email = "bruno.jacbo@pnnl.gov" },
+    { name = "Reilly Raab", email = "reilly.raab@pnnl.gov" }
 ]
 description = "Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularization"
 readme = "README.md"
-requires-python = ">=3.9, <3.11"
+requires-python = ">=3.9"
 keywords = [
     "Deep Learning",
     "Pytorch",
@@ -30,6 +31,7 @@ license = { text = "BSD-2-Clause" }
 classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Physics",
     "License :: OSI Approved :: BSD License"
@@ -40,7 +42,7 @@ dependencies = [
     "matplotlib",
     "mlflow==2.5.0",
     "networkx==3.0.0",
-    "numpy<1.24.0",
+    "numpy==1.26.0",
     "pandas",
     "plum_dispatch==1.7.3",
     "scikit_learn",
@@ -59,7 +61,7 @@ dependencies = [
     "torchsde"
 ]
 
-version = "1.5.1"
+version = "1.5.3"
 
 [project.urls]
 homepage = "https://github.com/pnnl/neuromancer/"

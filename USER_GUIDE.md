@@ -9,7 +9,7 @@
 For development purposes, we recommend setting up a dedicated virtual environment. 
 ```
 # Create a virtual environment using Conda
-conda create -n neuromancer-dev python=3.10.4
+conda create -n neuromancer-dev python=3.11
 conda activate neuromancer-dev
 git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
 cd neuromancer
@@ -18,7 +18,7 @@ cd neuromancer
 pip install -e .[docs,tests,examples]
 ```
 
-For detailed manual installation instructions please refer to [Installation Insturctions](installation.md). 
+For detailed manual installation instructions please refer to [Installation Insturctions](https://github.com/pnnl/neuromancer/blob/master/INSTALLATION.md). 
 
 ## Code Structure
 ### Project Layout

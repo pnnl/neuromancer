@@ -267,7 +267,7 @@ We have integrated PyTorch Lightning to streamline code, enable custom training 
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Lightning Advanced Features and Automatic GPU Support.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/other_examples/lightning_custom_training_example.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Defining Custom Training Logic via Lightning Modularized Code.
 
 
 ## Documentation and User Guides
@@ -275,7 +275,7 @@ The documentation for the library can be found [online](https://pnnl.github.io/n
 There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 
 the core features of the library. 
 
-For more information, including those for developers, please go to our [Developer and User Guide](USER_GUIDE.md)
+For more information, including that for developers, please go to our [Developer and User Guide](USER_GUIDE.md)
 
 ## Community Information
 We welcome contributions and feedback from the open-source community!  

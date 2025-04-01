@@ -146,7 +146,7 @@ For more in-depth coverage of our methods, please see our general [Tutorials](#t
 
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/HVAC_load_forecasting.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Energy Load Forecasting for the Air Handling System of an Office Building with MLP and CNN models
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Energy Load Forecasting for Building with MLP and CNN Models
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/building_load_forecasting_Transformers.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  Energy Load Forecasting for Building with Transformers Model
@@ -155,15 +155,15 @@ For more in-depth coverage of our methods, please see our general [Tutorials](#t
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_PSH.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Pumped-storage Hyrdoelectricity System
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_PSH.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Indoor Air Temperature in Buildings With Safe Reinforcement Learning and Differentiable Predictive Control
++ <a target="_blank" href="https://github.com/pnnl/neuromancer/blob/master/examples/domain_examples/RL_DPC_building_control.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control a Building With Safe Reinforcement Learning and Differentiable Predictive Control
 
 
 
 ## Tutorials on Methods for Modeling, Optimization, and Control
 ### Learning to Optimize (L2O) Parametric Programming
 
-Neuromancer allows you to formulate and solve a broad class of parametric optimization problems leveraging machine learning to learn the solutions to such problems. [More information on Parametric programming](https://github.com/pnnl/neuromancer/tree/develop/examples/parametric_programming)
+Neuromancer allows you to formulate and solve a broad class of parametric optimization problems, leveraging machine learning to learn the solutions to such problems. [More information on Parametric programming](https://github.com/pnnl/neuromancer/tree/develop/examples/parametric_programming)
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 Part 1: Learning to solve a constrained optimization problem.
@@ -184,7 +184,7 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 Part 6: Learning to optimize with metric learning for Operator Splitting layers.  
 
 ### Learning to Control (L2C)
-Neuromancer allows you to learn control policies for full spectrum of white/grey/black-box dynamical systems, subject to choice constraints and objective functions. 
+Neuromancer allows you to learn control policies for a full spectrum of white/grey/black-box dynamical systems, subject to choice constraints and objective functions. 
 [More information on Differential Predictive Control](https://github.com/pnnl/neuromancer/tree/develop/examples/control)
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb">
@@ -293,6 +293,7 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 
 ## Publications 
++ [Ashish S. Nair, Bruno Jacob, Amanda A. Howard, Jan Drgona, Panos Stinis, E-PINNs: Epistemic Physics-Informed Neural Networks, 	arXiv:2503.19333](https://arxiv.org/abs/2503.19333)
 + [Bo Tang, Elias B. Khalil, Ján Drgoňa, Learning to Optimize for Mixed-Integer Non-linear Programming, arXiv:2410.11061, 2024](https://arxiv.org/abs/2410.11061)
 + [John Viljoen, Wenceslao Shaw Cortez, Jan Drgona, Sebastian East, Masayoshi Tomizuka, Draguna Vrabie, Differentiable Predictive Control for Robotics: A Data-Driven Predictive Safety Filter Approach, arXiv:2409.13817, 2024](https://arxiv.org/abs/2409.13817)
 + [Jan Drgona, Aaron Tuor, Draguna Vrabie, Learning Constrained Parametric Differentiable Predictive Control Policies With Guarantees, IEEE Transactions on Systems, Man, and Cybernetics: Systems, 2024](https://ieeexplore.ieee.org/abstract/document/10479163)

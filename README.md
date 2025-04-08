@@ -208,8 +208,8 @@ Neuromancer is up-to-date with state-of-the-art methods. Here we showcase the po
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/feature/fbkans/examples/KANs/p2_fbkan_vs_kan_noise_data_2d.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: A comparison of KANs and FBKANs in learning a 2D multiscale function with noise
 
 
-### Neural Operators
-Neuromancer allows one to use machine learning, prior physics and domain knowledge, to construct mathematical and differentiabl models of dynamical systems given the measured observations of the system behavior.
+### System Identification
+Neuromancer allows one to use machine learning, prior physics, and domain knowledge to construct data-driven models of dynamical systems given the measured observations of the system behavior.
 [More information on System ID via Neural State Space Models and ODEs](https://github.com/pnnl/neuromancer/tree/develop/examples/ODEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_1_NODE.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Neural Ordinary Differential Equations (NODEs)
@@ -329,8 +329,9 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 ## Development team
 
-**Active core developers**: [Jan Drgona](https://drgona.github.io/), [Rahul Birmiwal](https://www.linkedin.com/in/rahul-birmiwal009/), [Bruno Jacob](https://brunopjacob.github.io/), [Reilly Raab](https://reillyraab.com/about.html)  
-**Notable contributors**: [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/), Madelyn Shapiro, James Koch, Seth Briney, Bo Tang, Ethan King, Elliot Skomski, Zhao Chen, Christian Møldrup Legaard  
+**Lead developers**: [Jan Drgona](https://drgona.github.io/), [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/)
+**Active core developers**: [Rahul Birmiwal](https://www.linkedin.com/in/rahul-birmiwal009/), [Bruno Jacob](https://brunopjacob.github.io/), [Reilly Raab](https://reillyraab.com/about.html)  
+**Notable contributors**: Madelyn Shapiro, James Koch, Seth Briney, Bo Tang, Ethan King, Elliot Skomski, Zhao Chen, Christian Møldrup Legaard  
 **Scientific advisors**: Draguna Vrabie, Panos Stinis  
 
 Open-source contributions made by:  

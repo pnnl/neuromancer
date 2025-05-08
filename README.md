@@ -253,6 +253,11 @@ Neuromancer has been integrated with TorchSDE to handle stochastic dynamical sys
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/SDEs/sde_walkthrough.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> LatentSDEs: "System Identification" of Stochastic Processes using Neuromancer x TorchSDE
 
+### Function Encoders
+Neuromancer contains an implementation of function encoders, an algorithm for learning basis functions as neural networks. See [Function Encoders: A Principled Approach to Transfer Learning in Hilbert Spaces](https://arxiv.org/abs/2501.18373).
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/function_encoder/Part_1_Intro_to_Function_Encoders.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: An Introduction to Function Encoders
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/function_encoder/Part_2_Function_Encoder_Neural_ODE.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Function Encoders + Neural ODEs
+
 
 ## Scalability and Customization
 

@@ -257,7 +257,7 @@ class CSTR(ODE):
             * Concentration of A in CSTR (mol/m^3)
             * Temperature in CSTR (K)
         """
-        Tc = u  # Temperature of cooling jacket (K)
+        Tc = u[0]  # Temperature of cooling jacket (K)
         Ca = x[0]  # Concentration of A in CSTR (mol/m^3)
         T = x[1]  # Temperature in CSTR (K)
         rA = self.k0 * self.B.core.exp(-self.EoverR / T) * Ca  # reaction rate

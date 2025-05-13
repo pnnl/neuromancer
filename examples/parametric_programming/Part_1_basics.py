@@ -193,59 +193,60 @@ if __name__ == "__main__":
         opti.set_value(a_opti, a)
         return opti, x, y
 
-    # selected parameters for a single instance problem
-    p = 1.0
-    a = 1.0
-    # construct casadi problem
-    opti, x, y = NLP_param(a, p)
-    # solve NLP via casadi
-    sol = opti.solve()
-    print(sol.value(x))
-    print(sol.value(y))
+    for s in range(0, 20):
+        # selected parameters for a single instance problem
+        p = 0.05*s + 0.5
+        a = 0.05*s + 0.2
+        # construct casadi problem
+        opti, x, y = NLP_param(a, p)
+        # solve NLP via casadi
+        sol = opti.solve()
+        print(sol.value(x))
+        print(sol.value(y))
 
-    """
-    Plots
-    """
-    x1 = np.arange(-0.5, 1.5, 0.02)
-    y1 = np.arange(-0.5, 1.5, 0.02)
-    xx, yy = np.meshgrid(x1, y1)
+        """
+        Plots
+        """
+        x1 = np.arange(-0.5, 1.5, 0.02)
+        y1 = np.arange(-0.5, 1.5, 0.02)
+        xx, yy = np.meshgrid(x1, y1)
 
-    # eval objective and constraints
-    J = (1 - xx) ** 2 + a * (yy - xx ** 2) ** 2
-    c1 = xx - yy
-    c2 = xx ** 2 + yy ** 2 - (p / 2) ** 2
-    c3 = -(xx ** 2 + yy ** 2) + p ** 2
+        # eval objective and constraints
+        J = (1 - xx) ** 2 + a * (yy - xx ** 2) ** 2
+        c1 = xx - yy
+        c2 = xx ** 2 + yy ** 2 - (p / 2) ** 2
+        c3 = -(xx ** 2 + yy ** 2) + p ** 2
 
-    fig, ax = plt.subplots(1, 1)
-    cp = ax.contourf(xx, yy, J,
-                     levels=[0, 0.05, 0.2, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0],
-                     alpha=0.6)
-    fig.colorbar(cp)
-    ax.set_title('Rosenbrock problem')
-    cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg1.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-    cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg2.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-    cg3 = ax.contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg3.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        fig, ax = plt.subplots(1, 1)
+        cp = ax.contourf(xx, yy, J,
+                         levels=[0, 0.05, 0.2, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0],
+                         alpha=0.6)
+        fig.colorbar(cp)
+        ax.set_title('Rosenbrock problem')
+        cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
+        plt.setp(cg1.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
+        plt.setp(cg2.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        cg3 = ax.contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
+        plt.setp(cg3.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
 
-    # Solution to pNLP via Neuromancer
-    datapoint = {'a': torch.tensor([[a]]), 'p': torch.tensor([[p]]),
-                 'name': 'test'}
-    model_out = problem(datapoint)
-    x_nm = model_out['test_' + "x"][0, 0].detach().numpy()
-    y_nm = model_out['test_' + "x"][0, 1].detach().numpy()
-    print(x_nm)
-    print(y_nm)
+        # Solution to pNLP via Neuromancer
+        datapoint = {'a': torch.tensor([[a]]), 'p': torch.tensor([[p]]),
+                     'name': 'test'}
+        model_out = problem(datapoint)
+        x_nm = model_out['test_' + "x"][0, 0].detach().numpy()
+        y_nm = model_out['test_' + "x"][0, 1].detach().numpy()
+        print(x_nm)
+        print(y_nm)
 
-    # plot optimal solutions CasADi vs Neuromancer
-    ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10, label='CasADi')
-    ax.plot(x_nm, y_nm, 'r*', fillstyle='none', markersize=10, label='NeuroMANCER')
-    plt.legend(bbox_to_anchor=(1.0, 0.15))
-    plt.show(block=True)
+        # plot optimal solutions CasADi vs Neuromancer
+        ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10, label='CasADi')
+        ax.plot(x_nm, y_nm, 'r*', fillstyle='none', markersize=10, label='NeuroMANCER')
+        plt.legend(bbox_to_anchor=(1.0, 0.15))
+        plt.show(block=True)
 
     def eval_constraints(x, y, p):
         """

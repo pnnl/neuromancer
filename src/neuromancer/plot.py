@@ -333,10 +333,9 @@ def pltCL(Y, R=None, U=None, D=None, X=None, ctrl_outputs=None,
         ax[j, 0].tick_params(axis='y', labelsize=26)
         ax[j, 0].set_xlim(0, Y.shape[0])
     plt.tight_layout()
+    plt.show()
     if figname is not None:
         plt.savefig(figname)
-
-    return fig, ax
 
 
 def pltOL(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
@@ -369,10 +368,11 @@ def pltOL(Y, Ytrain=None, U=None, D=None, X=None, figname=None):
         ax[j, 0].tick_params(axis='x', labelsize=18)
         ax[j, 0].tick_params(axis='y', labelsize=18)
     plt.tight_layout()
+    plt.show()
+
     if figname is not None:
         plt.savefig(figname)
 
-    return fig, ax
 
 
 def plot_trajectories(traj1, traj2, labels, figname):

@@ -240,7 +240,7 @@ class FunctionEncoder(torch.nn.Module):
         Gs = self.forward_basis_functions(query_xs)
         y_hats = torch.einsum("fdmk,fk->fdm", Gs, representations)
 
-        # adds the average function prediction.
+        # adds the average function prediction. See https://arxiv.org/pdf/2501.18373, appendix E. 
         if self.average_function is not None:
             average_ys = self.forward_average_function(query_xs)
             y_hats = y_hats + average_ys

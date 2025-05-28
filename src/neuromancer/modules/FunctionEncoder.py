@@ -68,13 +68,8 @@ class FunctionEncoder(torch.nn.Module):
             example_ys = example_ys.unsqueeze(0)
 
         # optionally subtract average function if we are using residuals method
-        # we dont want to backprop to the average function. So we block grads.
         if self.average_function is not None:
             with torch.no_grad():
-                raise Exception("TODO: How do we want to train the average function? \
-                we can either train this by simply subtracting the average function, like so, then backproping \
-                In the past, I trained the average function independently using a separate supervised loss.  \
-                ")
                 example_y_hat_average = self.forward_average_function(example_xs)
                 example_ys = example_ys - example_y_hat_average
 

@@ -146,7 +146,7 @@ For more in-depth coverage of our methods, please see our general [Tutorials](#t
 
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/HVAC_load_forecasting.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Energy Load Forecasting for the Air Handling System of an Office Building with MLP and CNN models
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Energy Load Forecasting for Building with MLP and CNN Models
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/building_load_forecasting_Transformers.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  Energy Load Forecasting for Building with Transformers Model
@@ -155,15 +155,15 @@ For more in-depth coverage of our methods, please see our general [Tutorials](#t
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_PSH.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Pumped-storage Hyrdoelectricity System
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_PSH.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Indoor Air Temperature in Buildings With Safe Reinforcement Learning and Differentiable Predictive Control
++ <a target="_blank" href="https://github.com/pnnl/neuromancer/blob/master/examples/domain_examples/RL_DPC_building_control.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control a Building With Safe Reinforcement Learning and Differentiable Predictive Control
 
 
 
 ## Tutorials on Methods for Modeling, Optimization, and Control
 ### Learning to Optimize (L2O) Parametric Programming
 
-Neuromancer allows you to formulate and solve a broad class of parametric optimization problems leveraging machine learning to learn the solutions to such problems. [More information on Parametric programming](https://github.com/pnnl/neuromancer/tree/develop/examples/parametric_programming)
+Neuromancer allows you to formulate and solve a broad class of parametric optimization problems, leveraging machine learning to learn the solutions to such problems. [More information on Parametric programming](https://github.com/pnnl/neuromancer/tree/develop/examples/parametric_programming)
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/parametric_programming/Part_1_basics.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 Part 1: Learning to solve a constrained optimization problem.
@@ -184,7 +184,7 @@ Part 5: Using Cvxpylayers for differentiable projection onto the polytopic feasi
 Part 6: Learning to optimize with metric learning for Operator Splitting layers.  
 
 ### Learning to Control (L2C)
-Neuromancer allows you to learn control policies for full spectrum of white/grey/black-box dynamical systems, subject to choice constraints and objective functions. 
+Neuromancer allows you to learn control policies for a full spectrum of white/grey/black-box dynamical systems, subject to choice constraints and objective functions. 
 [More information on Differential Predictive Control](https://github.com/pnnl/neuromancer/tree/develop/examples/control)
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_1_stabilize_linear_system.ipynb">
@@ -208,8 +208,8 @@ Neuromancer is up-to-date with state-of-the-art methods. Here we showcase the po
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/feature/fbkans/examples/KANs/p2_fbkan_vs_kan_noise_data_2d.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: A comparison of KANs and FBKANs in learning a 2D multiscale function with noise
 
 
-### Neural Operators
-Neuromancer allows one to use machine learning, prior physics and domain knowledge, to construct mathematical and differentiabl models of dynamical systems given the measured observations of the system behavior.
+### System Identification
+Neuromancer allows one to use machine learning, prior physics, and domain knowledge to construct data-driven models of dynamical systems given the measured observations of the system behavior.
 [More information on System ID via Neural State Space Models and ODEs](https://github.com/pnnl/neuromancer/tree/develop/examples/ODEs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/ODEs/Part_1_NODE.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: Neural Ordinary Differential Equations (NODEs)
@@ -253,6 +253,11 @@ Neuromancer has been integrated with TorchSDE to handle stochastic dynamical sys
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/SDEs/sde_walkthrough.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> LatentSDEs: "System Identification" of Stochastic Processes using Neuromancer x TorchSDE
 
+### Function Encoders
+Neuromancer contains an implementation of function encoders, an algorithm for learning basis functions as neural networks. See [Function Encoders: A Principled Approach to Transfer Learning in Hilbert Spaces](https://arxiv.org/abs/2501.18373).
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/function_encoder/Part_1_Intro_to_Function_Encoders.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: An Introduction to Function Encoders
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/function_encoder/Part_2_Function_Encoder_Neural_ODE.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Function Encoders + Neural ODEs
+
 
 ## Scalability and Customization
 
@@ -267,7 +272,7 @@ We have integrated PyTorch Lightning to streamline code, enable custom training 
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Lightning Advanced Features and Automatic GPU Support.
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/lightning_integration_examples/other_examples/lightning_custom_training_example.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 4: Defining Custom Training Logic via Lightning Modularized Code.
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 3: Defining Custom Training Logic via Lightning Modularized Code.
 
 
 ## Documentation and User Guides
@@ -275,7 +280,7 @@ The documentation for the library can be found [online](https://pnnl.github.io/n
 There is also an [introduction video](https://www.youtube.com/watch?v=YkFKz-DgC98) covering 
 the core features of the library. 
 
-For more information, including those for developers, please go to our [Developer and User Guide](USER_GUIDE.md)
+For more information, including that for developers, please go to our [Developer and User Guide](USER_GUIDE.md)
 
 ## Community Information
 We welcome contributions and feedback from the open-source community!  
@@ -293,6 +298,7 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 
 ## Publications 
++ [Ashish S. Nair, Bruno Jacob, Amanda A. Howard, Jan Drgona, Panos Stinis, E-PINNs: Epistemic Physics-Informed Neural Networks, 	arXiv:2503.19333](https://arxiv.org/abs/2503.19333)
 + [Bo Tang, Elias B. Khalil, Ján Drgoňa, Learning to Optimize for Mixed-Integer Non-linear Programming, arXiv:2410.11061, 2024](https://arxiv.org/abs/2410.11061)
 + [John Viljoen, Wenceslao Shaw Cortez, Jan Drgona, Sebastian East, Masayoshi Tomizuka, Draguna Vrabie, Differentiable Predictive Control for Robotics: A Data-Driven Predictive Safety Filter Approach, arXiv:2409.13817, 2024](https://arxiv.org/abs/2409.13817)
 + [Jan Drgona, Aaron Tuor, Draguna Vrabie, Learning Constrained Parametric Differentiable Predictive Control Policies With Guarantees, IEEE Transactions on Systems, Man, and Cybernetics: Systems, 2024](https://ieeexplore.ieee.org/abstract/document/10479163)
@@ -328,8 +334,9 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 ## Development team
 
-**Active core developers**: [Jan Drgona](https://drgona.github.io/), [Rahul Birmiwal](https://www.linkedin.com/in/rahul-birmiwal009/), [Bruno Jacob](https://brunopjacob.github.io/), [Reilly Raab](https://reillyraab.com/about.html)  
-**Notable contributors**: [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/), Madelyn Shapiro, James Koch, Seth Briney, Bo Tang, Ethan King, Elliot Skomski, Zhao Chen, Christian Møldrup Legaard  
+**Lead developers**: [Jan Drgona](https://drgona.github.io/), [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/)
+**Active core developers**: [Rahul Birmiwal](https://www.linkedin.com/in/rahul-birmiwal009/), [Bruno Jacob](https://brunopjacob.github.io/), [Reilly Raab](https://reillyraab.com/about.html)  
+**Notable contributors**: Madelyn Shapiro, James Koch, Seth Briney, Bo Tang, Ethan King, Elliot Skomski, Zhao Chen, Christian Møldrup Legaard  
 **Scientific advisors**: Draguna Vrabie, Panos Stinis  
 
 Open-source contributions made by:  

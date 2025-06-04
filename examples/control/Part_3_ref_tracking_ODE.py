@@ -162,8 +162,8 @@ if __name__ == "__main__":
     nsteps = 750
     step_length = 150
     # generate reference
-    np_refs = psl.signals.step(nsteps+1, 1, min=xmin, max=xmax, randsteps=5)
-    R = torch.tensor(np_refs, dtype=torch.float32).reshape(1, nsteps+1, 1)
+    np_refs = psl.signals.step(nsteps + 1, 1, min=xmin, max=xmax, randsteps=5)
+    R = torch.tensor(np_refs, dtype=torch.float32).reshape(1, nsteps + 1, 1)
     torch_ref = torch.cat([R, R], dim=-1)
     # generate initial data for closed loop simulation
     data = {'x': torch.rand(1, 1, nx, dtype=torch.float32),
@@ -175,8 +175,8 @@ if __name__ == "__main__":
     # constraints bounds
     Umin = umin * np.ones([nsteps, nu])
     Umax = umax * np.ones([nsteps, nu])
-    Xmin = xmin * np.ones([nsteps+1, nx])
-    Xmax = xmax * np.ones([nsteps+1, nx])
+    Xmin = xmin * np.ones([nsteps + 1, nx])
+    Xmax = xmax * np.ones([nsteps + 1, nx])
     # plot closed loop trajectories
     pltCL(Y=trajectories['x'].detach().reshape(nsteps + 1, nx),
           R=trajectories['r'].detach().reshape(nsteps + 1, nref),

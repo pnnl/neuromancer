@@ -36,8 +36,8 @@ Using `pip` is the simplest way to install NeuroMANCER. It's recommended to use 
 Since PyTorch doesn't officially publish CUDA wheels to PyPI (due to size), to use CUDA, you need to manually reinstall pytorch in your local environment via:
 
 ``` 
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-pip install -e .
+pip uninstall torch -y
+pip install torch --index-url https://download.pytorch.org/whl/cu121
 ```
 
 ## Manual Install

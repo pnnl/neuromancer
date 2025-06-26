@@ -348,12 +348,12 @@ This research was partially supported by the Mathematics for Artificial Reasonin
 
 
 <p align="center">
-  <img src="figs/PNNL_logo.jpg" width="250">  
+  <img src="figs/PNNL_logo.jpg" width="450">  
 </p>
 
 This research was also supported by the Ralph O’Connor Sustainable Energy Institute at Johns Hopkins University.
 
 
 <p align="center">
-  <img src="figs/JHU_logo.png" width="250">  
+  <img src="figs/JHU_logo.png" width="450">  
 </p>

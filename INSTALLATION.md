@@ -33,6 +33,12 @@
 
 Using `pip` is the simplest way to install NeuroMANCER. It's recommended to use a dedicated virtual environment (e.g., `conda`, `venv`) with Python 3.9+.
 
+Since PyTorch doesn't officially publish CUDA wheels to PyPI (due to size), to use CUDA, you need to manually reinstall pytorch in your local environment via:
+
+``` 
+pip uninstall torch -y
+pip install torch --index-url https://download.pytorch.org/whl/cu121
+```
 
 ## Manual Install
 ### Clone the Repository

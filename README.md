@@ -3,7 +3,7 @@
   <img src="figs/Neuromancer.png" width="250">  
 </p>
 
-# NeuroMANCER v1.5.3
+# NeuroMANCER v1.5.4
 
 [![PyPi Version](https://img.shields.io/pypi/v/neuromancer)](https://pypi.org/project/neuromancer)
 [![License](https://img.shields.io/badge/license-BSD-blue.svg)](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md)
@@ -35,27 +35,24 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 * **Learn To Model, Learn To Control, Learn To Optimize**: Our library is built to provide end users a multitude of tools to solve Learning To Optimize (L2O), Learning To Model (L2M), and Learning To Control (L2C) tasks. Tackle advanced constrained parametric optimization, model fluid dynamics using physics-informed neural networks, or learn how to control indoor air temperature in buildings to maximize building efficiency.
 * **Symbolic programming** interface makes it very easy to define embed prior knowledge of physics, domain knowledge, and constraints into those learning paradigms. 
 * **Comprehensive Learning Tools**: Access a wide array of tutorials and example applications—from basic system identification to advanced predictive control—making it easy for users to learn and apply NeuroMANCER to real-world problems.
-* **State-of-the-art methods**: NeuroMANCER is up-to-date with SOTA methods such as Kolgomorov-Arnold Networks (KANs) for function approximation, neural ordinary differential equations (NODEs) and sparse identification of non-linear dynamics (SINDy) for learning to model dynamical systems, and differentiable convex optimization layers for safety constraints in learning to optimize and learning to control.
+* **State-of-the-art methods**: NeuroMANCER is up-to-date with SOTA methods such as Function Encoders (FE) and Kolgomorov-Arnold Networks (KANs) for function approximation, neural ordinary differential equations (NODEs) and sparse identification of non-linear dynamics (SINDy) for learning to model dynamical systems, and differentiable convex optimization layers for safety constraints in learning to optimize, and Differentiable Predictive Control (DPC) for learning to control nonlinear systems.
+* **The NeuroMANCER-GPT Assistant**: We provide easy-to-use scripts to convert the contents of the NeuroMANCER library in a way that is suitable for ingestion in RAG-based "LLM-assistant" pipelines. Please see [Assistant](https://github.com/pnnl/neuromancer/blob/develop/assistant/README.md) to read more about how one can quickly spin up an LLM model to help understand and code in NeuroMANCER. 
 
 
-## What's New in v1.5.3
-### The NeuroMANCER-GPT Assistant
-
-We provide the easy-to-use scripts to convert the contents of the NeuroMANCER library in a way that is suitable for ingestion in RAG-based "LLM-assistant" pipelines. Please see [Assistant](https://github.com/pnnl/neuromancer/blob/develop/assistant/README.md) to read more about how one can quickly spin-up an LLM model to help understand and code in NeuroMANCER. 
-
-### Building Control Comparison: Reinforcement Learning vs Differential Predictive Control Example
-We add to our growing library of building modeling and control tutorials a highly education and in-depth walkthrough of reinforcement learning (RL) methods and compare them to differential predictive control (DPC) in NeuroMANCER. This notebook shows that the while the RL solution is more adaptive, the DPC solution in NeuroMANCER is more energy-efficien, has smoother control actions, trains faster and is easier constraint enforcement.
-### Python 3.11 Version Support
-NeuroMANCER has been updated to support Python 3.11.
-### New Feature: Improved Node Class
-The Node class has been updated to accept instantiated Variable objects as well. The change is backwards-compatible and simplifies house-keeping for the user. 
+## What's New in v1.5.4
 
 
+### New Example: Function Encoders
+Neuromancer now contains an implementation of function encoders (FE), an algorithm for learning basis functions as neural networks. See [Function Encoders: A Principled Approach to Transfer Learning in Hilbert Spaces](https://arxiv.org/abs/2501.18373).
+Two new examples include the use of FE for function approximation and FE-Neural ODEs
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/function_encoder/Part_1_Intro_to_Function_Encoders.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: An Introduction to Function Encoders
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/function_encoder/Part_2_Function_Encoder_Neural_ODE.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Function Encoders + Neural ODEs
 
 
-**New Colab Examples:**
-> ⭐ [Building Energy Systems Modeling and Control](#energy-systems)
-
+### Fixed Bugs
++ Fixed plot issues in several examples
++ Fixed bug in CSTR system dynamics class in psl/nonautonomous.py
++ Fixed bug in computing constraints violations and objective function values in L2O examples
 
 
 ## Installation
@@ -334,7 +331,7 @@ See the [license](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md) fo
 
 ## Development team
 
-**Lead developers**: [Jan Drgona](https://drgona.github.io/), [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/)
+**Lead developers**: [Jan Drgona](https://drgona.github.io/), [Aaron Tuor](https://sw.cs.wwu.edu/~tuora/aarontuor/)  
 **Active core developers**: [Rahul Birmiwal](https://www.linkedin.com/in/rahul-birmiwal009/), [Bruno Jacob](https://brunopjacob.github.io/), [Reilly Raab](https://reillyraab.com/about.html)  
 **Notable contributors**: Madelyn Shapiro, James Koch, Seth Briney, Bo Tang, Ethan King, Elliot Skomski, Zhao Chen, Christian Møldrup Legaard  
 **Scientific advisors**: Draguna Vrabie, Panos Stinis  
@@ -348,3 +345,5 @@ Made with [contrib.rocks](https://contrib.rocks).
 
 ## Acknowledgments
 This research was partially supported by the Mathematics for Artificial Reasoning in Science (MARS) and Data Model Convergence (DMC) initiatives via the Laboratory Directed Research and Development (LDRD) investments at Pacific Northwest National Laboratory (PNNL), by the U.S. Department of Energy, through the Office of Advanced Scientific Computing Research's “Data-Driven Decision Control for Complex Systems (DnC2S)” project, and through the Energy Efficiency and Renewable Energy, Building Technologies Office under the “Dynamic decarbonization through autonomous physics-centric deep learning and optimization of building operations” and the “Advancing Market-Ready Building Energy Management by Cost-Effective Differentiable Predictive Control” projects. This project was also supported from the U.S. Department of Energy, Advanced Scientific Computing Research program, under the Uncertainty Quantification for Multifidelity Operator Learning (MOLUcQ) project (Project No. 81739). PNNL is a multi-program national laboratory operated for the U.S. Department of Energy (DOE) by Battelle Memorial Institute under Contract No. DE-AC05-76RL0-1830.
+
+This research was also supported by the Ralph O’Connor Sustainable Energy Institute at Johns Hopkins University.

@@ -248,18 +248,19 @@ if __name__ == "__main__":
         plt.legend(bbox_to_anchor=(1.0, 0.15))
         plt.show(block=True)
 
+
     def eval_constraints(x, y, p):
         """
         evaluate mean constraints violations
         """
         con_1_viol = np.maximum(0, y - x)
-        con_2_viol = np.maximum(0, (p/2)**2 - (x**2+y**2))
-        con_3_viol = np.maximum(0, x**2+y**2 - p**2)
+        con_2_viol = np.maximum(0, (p / 2) ** 2 - (x ** 2 + y ** 2))
+        con_3_viol = np.maximum(0, x ** 2 + y ** 2 - p ** 2)
         con_viol = con_1_viol + con_2_viol + con_3_viol
         con_viol_mean = np.mean(con_viol)
         return con_viol_mean
 
-    def eval_objective(x, y):
+    def eval_objective(x, y, a):
         obj_value_mean = np.mean((1 - x) ** 2 + a * (y - x ** 2) ** 2)
         return obj_value_mean
 
@@ -283,7 +284,7 @@ if __name__ == "__main__":
     t = time.time()
     x_solver, y_solver = [], []
     for i in range(0, n_samples):
-        prob, x, y = NLP_param(p_samples[i].numpy(), a_samples[i].numpy(), opti_silent=True)
+        prob, x, y = NLP_param(a_samples[i].numpy(), p_samples[i].numpy(), opti_silent=True)
         sol = prob.solve()
         x_solver.append(sol.value(x))
         y_solver.append(sol.value(y))
@@ -293,16 +294,16 @@ if __name__ == "__main__":
 
     # Evaluate neuromancer solution
     print(f'Solution for {n_samples} problems via Neuromancer obtained in {nm_time:.4f} seconds')
-    nm_con_viol_mean = eval_constraints(x_nm, y_nm, p)
+    nm_con_viol_mean = eval_constraints(x_nm.ravel(), y_nm.ravel(), p_samples.numpy().ravel())
     print(f'Neuromancer mean constraints violation {nm_con_viol_mean:.4f}')
-    nm_obj_mean = eval_objective(x_nm, y_nm)
+    nm_obj_mean = eval_objective(x_nm.ravel(), y_nm.ravel(), a_samples.numpy().ravel())
     print(f'Neuromancer mean objective value {nm_obj_mean:.4f}\n')
 
     # Evaluate solver solution
     print(f'Solution for {n_samples} problems via solver obtained in {solver_time:.4f} seconds')
-    solver_con_viol_mean = eval_constraints(x_solver, y_solver, p)
+    solver_con_viol_mean = eval_constraints(x_solver, y_solver, p_samples.numpy().ravel())
     print(f'Solver mean constraints violation {solver_con_viol_mean:.4f}')
-    solver_obj_mean = eval_objective(x_solver, y_solver)
+    solver_obj_mean = eval_objective(x_solver, y_solver, a_samples.numpy().ravel())
     print(f'Solver mean objective value {solver_obj_mean:.4f}\n')
 
     # neuromancer solver comparison

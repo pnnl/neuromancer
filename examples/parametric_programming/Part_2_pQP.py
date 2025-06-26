@@ -273,7 +273,7 @@ if __name__ == "__main__":
             print(f' g4: {model_out["test_" + g4.key]}')
 
         # Plot optimal solutions
-        ax[row_id, column_id].plot(x.value, y.value, 'r*', markersize=18)
+        ax[row_id, column_id].plot(x.value, y.value, 'go', markersize=10)
         ax[row_id, column_id].plot(x_nm, y_nm, 'r*', markersize=10)
         column_id += 1
     plt.show()
@@ -311,6 +311,7 @@ if __name__ == "__main__":
     # Solve via solver
     t = time.time()
     x_solver, y_solver = [], []
+    P1, P2 = [], []
     for i in range(0, nsim):
         p1 = samples_test['p1'][i].detach().numpy()
         p2 = samples_test['p2'][i].detach().numpy()
@@ -319,20 +320,24 @@ if __name__ == "__main__":
         prob.solve()
         x_solver.append(x.value)
         y_solver.append(y.value)
+        P1.append(p1)
+        P2.append(p2)
     solver_time = time.time() - t
     x_solver = np.asarray(x_solver)
     y_solver = np.asarray(y_solver)
+    P1 = np.asarray(P1)
+    P2 = np.asarray(P2)
 
     # Evaluate neuromancer solution
     print(f'Solution for {nsim} problems via Neuromancer obtained in {nm_time:.4f} seconds')
-    nm_con_viol_mean = eval_constraints(x_nm, y_nm, p1, p2)
+    nm_con_viol_mean = eval_constraints(x_nm, y_nm, P1, P2)
     print(f'Neuromancer mean constraints violation {nm_con_viol_mean:.4f}')
     nm_obj_mean = eval_objective(x_nm, y_nm)
     print(f'Neuromancer mean objective value {nm_obj_mean:.4f}')
 
     # Evaluate solver solution
     print(f'Solution for {nsim} problems via solver obtained in {solver_time:.4f} seconds')
-    solver_con_viol_mean = eval_constraints(x_solver, y_solver, p1, p2)
+    solver_con_viol_mean = eval_constraints(x_solver, y_solver, P1, P2)
     print(f'Solver mean constraints violation {solver_con_viol_mean:.4f}')
     solver_obj_mean = eval_objective(x_solver, y_solver)
     print(f'Solver mean objective value {solver_obj_mean:.4f}')

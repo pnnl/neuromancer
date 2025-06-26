@@ -359,6 +359,7 @@ if __name__ == "__main__":
     y_nm = model_out['test_' + "x"][:, [1]].detach().numpy()
     x_nm_noDR = model_out['test_x_predicted'][:, [0]].detach().numpy()
     y_nm_noDR = model_out['test_x_predicted'][:, [1]].detach().numpy()
+
     # Solve via solver
     t = time.time()
     x_solver, y_solver = [], []
@@ -366,7 +367,7 @@ if __name__ == "__main__":
         p1 = samples_test['p1'][i].detach().numpy()
         p2 = samples_test['p2'][i].detach().numpy()
         prob, x, y = QP_param(p1, p2)
-        prob.solve(solver='ECOS_BB', verbose=False)
+        prob.solve(solver='OSQP', verbose=False)
         prob.solve()
         x_solver.append(x.value)
         y_solver.append(y.value)

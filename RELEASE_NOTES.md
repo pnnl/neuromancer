@@ -1,6 +1,12 @@
 
 ##  Release notes
 
+### Version 1.5.4 Release Notes
++ New feature: Function encoders for function approximation and zero-shot generalization in neural ODEs
++ Bug fix: plotting issues in several examples,
++ Bug fix: computing constraints violations and objective values in L2O examples
++ Bug fix: CSTR dynamics model in psl submodule
+
 ### Version 1.5.3 Release Notes
 + New feature: NeuroMANCER LLM Assistant configuration scripts
 + New feature: In-depth and educational notebook comparing and contrasting RL vs DPC for building energy systems control

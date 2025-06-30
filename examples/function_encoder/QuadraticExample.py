@@ -9,7 +9,7 @@ from neuromancer.problem import Problem
 from neuromancer.trainer import Trainer
 
 
-from src.neuromancer.modules.FunctionEncoder import FunctionEncoder
+from src.neuromancer.modules.function_encoder import FunctionEncoder
 
 
 def create_dataset(f, device='cpu',test=False):

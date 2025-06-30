@@ -12,7 +12,7 @@ from neuromancer.problem import Problem
 from neuromancer.trainer import Trainer
 from tqdm import trange
 
-from src.neuromancer.modules.FunctionEncoder import FunctionEncoder
+from src.neuromancer.modules.function_encoder import FunctionEncoder
 
 def vanderpol(state, mu):
     """The Van Der Pol mapping from x to \dot x for a given value \mu. """

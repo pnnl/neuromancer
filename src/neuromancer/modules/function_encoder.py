@@ -1,9 +1,36 @@
 from typing import Union, Tuple, List, Callable
 import torch
 
-# NOTE: This is a stripped down version of the function encoder code here:
-# https://github.com/tyler-ingebrand/FunctionEncoder.git
-# See this repo for standalone function encoder code and examples.
+"""
+This is a minimal implementation of the FunctionEncoder architecture for learning basis function
+representations over a Hilbert space. Compared to the full version:  
+
+- 🔧 Modular Design:
+  - Accepts pre-defined basis functions as a list or a single module (e.g., MLP, CNN).
+  - Does not auto-construct models from string specifications like "MLP" or "CNN".
+  - Compatible as a module in the Neuromancer library
+
+- 🧠 Simplicity:
+  - Designed for clarity and ease of integration into custom pipelines.
+  - Suitable for pedagogical use or lightweight experimentation.
+
+- ❌ Excluded Features:
+  - No built-in training loop or optimizer (`train_model()` is omitted), training is done via Neuromancer trainer.
+  - No gradient accumulation, parameter counting, or consistency checks.
+  - Does not include support for stochastic or categorical inner product types.
+  - No callbacks, logging, or auto-regularization during training.
+
+- ✅ Retained Core Functionality:
+  - Supports inner product and least-squares representations.
+  - Supports the residuals method with an optional average function.
+  - Provides standard prediction and norm/distance computation methods.
+
+For full functionality, including automated architecture selection, multi-modal data support,
+and integrated training utilities, see the complete version at:
+https://github.com/tyler-ingebrand/FunctionEncoder
+"""
+
+
 class FunctionEncoder(torch.nn.Module):
     """A function encoder learns basis functions/vectors over a Hilbert space.
 

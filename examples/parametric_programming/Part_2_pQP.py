@@ -207,6 +207,7 @@ if __name__ == "__main__":
     y1 = np.arange(-1.0, 10.0, 0.05)
     xx, yy = np.meshgrid(x1, y1)
     fig, ax = plt.subplots(3,3)
+
     row_id = 0
     column_id = 0
     for i, p in enumerate(params):
@@ -235,6 +236,7 @@ if __name__ == "__main__":
                      path_effects=[patheffects.withTickedStroke()], alpha=0.7)
             plt.setp(cg4.collections,
                      path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+
         if problem_type == 'pQCQP':  # constraints for QCQP
             c1 = xx + yy - p
             c2 = - xx**2 - yy**2 + p**2
@@ -271,7 +273,7 @@ if __name__ == "__main__":
             print(f' g4: {model_out["test_" + g4.key]}')
 
         # Plot optimal solutions
-        ax[row_id, column_id].plot(x.value, y.value, 'g*', markersize=10)
+        ax[row_id, column_id].plot(x.value, y.value, 'go', markersize=10)
         ax[row_id, column_id].plot(x_nm, y_nm, 'r*', markersize=10)
         column_id += 1
     plt.show()
@@ -309,28 +311,33 @@ if __name__ == "__main__":
     # Solve via solver
     t = time.time()
     x_solver, y_solver = [], []
+    P1, P2 = [], []
     for i in range(0, nsim):
         p1 = samples_test['p1'][i].detach().numpy()
         p2 = samples_test['p2'][i].detach().numpy()
         prob, x, y = QP_param(p1, p2)
-        prob.solve(solver='ECOS_BB', verbose=False)
+        prob.solve(solver='OSQP', verbose=False)
         prob.solve()
         x_solver.append(x.value)
         y_solver.append(y.value)
+        P1.append(p1)
+        P2.append(p2)
     solver_time = time.time() - t
     x_solver = np.asarray(x_solver)
     y_solver = np.asarray(y_solver)
+    P1 = np.asarray(P1)
+    P2 = np.asarray(P2)
 
     # Evaluate neuromancer solution
     print(f'Solution for {nsim} problems via Neuromancer obtained in {nm_time:.4f} seconds')
-    nm_con_viol_mean = eval_constraints(x_nm, y_nm, p1, p2)
+    nm_con_viol_mean = eval_constraints(x_nm, y_nm, P1, P2)
     print(f'Neuromancer mean constraints violation {nm_con_viol_mean:.4f}')
     nm_obj_mean = eval_objective(x_nm, y_nm)
     print(f'Neuromancer mean objective value {nm_obj_mean:.4f}')
 
     # Evaluate solver solution
     print(f'Solution for {nsim} problems via solver obtained in {solver_time:.4f} seconds')
-    solver_con_viol_mean = eval_constraints(x_solver, y_solver, p1, p2)
+    solver_con_viol_mean = eval_constraints(x_solver, y_solver, P1, P2)
     print(f'Solver mean constraints violation {solver_con_viol_mean:.4f}')
     solver_obj_mean = eval_objective(x_solver, y_solver)
     print(f'Solver mean objective value {solver_obj_mean:.4f}')

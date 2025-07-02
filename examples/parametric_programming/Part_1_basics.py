@@ -193,72 +193,74 @@ if __name__ == "__main__":
         opti.set_value(a_opti, a)
         return opti, x, y
 
-    # selected parameters for a single instance problem
-    p = 1.0
-    a = 1.0
-    # construct casadi problem
-    opti, x, y = NLP_param(a, p)
-    # solve NLP via casadi
-    sol = opti.solve()
-    print(sol.value(x))
-    print(sol.value(y))
+    for s in range(0, 20):
+        # selected parameters for a single instance problem
+        p = 0.05*s + 0.5
+        a = 0.05*s + 0.2
+        # construct casadi problem
+        opti, x, y = NLP_param(a, p)
+        # solve NLP via casadi
+        sol = opti.solve()
+        print(sol.value(x))
+        print(sol.value(y))
 
-    """
-    Plots
-    """
-    x1 = np.arange(-0.5, 1.5, 0.02)
-    y1 = np.arange(-0.5, 1.5, 0.02)
-    xx, yy = np.meshgrid(x1, y1)
+        """
+        Plots
+        """
+        x1 = np.arange(-0.5, 1.5, 0.02)
+        y1 = np.arange(-0.5, 1.5, 0.02)
+        xx, yy = np.meshgrid(x1, y1)
 
-    # eval objective and constraints
-    J = (1 - xx) ** 2 + a * (yy - xx ** 2) ** 2
-    c1 = xx - yy
-    c2 = xx ** 2 + yy ** 2 - (p / 2) ** 2
-    c3 = -(xx ** 2 + yy ** 2) + p ** 2
+        # eval objective and constraints
+        J = (1 - xx) ** 2 + a * (yy - xx ** 2) ** 2
+        c1 = xx - yy
+        c2 = xx ** 2 + yy ** 2 - (p / 2) ** 2
+        c3 = -(xx ** 2 + yy ** 2) + p ** 2
 
-    fig, ax = plt.subplots(1, 1)
-    cp = ax.contourf(xx, yy, J,
-                     levels=[0, 0.05, 0.2, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0],
-                     alpha=0.6)
-    fig.colorbar(cp)
-    ax.set_title('Rosenbrock problem')
-    cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg1.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-    cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg2.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-    cg3 = ax.contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg3.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        fig, ax = plt.subplots(1, 1)
+        cp = ax.contourf(xx, yy, J,
+                         levels=[0, 0.05, 0.2, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0],
+                         alpha=0.6)
+        fig.colorbar(cp)
+        ax.set_title('Rosenbrock problem')
+        cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
+        plt.setp(cg1.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
+        plt.setp(cg2.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        cg3 = ax.contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
+        plt.setp(cg3.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
 
-    # Solution to pNLP via Neuromancer
-    datapoint = {'a': torch.tensor([[a]]), 'p': torch.tensor([[p]]),
-                 'name': 'test'}
-    model_out = problem(datapoint)
-    x_nm = model_out['test_' + "x"][0, 0].detach().numpy()
-    y_nm = model_out['test_' + "x"][0, 1].detach().numpy()
-    print(x_nm)
-    print(y_nm)
+        # Solution to pNLP via Neuromancer
+        datapoint = {'a': torch.tensor([[a]]), 'p': torch.tensor([[p]]),
+                     'name': 'test'}
+        model_out = problem(datapoint)
+        x_nm = model_out['test_' + "x"][0, 0].detach().numpy()
+        y_nm = model_out['test_' + "x"][0, 1].detach().numpy()
+        print(x_nm)
+        print(y_nm)
 
-    # plot optimal solutions CasADi vs Neuromancer
-    ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10, label='CasADi')
-    ax.plot(x_nm, y_nm, 'r*', fillstyle='none', markersize=10, label='NeuroMANCER')
-    plt.legend(bbox_to_anchor=(1.0, 0.15))
-    plt.show(block=True)
+        # plot optimal solutions CasADi vs Neuromancer
+        ax.plot(sol.value(x), sol.value(y), 'g*', markersize=10, label='CasADi')
+        ax.plot(x_nm, y_nm, 'r*', fillstyle='none', markersize=10, label='NeuroMANCER')
+        plt.legend(bbox_to_anchor=(1.0, 0.15))
+        plt.show(block=True)
+
 
     def eval_constraints(x, y, p):
         """
         evaluate mean constraints violations
         """
         con_1_viol = np.maximum(0, y - x)
-        con_2_viol = np.maximum(0, (p/2)**2 - (x**2+y**2))
-        con_3_viol = np.maximum(0, x**2+y**2 - p**2)
+        con_2_viol = np.maximum(0, (p / 2) ** 2 - (x ** 2 + y ** 2))
+        con_3_viol = np.maximum(0, x ** 2 + y ** 2 - p ** 2)
         con_viol = con_1_viol + con_2_viol + con_3_viol
         con_viol_mean = np.mean(con_viol)
         return con_viol_mean
 
-    def eval_objective(x, y):
+    def eval_objective(x, y, a):
         obj_value_mean = np.mean((1 - x) ** 2 + a * (y - x ** 2) ** 2)
         return obj_value_mean
 
@@ -282,7 +284,7 @@ if __name__ == "__main__":
     t = time.time()
     x_solver, y_solver = [], []
     for i in range(0, n_samples):
-        prob, x, y = NLP_param(p_samples[i].numpy(), a_samples[i].numpy(), opti_silent=True)
+        prob, x, y = NLP_param(a_samples[i].numpy(), p_samples[i].numpy(), opti_silent=True)
         sol = prob.solve()
         x_solver.append(sol.value(x))
         y_solver.append(sol.value(y))
@@ -292,16 +294,16 @@ if __name__ == "__main__":
 
     # Evaluate neuromancer solution
     print(f'Solution for {n_samples} problems via Neuromancer obtained in {nm_time:.4f} seconds')
-    nm_con_viol_mean = eval_constraints(x_nm, y_nm, p)
+    nm_con_viol_mean = eval_constraints(x_nm.ravel(), y_nm.ravel(), p_samples.numpy().ravel())
     print(f'Neuromancer mean constraints violation {nm_con_viol_mean:.4f}')
-    nm_obj_mean = eval_objective(x_nm, y_nm)
+    nm_obj_mean = eval_objective(x_nm.ravel(), y_nm.ravel(), a_samples.numpy().ravel())
     print(f'Neuromancer mean objective value {nm_obj_mean:.4f}\n')
 
     # Evaluate solver solution
     print(f'Solution for {n_samples} problems via solver obtained in {solver_time:.4f} seconds')
-    solver_con_viol_mean = eval_constraints(x_solver, y_solver, p)
+    solver_con_viol_mean = eval_constraints(x_solver, y_solver, p_samples.numpy().ravel())
     print(f'Solver mean constraints violation {solver_con_viol_mean:.4f}')
-    solver_obj_mean = eval_objective(x_solver, y_solver)
+    solver_obj_mean = eval_objective(x_solver, y_solver, a_samples.numpy().ravel())
     print(f'Solver mean objective value {solver_obj_mean:.4f}\n')
 
     # neuromancer solver comparison

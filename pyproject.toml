@@ -39,6 +39,7 @@ classifiers = [
 dependencies = [
     "dill",
     "graphviz",
+    "ipykernel",
     "matplotlib",
     "mlflow==2.5.0",
     "networkx==3.0.0",

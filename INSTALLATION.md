@@ -8,24 +8,26 @@
 
 ## Table of Contents
 
-1. [PIP Install (Recommended)](#pip-install-recommended)
-2. [Manual Install](#manual-install)
-   - [Clone the Repository](#clone-the-repository)
-   - [Create and Activate Virtual Environment](#create-and-activate-virtual-environment)
-   - [Install NeuroMANCER and Dependencies](#install-neuromancer-and-dependencies)
-   - [Notes for MacOS (Apple M1)](#notes-for-macos-apple-m1)
-3. [Conda Install](#conda-install)
-   - [Create Environment and Install Dependencies](#create-environment--install-dependencies)
-     - [Ubuntu](#ubuntu)
-     - [Windows](#windows)
-     - [MacOS (Apple Silicon)](#macos-apple-silicon)
-     - [Other (Manual Installation)](#other-manual-installation)
-   - [Install NeuroMANCER Package](#install-neuromancer-package)
-4. [Install Graphviz (Optional)](#install-graphviz-optional)
-   - [Windows](#windows-1)
-   - [Linux (Debian, Ubuntu)](#linux-debian-ubuntu)
-   - [MacOS](#macos)
-5. [Test NeuroMANCER Installation](#test-neuromancer-installation)
+- [Installation Instructions](#installation-instructions)
+  - [Table of Contents](#table-of-contents)
+  - [PIP Install (Recommended)](#pip-install-recommended)
+  - [Manual Install](#manual-install)
+    - [Clone the Repository](#clone-the-repository)
+    - [Create and Activate Virtual Environment](#create-and-activate-virtual-environment)
+    - [Install Neuromancer and All Dependencies.](#install-neuromancer-and-all-dependencies)
+    - [Notes for MacOS (Apple M1)](#notes-for-macos-apple-m1)
+  - [Conda install](#conda-install)
+    - [Create Environment and Install Dependencies](#create-environment-and-install-dependencies)
+      - [Ubuntu](#ubuntu)
+      - [Windows](#windows)
+      - [MacOS (Apple Silicon)](#macos-apple-silicon)
+      - [Other (manually install all dependencies)](#other-manually-install-all-dependencies)
+    - [Install NeuroMANCER package](#install-neuromancer-package)
+    - [Install Graphviz (optional)](#install-graphviz-optional)
+      - [For Windows:](#for-windows)
+      - [For Linux (Debian, Ubuntu)](#for-linux-debian-ubuntu)
+      - [For MacOS](#for-macos)
+    - [Test NeuroMANCER install](#test-neuromancer-install)
 
 ---
 
@@ -53,9 +55,18 @@ git clone -b master https://github.com/pnnl/neuromancer.git --single-branch
 
 ### Create and Activate Virtual Environment
 
+Using `conda`:
+
 ``` bash
 conda create -n neuromancer python=3.10.4
 conda activate neuromancer
+```
+
+Alternatively, using `venv`:
+
+``` bash
+python -m venv .venv
+source .venv/bin/activate
 ```
 
 ### Install Neuromancer and All Dependencies.

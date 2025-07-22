@@ -198,6 +198,7 @@ if __name__ == "__main__":
                        x ** 2 + y ** 2 - p2 ** 2 <= 0])
         return prob, x, y
 
+
     """
     Plots
     """
@@ -206,8 +207,7 @@ if __name__ == "__main__":
     x1 = np.arange(-1.0, 10.0, 0.05)
     y1 = np.arange(-1.0, 10.0, 0.05)
     xx, yy = np.meshgrid(x1, y1)
-    fig, ax = plt.subplots(3,3)
-
+    fig, ax = plt.subplots(3, 3)
     row_id = 0
     column_id = 0
     for i, p in enumerate(params):
@@ -228,25 +228,29 @@ if __name__ == "__main__":
             cg2 = ax[row_id, column_id].contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
             cg3 = ax[row_id, column_id].contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
             cg4 = ax[row_id, column_id].contour(xx, yy, c4, [0], colors='mediumblue', alpha=0.7)
-            plt.setp(cg1.collections,
-                     path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-            plt.setp(cg2.collections,
-                     path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-            plt.setp(cg3.collections,
-                     path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-            plt.setp(cg4.collections,
-                     path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+
+            if hasattr(cg1, 'collections') and cg1.collections:
+                plt.setp(cg1.collections,
+                         path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+                plt.setp(cg2.collections,
+                         path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+                plt.setp(cg3.collections,
+                         path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+                plt.setp(cg4.collections,
+                         path_effects=[patheffects.withTickedStroke()], alpha=0.7)
 
         if problem_type == 'pQCQP':  # constraints for QCQP
             c1 = xx + yy - p
-            c2 = - xx**2 - yy**2 + p**2
+            c2 = - xx ** 2 - yy ** 2 + p ** 2
             cg1 = ax[row_id, column_id].contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
             cg2 = ax[row_id, column_id].contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
-            plt.setp(cg1.collections,
-                     path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-            plt.setp(cg2.collections,
-                     path_effects=[patheffects.withTickedStroke()], alpha=0.7)
-        fig.colorbar(cp_plot, ax=ax[row_id,column_id])
+            if hasattr(cg1, 'collections') and cg1.collections:
+                plt.setp(cg1.collections,
+                         path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+                plt.setp(cg2.collections,
+                         path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+        fig.colorbar(cp_plot, ax=ax[row_id, column_id])
+
 
         # Solve CVXPY problem
         if problem_type == 'pQP':

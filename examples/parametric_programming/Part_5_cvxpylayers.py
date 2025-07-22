@@ -220,7 +220,8 @@ if __name__ == "__main__":
         for k in range(n_con):
             cg1 = ax.contour(xx, yy, -C_samples[k], [0],
                              colors='mediumblue', alpha=0.7)
-            plt.setp(cg1.collections,
+            if hasattr(cg1, 'collections') and cg1.collections:
+                plt.setp(cg1.collections,
                      path_effects=[patheffects.withTickedStroke()], alpha=0.7)
 
         # Solution to pNLP via Neuromancer

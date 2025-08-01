@@ -245,15 +245,19 @@ if __name__ == "__main__":
                      alpha=0.6)
     fig.colorbar(cp)
     ax.set_title('Rosenbrock problem')
+
     cg1 = ax.contour(xx, yy, c1, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg1.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+    if hasattr(cg1, 'collections') and cg1.collections:
+        plt.setp(cg1.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
     cg2 = ax.contour(xx, yy, c2, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg2.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+    if hasattr(cg2, 'collections') and cg2.collections:
+        plt.setp(cg2.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
     cg3 = ax.contour(xx, yy, c3, [0], colors='mediumblue', alpha=0.7)
-    plt.setp(cg3.collections,
-             path_effects=[patheffects.withTickedStroke()], alpha=0.7)
+    if hasattr(cg3, 'collections') and cg3.collections:
+        plt.setp(cg3.collections,
+                 path_effects=[patheffects.withTickedStroke()], alpha=0.7)
 
     # Solution to pNLP via Neuromancer
     datapoint = {'a': torch.tensor([[a]]), 'p': torch.tensor([[p]]),

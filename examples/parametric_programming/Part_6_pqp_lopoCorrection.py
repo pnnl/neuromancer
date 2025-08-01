@@ -304,14 +304,15 @@ if __name__ == "__main__":
         cg2 = ax[row_id, column_id].contour(xx, yy, c2, [0], colors='k', alpha=0.5)
         cg3 = ax[row_id, column_id].contour(xx, yy, c3, [0], colors='k', alpha=0.5)
         cg4 = ax[row_id, column_id].contour(xx, yy, c4, [0], colors='k', alpha=0.5)
-        plt.setp(cg1.collections,
-                    path_effects=[patheffects.withTickedStroke()], alpha=0.5)
-        plt.setp(cg2.collections,
-                    path_effects=[patheffects.withTickedStroke()], alpha=0.5)
-        plt.setp(cg3.collections,
-                    path_effects=[patheffects.withTickedStroke()], alpha=0.5)
-        plt.setp(cg4.collections,
-                    path_effects=[patheffects.withTickedStroke()], alpha=0.5)
+        if hasattr(cg1, 'collections') and cg1.collections:
+            plt.setp(cg1.collections,
+                        path_effects=[patheffects.withTickedStroke()], alpha=0.5)
+            plt.setp(cg2.collections,
+                        path_effects=[patheffects.withTickedStroke()], alpha=0.5)
+            plt.setp(cg3.collections,
+                        path_effects=[patheffects.withTickedStroke()], alpha=0.5)
+            plt.setp(cg4.collections,
+                        path_effects=[patheffects.withTickedStroke()], alpha=0.5)
         # Solve CVXPY problem
         prob, x, y = QP_param(p, p)
         prob.solve()
@@ -332,6 +333,8 @@ if __name__ == "__main__":
     plt.show()
     plt.show(block=True)
     plt.interactive(False)
+
+
     """
     Benchmark Solution
     """

@@ -5,8 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "neuromancer"
 authors = [
+    { name = "Jan Drgona", email = "jdrgona1@jh.edu" },
     { name = "Aaron Tuor", email = "aaron.tuor@pnnl.gov" },
-    { name = "Jan Drgona", email = "jan.drgona@pnnl.gov" },
     { name = "James Koch", email = "james.koch@pnnl.gov" },
     { name = "Madelyn Shapiro", email = "madelyn.shapiro@pnnl.gov"},
     { name = "Rahul Birmiwal", email = "rahul.birmiwal@pnnl.gov"},
@@ -61,7 +61,7 @@ dependencies = [
     "torchsde"
 ]
 
-version = "1.5.3"
+version = "1.5.4"
 
 [project.urls]
 homepage = "https://github.com/pnnl/neuromancer/"

@@ -1,5 +1,5 @@
 from neuromancer.modules.blocks import Poly2, MLP, MLPDropout, MLP_bounds, ResMLP, RNN, \
-    BasisLinear, BilinearTorch, PytorchRNN, Linear, InputConvexNN
+    BasisLinear, BilinearTorch, PytorchRNN, Linear, InputConvexNN, KANBlock, StackedMLP
 from neuromancer.modules.blocks import blocks
 import torch
 from hypothesis import given, settings, strategies as st

@@ -63,9 +63,9 @@ agg_losses = [PenaltyLoss, BarrierLoss]
 problems = [lossQuadratic, lossRosenbrock]
 
 
-@given(arrays(np.float, (3,2), elements=st.floats(0.5, 1.2)),
-       arrays(np.float, (3,2), elements=st.floats(0.0, 3.0)),
-       arrays(np.float, (3,2), elements=st.floats(0.0, 1.0)),
+@given(arrays(np.float64, (3,2), elements=st.floats(0.5, 1.2)),
+       arrays(np.float64, (3,2), elements=st.floats(0.0, 3.0)),
+       arrays(np.float64, (3,2), elements=st.floats(0.0, 1.0)),
        st.sampled_from(agg_losses),
        st.integers(0, 200))
 @settings(max_examples=200, deadline=None)
@@ -91,9 +91,9 @@ def test_add(p, x, y, aggLoss, weight):
 
 
 @given(st.floats(0.1, 10),
-       arrays(np.float, (3,2), elements=st.floats(0.5, 1.2)),
-       arrays(np.float, (3,2), elements=st.floats(0.0, 3.0)),
-       arrays(np.float, (3,2), elements=st.floats(0.0, 1.0)),
+       arrays(np.float64, (3,2), elements=st.floats(0.5, 1.2)),
+       arrays(np.float64, (3,2), elements=st.floats(0.0, 3.0)),
+       arrays(np.float64, (3,2), elements=st.floats(0.0, 1.0)),
        st.sampled_from(agg_losses),
        st.sampled_from(problems),
        st.integers(1, 200))

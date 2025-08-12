@@ -655,6 +655,8 @@ class SpectralLinear(LinearBase):
         self.p = nn.Parameter(torch.zeros(nsigma) + 0.001 * torch.randn(nsigma))
         self.V = nn.Parameter(torch.triu(torch.randn(outsize, outsize)))
         self.U = nn.Parameter(torch.triu(torch.randn(insize, insize)))
+        if not bias:
+            self.bias = nn.Parameter(torch.zeros(outsize))
 
     def Sigma(self):
         sigmas = 2 * self.r * (torch.sigmoid(self.p) - 0.5) + self.sigma_mean

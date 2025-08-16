@@ -204,9 +204,9 @@ def test_train_runs_for_epochs(get_problem, get_data, get_num_epochs):
     # Test for Standard PyTorch Trainer
     _ = base_trainer.train()
     assert base_trainer.current_epoch == num_epochs
-    print("HELLO")
     # Test for PyTorch Lightning Trainer
-    lit_trainer.fit(problem=get_problem, datamodule=lit_data_module)
+    #lit_trainer.fit(problem=get_problem, datamodule=lit_data_module)
+    lit_trainer.fit(problem=get_problem, data_setup_function=get_data)
     assert lit_trainer.current_epoch == num_epochs
 
 
@@ -239,7 +239,7 @@ def test_weight_updates(get_problem, get_data):
         epochs=1
     )
     _ = base_trainer.train()
-    lit_trainer.fit(problem=problem, datamodule=lit_data_module)
+    lit_trainer.fit(problem=problem, data_setup_function=get_data)
 
     lit_trainer_initial_weights = lit_trainer.get_weights().copy()
     print("lit trainer initial weights ", lit_trainer_initial_weights)
@@ -256,7 +256,7 @@ def test_weight_updates(get_problem, get_data):
         epochs=9
     )
     _ = base_trainer.train()
-    lit_trainer.fit(problem=problem, datamodule=lit_data_module)
+    lit_trainer.fit(problem=problem, data_setup_function=get_data)
     lit_trainer_final_weights = lit_trainer.get_weights().copy()
     base_trainer_final_weights = base_trainer.best_model.copy()
 

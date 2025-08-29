@@ -289,3 +289,79 @@ class System(nn.Module):
         """
         for node in self.nodes:
             node.unfreeze()
+
+class SystemPreview(System):
+    """
+    System class with preview of future known variables
+    """
+    def __init__(self, nodes, preview_keys_map: dict={}, preview_length: dict=None, pad_mode: str='circular', pad_constant=0.0, 
+                 name=None, nstep_key='X', init_func=None, nsteps=None):
+        """
+        :param nodes: (list of Node objects)
+        :param preview_keys_map: (dict of string lists) Dict key (str) variable name to be previewed, Value: list of strings containing the names of nodes which expect the preview of this variable
+        :param preview_length: (dict of ints) Dict key (str) variable_name: Value (int) represnts the length of the future preview 
+        :param pad_mode: (str) Options - 'replicate', 'circular', 'constant' (default value is 0), 'reflect'; more info at https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.pad.html
+        :param pad_constant: (float) if pad_mode is 'constant' this specifies the value of padded samples
+        :param name: (str) Unique identifier for system class.
+        :param nstep_key: (str) Key is used to infer number of rollout steps from input_data
+        :param init_func: (callable(input_dict) -> input_dict) This function is used to set initial conditions of the system
+        :param nsteps: (int) prediction horizon (rollout steps) length
+        """
+        super().__init__(nodes=nodes, name=name)
+        self.nstep_key = nstep_key
+        self.nsteps = nsteps
+        self.nodes, self.name = nn.ModuleList(nodes), name
+        if init_func is not None:
+            self.init = init_func
+        self.input_keys = set().union(*[c.input_keys for c in nodes])
+        self.output_keys = set().union(*[c.output_keys for c in nodes])
+        self.system_graph = self.graph()
+        self.preview_keys_map = preview_keys_map
+        self.pad_mode = pad_mode
+        self.pad_constant = pad_constant if self.pad_mode == 'constant' else None
+        self.preview_length = preview_length if preview_length is not None else {k: nsteps for k in self.preview_keys_map.keys()}
+    
+   
+    def get_data_with_preview(self, input_dict, var_name, iteration):
+        """
+        Extracts a temporal slice of data for a given variable with a preview window.
+
+        This function returns the data segment starting from the current timestep
+        (`iteration`) and extends for `preview_length` timesteps into the future.
+        If there are not enough timesteps available in the input tensor (e.g., near
+        the end of the sequence), the data is padded (with a constant, relicate, 
+        or circular modes, depending on `self.pad_mode` and `self.pad_constant`).
+
+        :param input_dict: (dict: {str: Tensor}) Dictionary of tensors with shape (batch, time, dim).
+        :param var_name: (str) Key identifying the variable in `input_dict`.
+        :param iteration: (int) Current timestep of the rollout.
+        :return: (Tensor) Data slice of shape (batch, 1+preview_length, dim).
+                          Includes the current timestep and future preview steps.
+        """
+        data = input_dict[var_name][:,iteration:iteration+1+self.preview_length[var_name],:] # slice input data with future window
+        if data.shape[1] < self.preview_length[var_name]+1: # if data length insufficient
+            data = nn.functional.pad(input_dict[var_name], (0, 0, 0, self.preview_length[var_name]), mode=self.pad_mode, # data padding
+                                      value=self.pad_constant)[:,iteration:iteration+1+self.preview_length[var_name],:] # slice data
+        return data
+    
+   
+    def forward(self, input_dict):
+        """
+        :param input_dict: (dict: {str: Tensor}) Tensor shapes in dictionary are asssumed to be (batch, time, dim)
+                                           If an init function should be written to assure that any 2-d or 1-d tensors
+                                           have 3 dims.
+        :return: (dict: {str: Tensor}) data with outputs of nstep rollout of Node interactions
+        """
+        data = input_dict.copy()
+        nsteps = self.nsteps if self.nsteps is not None else data[self.nstep_key].shape[1]  # Infer number of rollout steps
+        data = self.init(data)  # Set initial conditions of the system
+        for i in range(nsteps):
+            for node in self.nodes:
+                indata = {
+                    k: (self.get_data_with_preview(input_dict=data, var_name=k, iteration=i).reshape(data[k].size(0),-1) # Fetch data with future sequences; flatten 3d (batch, time, dim) to 2d (batch, time), e.g., [batch, [r1_{t=0}, r2_{t=0}, r1_{t=1}, r2_{t=1},...]]
+                    if (k in list(self.preview_keys_map.keys()) and node.name in self.preview_keys_map[k]) # Preview is performed if True
+                    else data[k][:, i]) for k in node.input_keys # Otherwise fetch the current timestep, e.g., [batch, [r1_{t=current_timestep}, r2_{t=current_timestep}...]]
+                }
+                outdata = node(indata)  # compute
+                data = self.cat(data, outdata)  # feed the data nodes
+        return data  # return recorded system measurements

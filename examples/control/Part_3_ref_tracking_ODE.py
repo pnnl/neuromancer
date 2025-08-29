@@ -12,7 +12,7 @@ import torch.nn as nn
 import numpy as np
 
 import neuromancer.psl as psl
-from neuromancer.system import Node, System
+from neuromancer.system import Node, System, SystemPreview
 from neuromancer.modules import blocks
 from neuromancer.modules.activations import activations
 from neuromancer.dataset import DictDataset
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     """
     # # #  Dataset 
     """
-    nsteps = 50  # prediction horizon
+    nsteps = 30  # prediction horizon
     n_samples = 2000    # number of sampled scenarios
 
     #  sampled references for training the policy
@@ -91,10 +91,19 @@ if __name__ == "__main__":
                         nonlin=activations['gelu'], min=umin, max=umax)
     policy = Node(net, ['x', 'r'], ['u'], name='policy')
 
+    # neural net control policy with reference preview
+    net_preview = blocks.MLP_bounds(insize=nx + (nref*(nsteps+1)), outsize=nu, hsizes=[64, 32],
+                        nonlin=activations['gelu'], min=umin, max=umax)
+    policy_with_preview = Node(net_preview, ['x', 'r'], ['u'], name='policy')
+
     # closed-loop system model
     cl_system = System([policy, model], nsteps=nsteps,
                        name='cl_system')
-    cl_system.show()
+    # cl_system.show()
+    # closd-loop system with preview
+    cl_system_preview = SystemPreview([policy_with_preview, model], name='cl_system_preview',
+                    nsteps=nsteps, preview_keys_map={'r': ['policy']}, # reference preview for neural control policy node
+                    preview_length={'r': nsteps}, pad_mode='replicate') # replicate last sample in the sequence
 
     """
     # # #  Differentiable Predictive Control objectives and constraints
@@ -133,13 +142,15 @@ if __name__ == "__main__":
     loss = PenaltyLoss(objectives, constraints)
     # construct constrained optimization problem
     problem = Problem(nodes, loss)
+    problem_with_preview = Problem([cl_system_preview], loss)
     # plot computational graph
-    problem.show()
+    # problem.show()
 
     """
     # # #  Solving the problem 
     """
     optimizer = torch.optim.AdamW(problem.parameters(), lr=0.002)
+    optimizer_ = torch.optim.Adam(problem_with_preview.parameters(), lr=0.002, weight_decay=0.002)
     #  Neuromancer trainer
     trainer = Trainer(
         problem,
@@ -150,19 +161,33 @@ if __name__ == "__main__":
         eval_metric='dev_loss',
         warmup=50,
     )
+    trainer_with_preview = Trainer(
+        problem_with_preview,
+        train_loader, dev_loader,
+        optimizer=optimizer_,
+        epochs=150,
+        train_metric='train_loss',
+        eval_metric='dev_loss',
+        warmup=5,
+        patience=50
+    )
     # Train control policy
     best_model = trainer.train()
     # load best trained model
     trainer.model.load_state_dict(best_model)
+    # Train control policy with reference preview
+    best_model_preview = trainer_with_preview.train()
+    # Load best model with reference preview
+    trainer_with_preview.model.load_state_dict(best_model_preview)
 
     """
     Test Closed Loop System
     """
     print('\nTest Closed Loop System \n')
-    nsteps = 750
-    step_length = 150
+    nsteps = 1000
+    step_length = 250
     # generate reference
-    np_refs = psl.signals.step(nsteps + 1, 1, min=xmin, max=xmax, randsteps=5)
+    np_refs = psl.signals.step(nsteps + 1, 1, min=xmin, max=xmax, randsteps=4, rng=np.random.default_rng(20))
     R = torch.tensor(np_refs, dtype=torch.float32).reshape(1, nsteps + 1, 1)
     torch_ref = torch.cat([R, R], dim=-1)
     # generate initial data for closed loop simulation
@@ -184,3 +209,16 @@ if __name__ == "__main__":
           Umin=Umin, Umax=Umax, Ymin=Xmin, Ymax=Xmax)
     # plot phase portrait
     pltPhase(X=trajectories['x'].detach().reshape(nsteps + 1, nx))
+
+    """
+    Test Closed Loop System with reference preview
+    """
+    print('\nTest Closed Loop System With Preview\n')
+    # closed-loop simulation with reference preview
+    cl_system_preview.nsteps = nsteps
+    trajectories_with_preview = cl_system_preview.forward(data)
+    pltCL(Y=trajectories_with_preview['x'].detach().reshape(nsteps + 1, nx).cpu(),
+          R=trajectories_with_preview['r'].detach().reshape(nsteps + 1, nref).cpu(),
+          U=trajectories_with_preview['u'].detach().reshape(nsteps, nu).cpu(),
+          Umin=Umin, Umax=Umax, Ymin=Xmin, Ymax=Xmax)
+    pltPhase(X=trajectories_with_preview['x'].detach().reshape(nsteps + 1, nx).cpu())

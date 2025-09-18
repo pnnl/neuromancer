@@ -76,5 +76,5 @@ where = ["src"]
 
 [project.optional-dependencies]
 tests = ["pytest", "hypothesis"]
-examples = ["casadi", "cvxpy", "imageio", "cvxpylayers"]
+examples = ["ecos", "casadi", "cvxpy", "imageio", "ipykernel", "cvxpylayers"]
 docs = ["sphinx", "sphinx-rtd-theme"]

@@ -1,0 +1,4 @@
+dev_loss,epoch,step,train_loss_epoch,train_loss_step,training_epoch_average
+,0,49,,0.07365786284208298,
+0.06409875303506851,0,78,,,
+,0,78,0.07416433840990067,,0.07415937632322311

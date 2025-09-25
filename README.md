@@ -39,20 +39,18 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 * **The NeuroMANCER-GPT Assistant**: We provide easy-to-use scripts to convert the contents of the NeuroMANCER library in a way that is suitable for ingestion in RAG-based "LLM-assistant" pipelines. Please see [Assistant](https://github.com/pnnl/neuromancer/blob/develop/assistant/README.md) to read more about how one can quickly spin up an LLM model to help understand and code in NeuroMANCER. 
 
 
-## What's New in v1.5.4
+## What's New in v1.5.5
 
 
-### New Example: Function Encoders
-Neuromancer now contains an implementation of function encoders (FE), an algorithm for learning basis functions as neural networks. See [Function Encoders: A Principled Approach to Transfer Learning in Hilbert Spaces](https://arxiv.org/abs/2501.18373).
-Two new examples include the use of FE for function approximation and FE-Neural ODEs
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/function_encoder/Part_1_Intro_to_Function_Encoders.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 1: An Introduction to Function Encoders
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/function_encoder/Part_2_Function_Encoder_Neural_ODE.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Part 2: Function Encoders + Neural ODEs
+### New Examples:
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/DAEs/tank_dae_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Neural DAEs via operator splitting method 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_6_mixed_integer_decisions.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Mixed-Integer DPC for thermal system
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/grid_response.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Grid-responsive DPC for building energy systems
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_3_ref_tracking_ODE.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> DPC with preview horizon 
 
 
-### Fixed Bugs
-+ Fixed plot issues in several examples
-+ Fixed bug in CSTR system dynamics class in psl/nonautonomous.py
-+ Fixed bug in computing constraints violations and objective function values in L2O examples
+### New Features
++ New class SystemPreview that acts as drop-in replacement for System class enabling preview horizon functionality
 
 
 ## Installation
@@ -155,6 +153,7 @@ For more in-depth coverage of our methods, please see our general [Tutorials](#t
 + <a target="_blank" href="https://github.com/pnnl/neuromancer/blob/master/examples/domain_examples/RL_DPC_building_control.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Building HVAC System With Safe RL and DPC
 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/grid_response.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Grid-responsive DPC for building energy systems
 
 
 ## Tutorials on Methods for Modeling, Optimization, and Control
@@ -192,6 +191,9 @@ Neuromancer enables you to learn control policies for a full spectrum of differe
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_5_neural_Lyapunov.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning neural Lyapunov function for a nonlinear dynamical system.
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_6_mixed_integer_decisions.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Mixed-Integer DPC 
+
 
 ### Function Approximation
 Neuromancer is up-to-date with state-of-the-art methods. Here we showcase the powerful Kolgomorov-Arnold networks [More information on Kolgomorov-Arnold Networks](https://github.com/pnnl/neuromancer/tree/develop/examples/KANs)
@@ -232,6 +234,9 @@ Neuromancer allows one to use machine learning, prior physics, and domain knowle
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Sparse Identification of Nonlinear Dynamics (SINDy)
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/function_encoder/Part_2_Function_Encoder_Neural_ODE.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Function Encoders + Neural ODEs
+
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/DAEs/tank_dae_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Neural DAEs via operator splitting method 
+
 
 ### Physics-Informed Neural Networks (PINNs)
 Neuromancer's symbolic programming design is perfectly suited for solving PINNs. [More information on PINNs](https://github.com/pnnl/neuromancer/tree/develop/examples/PDEs)

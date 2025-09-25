@@ -1,6 +1,12 @@
 
 ##  Release notes
 
+### Version 1.5.5 Release Notes
++ New feature: DPC with preview horizon using new class SystemPreview that acts as drop-in replacement for System class
++ New example: Neural DAEs via operator splitting method
++ New example: Mixed-Integer DPC for thermal system
++ New example: Grid-responsive DPC for building energy systems
+
 ### Version 1.5.4 Release Notes
 + New feature: Function encoders for function approximation and zero-shot generalization in neural ODEs
 + Bug fix: plotting issues in several examples,

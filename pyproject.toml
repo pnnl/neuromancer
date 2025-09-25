@@ -61,7 +61,7 @@ dependencies = [
     "torchsde"
 ]
 
-version = "1.5.4"
+version = "1.5.5"
 
 [project.urls]
 homepage = "https://github.com/pnnl/neuromancer/"

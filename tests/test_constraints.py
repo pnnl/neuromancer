@@ -2,7 +2,6 @@ import neuromancer.constraint as cn
 
 from hypothesis import given, settings, strategies as st
 import torch
-torch.cuda.current_device()
 
 @given(constraint_class = st.sampled_from([cn.LT, cn.Eq, cn.GT]), device=st.sampled_from(['cpu', 'cuda:1'])) 
 def test_constraint_device_placement(constraint_class, device):

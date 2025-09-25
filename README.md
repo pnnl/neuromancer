@@ -51,7 +51,7 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 
 ### New Features
 + New class SystemPreview that acts as drop-in replacement for System class enabling preview horizon functionality
-
++ Unit tests brought up-to-date. 
 
 ## Installation
 Simply run 

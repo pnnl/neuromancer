@@ -3,7 +3,7 @@
   <img src="figs/Neuromancer.png" width="250">  
 </p>
 
-# NeuroMANCER v1.5.4
+# NeuroMANCER v1.5.5
 
 [![PyPi Version](https://img.shields.io/pypi/v/neuromancer)](https://pypi.org/project/neuromancer)
 [![License](https://img.shields.io/badge/license-BSD-blue.svg)](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md)
@@ -135,17 +135,14 @@ For more in-depth coverage of our methods, please see our general [Tutorials](#t
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/NODE_swing_equation.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning Swing Equation Dynamics using Neural ODEs
 
-
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_building_control.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Indoor Air Temperature in Buildings
-
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/HVAC_load_forecasting.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Energy Load Forecasting for Building with MLP and CNN Models
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/building_load_forecasting_Transformers.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>  Energy Load Forecasting for Building with Transformers Model
-
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/DPC_PSH.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Pumped-storage Hyrdoelectricity System
@@ -235,7 +232,7 @@ Neuromancer allows one to use machine learning, prior physics, and domain knowle
 
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/function_encoder/Part_2_Function_Encoder_Neural_ODE.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Function Encoders + Neural ODEs
 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/DAEs/tank_dae_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Neural DAEs via operator splitting method 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/DAEs/tank_dae_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Neural Differential Algebraic Equations (DAEs) via operator splitting method 
 
 
 ### Physics-Informed Neural Networks (PINNs)

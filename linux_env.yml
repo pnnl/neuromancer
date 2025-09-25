@@ -305,5 +305,5 @@ dependencies:
   - zlib=1.2.12=h5eee18b_3
   - zstd=1.4.9=ha95c52a_0
   - pip:
-    - neuromancer==1.5.4
+    - neuromancer==1.5.5
 prefix: /home/tuor369/anaconda3/envs/neuromancer

@@ -153,7 +153,7 @@ For more in-depth coverage of our methods, please see our general [Tutorials](#t
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Pumped-storage Hyrdoelectricity System
 
 + <a target="_blank" href="https://github.com/pnnl/neuromancer/blob/master/examples/domain_examples/RL_DPC_building_control.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control a Building With Safe Reinforcement Learning and Differentiable Predictive Control
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Learning to Control Building HVAC System With Safe RL and DPC
 
 
 

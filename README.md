@@ -3,7 +3,7 @@
   <img src="figs/Neuromancer.png" width="250">  
 </p>
 
-# NeuroMANCER v1.5.5
+# NeuroMANCER v1.5.6
 
 [![PyPi Version](https://img.shields.io/pypi/v/neuromancer)](https://pypi.org/project/neuromancer)
 [![License](https://img.shields.io/badge/license-BSD-blue.svg)](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md)
@@ -39,7 +39,7 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 * **The NeuroMANCER-GPT Assistant**: We provide easy-to-use scripts to convert the contents of the NeuroMANCER library in a way that is suitable for ingestion in RAG-based "LLM-assistant" pipelines. Please see [Assistant](https://github.com/pnnl/neuromancer/blob/develop/assistant/README.md) to read more about how one can quickly spin up an LLM model to help understand and code in NeuroMANCER. 
 
 
-## What's New in v1.5.5
+## What's New in v1.5.6
 
 
 ### New Examples:
@@ -52,6 +52,10 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 ### New Features
 + New class SystemPreview that acts as drop-in replacement for System class enabling preview horizon functionality
 + Unit tests brought up-to-date. 
+
+### Fixed bug
++ Fixed bug with mlflow dependency creating conflicts in Google Colab
+
 
 ## Installation
 Simply run 

@@ -4,8 +4,6 @@
 import time
 import os
 import shutil
-
-import mlflow
 import torch
 import dill
 import numbers
@@ -132,89 +130,58 @@ class LossLogger(BasicLogger):
 
 class MLFlowLogger(BasicLogger):
     def __init__(self, args=None, savedir='test', verbosity=1, id=None,
-                 stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',
-                         'nstep_dev_ref_loss', 'loop_dev_ref_loss'),
+                 stdout=('nstep_dev_loss','loop_dev_loss','best_loop_dev_loss',
+                         'nstep_dev_ref_loss','loop_dev_ref_loss'),
                  logout=None):
-        """
+        # Lazy import so module import works even if mlflow isn't installed
+        try:
+            import mlflow  # noqa: F401
+        except Exception as e:
+            raise ImportError(
+                "MLFlowLogger requires mlflow. Install with "
+                "`pip install neuromancer[tracking]` or `pip install mlflow>=2.12`."
+            ) from e
 
-        :param args: (Namespace) returned by argparse.ArgumentParser.parse_args()
-                                args.location (str): path to directory on file system to store experiment results via mlflow
-                                                     or if 'pnl_dadaist_store' then will save to our instance of the pnl mlflow
-                                                     server. Must have copy of pnl_mlflow_secrets.py (containing a funtion to set
-                                                     necessary environment variables) located in neuromancer/neuromancer/
-                                                     where main modules are located.
-        :param savedir: Unique folder name to temporarily save artifacts
-        :param verbosity: (int) Print to stdout every verbosity steps
-        :param id: (int) Optional unique experiment ID for hyperparameter optimization
-        :param stdout: (list of str) Metrics to print to stdout. These should correspond to keys in the output dictionary of the Problem
-        :param logout: (list of str) List of metric names to log via mlflow
-        """
+        import mlflow  # use after we know it exists
 
-        mlflow.set_tracking_uri(args.location)
-        mlflow.set_experiment(args.exp)
-        mlflow.start_run(run_name=args.run, run_id=id)
+        self._mlflow = mlflow
+        self._mlflow.set_tracking_uri(args.location)
+        self._mlflow.set_experiment(args.exp)
+        self._mlflow.start_run(run_name=args.run, run_id=id)
+
         super().__init__(args=args, savedir=savedir, verbosity=verbosity, stdout=stdout)
         self.logout = logout
 
     def log_parameters(self):
-        """
-        Print experiment parameters to stdout
-
-        """
         params = {k: getattr(self.args, k) for k in vars(self.args)}
         print({k: type(v) for k, v in params.items()})
-
-        mlflow.log_params(params)
+        self._mlflow.log_params(params)
 
     def log_weights(self, model):
-        """
-
-        :param model: (nn.Module)
-        :return: (int) Number of learnable parameters in the model.
-        """
         nweights = super().log_weights(model)
-        mlflow.log_metric('nparams',  float(nweights))
+        self._mlflow.log_metric('nparams', float(nweights))
 
     def log_metrics(self, output, step=0):
-        """
-        Record metrics to mlflow
-
-        :param output: (dict {str: tensor}) Will only record 0d torch.Tensors (scalars)
-        :param step: (int) Epoch of training
-        """
         super().log_metrics(output, step)
-        _keys = {k for k in output.keys()}
+        keys = set(output.keys())
         if self.logout is not None:
-            keys = []
-            for k in _keys:
-                for kp in self.logout:
-                    if kp in k:
-                        keys.append(k)
-        else:
-            keys = _keys
+            keys = {k for k in keys if any(p in k for p in self.logout)}
         for k in keys:
             v = output[k]
             if isinstance(v, torch.Tensor) and torch.numel(v) == 1:
-                mlflow.log_metric(k, v.item())
+                self._mlflow.log_metric(k, v.item())
             elif isinstance(v, np.ndarray) and v.size == 1:
-                mlflow.log_metric(k, v.flatten())
+                self._mlflow.log_metric(k, float(v))
             elif isinstance(v, numbers.Number):
-                mlflow.log_metric(k, v)
+                self._mlflow.log_metric(k, v)
 
     def log_artifacts(self, artifacts=dict()):
-        """
-        Stores artifacts created in training to mlflow.
-
-        :param artifacts: (dict {str: Object})
-        """
         super().log_artifacts(artifacts)
-        mlflow.log_artifacts(self.savedir)
+        self._mlflow.log_artifacts(self.savedir)
 
     def clean_up(self):
-        """
-        Remove temporary files from file system
-        """
         shutil.rmtree(self.savedir)
-        mlflow.end_run()
+        self._mlflow.end_run()
+
 
 

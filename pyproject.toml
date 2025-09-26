@@ -1,9 +1,10 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "neuromancer"
+version = "1.5.6"
 authors = [
     { name = "Jan Drgona", email = "jdrgona1@jh.edu" },
     { name = "Aaron Tuor", email = "aaron.tuor@pnnl.gov" },
@@ -11,41 +12,33 @@ authors = [
     { name = "Madelyn Shapiro", email = "madelyn.shapiro@pnnl.gov"},
     { name = "Rahul Birmiwal", email = "rahul.birmiwal@pnnl.gov"},
     { name = "Draguna Vrabie", email = "draguna.vrabie@pnnl.gov" },
-    { name = "Bruno Jacob", email = "bruno.jacbo@pnnl.gov" },
+    { name = "Bruno Jacob", email = "bruno.jacob@pnnl.gov" },
     { name = "Reilly Raab", email = "reilly.raab@pnnl.gov" }
 ]
 description = "Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularization"
 readme = "README.md"
 requires-python = ">=3.9"
-keywords = [
-    "Deep Learning",
-    "Pytorch",
-    "Linear Models",
-    "Dynamical Systems",
-    "Data-driven control",
-]
-
-
-
 license = { text = "BSD-2-Clause" }
+keywords = ["Deep Learning","Pytorch","Scientific Machine Learning","Dynamical Systems","Data-driven control"]
 classifiers = [
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Scientific/Engineering :: Physics",
-    "License :: OSI Approved :: BSD License"
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Physics",
+  "License :: OSI Approved :: BSD License"
 ]
 dependencies = [
     "dill",
     "graphviz",
     "matplotlib",
-    "mlflow==2.5.0",
-    "networkx==3.0.0",
-    "numpy==1.26.0",
+    "networkx>=3,<4",
+    "numpy>=1.23,<3.0",
     "pandas",
-    "plum_dispatch==1.7.3",
-    "scikit_learn",
+    "plum-dispatch==1.7.3",
+    "scikit-learn",
     "scipy",
     "six",
     "pydot==1.4.2",
@@ -56,12 +49,9 @@ dependencies = [
     "lightning", 
     "cvxpy", 
     "cvxpylayers", 
-    "casadi", 
-    "wandb", 
+    "casadi",
     "torchsde"
 ]
-
-version = "1.5.5"
 
 [project.urls]
 homepage = "https://github.com/pnnl/neuromancer/"
@@ -76,5 +66,6 @@ where = ["src"]
 
 [project.optional-dependencies]
 tests = ["pytest", "hypothesis"]
-examples = ["casadi", "cvxpy", "imageio", "cvxpylayers"]
+examples = ["imageio"]
 docs = ["sphinx", "sphinx-rtd-theme"]
+tracking = ["mlflow>=2.12,<3", "wandb"]

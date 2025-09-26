@@ -1,7 +1,9 @@
 
 ##  Release notes
 
+
 ### Version 1.5.6 Release Notes
+
 + New feature: DPC with preview horizon using new class SystemPreview that acts as drop-in replacement for System class
 + New example: Neural DAEs via operator splitting method
 + New example: Mixed-Integer DPC for thermal system

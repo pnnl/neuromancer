@@ -552,6 +552,124 @@ class KANBlock(Block):
                     layer.update_grid(x)  # Update the grid with the current batch
             self.current_grid_index += 1
 
+
+
+class MultiFidelityKAN(Block):
+    """
+    Multi-Fidelity Kolmogorov-Arnold Network (KAN) with KANBlock.
+    Takes a pre-trained single-fidelity KAN as input.
+    """
+    def __init__(
+        self,
+        sfkan,
+        insize,
+        outsize,
+        hsizes=[64],
+        num_stacked_blocks=1,
+        num_domains=1,
+        grid_sizes=[5],
+        spline_order=3,
+        scale_noise=0.1,
+        scale_base=1.0,
+        scale_spline=1.0,
+        enable_standalone_scale_spline=True,
+        base_activation=torch.nn.SiLU,
+        grid_eps=0.02,
+        grid_range=[-1, 1],
+        grid_updates=None,
+        alpha_init=0.1,
+        verbose=False
+    ):
+        super().__init__()
+        self.sfkan = sfkan  # Pre-trained single-fidelity KAN
+        # Freeze the parameters of the low-fidelity model
+        for param in self.sfkan.parameters():
+            param.requires_grad = False
+
+        self.in_features = insize
+        self.out_features = outsize
+        self.num_stacked_blocks = num_stacked_blocks
+        self.num_domains = num_domains
+        self.verbose = verbose
+        
+        self.alpha = nn.ParameterList([nn.Parameter(torch.tensor(alpha_init)) for _ in range(num_stacked_blocks)])
+        
+        # Multi-fidelity layers
+        self.linear_layers = nn.ModuleList()
+        self.nonlinear_layers = nn.ModuleList()
+        
+        for _ in range(num_stacked_blocks):
+            self.linear_layers.append(
+                KANBlock(
+                    insize=insize + outsize,
+                    outsize=outsize,
+                    hsizes=[],
+                    num_domains=num_domains,
+                    grid_sizes=[2],
+                    spline_order=1,
+                    scale_noise=scale_noise,
+                    scale_base=0.,
+                    scale_spline=scale_spline,
+                    enable_standalone_scale_spline=enable_standalone_scale_spline,
+                    base_activation=nn.Identity,
+                    grid_eps=1.0,
+                    grid_range=grid_range,
+                    grid_updates=grid_updates,
+                    verbose=verbose
+                )
+            )
+            self.nonlinear_layers.append(
+                KANBlock(
+                    insize=insize + outsize,
+                    outsize=outsize,
+                    hsizes=hsizes,
+                    num_domains=num_domains,
+                    grid_sizes=grid_sizes,
+                    spline_order=spline_order,
+                    scale_noise=scale_noise,
+                    scale_base=scale_base,
+                    scale_spline=scale_spline,
+                    enable_standalone_scale_spline=enable_standalone_scale_spline,
+                    base_activation=base_activation,
+                    grid_eps=grid_eps,
+                    grid_range=grid_range,
+                    grid_updates=grid_updates,
+                    verbose=verbose
+                )
+            )
+
+        self.grid_sizes = grid_sizes
+        self.grid_updates = grid_updates or []
+        self.current_grid_index = 0
+        self.verbose = verbose
+
+    def block_eval(self, x):
+        # First layer (pre-trained single-fidelity KAN)
+        out = self.sfkan.block_eval(x).detach()
+        
+        # Subsequent layers (multi-fidelity)
+        for i in range(self.num_stacked_blocks):
+            linear_out = self.linear_layers[i].block_eval(torch.cat([x, out], dim=1))
+            nonlinear_out = self.nonlinear_layers[i].block_eval(torch.cat([x, out], dim=1))
+            out = torch.abs(self.alpha[i]) * nonlinear_out + (1 - torch.abs(self.alpha[i])) * linear_out
+        return out
+
+    def regularization_loss(self, regularize_activation=1.0, regularize_entropy=0.0):
+        loss = 0.0
+        for linear_layer, nonlinear_layer in zip(self.linear_layers, self.nonlinear_layers):
+            loss += linear_layer.regularization_loss(regularize_activation, regularize_entropy)
+            loss += nonlinear_layer.regularization_loss(regularize_activation, regularize_entropy)
+        return loss
+
+    def update_grid(self, x, margin=0.01):
+        for linear_layer, nonlinear_layer in zip(self.linear_layers, self.nonlinear_layers):
+            linear_layer.update_grid(x, margin=margin)
+            nonlinear_layer.update_grid(torch.cat([x, self.sfkan.block_eval(x)], dim=1), margin=margin)
+
+    def get_alpha_loss(self):
+        return sum(10.*torch.pow(alpha, 2) for alpha in self.alpha)
+
+
 class MLP_bounds(MLP):
     """
     Multi-Layer Perceptron consistent with blocks interface
@@ -1308,7 +1426,7 @@ blocks = {
     "icnn": InputConvexNN,
     "pos_def": PosDef,
     "kan": KANBlock,
+    "multifidelity_kan": MultiFidelityKAN,
     "stacked_mlp": StackedMLP,
     "transformer": Transformer
 }
-

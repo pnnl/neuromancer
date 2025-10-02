@@ -1,7 +1,6 @@
 
 import torch
 import functools
-import lightning.pytorch as pl
 from collections import OrderedDict
 
 def handle_device_placement(func):

@@ -6,20 +6,16 @@ from copy import deepcopy
 
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
 import numpy as np
-import wandb
-import lightning.pytorch as pl 
+import lightning.pytorch as pl
 
 from neuromancer.loggers import BasicLogger
 from neuromancer.problem import Problem
 from neuromancer.callbacks import Callback
 from neuromancer.problem import LitProblem
 from neuromancer.dataset import LitDataModule
-
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
-from lightning.pytorch.loggers import WandbLogger
 
 
 

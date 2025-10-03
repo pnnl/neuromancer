@@ -35,7 +35,6 @@ from typing import Union, List, Tuple
 import torch
 import torch.nn as nn
 import copy
-from torchdiffeq import odeint
 
 from ..simulation_inputs.schedules import stochastic_variation, persistent_excitation
 from ..context import MILD_COOLING_CONTEXT
@@ -237,7 +236,6 @@ class BuildingComponent(nn.Module, ABC):
         # Convert to [batch_size, time_steps, dim] format for consistency with BuildingSystem
         results = {}
         for k, v_list in log.items():
-            print(k)
             stacked = torch.stack(v_list, dim=0)  # [time_steps, batch_size, dim]
             results[k] = stacked.transpose(0, 1)  # [batch_size, time_steps, dim]
         return results

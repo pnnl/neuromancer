@@ -7,7 +7,7 @@ Standalone plotting function that works with both BuildingComponent and Building
 import torch
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, MaxNLocator
-from typing import Dict, List, Tuple, Optional, Union, Any
+from typing import Dict, List, Tuple, Optional, Union
 
 
 def simplot(

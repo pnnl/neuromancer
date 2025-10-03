@@ -16,7 +16,6 @@ import torch
 import numpy as np
 from torchdiffeq import odeint
 from .base import BuildingComponent
-from ..simulation_inputs.schedules import binary_schedule, multi_level_schedule, seasonal_temperature
 
 
 class Envelope(BuildingComponent):
@@ -567,10 +566,3 @@ class Envelope(BuildingComponent):
             }
 
         return self._input_functions
-
-    # @input_functions.setter
-    # def input_functions(self, value):
-    #     """Allow custom input functions to be set."""
-    #     if not hasattr(self, '_input_functions'):
-    #         self._input_functions = {}
-    #     self._input_functions.update(value)

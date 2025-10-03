@@ -1,10 +1,10 @@
-# torch_buildings
+# neuromancer.hvac
 
-A PyTorch-based library for differentiable building simulation and HVAC system modeling.
+A PyTorch-based neuromancer subpackage for differentiable building simulation and HVAC system modeling.
 
 ## Overview
 
-`torch_buildings` provides physics-based, differentiable models for building systems that are compatible with PyTorch's automatic differentiation. This enables optimization, control design, and machine learning applications for building energy systems.
+`neuromancer.hvac` provides physics-based, differentiable models for HVAC systems that are compatible with PyTorch's automatic differentiation. This enables optimization, control design, and machine learning applications for building energy systems.
 
 ## Features
 
@@ -31,7 +31,6 @@ A PyTorch-based library for differentiable building simulation and HVAC system m
 - **Weather patterns**: `seasonal_temperature` for realistic outdoor conditions
 - **Stochastic inputs**: Support for noise and persistent excitation
 
-## Installation
 
 ### Prerequisites
 - Python 3.8+
@@ -43,19 +42,9 @@ A PyTorch-based library for differentiable building simulation and HVAC system m
 - **numpy** (>= 1.21.0) - Numerical computing
 - **matplotlib** (>= 3.5.0) - Plotting and visualization
 
-
-### Install torch_buildings in conda or venv with prior installed dependencies
-```bash
-# Install in development mode
-pip install -e .
-```
-
-The `-e` flag installs the package in "editable" mode, so changes to the source code are immediately available without reinstalling.
-
 ## Quick Start
 
 ```python
-import torch
 from torch_buildings import VAVBox, Envelope
 
 # Create a 3-zone VAV system
@@ -86,67 +75,10 @@ print(f"Final airflows: {results['airflow'][-1, 0, :]} kg/s")
 print(f"Final power consumption: {results['total_power'][-1, 0, :]} W")
 ```
 
-## Running Tests
-
-The test suite uses pytest and covers all major functionality.
-
-### Run All Tests
-```bash
-# From the project root directory
-pytest
-```
-
-### Run Tests with Verbose Output
-```bash
-pytest -v
-```
-
-
-### Run Tests with Coverage
-```bash
-# Install coverage tool
-pip install pytest-cov
-
-# Run tests with coverage report
-pytest --cov=torch_buildings --cov-report=html
-
-# View coverage report (opens in browser)
-open htmlcov/index.html
-```
-
-### Test Requirements
-Some tests require additional dependencies:
-```bash
-# For GPU tests (optional)
-pip install pytest-cuda
-
-# Skip CUDA tests if no GPU available
-pytest -m "not cuda"
-```
-
-## Development
-
-### Code Style
-This project follows standard Python conventions:
-- PEP 8 style guidelines
-- Type hints for public APIs
-- Comprehensive docstrings
-- Physics units clearly specified in comments
-
-### Running Individual Tests During Development
-```bash
-# Test a specific file
-python -m pytest tests/test_building_components/test_vav_box.py::TestVAVBoxInitialization -v
-
-# Test a specific function
-python -m pytest tests/test_actuators/test_damper.py::TestDamperInitialization::test_default_initialization -v
-```
-
-## Project Structure
+## Subpackage Structure
 
 ```
-torch_buildings/
-├── torch_buildings/
+├── hvac/
 │   ├── __init__.py                    # Main package imports
 │   ├── building_components/
 │   │   ├── __init__.py
@@ -165,15 +97,3 @@ torch_buildings/
     ├── test_building_components/      # Building component tests
     └── test_actuators/                # Actuator tests
 ```
-
-## License
-
-[License information to be added]
-
-## Contributing
-
-[Contributing guidelines to be added]
-
-## Support
-
-For questions or issues, please [create an issue](link-to-issues) in the repository.

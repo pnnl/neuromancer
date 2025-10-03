@@ -57,11 +57,9 @@ Date: [YYYY-MM-DD]
 """
 
 import torch
-from torch.distributions import Uniform, Normal
 from .base import BuildingComponent
 from ..actuators.damper import Damper
 from ..actuators.electric_reheat_coil import ElectricReheatCoil
-from ..simulation_inputs.schedules import sinusoidal_temperature, binary_schedule, multi_level_schedule
 
 
 def calculate_reheat_load(airflow: torch.Tensor, cp_air: torch.Tensor,

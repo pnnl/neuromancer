@@ -27,7 +27,6 @@ import torch
 import math
 from typing import Union, List
 from .base import BuildingComponent
-from ..simulation_inputs.schedules import seasonal_temperature, binary_schedule
 
 
 class SolarGains(BuildingComponent):

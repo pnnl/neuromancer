@@ -37,7 +37,7 @@ where initialization artifacts must not confound performance differences.
 """
 import torch
 from typing import Dict, List, Optional
-from torch_buildings.building_components.base import BuildingComponent
+from neuromancer.hvac.building_components.base import BuildingComponent
 # from neuromancer.system import Node, System
 
 import os

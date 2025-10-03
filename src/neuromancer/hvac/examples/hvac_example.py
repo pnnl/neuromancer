@@ -16,12 +16,11 @@ SolarGains → Envelope ← VAVBox ← RTU
 """
 
 import torch
-import matplotlib.pyplot as plt
 
 # Import building components
-from torch_buildings.building_components import RTU, VAVBox, Envelope, SolarGains
-from torch_buildings.building import BuildingNode, BuildingSystem
-from torch_buildings.plot import simplot
+from neuromancer.hvac.building_components import RTU, VAVBox, Envelope, SolarGains
+from neuromancer.hvac.building import BuildingNode, BuildingSystem
+from neuromancer.hvac.plot import simplot
 
 print("Building System Simulation Example")
 print("="*60)

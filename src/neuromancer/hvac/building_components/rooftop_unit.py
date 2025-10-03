@@ -58,10 +58,9 @@ Units:
 """
 
 import torch
-from torch.distributions import Uniform, Exponential
 from .base import BuildingComponent
 from ..actuators.actuator import Actuator
-from ..simulation_inputs.schedules import seasonal_temperature, binary_schedule
+from ..simulation_inputs.schedules import seasonal_temperature
 
 # =============================================================================
 # POWER CALCULATION FUNCTIONS

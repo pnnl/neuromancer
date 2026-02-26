@@ -83,6 +83,38 @@ class BasicLogger:
     def clean_up(self):
         pass
 
+class PreciseLogger(BasicLogger):
+    """Logger with configurable floating-point precision."""
+
+    def __init__(
+        self,
+        args=None,
+        savedir: str = "test",
+        verbosity: int = 10,
+        stdout: tuple = ("dev_loss", "train_loss"),
+        precision: int = 8,
+    ):
+        super().__init__(args, savedir, verbosity, stdout)
+        self.precision = precision
+
+    def log_metrics(self, output, step=None):
+        """Log training metrics with configurable precision."""
+        if step is None:
+            step = self.step
+        else:
+            self.step = step
+        if step % self.verbosity == 0:
+            entries = [f"epoch: {step}"]
+            for k, v in output.items():
+                try:
+                    if k in self.stdout:
+                        val = v.item()
+                        entries.append(f"{k}: {val:.{self.precision}e}")
+                except (ValueError, AttributeError):
+                    pass
+            filtered = [e for e in entries if "reg_error" not in e]
+            print("\t".join(filtered))
+
 class LossLogger(BasicLogger):
     def __init__(self, args=None, savedir='test', verbosity=10,
                  stdout=('nstep_dev_loss', 'loop_dev_loss', 'best_loop_dev_loss',

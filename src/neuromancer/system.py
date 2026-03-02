@@ -22,12 +22,21 @@ import torch.nn as nn
 
 from neuromancer.constraint import Variable
 
+
 class Node(nn.Module):
     """
     Simple class to handle cyclic computational graph connections. input_keys and output_keys
     define computational node connections through intermediate dictionaries.
     """
-    def __init__(self, callable, input_keys, output_keys, name=None):
+
+    def __init__(
+        self,
+        callable,
+        input_keys,
+        output_keys,
+        name=None,
+        input_map=None,
+    ):
         """
 
         :param callable: Input: All input arguments are assumed to be torch.Tensors (batchsize, dim)
@@ -35,6 +44,16 @@ class Node(nn.Module):
         :param input_keys: (list of str or Variable) For gathering inputs from intermediary data dictionary
         :param output_keys: (list of str or Variable) For sending inputs to other nodes through intermediary data dictionary
         :param name: (str) Unique node identifier
+        :param input_map: (dict[str, dict], optional) Mapping from input key names
+        to temporal window configurations. Each value is a dict with keys:
+            past     - (non-negative int) How many steps into the past to grab.
+            future   - (non-negative int) How many steps into the future to grab.
+            pad_mode - (str, optional) Padding mode for out-of-bounds indices.
+                       Options: "nearest", "cyclic", "reflect", "constant".
+                       Default: "nearest".
+            fill     - (float, optional) Fill value for "constant" mode.
+                       Default: 0.0.
+            Keys not present in this dict will receive only the current timestep.
         """
         super().__init__()
         self.input_keys = [
@@ -44,6 +63,7 @@ class Node(nn.Module):
             var.key if isinstance(var, Variable) else var for var in output_keys
         ]
         self.callable, self.name = callable, name
+        self.input_map = input_map if input_map is not None else {}
 
     def forward(self, data):
         """
@@ -81,6 +101,7 @@ class MovingHorizon(nn.Module):
     The MovingHorizon class buffers single time step inputs for time-delay modeling from past ndelay
     steps. This class is a wrapper which does data handling for modules which take 3-d input (batch, time, dim)
     """
+
     def __init__(self, module, ndelay=1, history=None):
         """
 
@@ -92,7 +113,8 @@ class MovingHorizon(nn.Module):
         """
         super().__init__()
         self.input_keys, self.output_keys = module.input_keys, module.output_keys
-        self.history = {k: [] for k in self.input_keys} if history is None else history
+        self.history = {k: []
+                        for k in self.input_keys} if history is None else history
         self.ndelay, self.module = ndelay, module
 
     def forward(self, input):
@@ -108,7 +130,8 @@ class MovingHorizon(nn.Module):
             self.history[k].append(input[k])
             if len(self.history[k]) == 1:
                 self.history[k] *= self.ndelay
-        inputs = {k: torch.stack(self.history[k][-self.ndelay:]) for k in self.input_keys}
+        inputs = {k: torch.stack(
+            self.history[k][-self.ndelay:]) for k in self.input_keys}
         return self.module(inputs)
 
 
@@ -116,6 +139,7 @@ class System(nn.Module):
     """
     Simple implementation for arbitrary cyclic computation
     """
+
     def __init__(self, nodes, name=None, nstep_key='X', init_func=None, nsteps=None):
         """
 
@@ -137,7 +161,8 @@ class System(nn.Module):
 
     def graph(self):
         self._check_unique_names()
-        graph = pydot.Dot("problem", graph_type="digraph", splines="spline", rankdir="LR")
+        graph = pydot.Dot("problem", graph_type="digraph",
+                          splines="spline", rankdir="LR")
         graph.add_node(pydot.Node("in", label="dataset", color='skyblue',
                                   style='filled', shape="box"))
         sim_loop = pydot.Cluster('sim_loop', color='cornsilk',
@@ -155,7 +180,8 @@ class System(nn.Module):
                                          color='lavender',
                                          style='filled',
                                          shape="box"))
-        graph.add_node(pydot.Node('out', label='out', color='skyblue', style='filled', shape='box'))
+        graph.add_node(pydot.Node('out', label='out',
+                                  color='skyblue', style='filled', shape='box'))
         graph.add_subgraph(sim_loop)
 
         # build node connections in reverse order
@@ -167,7 +193,8 @@ class System(nn.Module):
                 common_keys = set(src.output_keys) & set(dst.input_keys)
                 for key in common_keys:
                     if key not in unique_common_keys:
-                        graph.add_edge(pydot.Edge(src.name, dst.name, label=key))
+                        graph.add_edge(pydot.Edge(
+                            src.name, dst.name, label=key))
                         unique_common_keys.add(key)
 
         # build I/O and node loop connections
@@ -192,7 +219,8 @@ class System(nn.Module):
                 for key in node.input_keys:
                     for src in feedback_src_nodes:
                         if key in src.output_keys and key not in previous_output_keys:
-                            graph.add_edge(pydot.Edge(src.name, node.name, label=key))
+                            graph.add_edge(pydot.Edge(
+                                src.name, node.name, label=key))
                             break
 
         # build connections to the output of the system in a reversed order
@@ -225,7 +253,7 @@ class System(nn.Module):
             plt.show()
 
     def _check_unique_names(self):
-        num_unique = len([node.name for node in self.nodes])
+        num_unique = len(set([node.name for node in self.nodes]))
         num_comp = len(self.nodes)
         assert num_unique == num_comp, \
             "All system nodes must have unique names " \
@@ -242,7 +270,8 @@ class System(nn.Module):
             if k not in data3d:
                 data3d[k] = data2d[k][:, None, :]
             else:
-                data3d[k] = torch.cat([data3d[k], data2d[k][:, None, :]], dim=1)
+                data3d[k] = torch.cat(
+                    [data3d[k], data2d[k][:, None, :]], dim=1)
         return data3d
 
     def init(self, data):
@@ -267,11 +296,13 @@ class System(nn.Module):
         :return: (dict: {str: Tensor}) data with outputs of nstep rollout of Node interactions
         """
         data = input_dict.copy()
-        nsteps = self.nsteps if self.nsteps is not None else data[self.nstep_key].shape[1]  # Infer number of rollout steps
+        # Infer number of rollout steps
+        nsteps = self.nsteps if self.nsteps is not None else data[self.nstep_key].shape[1]
         data = self.init(data)  # Set initial conditions of the system
         for i in range(nsteps):
             for node in self.nodes:
-                indata = {k: data[k][:, i] for k in node.input_keys}  # collect what the compute node needs from data nodes
+                # collect what the compute node needs from data nodes
+                indata = {k: data[k][:, i] for k in node.input_keys}
                 outdata = node(indata)  # compute
                 data = self.cat(data, outdata)  # feed the data nodes
         return data  # return recorded system measurements
@@ -290,78 +321,144 @@ class System(nn.Module):
         for node in self.nodes:
             node.unfreeze()
 
+
 class SystemPreview(System):
     """
-    System class with preview of future known variables
+    System class with preview of past and future known variables
     """
-    def __init__(self, nodes, preview_keys_map: dict={}, preview_length: dict=None, pad_mode: str='circular', pad_constant=0.0, 
-                 name=None, nstep_key='X', init_func=None, nsteps=None):
+
+    def __init__(
+        self, nodes, name=None, nstep_key='X', init_func=None,
+        nsteps=None, start_iter=0
+    ):
         """
         :param nodes: (list of Node objects)
-        :param preview_keys_map: (dict of string lists) Dict key (str) variable name to be previewed, Value: list of strings containing the names of nodes which expect the preview of this variable
-        :param preview_length: (dict of ints) Dict key (str) variable_name: Value (int) represnts the length of the future preview 
-        :param pad_mode: (str) Options - 'replicate', 'circular', 'constant' (default value is 0), 'reflect'; more info at https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.pad.html
-        :param pad_constant: (float) if pad_mode is 'constant' this specifies the value of padded samples
         :param name: (str) Unique identifier for system class.
-        :param nstep_key: (str) Key is used to infer number of rollout steps from input_data
-        :param init_func: (callable(input_dict) -> input_dict) This function is used to set initial conditions of the system
+        :param nstep_key: (str) Key is used to infer number of rollout steps 
+            from input_data
+        :param init_func: (callable(input_dict) -> input_dict) This function is
+            used to set initial conditions of the system
         :param nsteps: (int) prediction horizon (rollout steps) length
+        :param start_iter: (int) what iteration to start rolling out at?
         """
-        super().__init__(nodes=nodes, name=name)
-        self.nstep_key = nstep_key
-        self.nsteps = nsteps
-        self.nodes, self.name = nn.ModuleList(nodes), name
-        if init_func is not None:
-            self.init = init_func
-        self.input_keys = set().union(*[c.input_keys for c in nodes])
-        self.output_keys = set().union(*[c.output_keys for c in nodes])
-        self.system_graph = self.graph()
-        self.preview_keys_map = preview_keys_map
-        self.pad_mode = pad_mode
-        self.pad_constant = pad_constant if self.pad_mode == 'constant' else None
-        self.preview_length = preview_length if preview_length is not None else {k: nsteps for k in self.preview_keys_map.keys()}
-    
-   
-    def get_data_with_preview(self, input_dict, var_name, iteration):
+        super().__init__(
+            nodes=nodes,
+            name=name,
+            nstep_key=nstep_key,
+            init_func=init_func,
+            nsteps=nsteps
+        )
+
+        self.start_iter = start_iter
+
+    def get_mapped_data(self, data, iteration, input_map):
         """
         Extracts a temporal slice of data for a given variable with a preview window.
 
-        This function returns the data segment starting from the current timestep
-        (`iteration`) and extends for `preview_length` timesteps into the future.
-        If there are not enough timesteps available in the input tensor (e.g., near
-        the end of the sequence), the data is padded (with a constant, relicate, 
-        or circular modes, depending on `self.pad_mode` and `self.pad_constant`).
+        Gathers timesteps from [iteration - past, iteration + future] (inclusive)
+        and concatenates them along the feature dimension.
 
-        :param input_dict: (dict: {str: Tensor}) Dictionary of tensors with shape (batch, time, dim).
-        :param var_name: (str) Key identifying the variable in `input_dict`.
-        :param iteration: (int) Current timestep of the rollout.
-        :return: (Tensor) Data slice of shape (batch, 1+preview_length, dim).
-                          Includes the current timestep and future preview steps.
+        :param data: (Tensor) Shape (batch, time, dim).
+        :param iteration: (int) Current timestep (0-indexed).
+        :param input_map: (dict[str, dict], optional) Mapping from input key names
+        to temporal window configurations. Each value is a dict with keys:
+            past     - (non-negative int) How many steps into the past to grab.
+            future   - (non-negative int) How many steps into the future to grab.
+            pad_mode - (str, optional) Padding mode for out-of-bounds indices.
+                       Options: "nearest", "cyclic", "reflect", "constant".
+                       Default: "nearest".
+            fill     - (float, optional) Fill value for "constant" mode.
+                       Default: 0.0.
+        Keys not present in this dict will receive only the current timestep.
+        :return: (Tensor) Shape (batch, dim * (past + 1 + future)).
         """
-        data = input_dict[var_name][:,iteration:iteration+1+self.preview_length[var_name],:] # slice input data with future window
-        if data.shape[1] < self.preview_length[var_name]+1: # if data length insufficient
-            data = nn.functional.pad(input_dict[var_name], (0, 0, 0, self.preview_length[var_name]), mode=self.pad_mode, # data padding
-                                      value=self.pad_constant)[:,iteration:iteration+1+self.preview_length[var_name],:] # slice data
-        return data
-    
-   
+
+        if not (('past' in input_map) and ('future' in input_map)):
+            raise ValueError(
+                "Mapping must be dict w/ at least 'past' and 'future' keys")
+
+        past, future = input_map['past'], input_map['future']
+
+        # Get padding mode, default to nearest if none is specified
+        pad_mode = input_map.get('pad_mode', 'nearest').lower()
+
+        batch, T, dim = data.shape
+
+        if (past < 0) or (future < 0):
+            raise ValueError("(past,future) in mapping must be non-negative")
+
+        # -- build every index we need in one shot --
+        indices = torch.arange(
+            iteration - past, iteration + future + 1, device=data.device
+        )
+
+        # -- remap out-of-bounds indices (all vectorised) --
+        if pad_mode == "nearest":
+            indices = indices.clamp(0, T - 1)
+
+        elif (pad_mode == "cyclic") or (pad_mode == "circular"):
+            indices = indices % T
+
+        elif pad_mode == "reflect":
+            if T == 1:
+                indices = torch.zeros_like(indices)
+            else:
+                period = 2 * (T - 1)
+                indices = indices % period
+                indices = torch.where(indices >= T, period - indices, indices)
+
+        elif pad_mode == "constant":
+            # get fill value if constant is specified, default to zero
+            fill = input_map.get("fill", 0)
+            oob = (indices < 0) | (indices >= T)
+            indices = indices.clamp(0, T - 1)        # make safe for gather
+
+        else:
+            raise ValueError(
+                f"Unknown padding mode '{pad_mode}'. "
+                "Supported: 'nearest', 'cyclic', 'reflect', 'constant'."
+            )
+
+        # -- single advanced-index gather: (batch, window, dim) --
+        gathered = data[:, indices, :]
+
+        # -- mask after the fact for constant padding --
+        if pad_mode == "constant":
+            gathered = gathered.masked_fill(oob[None, :, None], fill)
+
+        # -- flatten window into feature dim --
+        return gathered.reshape(batch, -1)
+
     def forward(self, input_dict):
         """
-        :param input_dict: (dict: {str: Tensor}) Tensor shapes in dictionary are asssumed to be (batch, time, dim)
-                                           If an init function should be written to assure that any 2-d or 1-d tensors
-                                           have 3 dims.
+        :param input_dict: (dict: {str: Tensor}) 
+            Tensor shapes in dictionary are asssumed to be (batch, time, dim).
+            If an init function should be written to assure that any 2-d or 1-d
+            tensors have 3 dims.
         :return: (dict: {str: Tensor}) data with outputs of nstep rollout of Node interactions
         """
         data = input_dict.copy()
-        nsteps = self.nsteps if self.nsteps is not None else data[self.nstep_key].shape[1]  # Infer number of rollout steps
+
+        # Infer number of rollout steps
+        nsteps = (
+            self.nsteps if self.nsteps is not None
+            else data[self.nstep_key].shape[1] - self.start_iter
+        )
+
         data = self.init(data)  # Set initial conditions of the system
-        for i in range(nsteps):
+        for i in range(self.start_iter, self.start_iter + nsteps):
             for node in self.nodes:
                 indata = {
-                    k: (self.get_data_with_preview(input_dict=data, var_name=k, iteration=i).reshape(data[k].size(0),-1) # Fetch data with future sequences; flatten 3d (batch, time, dim) to 2d (batch, time), e.g., [batch, [r1_{t=0}, r2_{t=0}, r1_{t=1}, r2_{t=1},...]]
-                    if (k in list(self.preview_keys_map.keys()) and node.name in self.preview_keys_map[k]) # Preview is performed if True
-                    else data[k][:, i]) for k in node.input_keys # Otherwise fetch the current timestep, e.g., [batch, [r1_{t=current_timestep}, r2_{t=current_timestep}...]]
-                }
+                    k: (
+                        data[k][:, i] if k not in node.input_map
+                        else self.get_mapped_data(
+                            data=data[k],
+                            iteration=i,
+                            input_map=node.input_map[k]
+                        )
+                    ) for k in node.input_keys
+                }  # collect what the compute node needs from data nodes
+
                 outdata = node(indata)  # compute
                 data = self.cat(data, outdata)  # feed the data nodes
         return data  # return recorded system measurements

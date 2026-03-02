@@ -46,6 +46,7 @@ if __name__ == "__main__":
     # # #  Dataset 
     """
     nsteps = 30  # prediction horizon
+    preview_horizon = 10  # how many datasteps ahead to show model?
     n_samples = 2000    # number of sampled scenarios
 
     #  sampled references for training the policy
@@ -66,44 +67,65 @@ if __name__ == "__main__":
 
     # torch dataloaders
     batch_size = 200
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size,
-                                               collate_fn=train_data.collate_fn,
-                                               shuffle=False)
-    dev_loader = torch.utils.data.DataLoader(dev_data, batch_size=batch_size,
-                                             collate_fn=dev_data.collate_fn,
-                                             shuffle=False)
+    train_loader = torch.utils.data.DataLoader(
+        train_data, batch_size=batch_size,
+        collate_fn=train_data.collate_fn, shuffle=False
+    )
+    dev_loader = torch.utils.data.DataLoader(
+        dev_data, batch_size=batch_size,
+        collate_fn=dev_data.collate_fn, shuffle=False
+    )
 
     """
     # # #  System model and Control policy in Neuromancer
     """
     # white-box ODE model with no-plant model mismatch
     two_tank_ode = ode.TwoTankParam()
-    two_tank_ode.c1 = nn.Parameter(torch.tensor(gt_model.c1), requires_grad=False)
-    two_tank_ode.c2 = nn.Parameter(torch.tensor(gt_model.c2), requires_grad=False)
+
+    two_tank_ode.c1 = nn.Parameter(
+        torch.tensor(gt_model.c1), 
+        requires_grad=False
+    )
+
+    two_tank_ode.c2 = nn.Parameter(
+        torch.tensor(gt_model.c2), 
+        requires_grad=False
+    )
 
     # integrate continuous time ODE
-    integrator = integrators.RK4(two_tank_ode, h=torch.tensor(ts))  # using 4th order runge kutta integrator
+    # using 4th order runge kutta integrator
+    integrator = integrators.RK4(two_tank_ode, h=torch.tensor(ts))
+
     # symbolic system model
     model = Node(integrator, ['x', 'u'], ['x'], name='model')
 
     # neural net control policy
-    net = blocks.MLP_bounds(insize=nx + nref, outsize=nu, hsizes=[32, 32],
-                        nonlin=activations['gelu'], min=umin, max=umax)
+    net = blocks.MLP_bounds(
+        insize=nx + nref, outsize=nu, hsizes=[32, 32],
+        nonlin=activations['gelu'], min=umin, max=umax,
+    )
     policy = Node(net, ['x', 'r'], ['u'], name='policy')
 
     # neural net control policy with reference preview
-    net_preview = blocks.MLP_bounds(insize=nx + (nref*(nsteps+1)), outsize=nu, hsizes=[64, 32],
-                        nonlin=activations['gelu'], min=umin, max=umax)
-    policy_with_preview = Node(net_preview, ['x', 'r'], ['u'], name='policy')
+    net_preview = blocks.MLP_bounds(
+        insize=nx + nref*(preview_horizon+1), outsize=nu, hsizes=[64, 32],
+        nonlin=activations['gelu'], min=umin, max=umax,
+    )
+    policy_with_preview = Node(
+        net_preview, ['x', 'r'], ['u'], name='policy',
+        input_map={
+            "r": {"past": 0, "future": preview_horizon, "pad_mode": "nearest"},
+        }
+    )
 
     # closed-loop system model
     cl_system = System([policy, model], nsteps=nsteps,
                        name='cl_system')
     # cl_system.show()
-    # closd-loop system with preview
-    cl_system_preview = SystemPreview([policy_with_preview, model], name='cl_system_preview',
-                    nsteps=nsteps, preview_keys_map={'r': ['policy']}, # reference preview for neural control policy node
-                    preview_length={'r': nsteps}, pad_mode='replicate') # replicate last sample in the sequence
+    # closed-loop system with preview
+    cl_system_preview = SystemPreview(
+        [policy_with_preview, model], name='cl_system_preview', nsteps=nsteps
+    )
 
     """
     # # #  Differentiable Predictive Control objectives and constraints

@@ -200,7 +200,8 @@ Neuromancer enables you to learn control policies for a full spectrum of differe
 Neuromancer is up-to-date with state-of-the-art methods. Here we showcase the powerful Kolgomorov-Arnold networks [More information on Kolgomorov-Arnold Networks](https://github.com/pnnl/neuromancer/tree/develop/examples/KANs)
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/feature/fbkans/examples/KANs/p1_fbkan_vs_kan_noise_data_1d.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> A comparison of KANs and FBKANs in learning a 1D multiscale function with noise
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/feature/fbkans/examples/KANs/p2_fbkan_vs_kan_noise_data_2d.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> A comparison of KANs and FBKANs in learning a 2D multiscale function with noise
-  
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/sindy-kans/examples/KANs/p3_sindy_kan_symbolic_regression.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> SINDy-KAN symbolic regression
+
 Neuromancer contains an implementation of function encoders, an algorithm for learning basis functions as neural networks. See [Function Encoders: A Principled Approach to Transfer Learning in Hilbert Spaces](https://arxiv.org/abs/2501.18373).
 + <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/function_encoder/Part_1_Intro_to_Function_Encoders.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> An Introduction to Function Encoders
 

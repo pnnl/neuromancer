@@ -288,18 +288,18 @@ $\theta = \{\theta_1, \theta_2\}$ in Use Case 3.
 
 ## Architecture
 
-The module lives in a single file:
-
 ```
-neuromancer/dynamics/
-├── continuous_ut.py     # All classes, utilities, and the ContinuousUT API
-└── CONTINUOUS_UT.md     # This document
+src/neuromancer/dynamics/
+└── continuous_ut.py        # All classes, utilities, and the ContinuousUT API
 
-examples/continuous_ut/
-└── continuous_ut_example.py   # Van der Pol demo (all four use cases)
+examples/SDEs/
+└── continuous_ut_example.py  # Van der Pol demo (all four use cases)
+
+test/
+└── test_continuous_ut.py     # pytest unit tests
 ```
 
-### Block subclasses (`blocks.py`)
+### Block subclasses
 
 All blocks extend NeuroMANCER's `Block` base class:
 
@@ -356,7 +356,6 @@ model.plot(result, title="IC Uncertainty")
 ### Use Case 2 — Learn diffusion from data
 
 ```python
-# Generate moment-transition data from MC ensembles
 train_loader, dev_loader, dev_data, (xn, xn_next) = generate_moment_data(
     drift_fn=my_drift_fn, sigma=0.1, nx=2,
     base_x0=np.array([2.0, 0.0]),
@@ -391,7 +390,7 @@ model.fit(train_loader, dev_loader, dev_data, sigma_from_data=(xn, xn_next))
 ```
 
 A complete working example (Van der Pol oscillator, all four workflows) is in
-[`examples/continuous_ut/continuous_ut_example.py`](../../examples/continuous_ut/continuous_ut_example.py).
+[`examples/SDEs/continuous_ut_example.py`](../../examples/SDEs/continuous_ut_example.py).
 
 ---
 
@@ -409,6 +408,10 @@ A complete working example (Van der Pol oscillator, all four workflows) is in
 
 1. S. J. Julier and J. K. Uhlmann, "Unscented filtering and nonlinear
    estimation," *Proceedings of the IEEE*, 2004.
-2. M. Raissi, P. Perdikaris, and G. E. Karniadakis, "Physics-informed neural
+2. J. O'Leary, J. A. Paulson, and A. Mesbah, "Stochastic physics-informed
+   neural networks (SPINN): A moment-matching framework for learning hidden
+   physics within stochastic differential equations," *arXiv preprint
+   arXiv:2109.01621*, 2021.
+3. M. Raissi, P. Perdikaris, and G. E. Karniadakis, "Physics-informed neural
    networks," *Journal of Computational Physics*, 2019.
-3. NeuroMANCER documentation: https://github.com/pnnl/neuromancer
+4. NeuroMANCER documentation: https://github.com/pnnl/neuromancer

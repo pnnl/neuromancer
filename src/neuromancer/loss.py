@@ -68,7 +68,7 @@ class AggregateLoss(nn.Module, ABC):
             output = objective(input_dict)
             if isinstance(output, torch.Tensor):
                 output = {objective.output_keys[0]: output}
-            output_dict = {**output_dict, **output}
+            output_dict.update(output)
             loss += output_dict[objective.output_keys[0]]
         output_dict['objective_loss'] = loss
         return output_dict
@@ -85,7 +85,7 @@ class AggregateLoss(nn.Module, ABC):
         for c in self.constraints:
             # get loss, values, and violations of constraint via its forward pass
             output = c(input_dict)
-            output_dict = {**output_dict, **output}
+            output_dict.update(output)
             loss += output[c.output_keys[0]]
             cvalue = output[c.output_keys[1]]
             cviolation = output[c.output_keys[2]]
@@ -171,14 +171,16 @@ class PenaltyLoss(AggregateLoss):
         :param input_dict: (dict {str: torch.Tensor}) Values from forward pass calculations
         :return: (dict {str: torch.Tensor}) input_dict appended with calculated loss values
         """
-        objectives_dict = self.calculate_objectives(input_dict)
-        input_dict = {**input_dict, **objectives_dict}
+        # copy once, then accumulate in place, rather than rebuilding the whole dict per term
+        output_dict = dict(input_dict)
+        objectives_dict = self.calculate_objectives(output_dict)
+        output_dict.update(objectives_dict)
         fx = objectives_dict['objective_loss']
-        penalties_dict = self.calculate_constraints(input_dict)
-        input_dict = {**input_dict, **penalties_dict}
+        penalties_dict = self.calculate_constraints(output_dict)
+        output_dict.update(penalties_dict)
         penalties = penalties_dict['penalty_loss']
-        input_dict['loss'] = fx + penalties
-        return input_dict
+        output_dict['loss'] = fx + penalties
+        return output_dict
 
 
 class BarrierLoss(PenaltyLoss):

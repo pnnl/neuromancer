@@ -351,7 +351,7 @@ class Variable(nn.Module):
         if isinstance(value, torch.Tensor) and value.requires_grad:
             value = nn.Parameter(value)
         self._value = value
-        self._g, self.ordered_nodes = self.make_graph(input_variables)
+        self._g, self.ordered_nodes, self.input_nodes = self.make_graph(input_variables)
 
         self._is_input = key is not None
         self.key = key
@@ -368,7 +368,8 @@ class Variable(nn.Module):
         topologically sorted for swift evaluation of the directed acyclic graph.
 
         :param input_variables: List of arbitrary inputs for self._func
-        :return: A topologically sorted list of Variable objects
+        :return: The graph, a topologically sorted list of Variable objects, and the
+                 arguments of every node in evaluation order
         """
         g = nx.DiGraph()
         g.add_node(self)
@@ -398,7 +399,10 @@ class Variable(nn.Module):
         g.add_edges_from(edges)
         # self Can't be part of ordered nodes since this will make a loop when retrieving parameters
         ordered_nodes = nn.ModuleList(nx.topological_sort(g))[:-1]
-        return g, ordered_nodes
+        # The graph is fixed once built, so resolve each node's arguments now rather than
+        # asking networkx for its in-edges on every forward pass.
+        input_nodes = {n: [src for src, _ in g.in_edges(n)] for n in g.nodes}
+        return g, ordered_nodes, input_nodes
    
 
     
@@ -554,11 +558,11 @@ class Variable(nn.Module):
     def get_value(self, n, datadict):
         if not n._is_input:
             if n._func is not None:
-                args = [src._value for src, _ in self._g.in_edges(n)]
+                args = [src._value for src in self.input_nodes[n]]
                 n._value = n._func(*args)
         else:
             n._value = datadict[n._key]
-        datadict[n.key] = n._value
+        datadict[n._key] = n._value
 
     @dispatch
     def unpack(self, nret: int):

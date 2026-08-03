@@ -202,12 +202,14 @@ class Problem(nn.Module):
         return {f'{data["name"]}_{k}': v for k, v in output_dict.items()}
 
     def step(self, input_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        # copy once, then accumulate in place, rather than rebuilding the whole dict per node
+        data = dict(input_dict)
         for node in self.nodes:
-            output_dict = node(input_dict)
+            output_dict = node(data)
             if isinstance(output_dict, torch.Tensor):
                 output_dict = {node.name: output_dict}
-            input_dict = {**input_dict, **output_dict}
-        return input_dict
+            data.update(output_dict)
+        return data
 
     def predict(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         with torch.no_grad():

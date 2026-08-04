@@ -225,7 +225,7 @@ class System(nn.Module):
             plt.show()
 
     def _check_unique_names(self):
-        num_unique = len([node.name for node in self.nodes])
+        num_unique = len({node.name for node in self.nodes})
         num_comp = len(self.nodes)
         assert num_unique == num_comp, \
             "All system nodes must have unique names " \

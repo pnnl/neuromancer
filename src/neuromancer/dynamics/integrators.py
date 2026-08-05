@@ -13,6 +13,21 @@ from abc import ABC, abstractmethod
 
 class Integrator(nn.Module, ABC):
 
+    @classmethod
+    def describe(cls):
+        """Constructor metadata for tools that build typed forms: one row per
+        argument with kind, default, bounds, and documentation. Inherited by
+        every integrator."""
+        return {
+            "description": (cls.__doc__ or "Numerical integrator over a state block.").strip(),
+            "arguments": [
+                {"name": "block", "kind": "module", "required": True,
+                 "doc": "The dynamics to integrate, an nn.Module computing dx/dt."},
+                {"name": "h", "kind": "float", "default": 1.0, "min": 0.0,
+                 "doc": "Integration step."},
+            ],
+        }
+
     def __init__(self, block, interp_u=None, h=1.0):
         """
         Integration block.

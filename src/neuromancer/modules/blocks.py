@@ -128,6 +128,30 @@ class MLP(Block):
     Multi-Layer Perceptron consistent with blocks interface
     """
 
+    @classmethod
+    def describe(cls):
+        """Constructor metadata for tools that build typed forms: one row per
+        argument with kind, default, bounds, and documentation."""
+        return {
+            "description": "Multi-layer perceptron.",
+            "arguments": [
+                {"name": "insize", "kind": "int", "required": True, "min": 1,
+                 "doc": "Input feature count."},
+                {"name": "outsize", "kind": "int", "required": True, "min": 1,
+                 "doc": "Output feature count."},
+                {"name": "bias", "kind": "bool", "default": True,
+                 "doc": "Bias on the linear maps."},
+                {"name": "linear_map", "kind": "linear_map", "default": "linear",
+                 "doc": "Structured linear map, named from slim.maps."},
+                {"name": "nonlin", "kind": "activation", "default": "softexp",
+                 "doc": "Activation class, named from activations."},
+                {"name": "hsizes", "kind": "list[int]", "default": [64],
+                 "doc": "Hidden layer widths."},
+                {"name": "linargs", "kind": "dict", "default": {},
+                 "doc": "Extra arguments for the linear map."},
+            ],
+        }
+
     def __init__(
         self,
         insize,
@@ -558,6 +582,21 @@ class MLP_bounds(MLP):
     """
 
     bound_methods = {"sigmoid_scale": bounds_scaling, "relu_clamp": bounds_clamp}
+
+    @classmethod
+    def describe(cls):
+        """Constructor metadata for tools that build typed forms; extends
+        MLP.describe with the output bounds."""
+        spec = MLP.describe()
+        spec["description"] = "Multi-layer perceptron with bounded outputs."
+        spec["arguments"] += [
+            {"name": "min", "kind": "float", "default": 0.0, "doc": "Lower output bound."},
+            {"name": "max", "kind": "float", "default": 1.0, "doc": "Upper output bound."},
+            {"name": "method", "kind": "str", "default": "sigmoid_scale",
+             "choices": sorted(cls.bound_methods),
+             "doc": "How the bounds are enforced."},
+        ]
+        return spec
 
     def __init__(
         self,

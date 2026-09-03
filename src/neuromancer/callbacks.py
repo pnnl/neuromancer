@@ -7,7 +7,6 @@ from __future__ import annotations
 from copy import deepcopy
 from pathlib import Path
 import matplotlib.pyplot as plt
-from IPython.display import clear_output
 
 
 class Callback:
@@ -80,6 +79,7 @@ class LossHistoryCallback(Callback):
             l.detach().cpu().numpy() for l in trainer.loss_history["train"]
         ]
 
+        from IPython.display import clear_output
         clear_output(wait=True)
         plt.semilogy(train_loss_history, label="Train loss")
 

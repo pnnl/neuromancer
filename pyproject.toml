@@ -51,7 +51,7 @@ dependencies = [
     "cvxpylayers",
     "casadi",
     "torchsde",
-    "neuraloperator",
+    "neuraloperator<2",
     "deepxde",
     "torch-harmonics",
 ]

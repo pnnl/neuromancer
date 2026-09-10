@@ -46,6 +46,7 @@ if __name__ == "__main__":
     # # #  Dataset 
     """
     nsteps = 30  # prediction horizon
+    preview_horizon = 10  # how many datasteps ahead to show model?
     n_samples = 2000    # number of sampled scenarios
 
     #  sampled references for training the policy
@@ -92,18 +93,23 @@ if __name__ == "__main__":
     policy = Node(net, ['x', 'r'], ['u'], name='policy')
 
     # neural net control policy with reference preview
-    net_preview = blocks.MLP_bounds(insize=nx + (nref*(nsteps+1)), outsize=nu, hsizes=[64, 32],
+    net_preview = blocks.MLP_bounds(insize=nx + (nref*(preview_horizon+1)), outsize=nu, hsizes=[64, 32],
                         nonlin=activations['gelu'], min=umin, max=umax)
-    policy_with_preview = Node(net_preview, ['x', 'r'], ['u'], name='policy')
+    policy_with_preview = Node(
+        net_preview, ['x', 'r'], ['u'], name='policy',
+        input_map={
+            "r": {"past": 0, "future": preview_horizon, "pad_mode": "nearest"},
+        }
+    )
 
     # closed-loop system model
     cl_system = System([policy, model], nsteps=nsteps,
                        name='cl_system')
     # cl_system.show()
-    # closd-loop system with preview
-    cl_system_preview = SystemPreview([policy_with_preview, model], name='cl_system_preview',
-                    nsteps=nsteps, preview_keys_map={'r': ['policy']}, # reference preview for neural control policy node
-                    preview_length={'r': nsteps}, pad_mode='replicate') # replicate last sample in the sequence
+    # closed-loop system with preview
+    cl_system_preview = SystemPreview(
+        [policy_with_preview, model], name='cl_system_preview', nsteps=nsteps
+    )
 
     """
     # # #  Differentiable Predictive Control objectives and constraints

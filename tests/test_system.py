@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import pydot
 import itertools
-from neuromancer.system import Node, System, MovingHorizon
+from neuromancer.system import Node, System, MovingHorizon, SystemPreview
 from collections import defaultdict
 
 
@@ -563,5 +563,207 @@ def test_graph_generation_invalid_node_lists(get_nodes_and_edges):
                     edges[src].append(dest)
 
                 assert edges != expected_edges
+
+
+"""
+############################## TESTING FUNCTIONS FOR NODE INPUT MAP ####################################
+"""
+class TestNodeInputMap:
+    def setup_method(self):
+        self.f = lambda x1, x2: x1 + x2
+        self.sample_data = {
+            'x1': torch.tensor([[1.0, 2.0]]),
+            'x2': torch.tensor([[3.0, 4.0]])
+        }
+
+    def test_default_input_map_is_empty_dict(self):
+        node = Node(self.f, ['x1', 'x2'], ['y1'])
+        assert node.input_map == {}
+
+    def test_input_map_stored_on_node(self):
+        imap = {'x1': {'past': 2, 'future': 1, 'pad_mode': 'nearest'}}
+        node = Node(self.f, ['x1', 'x2'], ['y1'], input_map=imap)
+        assert node.input_map == imap
+
+    def test_input_map_partial_coverage(self):
+        # only x1 is mapped; x2 will receive only the current timestep
+        imap = {'x1': {'past': 1, 'future': 0}}
+        node = Node(self.f, ['x1', 'x2'], ['y1'], input_map=imap)
+        assert 'x1' in node.input_map
+        assert 'x2' not in node.input_map
+
+    def test_input_map_does_not_affect_node_forward(self):
+        # Node.forward slices by input_keys only; input_map is consumed by SystemPreview
+        # So Node.forward should be unaffected by input_map
+        imap = {'x1': {'past': 2, 'future': 1}}
+        node_with_map = Node(self.f, ['x1', 'x2'], ['y1'], input_map=imap)
+        node_no_map = Node(self.f, ['x1', 'x2'], ['y1'])
+        result_with = node_with_map(self.sample_data)
+        result_no = node_no_map(self.sample_data)
+        assert torch.equal(result_with['y1'], result_no['y1'])
+
+
+"""
+############################## TESTING FUNCTIONS FOR SYSTEMPREVIEW CLASS ####################################
+"""
+class TestSystemPreviewGetMappedData:
+    def setup_method(self):
+        torch.manual_seed(0)
+        self.batch, self.T, self.dim = 2, 5, 3
+        self.data = torch.rand(self.batch, self.T, self.dim)
+        # minimal SystemPreview just to access get_mapped_data
+        self.system = SystemPreview(nodes=[Node(lambda x: x, ['x1'], ['y1'])])
+
+    def _get(self, iteration, input_map):
+        return self.system.get_mapped_data(self.data, iteration, input_map)
+
+    def test_output_shape_matches_window(self):
+        # Get Mapped Data should return correct dimension
+        # of (batch, dimension * (past_steps + present (1) + future_steps))
+        past, future = 1, 2
+        result = self._get(2, {'past': past, 'future': future})
+        assert result.shape == (self.batch, self.dim * (past + 1 + future))
+
+    def test_correct_values_no_boundary(self):
+        # Flattened data vector is correctly constructed with no wrapping
+        result = self._get(2, {'past': 1, 'future': 1})
+        expected = torch.cat([self.data[:, 1], self.data[:, 2], self.data[:, 3]], dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_zero_window_returns_single_timestep(self):
+        # This should perform no slicing or repackaging
+        result = self._get(2, {'past': 0, 'future': 0})
+        assert torch.allclose(result, self.data[:, 2])
+
+    def test_nearest_is_default_pad_mode(self):
+        result_default = self._get(0, {'past': 3, 'future': 0})
+        result_nearest = self._get(0, {'past': 3, 'future': 0, 'pad_mode': 'nearest'})
+        assert torch.allclose(result_default, result_nearest)
+
+    def test_nearest_padding_clamps_left_boundary(self):
+        # indices [-2, -1, 0] all clamp to 0 -> first frame repeated three times
+        result = self._get(0, {'past': 2, 'future': 0, 'pad_mode': 'nearest'})
+        expected = torch.cat([self.data[:, 0]] * 3, dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_nearest_padding_clamps_right_boundary(self):
+        # indices [4, 5, 6] all clamp to 4 -> last frame repeated three times
+        result = self._get(4, {'past': 0, 'future': 2, 'pad_mode': 'nearest'})
+        expected = torch.cat([self.data[:, 4]] * 3, dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_cyclic_padding(self):
+        # iteration=0, past=2: indices [-2, -1, 0] -> %5 = [3, 4, 0]
+        result = self._get(0, {'past': 2, 'future': 0, 'pad_mode': 'cyclic'})
+        expected = torch.cat([self.data[:, 3], self.data[:, 4], self.data[:, 0]], dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_reflect_padding(self):
+        # iteration=0, past=2: indices [-2, -1, 0] -> reflected over [0, T-1] -> [2, 1, 0]
+        result = self._get(0, {'past': 2, 'future': 0, 'pad_mode': 'reflect'})
+        expected = torch.cat([self.data[:, 2], self.data[:, 1], self.data[:, 0]], dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_constant_padding_default_fill_is_zero(self):
+        # iteration=0, past=2: indices [-2, -1] are out-of-bounds, filled with 0.0
+        result = self._get(0, {'past': 2, 'future': 0, 'pad_mode': 'constant'})
+        expected = torch.cat([
+            torch.zeros(self.batch, self.dim),
+            torch.zeros(self.batch, self.dim),
+            self.data[:, 0]
+        ], dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_constant_padding_custom_fill(self):
+        fill = -99.0
+        result = self._get(0, {'past': 2, 'future': 0, 'pad_mode': 'constant', 'fill': fill})
+        expected = torch.cat([
+            torch.full((self.batch, self.dim), fill),
+            torch.full((self.batch, self.dim), fill),
+            self.data[:, 0]
+        ], dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_missing_past_key_raises_value_error(self):
+        with pytest.raises(ValueError):
+            self._get(2, {'future': 1})
+
+    def test_missing_future_key_raises_value_error(self):
+        with pytest.raises(ValueError):
+            self._get(2, {'past': 1})
+
+    def test_negative_past_raises_value_error(self):
+        with pytest.raises(ValueError):
+            self._get(2, {'past': -1, 'future': 0})
+
+    def test_negative_future_raises_value_error(self):
+        with pytest.raises(ValueError):
+            self._get(2, {'past': 0, 'future': -1})
+
+    def test_unknown_pad_mode_raises_value_error(self):
+        with pytest.raises(ValueError):
+            self._get(2, {'past': 1, 'future': 1, 'pad_mode': 'blah'})
+
+
+def test_system_preview_forward_no_input_map_matches_system():
+    """Without input_map and start_iter=0, SystemPreview produces identical output to System."""
+    def make_nodes():
+        return [
+            Node(lambda x: x * 2, ['x1'], ['y1'], name='node_1'),
+            Node(lambda y: y + 1, ['y1'], ['y2'], name='node_2'),
+        ]
+
+    nstep, batch = 3, 2
+    data = {'x1': torch.rand(batch, nstep, 1)}
+
+    result_system = System(nodes=make_nodes(), nsteps=nstep)(data)
+    result_preview = SystemPreview(nodes=make_nodes(), nsteps=nstep)(data)
+
+    assert dict_equals(result_system, result_preview)
+
+
+def test_system_preview_forward_with_input_map():
+    """A node with input_map receives the temporally expanded input, not just the current step."""
+    past, future, dim = 1, 1, 2
+    window = past + 1 + future  # = 3
+    nsteps, batch = 4, 2
+
+    # nn.Linear will raise a RuntimeError on size mismatch if the wrong input is passed
+    net = nn.Linear(dim * window, dim)
+    input_map = {'x1': {'past': past, 'future': future}}
+    node = Node(net, ['x1'], ['y1'], input_map=input_map)
+    system = SystemPreview(nodes=[node], nsteps=nsteps)
+    data = {'x1': torch.rand(batch, nsteps, dim)}
+    result = system(data)
+
+    assert 'y1' in result
+    assert result['y1'].shape == (batch, nsteps, dim)
+
+
+def test_system_preview_start_iter():
+    """Rollout begins at start_iter and produces exactly nsteps outputs."""
+    start, nsteps, batch = 2, 3, 2
+    T = start + nsteps
+    node = Node(lambda x: x * 2, ['x1'], ['y1'])
+    system = SystemPreview(nodes=[node], nsteps=nsteps, start_iter=start)
+    data = {'x1': torch.rand(batch, T, 1)}
+    result = system(data)
+
+    assert 'y1' in result
+    assert result['y1'].shape == (batch, nsteps, 1)
+    # y1 at step t should equal 2 * x1[start + t]
+    for t in range(nsteps):
+        assert torch.allclose(result['y1'][:, t], 2.0 * data['x1'][:, start + t])
+
+
+def test_system_preview_nsteps_inferred_with_start_iter():
+    """When nsteps is not given, it is inferred as T - start_iter from the nstep_key tensor."""
+    start, T, batch = 2, 6, 2
+    node = Node(lambda x: x, ['x1'], ['y1'])
+    system = SystemPreview(nodes=[node], start_iter=start, nstep_key='x1')
+    data = {'x1': torch.rand(batch, T, 1)}
+    result = system(data)
+
+    assert result['y1'].shape == (batch, T - start, 1)
 
 

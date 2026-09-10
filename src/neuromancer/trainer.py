@@ -310,10 +310,13 @@ class Trainer:
         self.model.load_state_dict(self.best_model)
 
         if self.logger is not None:
-            self.logger.log_artifacts({
-                "best_model_state_dict.pth": self.best_model,
-                "best_model.pth": self.model,
-            })
+            # check if logger has save_weights
+            # flag before saving, default is to save
+            if getattr(self.logger, 'save_weights', True):
+                self.logger.log_artifacts({
+                    "best_model_state_dict.pth": self.best_model,
+                    "best_model.pth": self.model,
+                })
         return self.best_model
 
     def test(self, best_model):

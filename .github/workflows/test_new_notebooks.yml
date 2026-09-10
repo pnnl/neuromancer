@@ -5,6 +5,24 @@ on:
     branches:
       - develop
 
+env:
+  NOTEBOOK_CI_SKIP_REASON: >-
+    These explicit CI exceptions either require a large external data source,
+    network data download, or GPU backend; are scratch notebooks scheduled to be
+    deleted in a near-future release; require a dedicated dependency stack; are
+    too long-running for the current CI budget; or are covered by current issue
+    tracking.
+  NOTEBOOK_CI_SKIP_NOTEBOOKS: |
+    examples/neural_operators/Part_2_DeepONet_antiderivative_unaligned.ipynb
+    examples/neural_operators/Part_8_TIDON_HEAT.ipynb
+    examples/control/Part_7_TIDON_DPC_HEAT.ipynb
+    examples/ODEs/scratch/*.ipynb
+    examples/lightning_integration_examples/*.ipynb
+    examples/lightning_integration_examples/other_examples/*.ipynb
+    examples/parametric_programming/Part_5_cvxpy_layers.ipynb
+    examples/psl/systems.ipynb
+    examples/SDEs/sde_walkthrough.ipynb
+
 jobs:
   notebooks:
     runs-on: ubuntu-latest
@@ -25,7 +43,7 @@ jobs:
           : > "$list_file"
 
           git diff --name-only --diff-filter=A -z \
-            "${{ github.event.pull_request.base.sha }}" HEAD -- "*.ipynb" \
+            "${{ github.event.pull_request.base.sha }}" HEAD -- "examples/**/*.ipynb" \
             > "$list_file"
 
           mapfile -d '' -t added_notebooks < "$list_file"
@@ -34,7 +52,7 @@ jobs:
           echo "count=${#added_notebooks[@]}" >> "$GITHUB_OUTPUT"
 
           if [ "${#added_notebooks[@]}" -eq 0 ]; then
-            echo "No new notebooks were added in this pull request."
+            echo "No new notebooks were added under examples/ in this pull request."
             echo "::group::Notebook summary"
             echo "Selected: 0"
             echo "Passed: 0"
@@ -57,8 +75,11 @@ jobs:
         if: steps.detect.outputs.count != '0'
         run: |
           set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends graphviz
+          dot -V
           python -m pip install --upgrade pip
-          python -m pip install ".[examples]" nbconvert jupyter ipykernel
+          python -m pip install -e ".[examples]" nbconvert jupyter ipykernel
 
       - name: Diagnostics
         if: steps.detect.outputs.count != '0'
@@ -66,9 +87,18 @@ jobs:
           set -euo pipefail
           echo "::group::Environment"
           pwd
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "PR head=${{ github.event.pull_request.head.sha }}"
+            echo "PR base=${{ github.event.pull_request.base.sha }}"
+          fi
           python --version
           python -m pip --version
           python -m pip list
+          python - <<'PY'
+          import neuromancer
+
+          print("neuromancer:", neuromancer.__file__)
+          PY
           echo "::endgroup::"
 
       - name: Register Jupyter kernel
@@ -80,6 +110,18 @@ jobs:
 
       - name: Run added notebooks
         if: steps.detect.outputs.count != '0'
+        env:
+          NOTEBOOK_LOG_DIR: ${{ runner.temp }}/new-notebook-logs
+          NOTEBOOK_LOG_TAIL_LINES: "300"
         run: |
           set -euo pipefail
+          mkdir -p "$NOTEBOOK_LOG_DIR"
           bash ./run_notebooks.sh ci-kernel . 3600 "${{ steps.detect.outputs.list_file }}"
+
+      - name: Upload added-notebook logs
+        if: always() && steps.detect.outputs.count != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: new-notebook-logs
+          path: ${{ runner.temp }}/new-notebook-logs
+          if-no-files-found: ignore

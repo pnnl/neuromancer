@@ -2,6 +2,8 @@
 Callback classes for versatile behavior in the Trainer object at specified checkpoints.
 """
 
+from __future__ import annotations
+
 from copy import deepcopy
 from pathlib import Path
 import matplotlib.pyplot as plt

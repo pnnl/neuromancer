@@ -11,9 +11,15 @@ KERNEL="${1:-python3}"
 REPO_DIR="${2:-.}"
 EXEC_TIMEOUT_SECONDS="${3:-3600}"
 NOTEBOOK_LIST_FILE="${4:-}"
+NOTEBOOK_LOG_TAIL_LINES="${NOTEBOOK_LOG_TAIL_LINES:-80}"
 
 if [[ "$EXEC_TIMEOUT_SECONDS" != "-1" && ! "$EXEC_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
   echo "ERROR: EXEC_TIMEOUT_SECONDS must be -1 or a positive integer." >&2
+  exit 2
+fi
+
+if [[ ! "$NOTEBOOK_LOG_TAIL_LINES" =~ ^[1-9][0-9]*$ ]]; then
+  echo "ERROR: NOTEBOOK_LOG_TAIL_LINES must be a positive integer." >&2
   exit 2
 fi
 
@@ -41,8 +47,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [[ -n "${NOTEBOOK_LOG_DIR:-}" ]]; then
+  mkdir -p "$NOTEBOOK_LOG_DIR"
+fi
+
 selected_notebooks=()
 excluded_notebooks=()
+ci_skip_notebooks=()
+ci_skipped_notebooks=()
 missing_notebooks=()
 passed_notebooks=()
 failed_notebooks=()
@@ -105,6 +117,32 @@ is_excluded_notebook() {
   return 1
 }
 
+load_ci_skip_list() {
+  local line
+  local path
+
+  [[ -n "${NOTEBOOK_CI_SKIP_NOTEBOOKS:-}" ]] || return 0
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -n "$line" ]] || continue
+    path="$(normalize_path "$line")"
+    ci_skip_notebooks+=("$path")
+  done <<< "$NOTEBOOK_CI_SKIP_NOTEBOOKS"
+}
+
+is_ci_skipped_notebook() {
+  local path="$1"
+  local skipped
+
+  for skipped in "${ci_skip_notebooks[@]}"; do
+    if [[ "$path" == $skipped ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 add_candidate() {
   local raw_path="$1"
   local path
@@ -114,6 +152,11 @@ add_candidate() {
 
   if is_excluded_notebook "$path"; then
     excluded_notebooks+=("$path")
+    return 0
+  fi
+
+  if is_ci_skipped_notebook "$path"; then
+    ci_skipped_notebooks+=("$path")
     return 0
   fi
 
@@ -201,9 +244,14 @@ print_list() {
 print_summary() {
   echo "::group::Notebook summary"
   echo "Selected: ${#selected_notebooks[@]}"
+  echo "CI skipped: ${#ci_skipped_notebooks[@]}"
   echo "Passed: ${#passed_notebooks[@]}"
   echo "Failed: ${#failed_notebooks[@]}"
   echo "Timed out: ${#timed_out_notebooks[@]}"
+
+  if [[ "${#ci_skipped_notebooks[@]}" -gt 0 ]]; then
+    print_list "CI-skipped notebooks" "${ci_skipped_notebooks[@]}"
+  fi
 
   if [[ "${#failed_notebooks[@]}" -gt 0 ]]; then
     print_list "Failed notebooks" "${failed_notebooks[@]}"
@@ -216,17 +264,34 @@ print_summary() {
   echo "::endgroup::"
 }
 
+notebook_log_file() {
+  local notebook="$1"
+  local log_name
+
+  if [[ -n "${NOTEBOOK_LOG_DIR:-}" ]]; then
+    log_name="${notebook//\//__}"
+    printf '%s/%s.log\n' "$NOTEBOOK_LOG_DIR" "$log_name"
+  else
+    printf '%s/nbconvert.log\n' "$TMP_DIR"
+  fi
+}
+
 run_notebook() {
   local notebook="$1"
-  local log_file="$TMP_DIR/nbconvert.log"
   local output_file="$TMP_DIR/nbconvert-output.ipynb"
+  local log_file
   local exit_code
+  local start_seconds
+  local duration_seconds
+
+  log_file="$(notebook_log_file "$notebook")"
 
   rm -f "$log_file" "$output_file"
 
   echo "::group::Notebook: $notebook"
   echo "Running: $notebook"
 
+  start_seconds=$SECONDS
   set +e
   if [[ "$EXEC_TIMEOUT_SECONDS" == "-1" ]]; then
     jupyter nbconvert \
@@ -247,26 +312,35 @@ run_notebook() {
   fi
   exit_code=$?
   set -e
+  duration_seconds=$((SECONDS - start_seconds))
+  rm -f "$output_file"
 
   if [[ "$exit_code" -eq 0 ]]; then
     echo "PASS: $notebook"
+    echo "Duration: ${duration_seconds}s"
     passed_notebooks+=("$notebook")
   elif [[ "$exit_code" -eq 124 ]] ||
     grep -Eiq "CellTimeoutError|TimeoutError|timed out|Timeout waiting for execute reply|A cell timed out" "$log_file"; then
     echo "TIMEOUT: $notebook"
-    echo "Last 80 log lines:"
-    tail -n 80 "$log_file" || true
+    echo "Duration: ${duration_seconds}s"
+    echo "Full log: $log_file"
+    echo "Last $NOTEBOOK_LOG_TAIL_LINES log lines:"
+    tail -n "$NOTEBOOK_LOG_TAIL_LINES" "$log_file" || true
     timed_out_notebooks+=("$notebook")
   else
     echo "FAIL: $notebook"
     echo "Exit code: $exit_code"
-    echo "Last 80 log lines:"
-    tail -n 80 "$log_file" || true
+    echo "Duration: ${duration_seconds}s"
+    echo "Full log: $log_file"
+    echo "Last $NOTEBOOK_LOG_TAIL_LINES log lines:"
+    tail -n "$NOTEBOOK_LOG_TAIL_LINES" "$log_file" || true
     failed_notebooks+=("$notebook")
   fi
 
   echo "::endgroup::"
 }
+
+load_ci_skip_list
 
 list_mode="full"
 if [[ -n "$NOTEBOOK_LIST_FILE" ]]; then
@@ -282,8 +356,18 @@ echo "::group::Notebook selection"
 echo "Working directory: $(pwd)"
 echo "Selection mode: $list_mode"
 
+if [[ "${#ci_skip_notebooks[@]}" -gt 0 ]]; then
+  echo "CI notebook exceptions are enabled."
+  echo "Reason: ${NOTEBOOK_CI_SKIP_REASON:-these notebooks are explicit CI exceptions documented in the workflow.}"
+  print_list "Configured CI notebook exceptions" "${ci_skip_notebooks[@]}"
+fi
+
 if [[ "${#excluded_notebooks[@]}" -gt 0 ]]; then
   print_list "Excluded notebook candidates" "${excluded_notebooks[@]}"
+fi
+
+if [[ "${#ci_skipped_notebooks[@]}" -gt 0 ]]; then
+  print_list "CI-skipped notebook candidates" "${ci_skipped_notebooks[@]}"
 fi
 
 if [[ "${#missing_notebooks[@]}" -gt 0 ]]; then
@@ -310,7 +394,12 @@ fi
 
 echo "::group::Notebook execution assumptions"
 echo "Selected notebooks are executed as-is."
-echo "No notebooks are skipped for data files, checkpoints, GPU availability, credentials, or network access."
+if [[ "${#ci_skip_notebooks[@]}" -gt 0 ]]; then
+  echo "Only notebooks listed in NOTEBOOK_CI_SKIP_NOTEBOOKS are skipped."
+  echo "CI exception reason: ${NOTEBOOK_CI_SKIP_REASON:-these notebooks are explicit CI exceptions documented in the workflow.}"
+else
+  echo "No notebooks are skipped for data files, checkpoints, GPU availability, credentials, or network access."
+fi
 echo "If a selected notebook requires unavailable resources, that notebook fails this run."
 echo "::endgroup::"
 

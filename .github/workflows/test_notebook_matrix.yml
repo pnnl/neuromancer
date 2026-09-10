@@ -1,4 +1,4 @@
-name: Run Remaining Notebook Tests
+name: Test Notebook Folder Matrix
 
 on:
   push:
@@ -26,8 +26,30 @@ env:
 
 jobs:
   notebooks:
+    name: notebooks-${{ matrix.suite }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
+
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - suite: control
+            path: examples/control
+          - suite: domain_examples
+            path: examples/domain_examples
+          - suite: function_encoder
+            path: examples/function_encoder
+          - suite: ODEs
+            path: examples/ODEs
+          - suite: PDEs
+            path: examples/PDEs
+          - suite: neural_operators
+            path: examples/neural_operators
+          - suite: parametric_programming
+            path: examples/parametric_programming
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -96,33 +118,27 @@ jobs:
           python -m ipykernel install --user --name=ci-kernel
           jupyter kernelspec list
 
-      - name: Select remaining example notebooks
+      - name: Select notebooks
         id: notebooks
         shell: bash
+        env:
+          NOTEBOOK_SUITE: ${{ matrix.suite }}
+          NOTEBOOK_SUITE_PATH: ${{ matrix.path }}
         run: |
           set -euo pipefail
-          list_file="$RUNNER_TEMP/example_notebooks.zlist"
-          find examples -type f -name "*.ipynb" \
-            ! -path "examples/control/*" \
-            ! -path "examples/domain_examples/*" \
-            ! -path "examples/ODEs/*" \
-            ! -path "examples/PDEs/*" \
-            ! -path "examples/function_encoder/*" \
-            ! -path "examples/neural_operators/*" \
-            ! -path "examples/parametric_programming/*" \
-            -print0 \
+          list_file="$RUNNER_TEMP/${NOTEBOOK_SUITE}_notebooks.zlist"
+          find "$NOTEBOOK_SUITE_PATH" -type f -name "*.ipynb" -print0 \
             | LC_ALL=C sort -z > "$list_file"
 
           mapfile -d '' -t notebooks < "$list_file"
           echo "list_file=$list_file" >> "$GITHUB_OUTPUT"
 
           if [ "${#notebooks[@]}" -eq 0 ]; then
-            echo "ERROR: no remaining notebooks found under examples/." >&2
+            echo "ERROR: no notebooks found under ${NOTEBOOK_SUITE_PATH}/." >&2
             exit 2
           fi
 
-          echo "Remaining example notebooks selected from examples/:"
-          echo "Dedicated workflows test examples/control, examples/domain_examples, examples/ODEs, examples/PDEs, examples/function_encoder, examples/neural_operators, and examples/parametric_programming."
+          echo "${NOTEBOOK_SUITE} notebooks selected from ${NOTEBOOK_SUITE_PATH}/:"
           printf '  %s\n' "${notebooks[@]}"
 
       - name: Run notebooks

@@ -69,6 +69,6 @@ where = ["src"]
 
 [project.optional-dependencies]
 tests = ["pytest", "hypothesis"]
-examples = ["imageio", "gpytorch"]
+examples = ["imageio", "gpytorch", "openpyxl", "gym"]
 docs = ["sphinx", "sphinx-rtd-theme"]
 tracking = ["mlflow>=2.12,<3", "wandb"]

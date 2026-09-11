@@ -756,6 +756,113 @@ def test_system_preview_start_iter():
         assert torch.allclose(result['y1'][:, t], 2.0 * data['x1'][:, start + t])
 
 
+"""
+############ TESTING THE BUFFERED ROLLOUT AGAINST THE ORIGINAL cat ROLLOUT ############
+"""
+def reference_rollout(system, input_dict):
+    """
+    The rollout as it was before RolloutBuffers: every key is a 3-d tensor that System.cat
+    grows by one step per node output. forward now accumulates per-step tensors and stacks
+    once at the end, and must agree with this exactly, gradients included.
+
+    Serves both System and SystemPreview: for System every node's input_map is empty and
+    there is no start_iter, so the preview branches are simply never taken.
+    """
+    data = system.init(input_dict.copy())
+    start = getattr(system, 'start_iter', 0)
+    nsteps = system.nsteps if system.nsteps is not None else data[system.nstep_key].shape[1] - start
+    for i in range(start, start + nsteps):
+        for node in system.nodes:
+            indata = {k: (system.get_mapped_data(data[k], i, node.input_map[k])
+                          if k in node.input_map else data[k][:, i])
+                      for k in node.input_keys}
+            data = system.cat(data, node(indata))
+    return data
+
+
+def closed_loop_system(nsteps, system_class=System, input_map=None, **kwargs):
+    """Closed loop with feedback: policy -> dynamics -> observation, x fed back to the policy."""
+    torch.manual_seed(0)
+    window = 1 if input_map is None else input_map['d']['past'] + 1 + input_map['d']['future']
+    policy_net = nn.Linear(4 + 3 * window, 2)
+    dynamics_net = nn.Linear(4 + 2, 4)
+    nodes = [
+        Node(lambda x, d: policy_net(torch.cat([x, d], dim=-1)), ['x', 'd'], ['u'],
+             name='policy', input_map=input_map),
+        Node(lambda x, u: dynamics_net(torch.cat([x, u], dim=-1)), ['x', 'u'], ['x'],
+             name='dynamics'),
+        Node(lambda x: x[:, :1], ['x'], ['y'], name='observation'),
+    ]
+    return system_class(nodes, nsteps=nsteps, **kwargs)
+
+
+@pytest.mark.parametrize('nsteps', [0, 1, 5, 20])
+def test_system_forward_matches_reference_rollout(nsteps):
+    """The buffered rollout is bit-identical to growing the tensors with cat."""
+    system = closed_loop_system(nsteps)
+    data = {'x': torch.rand(3, 1, 4), 'd': torch.rand(3, max(nsteps, 1), 3)}
+    assert dict_equals(system(dict(data)), reference_rollout(system, dict(data)))
+
+
+def test_system_forward_matches_reference_when_output_key_is_also_input_data():
+    """A key given as full input data and also written by a node keeps the append semantics."""
+    system = closed_loop_system(5)
+    data = {'x': torch.rand(3, 1, 4), 'd': torch.rand(3, 5, 3), 'y': torch.rand(3, 5, 1)}
+    assert dict_equals(system(dict(data)), reference_rollout(system, dict(data)))
+
+
+def test_system_forward_does_not_mutate_the_callers_dict():
+    """collapse returns a new dict rather than writing rollout outputs back into the input."""
+    system = closed_loop_system(5)
+    data = {'x': torch.rand(3, 1, 4), 'd': torch.rand(3, 5, 3)}
+    system(data)
+    assert set(data) == {'x', 'd'}
+    assert data['x'].shape == (3, 1, 4)
+
+
+@pytest.mark.parametrize('pad_mode', ['nearest', 'cyclic', 'reflect', 'constant'])
+@pytest.mark.parametrize('past,future', [(0, 0), (2, 0), (0, 2), (2, 3)])
+def test_preview_forward_matches_reference_rollout(pad_mode, past, future):
+    """The full SystemPreview rollout agrees with the reference for every padding mode."""
+    input_map = {'d': {'past': past, 'future': future, 'pad_mode': pad_mode, 'fill': -1.0}}
+    system = closed_loop_system(6, system_class=SystemPreview, input_map=input_map)
+    data = {'x': torch.rand(3, 1, 4), 'd': torch.rand(3, 6, 3)}
+    assert dict_equals(system(dict(data)), reference_rollout(system, dict(data)))
+
+
+@pytest.mark.parametrize('system_class', [System, SystemPreview])
+def test_system_forward_gradients_match_reference_rollout(system_class):
+    """Backward through the stacked outputs gives the same parameter gradients."""
+    input_map = {'d': {'past': 1, 'future': 1}} if system_class is SystemPreview else None
+    system = closed_loop_system(8, system_class=system_class, input_map=input_map)
+    data = {'x': torch.rand(3, 1, 4), 'd': torch.rand(3, 8, 3)}
+
+    grads = []
+    for rollout in [system, lambda d: reference_rollout(system, d)]:
+        system.zero_grad()
+        rollout(dict(data))['y'].square().sum().backward()
+        grads.append([p.grad.clone() for p in system.parameters()])
+
+    for buffered, reference in zip(*grads):
+        assert torch.equal(buffered, reference)
+
+
+@pytest.mark.parametrize('pad_mode', ['nearest', 'cyclic', 'reflect', 'constant'])
+@pytest.mark.parametrize('past,future', [(0, 0), (2, 0), (0, 2), (2, 3)])
+def test_get_mapped_steps_matches_get_mapped_data(pad_mode, past, future):
+    """
+    get_mapped_steps reads the same window from the rollout buffers that get_mapped_data
+    reads from a 3-d tensor.
+    """
+    input_map = {'d': {'past': past, 'future': future, 'pad_mode': pad_mode, 'fill': -1.0}}
+    system = closed_loop_system(6, system_class=SystemPreview, input_map=input_map)
+    data = torch.rand(3, 6, 3)
+    for iteration in range(6):
+        assert torch.allclose(
+            system.get_mapped_steps(list(torch.unbind(data, dim=1)), iteration, input_map['d']),
+            system.get_mapped_data(data, iteration, input_map['d']))
+
+
 def test_system_preview_nsteps_inferred_with_start_iter():
     """When nsteps is not given, it is inferred as T - start_iter from the nstep_key tensor."""
     start, T, batch = 2, 6, 2

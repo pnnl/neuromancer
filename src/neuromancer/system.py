@@ -131,6 +131,63 @@ class MovingHorizon(nn.Module):
         return self.module(inputs)
 
 
+class RolloutBuffers:
+    """
+    Rollout data for a System, holding each key as a list of per-step (batch, dim) tensors
+    rather than as one (batch, time, dim) tensor that grows a step at a time.
+
+    The rollout reads `rollout[key][i]` and feeds node outputs back with `append`, exactly as
+    it read `data[key][:, i]` and fed back with `cat`. The difference is what a write costs:
+    appending to a list is O(1), while concatenating onto a 3-d tensor reallocates and copies
+    every step accumulated so far. `collapse` stacks the buffers back into 3-d tensors once,
+    at the end.
+
+    Reads stay index-based, which is what keeps this equivalent to the original: within a
+    step, index `i` of a key may refer either to data the caller supplied or to a value a node
+    appended on step `i-1`, and a node must see whichever the old code would have shown it.
+    """
+    def __init__(self, data, keys):
+        """
+        :param data: (dict {str: Tensor}) Rollout inputs, shapes assumed (batch, time, dim)
+        :param keys: (iterable of str) Keys the nodes read or write. Any of these present in
+                     data are unbound into per-step views; everything else passes through
+                     collapse untouched.
+        """
+        self.data = data
+        self.steps = {k: list(torch.unbind(data[k], dim=1)) for k in keys if k in data}
+        self.written = set()
+
+    def __getitem__(self, key):
+        """
+        :param key: (str) Data key
+        :return: (list of Tensor) Per-step (batch, dim) tensors recorded so far for key
+        """
+        return self.steps[key]
+
+    def append(self, outputs):
+        """
+        Records one step of node outputs.
+
+        :param outputs: (dict {str: Tensor}) Output of a node, shape (batch, dim)
+        """
+        for key, value in outputs.items():
+            if key in self.steps:
+                self.steps[key].append(value)
+            else:
+                self.steps[key] = [value]
+            self.written.add(key)
+
+    def collapse(self):
+        """
+        Stacks the per-step buffers back into 3-d tensors.
+
+        :return: (dict {str: Tensor}) The input data with every key a node wrote replaced by
+                 its (batch, time, dim) rollout. The caller's dict is not mutated.
+        """
+        stacked = {k: torch.stack(self.steps[k], dim=1) for k in self.written}
+        return {**self.data, **stacked}
+
+
 class System(nn.Module):
     """
     Simple implementation for arbitrary cyclic computation
@@ -152,6 +209,7 @@ class System(nn.Module):
             self.init = init_func
         self.input_keys = set().union(*[c.input_keys for c in nodes])
         self.output_keys = set().union(*[c.output_keys for c in nodes])
+        self.rollout_keys = self.input_keys | self.output_keys  # every key the rollout touches
         self.system_graph = self.graph()
 
     def graph(self):
@@ -289,15 +347,17 @@ class System(nn.Module):
                                            have 3 dims.
         :return: (dict: {str: Tensor}) data with outputs of nstep rollout of Node interactions
         """
+        # Ensures that System never adds keys to the input_dict
         data = input_dict.copy()
         nsteps = self.nsteps if self.nsteps is not None else data[self.nstep_key].shape[1]  # Infer number of rollout steps
         data = self.init(data)  # Set initial conditions of the system
+        rollout = RolloutBuffers(data, self.rollout_keys)
         for i in range(nsteps):
             for node in self.nodes:
-                indata = {k: data[k][:, i] for k in node.input_keys}  # collect what the compute node needs from data nodes
+                indata = {k: rollout[k][i] for k in node.input_keys}  # collect what the compute node needs from data nodes
                 outdata = node(indata)  # compute
-                data = self.cat(data, outdata)  # feed the data nodes
-        return data  # return recorded system measurements
+                rollout.append(outdata)  # feed the data nodes
+        return rollout.collapse()  # return recorded system measurements
 
     def freeze(self):
         """
@@ -342,6 +402,53 @@ class SystemPreview(System):
 
         self.start_iter = start_iter
 
+    def window_indices(self, iteration, length, input_map):
+        """
+        Indices of the preview window [iteration - past, iteration + future] (inclusive),
+        remapped into [0, length - 1] according to the padding mode.
+
+        :param iteration: (int) Current timestep (0-indexed).
+        :param length: (int) Number of timesteps available.
+        :param input_map: (dict) Window configuration, see get_mapped_data.
+        :return: (list of int, list of bool or None) Window indices, plus out-of-bounds
+                 flags for "constant" padding (None for every other padding mode).
+        """
+        if not (('past' in input_map) and ('future' in input_map)):
+            raise ValueError(
+                "Mapping must be dict w/ at least 'past' and 'future' keys")
+
+        past, future = input_map['past'], input_map['future']
+
+        if (past < 0) or (future < 0):
+            raise ValueError("(past,future) in mapping must be non-negative")
+
+        # Get padding mode, default to nearest if none is specified
+        pad_mode = input_map.get('pad_mode', 'nearest').lower()
+        window = range(iteration - past, iteration + future + 1)
+
+        if pad_mode == "nearest":
+            return [min(max(i, 0), length - 1) for i in window], None
+
+        if (pad_mode == "cyclic") or (pad_mode == "circular"):
+            return [i % length for i in window], None
+
+        if pad_mode == "reflect":
+            if length == 1:
+                return [0 for _ in window], None
+            period = 2 * (length - 1)
+            return [period - i % period if i % period >= length else i % period
+                    for i in window], None
+
+        if pad_mode == "constant":
+            out_of_bounds = [(i < 0) or (i >= length) for i in window]
+            # clamp to make the gather safe, the out-of-bounds entries get overwritten
+            return [min(max(i, 0), length - 1) for i in window], out_of_bounds
+
+        raise ValueError(
+            f"Unknown padding mode '{pad_mode}'. "
+            "Supported: 'nearest', 'cyclic', 'reflect', 'constant'."
+        )
+
     def get_mapped_data(self, data, iteration, input_map):
         """
         Extracts a temporal slice of data for a given variable with a preview window.
@@ -363,62 +470,43 @@ class SystemPreview(System):
         Keys not present in this dict will receive only the current timestep.
         :return: (Tensor) Shape (batch, dim * (past + 1 + future)).
         """
-
-        if not (('past' in input_map) and ('future' in input_map)):
-            raise ValueError(
-                "Mapping must be dict w/ at least 'past' and 'future' keys")
-
-        past, future = input_map['past'], input_map['future']
-
-        # Get padding mode, default to nearest if none is specified
-        pad_mode = input_map.get('pad_mode', 'nearest').lower()
-
-        batch, T, dim = data.shape
-
-        if (past < 0) or (future < 0):
-            raise ValueError("(past,future) in mapping must be non-negative")
-
-        # -- build every index we need in one shot --
-        indices = torch.arange(
-            iteration - past, iteration + future + 1, device=data.device
-        )
-
-        # -- remap out-of-bounds indices (all vectorised) --
-        if pad_mode == "nearest":
-            indices = indices.clamp(0, T - 1)
-
-        elif (pad_mode == "cyclic") or (pad_mode == "circular"):
-            indices = indices % T
-
-        elif pad_mode == "reflect":
-            if T == 1:
-                indices = torch.zeros_like(indices)
-            else:
-                period = 2 * (T - 1)
-                indices = indices % period
-                indices = torch.where(indices >= T, period - indices, indices)
-
-        elif pad_mode == "constant":
-            # get fill value if constant is specified, default to zero
-            fill = input_map.get("fill", 0)
-            oob = (indices < 0) | (indices >= T)
-            indices = indices.clamp(0, T - 1)        # make safe for gather
-
-        else:
-            raise ValueError(
-                f"Unknown padding mode '{pad_mode}'. "
-                "Supported: 'nearest', 'cyclic', 'reflect', 'constant'."
-            )
+        indices, out_of_bounds = self.window_indices(
+            iteration, data.shape[1], input_map)
 
         # -- single advanced-index gather: (batch, window, dim) --
         gathered = data[:, indices, :]
 
         # -- mask after the fact for constant padding --
-        if pad_mode == "constant":
-            gathered = gathered.masked_fill(oob[None, :, None], fill)
+        if out_of_bounds is not None:
+            mask = torch.tensor(out_of_bounds, device=data.device)
+            gathered = gathered.masked_fill(
+                mask[None, :, None], input_map.get("fill", 0))
 
         # -- flatten window into feature dim --
-        return gathered.reshape(batch, -1)
+        return gathered.reshape(data.shape[0], -1)
+
+    def get_mapped_steps(self, steps, iteration, input_map):
+        """
+        Same preview window as get_mapped_data, gathered from the rollout data.
+
+        This is what the rollout uses, since RolloutBuffers holds each key as a list of
+        per-step tensors rather than as a 3-d tensor.
+
+        :param steps: (list of Tensor) Per-step tensors of shape (batch, dim).
+        :param iteration: (int) Current timestep (0-indexed).
+        :param input_map: (dict) Window configuration, see get_mapped_data.
+        :return: (Tensor) Shape (batch, dim * (past + 1 + future)).
+        """
+        indices, out_of_bounds = self.window_indices(
+            iteration, len(steps), input_map)
+        window = [steps[i] for i in indices]
+
+        if out_of_bounds is not None:
+            fill = input_map.get("fill", 0)
+            window = [torch.full_like(step, fill) if is_oob else step
+                      for step, is_oob in zip(window, out_of_bounds)]
+
+        return torch.cat(window, dim=-1)
 
     def forward(self, input_dict):
         """
@@ -428,6 +516,7 @@ class SystemPreview(System):
             tensors have 3 dims.
         :return: (dict: {str: Tensor}) data with outputs of nstep rollout of Node interactions
         """
+        # Ensures that System never adds keys to the input_dict
         data = input_dict.copy()
 
         # Infer number of rollout steps
@@ -437,13 +526,14 @@ class SystemPreview(System):
         )
 
         data = self.init(data)  # Set initial conditions of the system
+        rollout = RolloutBuffers(data, self.rollout_keys)
         for i in range(self.start_iter, self.start_iter + nsteps):
             for node in self.nodes:
                 indata = {
                     k: (
-                        data[k][:, i] if k not in node.input_map
-                        else self.get_mapped_data(
-                            data=data[k],
+                        rollout[k][i] if k not in node.input_map
+                        else self.get_mapped_steps(
+                            steps=rollout[k],
                             iteration=i,
                             input_map=node.input_map[k]
                         )
@@ -451,5 +541,5 @@ class SystemPreview(System):
                 }  # collect what the compute node needs from data nodes
 
                 outdata = node(indata)  # compute
-                data = self.cat(data, outdata)  # feed the data nodes
-        return data  # return recorded system measurements
+                rollout.append(outdata)  # feed the data nodes
+        return rollout.collapse()  # return recorded system measurements

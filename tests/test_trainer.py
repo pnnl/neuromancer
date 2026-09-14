@@ -424,3 +424,52 @@ def test_early_stopping(get_problem, get_data):
     assert base_trainer.current_epoch == 5 
     assert lit_trainer.current_epoch == 5
 """
+
+
+def _train_with_grad_inference(get_data, epochs):
+    """A short run where the dev loss carries an autograd graph, so storing it undetached would show."""
+    problem = sample_problem()
+    problem.grad_inference = True
+    train_data, dev_data, _, batch_size = get_data()
+    loaders = [torch.utils.data.DataLoader(d, batch_size=batch_size, num_workers=0,
+                                           collate_fn=d.collate_fn, shuffle=False)
+               for d in [train_data, dev_data]]
+    trainer = Trainer(problem, *loaders, epochs=epochs, patience=10, warmup=10,
+                      epoch_verbose=100)
+    trainer.train()
+    return trainer
+
+
+def test_stored_losses_do_not_retain_the_autograd_graph(get_data):
+    """
+    The loss history and best dev loss are kept for the whole run, so they must not hold
+    graph-connected tensors: that pins one autograd graph, activations included, per epoch.
+    """
+    trainer = _train_with_grad_inference(get_data, epochs=3)
+
+    assert len(trainer.loss_history["train"]) == 3
+    assert len(trainer.loss_history["dev"]) == 3
+    for split in ["train", "dev"]:
+        for loss in trainer.loss_history[split]:
+            assert loss.grad_fn is None
+    assert trainer.best_devloss.grad_fn is None
+
+
+def test_get_devloss_is_a_float(get_data):
+    """get_devloss hands back a plain number whether or not any epoch has improved on the initial value."""
+    train_data, dev_data, _, batch_size = get_data()
+    loaders = [torch.utils.data.DataLoader(d, batch_size=batch_size, num_workers=0,
+                                           collate_fn=d.collate_fn, shuffle=False)
+               for d in [train_data, dev_data]]
+    trainer = Trainer(sample_problem(), *loaders, epochs=2, patience=10, warmup=10,
+                      epoch_verbose=100, eval_metric="mean_dev_loss")
+
+    # before training best_devloss is the numeric sentinel, not a tensor
+    assert type(trainer.get_devloss()) is float
+    assert trainer.get_devloss() == float(trainer.best_devloss)
+
+    trainer.train()
+    assert isinstance(trainer.best_devloss, torch.Tensor)
+    assert type(trainer.get_devloss()) is float
+    assert trainer.get_devloss() == trainer.best_devloss.item()
+    assert trainer.get_devloss() == min(l.item() for l in trainer.loss_history["dev"])

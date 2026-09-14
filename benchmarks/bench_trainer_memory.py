@@ -23,8 +23,10 @@ without detaching drags that graph, and every activation it saved, along for the
 
 The two memory figures answer different questions. Footprint is what the machine pays, but
 the allocator and the OS sit between it and the trainer: freed blocks are cached, and idle
-pages get compressed, so it is noisy and lags. Held is exact, and it is attributed: it counts
-what the trainer itself is keeping alive, which is what a fix to the trainer can change.
+pages get compressed, so it is noisy and lags -- and, since the epoch counts in a sweep share
+one process (see run), that noise compounds across a row's trials rather than resetting for
+each one. Held is exact, and it is attributed: it counts what the trainer itself is keeping
+alive, which is what a fix to the trainer can change, and process reuse cannot affect it.
 
 Nothing here reaches into the trainer's internals -- the walk starts from the trainer object
 and follows whatever it references -- so the same command is comparable across changes to what
@@ -270,7 +272,22 @@ def measure(epochs, hsize, layers, nsim, batch, grad_inference):
 
 def run(epoch_counts, hsize, layers, nsim, batch, grad_inference):
     """
-    Measures every epoch count in a fresh process, printing each row as it lands.
+    Measures every epoch count, printing each row as it lands.
+
+    Every epoch count in the sweep shares one process, rather than each getting its own: torch's
+    import is the dominant cost at the epoch counts this is normally run at (a fresh interpreter
+    takes seconds just to import torch and neuromancer, before a single batch runs), so it is
+    worth paying exactly once per grad_inference mode instead of once per epoch count.
+
+    That reuse costs footprint specifically. Once one trial has faulted in and freed some
+    memory, the allocator keeps the freed blocks rather than returning them to the OS, so a
+    later trial's allocations can be served from that cache without the process's footprint
+    growing to show it -- the same effect that makes footprint noisy in the first place (see
+    the module docstring), now compounding trial to trial instead of resetting for each one.
+    held and nodes are unaffected: they are an exact walk over live references, not a reading
+    of a live OS counter, so process history cannot hide anything from them. Where footprint's
+    absolute number matters, run that one epoch count on its own -- a lone invocation is still
+    a fresh process, so its one trial is uncontaminated.
 
     A run at the larger epoch counts takes minutes, so the header and prior rows are printed
     right away rather than held back until the whole sweep finishes -- otherwise a long run
@@ -284,13 +301,12 @@ def run(epoch_counts, hsize, layers, nsim, batch, grad_inference):
     print('-' * len(header), flush=True)
 
     spawn = multiprocessing.get_context('spawn')
-    for epochs in epoch_counts:
-        # one fresh process per run, see measure
-        with spawn.Pool(1) as pool:
+    with spawn.Pool(1) as pool:  # one process, reused for every epoch count in this sweep
+        for epochs in epoch_counts:
             row = pool.apply(measure, (epochs, hsize, layers, nsim, batch, grad_inference))
-        print(f"{epochs:>7}{row['seconds']:>10.1f}{row['seconds'] / epochs * 1e3:>10.1f}"
-              f"{row['footprint'] / 1e6:>14.1f}{row['held'] / 1e6:>10.1f}{row['nodes']:>10}",
-              flush=True)
+            print(f"{epochs:>7}{row['seconds']:>10.1f}{row['seconds'] / epochs * 1e3:>10.1f}"
+                  f"{row['footprint'] / 1e6:>14.1f}{row['held'] / 1e6:>10.1f}{row['nodes']:>10}",
+                  flush=True)
 
 
 def main():

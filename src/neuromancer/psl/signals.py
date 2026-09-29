@@ -415,7 +415,7 @@ def nd_walk(nsim, d, min:_float_or_npd=0., max:_float_or_npd=1., x0:_float_or_np
         if avoid_edge:
             x0 = (umax-umin) * rng.random(size=(d,)) + umin
         else:
-            x0 = umin + (umax-umin)*rng.beta(a=alpha,b=beta,size=(d,))
+            x0 = umin + (umax-umin)*rng.beta(a=2,b=2,size=(d,))
     x0=np.full(d,x0, dtype=dtype)
     max_step = (umax-umin)/10 if max_step is None else \
         max_step

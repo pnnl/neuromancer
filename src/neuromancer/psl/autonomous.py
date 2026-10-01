@@ -190,10 +190,10 @@ class LotkaVolterra(ODE_Autonomous):
     def params(self):
         variables = {'x0': [5., 100.]}
         constants = {'ts': 0.1}
-        parameters = {'a': 1.1,
-                      'b': 0.4,
-                      'c': 0.1,
-                      'd': 0.4,}
+        parameters = {'a': 1.,
+                      'b': 0.1,
+                      'c': 0.075,
+                      'd': 1.5,}
         meta = {}
         return variables, constants, parameters, meta
 

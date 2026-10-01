@@ -62,7 +62,7 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 + `neuromancer.registry.registry` and `describe()` constructor metadata for tools that enumerate and build NeuroMANCER components
 
 ### Fixed bugs
-+ `import neuromancer` required IPython
++ `import neuromancer` required IPython or wandb
 + The `Trainer` kept autograd graphs alive through stored losses
 + `psl` systems `HindmarshRose`, `InvPendulum`, and `LotkaVolterra` failed to simulate
 

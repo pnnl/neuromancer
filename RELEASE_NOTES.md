@@ -20,6 +20,9 @@
 + Fixed bug: the unique-name check did not detect duplicate node names
 + Fixed bug: `MLFlowLogger` logged metrics without a step
 + Fixed bug: `nd_walk` raised a NameError when `x0` was None and `avoid_edge` was False
++ Fixed bug: `import neuromancer` required wandb
++ Fixed bug: the API pages of the documentation site were empty
++ Fixed bug: the figures for the DAE example were missing
 + GitHub Actions run the example notebooks on pull requests and pushes to `develop`
 
 

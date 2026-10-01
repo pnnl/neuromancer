@@ -298,7 +298,7 @@ class InvPendulum(ODE):
     def equations(self, t, x, u):
         y = [x[1],
              (self.m * self.g * self.L * np.sin(x[0]) - self.b * x[1]) / (self.m * self.L ** 2)]
-        y[1] = y[1] + (u / (self.m * self.L ** 2))
+        y[1] = y[1] + (u[0] / (self.m * self.L ** 2))
         return y
 
 
@@ -334,7 +334,7 @@ class HindmarshRose(ODE):
     def equations(self, t, x, u):
         theta = -self.a*x[0]**3 + self.b*x[0]**2
         phi = self.c -self.d*x[0]**2
-        dx1 = x[1] + theta - x[2] + u
+        dx1 = x[1] + theta - x[2] + u[0]
         dx2 = phi - x[1]
         dx3 = self.r*(self.s*(x[0]-self.xR)-x[2])
         dx = [dx1, dx2, dx3]

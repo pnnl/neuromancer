@@ -200,7 +200,7 @@ class LotkaVolterra(ODE_Autonomous):
     @cast_backend
     def equations(self, t, x):
         dx1 = self.a*x[0] - self.b*x[0]*x[1]
-        dx2 = self.c**x[0]*x[1] - self.d*x[1]
+        dx2 = self.c*x[0]*x[1] - self.d*x[1]
         return [dx1, dx2]
 
 

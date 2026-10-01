@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "neuromancer"
-version = "1.5.6"
+version = "1.5.7"
 authors = [
     { name = "Jan Drgona", email = "jdrgona1@jh.edu" },
     { name = "Aaron Tuor", email = "aaron.tuor@pnnl.gov" },

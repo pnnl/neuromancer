@@ -3,7 +3,7 @@
   <img src="figs/Neuromancer.png" width="250">  
 </p>
 
-# NeuroMANCER v1.5.6
+# NeuroMANCER v1.5.7
 
 [![PyPi Version](https://img.shields.io/pypi/v/neuromancer)](https://pypi.org/project/neuromancer)
 [![License](https://img.shields.io/badge/license-BSD-blue.svg)](https://github.com/pnnl/neuromancer/blob/master/LICENSE.md)
@@ -39,22 +39,32 @@ differentiable models and algorithms embedded with prior knowledge and physics.
 * **The NeuroMANCER-GPT Assistant**: We provide easy-to-use scripts to convert the contents of the NeuroMANCER library in a way that is suitable for ingestion in RAG-based "LLM-assistant" pipelines. Please see [Assistant](https://github.com/pnnl/neuromancer/blob/develop/assistant/README.md) to read more about how one can quickly spin up an LLM model to help understand and code in NeuroMANCER. 
 
 
-## What's New in v1.5.6
+## What's New in v1.5.7
 
 
 ### New Examples:
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/DAEs/tank_dae_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Neural DAEs via operator splitting method 
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_6_mixed_integer_decisions.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Mixed-Integer DPC for thermal system
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/domain_examples/grid_response.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Grid-responsive DPC for building energy systems
-+ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_3_ref_tracking_ODE.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> DPC with preview horizon 
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/neural_operators/Part_1_DeepONet_antiderivative_aligned.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> DeepONet for the antiderivative operator, aligned data
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/neural_operators/Part_2_DeepONet_antiderivative_unaligned.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> DeepONet for the antiderivative operator, unaligned data
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/neural_operators/Part_3_FNO_1DAllenCahn.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Fourier Neural Operator for the 1D Allen-Cahn equation
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/neural_operators/Part_4_FNO_DarcyFlow.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Fourier Neural Operator for Darcy flow
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/neural_operators/Part_5_FNO_DiffusionEquation.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Fourier Neural Operator for the diffusion equation
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/neural_operators/Part_6_PIDeepONet_Advection_aligned.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Physics-informed DeepONet for the advection equation
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/neural_operators/Part_7_SFNO_ShallowWater.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Spherical Fourier Neural Operator for the shallow water equations
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/neural_operators/Part_8_TIDON_HEAT.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> Time-integrated DeepONet for the heat equation
++ <a target="_blank" href="https://colab.research.google.com/github/pnnl/neuromancer/blob/master/examples/control/Part_7_TIDON_DPC_HEAT.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> DPC for the heat equation with a time-integrated DeepONet model
 
 
 ### New Features
-+ New class SystemPreview that acts as drop-in replacement for System class enabling preview horizon functionality
-+ Unit tests brought up-to-date. 
++ Neural operators in `neuromancer.modules.operators`: FNO, SFNO, TFNO, GINO, and UNO wrappers, with DeepONet examples
++ `Node` accepts an `input_map` giving each input key a window of past and future steps; `SystemPreview` reads its preview configuration from it
++ `MLFlowLogger` supports nested runs, a `save_weights` flag, and `log_dict`
++ `System` rollout time and memory are linear in the horizon
++ `neuromancer.registry.registry` and `describe()` constructor metadata for tools that enumerate and build NeuroMANCER components
 
-### Fixed bug
-+ Fixed bug with mlflow dependency creating conflicts in Google Colab
+### Fixed bugs
++ `import neuromancer` required IPython
++ The `Trainer` kept autograd graphs alive through stored losses
++ `psl` systems `HindmarshRose`, `InvPendulum`, and `LotkaVolterra` failed to simulate
 
 
 ## Installation

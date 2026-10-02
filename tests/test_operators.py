@@ -6,6 +6,8 @@ from neuromancer.modules.operators import (
     DeepONetCartesianProd,
     DeepXDEIntegratorWrapper,
     DeepXDEWrapper,
+    H1Loss,
+    LpLoss,
     _StripMetadataMixin,
 )
 
@@ -373,3 +375,64 @@ def test_integrator_wrapper_trunk_is_buffer():
     wrapper = DeepXDEIntegratorWrapper(model, trunk_inputs=trunk)
 
     assert "trunk_inputs" in dict(wrapper.named_buffers())
+
+
+# H1Loss and LpLoss
+def _reference_h1(x, y, beta=1.0):
+    """The d=2 H1 loss written out for targets with nonzero gradient norms."""
+    l2 = LpLoss(d=2, p=2)(x, y)
+    dx_x, dx_y = x[..., 1:, :] - x[..., :-1, :], y[..., 1:, :] - y[..., :-1, :]
+    dy_x, dy_y = x[..., :, 1:] - x[..., :, :-1], y[..., :, 1:] - y[..., :, :-1]
+    return l2 + beta * (torch.norm(dx_x - dx_y) / torch.norm(dx_y) + torch.norm(dy_x - dy_y) / torch.norm(dy_y))
+
+
+def test_h1_loss_matches_reference_for_nonconstant_target():
+    torch.manual_seed(0)
+    y = torch.rand(3, 5, 6)
+    x = y + 0.1 * torch.rand(3, 5, 6)
+    assert torch.allclose(H1Loss(d=2)(x, y), _reference_h1(x, y))
+
+
+@pytest.mark.parametrize("target", [
+    torch.ones(2, 4, 4),                                # constant along both axes
+    torch.arange(4.).reshape(1, 4, 1).expand(2, 4, 4),  # constant along the last axis only
+    torch.zeros(2, 4, 4),                               # zero norm
+], ids=["constant", "constant-along-one-axis", "zero"])
+def test_h1_loss_is_finite_for_exact_prediction_of_constant_target(target):
+    x = target.clone().requires_grad_(True)
+    loss = H1Loss(d=2)(x, target)
+    assert loss.item() == 0.
+    loss.backward()
+    assert torch.isfinite(x.grad).all()
+
+
+def test_h1_loss_uses_absolute_gradient_error_where_target_is_constant():
+    target = torch.ones(2, 4, 4)
+    x = (target + 0.1 * torch.rand(2, 4, 4)).requires_grad_(True)
+    loss = H1Loss(d=2)(x, target)
+    expected = LpLoss(d=2, p=2)(x, target) + torch.linalg.vector_norm(torch.diff(x, dim=-2)) + torch.linalg.vector_norm(torch.diff(x, dim=-1))
+    assert torch.isfinite(loss) and torch.allclose(loss, expected)
+    loss.backward()
+    assert torch.isfinite(x.grad).all()
+
+
+def test_h1_loss_d1_differentiates_only_the_spatial_axis():
+    # Each row is constant along the batch axis differences but not along space
+    y = torch.tensor([[0., 1., 3.], [10., 11., 13.]])
+    x = y + torch.tensor([[0., 0., 1.], [0., 0., 1.]])
+    error = torch.diff(x, dim=-1) - torch.diff(y, dim=-1)
+    expected = LpLoss(d=1, p=2)(x, y) + torch.linalg.vector_norm(error) / torch.linalg.vector_norm(torch.diff(y, dim=-1))
+    assert torch.allclose(H1Loss(d=1)(x, y), expected)
+
+
+def test_h1_loss_rejects_input_without_enough_dimensions():
+    with pytest.raises(ValueError, match="needs a batch axis"):
+        H1Loss(d=2)(torch.ones(4, 4), torch.ones(4, 4))
+    with pytest.raises(ValueError, match="at least one spatial dimension"):
+        H1Loss(d=0)
+
+
+def test_lp_loss_relative_is_absolute_for_zero_target():
+    x = torch.tensor([[3., 4.], [0., 0.]])
+    y = torch.zeros(2, 2)
+    assert torch.allclose(LpLoss(d=1, p=2, reduction=False)(x, y), torch.tensor([5., 0.]))

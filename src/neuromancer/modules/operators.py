@@ -59,10 +59,24 @@ class UNO(_StripMetadataMixin, _BaseUNO):
     """
 
 
+def _relative_denominator(norms):
+    """Replace zero norms with one.
+
+    A relative error divides by the norm of the target. Where that norm is
+    exactly zero the relative error is undefined, and the division gives NaN
+    or infinity and nonfinite gradients. Those entries are divided by one, so
+    they carry the absolute error.
+    """
+    return torch.where(norms == 0, torch.ones_like(norms), norms)
+
+
 class LpLoss(object):
     """
     Lp loss class, for computing relative or absolute Lp losses
     over spatial dimensions d.
+
+    The relative loss of an example whose target has zero norm is its
+    absolute loss.
     Args:
         d (int): spatial dimensions
         p (int): Lp norm type
@@ -103,7 +117,7 @@ class LpLoss(object):
         diff_norms = torch.norm(
             x.reshape(num_examples, -1) - y.reshape(num_examples, -1), self.p, 1
         )
-        y_norms = torch.norm(y.reshape(num_examples, -1), self.p, 1)
+        y_norms = _relative_denominator(torch.norm(y.reshape(num_examples, -1), self.p, 1))
         if self.reduction:
             if self.size_average:
                 return torch.mean(diff_norms / y_norms)
@@ -134,34 +148,40 @@ class H1Loss(object):
     2. Finite forward differences for gradients
         dx_x = x[..., 1:, :] - x[..., :-1, :]
         dx_y = y[..., 1:, :] - y[..., :-1, :]
+
+    The differences are taken along the last d axes, so the inputs have at
+    least d + 1 dimensions: batch, then d spatial axes. Along an axis where
+    the target is constant, the target's gradient norm is zero and the term
+    for that axis is the absolute gradient error.
     """
 
     def __init__(self, d=2, beta=1.0):
+        if d < 1:
+            raise ValueError(f"H1Loss needs at least one spatial dimension, got d={d}")
         self.d = d
         self.beta = beta
         self.l2 = LpLoss(d=d, p=2)
 
     def __call__(self, x, y):
+        if x.dim() < self.d + 1:
+            raise ValueError(
+                f"H1Loss(d={self.d}) differentiates the last {self.d} axes and needs a batch axis before them, "
+                f"got an input of shape {tuple(x.shape)}"
+            )
         # 1. Standard L2 (value) error
         l2_loss = self.l2(x, y)
 
-        # 2. Compute Gradients (Central Difference)
-        # Assumes shape [Batch, ..., X, Y]
-        # We compute dy/dx and dy/dy for both Pred (x) and True (y)
-
-        # 2. Finite forward differences for gradients
-        dx_x = x[..., 1:, :] - x[..., :-1, :]
-        dx_y = y[..., 1:, :] - y[..., :-1, :]
-
-        dy_x = x[..., :, 1:] - x[..., :, :-1]
-        dy_y = y[..., :, 1:] - y[..., :, :-1]
-
-        # 3. Relative gradient L2 error
-        term_x = torch.norm(dx_x - dx_y, p=2) / torch.norm(dx_y, p=2)
-        term_y = torch.norm(dy_x - dy_y, p=2) / torch.norm(dy_y, p=2)
+        # 2. Finite forward differences along each of the last d axes,
+        # for both the prediction (x) and the target (y)
+        # 3. Relative gradient L2 error per axis
+        gradient_loss = 0.
+        for axis in range(-self.d, 0):
+            error = torch.diff(x, dim=axis) - torch.diff(y, dim=axis)
+            target_norm = torch.linalg.vector_norm(torch.diff(y, dim=axis))
+            gradient_loss = gradient_loss + torch.linalg.vector_norm(error) / _relative_denominator(target_norm)
 
         # 4. Combine
-        return l2_loss + self.beta * (term_x + term_y)
+        return l2_loss + self.beta * gradient_loss
 
 
 class DeepONetCartesianProd(nn.Module):

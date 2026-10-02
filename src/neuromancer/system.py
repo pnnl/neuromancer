@@ -145,16 +145,24 @@ class RolloutBuffers:
     Reads stay index-based, which is what keeps this equivalent to the original: within a
     step, index `i` of a key may refer either to data the caller supplied or to a value a node
     appended on step `i-1`, and a node must see whichever the old code would have shown it.
+
+    Each buffer has an offset, the rollout step its first entry belongs to. A key supplied in
+    the data starts at step 0. A key that only nodes write starts at `origin`, the first step
+    of the rollout, so that a node reading it at step `i` gets the value written at step `i`
+    when the rollout starts after step 0.
     """
-    def __init__(self, data, keys):
+    def __init__(self, data, keys, origin=0):
         """
         :param data: (dict {str: Tensor}) Rollout inputs, shapes assumed (batch, time, dim)
         :param keys: (iterable of str) Keys the nodes read or write. Any of these present in
                      data are unbound into per-step views; everything else passes through
                      collapse untouched.
+        :param origin: (int) The first step of the rollout
         """
         self.data = data
+        self.origin = origin
         self.steps = {k: list(torch.unbind(data[k], dim=1)) for k in keys if k in data}
+        self.offsets = {k: 0 for k in self.steps}
         self.written = set()
 
     def __getitem__(self, key):
@@ -163,6 +171,14 @@ class RolloutBuffers:
         :return: (list of Tensor) Per-step (batch, dim) tensors recorded so far for key
         """
         return self.steps[key]
+
+    def step(self, key, iteration):
+        """
+        :param key: (str) Data key
+        :param iteration: (int) Rollout step
+        :return: (Tensor) The (batch, dim) tensor of key at the rollout step
+        """
+        return self.steps[key][iteration - self.offsets[key]]
 
     def append(self, outputs):
         """
@@ -175,6 +191,7 @@ class RolloutBuffers:
                 self.steps[key].append(value)
             else:
                 self.steps[key] = [value]
+                self.offsets[key] = self.origin
             self.written.add(key)
 
     def collapse(self):
@@ -526,15 +543,16 @@ class SystemPreview(System):
         )
 
         data = self.init(data)  # Set initial conditions of the system
-        rollout = RolloutBuffers(data, self.rollout_keys)
+        rollout = RolloutBuffers(data, self.rollout_keys, origin=self.start_iter)
         for i in range(self.start_iter, self.start_iter + nsteps):
             for node in self.nodes:
                 indata = {
                     k: (
-                        rollout[k][i] if k not in node.input_map
+                        rollout.step(k, i) if k not in node.input_map
                         else self.get_mapped_steps(
                             steps=rollout[k],
-                            iteration=i,
+                            # the window is taken in the buffer's own indices
+                            iteration=i - rollout.offsets[k],
                             input_map=node.input_map[k]
                         )
                     ) for k in node.input_keys

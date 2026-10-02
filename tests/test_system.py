@@ -874,3 +874,57 @@ def test_system_preview_nsteps_inferred_with_start_iter():
     assert result['y1'].shape == (batch, T - start, 1)
 
 
+
+
+"""
+############ SystemPreview: CONNECTED NODES WITH A ROLLOUT THAT STARTS AFTER STEP ZERO ############
+"""
+def test_system_preview_start_iter_chains_generated_keys():
+    """A node reads, at step i, the value an earlier node generated at step i."""
+    system = SystemPreview([
+        Node(lambda x: 2 * x, ['x'], ['y'], name='first'),
+        Node(lambda y: y + 1, ['y'], ['z'], name='second'),
+    ], start_iter=2, nsteps=3)
+    result = system({'x': torch.arange(5.).reshape(1, 5, 1)})
+
+    assert torch.equal(result['y'], torch.tensor([4., 6., 8.]).reshape(1, 3, 1))
+    assert torch.equal(result['z'], torch.tensor([5., 7., 9.]).reshape(1, 3, 1))
+
+
+def test_system_preview_start_iter_matches_start_zero_on_shifted_data():
+    """Starting at step 2 gives the rollout that starting at step 0 gives on the data from step 2 on."""
+    def nodes():
+        return [Node(lambda x: 2 * x, ['x'], ['y'], name='first'),
+                Node(lambda y, x: y + x, ['y', 'x'], ['z'], name='second')]
+    x = torch.rand(2, 6, 3)
+    late = SystemPreview(nodes(), start_iter=2, nsteps=4)({'x': x})
+    early = SystemPreview(nodes(), start_iter=0, nsteps=4)({'x': x[:, 2:]})
+
+    assert torch.equal(late['y'], early['y'])
+    assert torch.equal(late['z'], early['z'])
+
+
+def test_system_preview_start_iter_window_over_generated_key():
+    """A past window over a generated key is taken from the values generated so far."""
+    system = SystemPreview([
+        Node(lambda x: 2 * x, ['x'], ['y'], name='first'),
+        Node(lambda y: y, ['y'], ['w'], name='window', input_map={'y': {'past': 1, 'future': 0}}),
+    ], start_iter=2, nsteps=3)
+    result = system({'x': torch.arange(5.).reshape(1, 5, 1)})
+
+    # y is 4, 6, 8 at steps 2, 3, 4; the first window has no earlier y and repeats the nearest
+    expected = torch.tensor([[4., 4.], [4., 6.], [6., 8.]]).reshape(1, 3, 2)
+    assert torch.equal(result['w'], expected)
+
+
+def test_system_preview_start_iter_state_feedback():
+    """A state supplied up to start_iter is advanced from there."""
+    system = SystemPreview([
+        Node(lambda x, u: x + u, ['x', 'u'], ['x'], name='integrator'),
+        Node(lambda x: 10 * x, ['x'], ['y'], name='output'),
+    ], start_iter=2, nsteps=2, nstep_key='u')
+    data = {'x': torch.tensor([0., 1., 2.]).reshape(1, 3, 1), 'u': torch.ones(1, 4, 1)}
+    result = system(data)
+
+    assert torch.equal(result['x'], torch.tensor([0., 1., 2., 3., 4.]).reshape(1, 5, 1))
+    assert torch.equal(result['y'], torch.tensor([20., 30.]).reshape(1, 2, 1))

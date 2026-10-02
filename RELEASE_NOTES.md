@@ -2,6 +2,29 @@
 ##  Release notes
 
 
+### Version 1.5.7 Release Notes
+
++ New feature: Neural operators in `neuromancer.modules.operators`: wrappers for FNO, SFNO, TFNO, GINO, and UNO from the `neuraloperator` package, and DeepONet examples
++ New feature: `Node` accepts an `input_map` giving each input key a window of past and future steps with a padding mode. `SystemPreview` reads its preview configuration from each node's `input_map`; code written against the 1.5.6 `SystemPreview` constructor needs updating
++ New feature: `MLFlowLogger` supports nested runs, a `save_weights` flag, `verbosity=0`, and `log_dict`
++ New feature: `neuromancer.registry.registry`, one dictionary of the block, integrator, ODE, linear-map, and activation registries
++ New feature: `describe()` constructor metadata on `MLP`, `MLP_bounds`, `Integrator`, and `TwoTankParam`
++ New feature: sliced Variables keep their index as `slice_index`
++ New examples: eight neural operator tutorials (DeepONet, physics-informed DeepONet, FNO, SFNO, time-integrated DeepONet) in `examples/neural_operators`
++ New example: DPC for the heat equation with a time-integrated DeepONet model
++ Performance: `System` rollout time and memory are linear in the horizon
++ Fixed bug: `import neuromancer` required IPython
++ Fixed bug: the `Trainer` kept autograd graphs alive through stored losses
++ Fixed bug: `psl` systems `HindmarshRose` and `InvPendulum` raised an error on simulation with numpy 1.24 or later
++ Fixed bug: `psl` system `LotkaVolterra` had an exponent in the predator equation. Its default parameters changed, so its default trajectories differ from 1.5.6
++ Fixed bug: the unique-name check did not detect duplicate node names
++ Fixed bug: `MLFlowLogger` logged metrics without a step
++ Fixed bug: `nd_walk` raised a NameError when `x0` was None and `avoid_edge` was False
++ Fixed bug: `import neuromancer` required wandb
++ Fixed bug: the figures for the DAE example were missing
++ GitHub Actions run the example notebooks on pull requests and pushes to `develop`
+
+
 ### Version 1.5.6 Release Notes
 
 + New feature: DPC with preview horizon using new class SystemPreview that acts as drop-in replacement for System class

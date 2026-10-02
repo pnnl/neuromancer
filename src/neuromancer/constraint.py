@@ -481,7 +481,11 @@ class Variable(nn.Module):
         return Variable(input_variables=[other, self], func=lambda x, y: x // y, display_name="//")
 
     def __getitem__(self, key):
-        return Variable(input_variables=[self], func=lambda x: x[key], display_name="slice")
+        var = Variable(input_variables=[self], func=lambda x: x[key], display_name="slice")
+        # The index, readable by tools that print or serialize the expression
+        # graph; the closure above is what evaluates it.
+        var.slice_index = key
+        return var
 
     def __pow__(self, other):
         return Variable(input_variables=[self, other], func=lambda x, y: x**y, display_name="pow")

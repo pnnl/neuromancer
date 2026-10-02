@@ -267,3 +267,13 @@ def test_gradient():
     value = torch.sum(matmul)
     grad = value.grad(x)
     assert torch.equal(grad(indict), indict['x'])
+
+@pytest.mark.parametrize("key", [0, slice(0, 2), (slice(None), [0, 2]), torch.tensor([0, 1])])
+def test_slice_index(key):
+    x = variable('x')
+    sliced = x[key]
+    assert sliced.slice_index is key
+    data = {'x': torch.arange(12.).reshape(3, 4)}
+    assert torch.equal(sliced(data), data['x'][key])
+    assert 'slice_index' not in sliced.state_dict()
+    assert not list(sliced.parameters()) and not list(sliced.buffers())

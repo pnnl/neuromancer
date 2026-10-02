@@ -214,6 +214,20 @@ class SINDy(ODESystem):
 
 
 class TwoTankParam(ODESystem):
+    @classmethod
+    def describe(cls):
+        """Constructor metadata for tools that build typed forms."""
+        return {
+            "description": "Two coupled tanks: pump and valve drive the levels; "
+                           "c1 and c2 are the learnable flow coefficients.",
+            "arguments": [
+                {"name": "insize", "kind": "int", "default": 4, "min": 1,
+                 "doc": "States plus controls entering the ODE."},
+                {"name": "outsize", "kind": "int", "default": 2, "min": 1,
+                 "doc": "State derivatives the ODE returns."},
+            ],
+        }
+
     def __init__(self, insize=4, outsize=2):
         """
 

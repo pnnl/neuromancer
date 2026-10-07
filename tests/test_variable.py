@@ -277,3 +277,29 @@ def test_slice_index(key):
     assert torch.equal(sliced(data), data['x'][key])
     assert 'slice_index' not in sliced.state_dict()
     assert not list(sliced.parameters()) and not list(sliced.buffers())
+
+
+def test_argument_order_in_nested_expression():
+    # v appears in the graph before u, so composing graphs used to swap u - v into v - u
+    u, v = variable('u'), variable('v')
+    expr = ((v + 1.0) + (u - v)) * 1.0
+    data = {'u': torch.tensor([5.]), 'v': torch.tensor([2.])}
+    assert torch.equal(expr(data), torch.tensor([6.]))
+
+
+def test_gradient_reused_variable():
+    # Reusing the same Variable as the target of several .grad() calls must keep gradient(y, x) order
+    torch.manual_seed(0)
+    net = nn.Sequential(nn.Linear(3, 16), nn.Tanh(), nn.Linear(16, 2))
+    x_, y_, z_ = (torch.rand(4, 1, requires_grad=True) for _ in range(3))
+    p = net(torch.cat([x_, y_, z_], dim=-1))
+    data = {'x': x_, 'y': y_, 'z': z_, 'p_re': p[:, :1], 'p_im': p[:, 1:]}
+
+    x = variable('x')
+    expr = (variable('p_re').grad(x)
+            + variable('p_im').grad(x)
+            + variable('p_re').grad(variable('y')))
+
+    expected = sum(torch.autograd.grad(data[out].sum(), data[wrt], retain_graph=True)[0]
+                   for out, wrt in [('p_re', 'x'), ('p_im', 'x'), ('p_re', 'y')])
+    assert torch.allclose(expr(data), expected)

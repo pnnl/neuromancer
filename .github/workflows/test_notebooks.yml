@@ -1,0 +1,134 @@
+name: Run Remaining Notebook Tests
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+env:
+  NOTEBOOK_CI_SKIP_REASON: >-
+    These explicit CI exceptions either require a large external data source,
+    network data download, or GPU backend; are scratch notebooks scheduled to be
+    deleted in a near-future release; require a dedicated dependency stack; are
+    too long-running for the current CI budget; or are covered by current issue
+    tracking.
+  NOTEBOOK_CI_SKIP_NOTEBOOKS: |
+    examples/neural_operators/Part_2_DeepONet_antiderivative_unaligned.ipynb
+    examples/neural_operators/Part_8_TIDON_HEAT.ipynb
+    examples/control/Part_7_TIDON_DPC_HEAT.ipynb
+    examples/ODEs/scratch/*.ipynb
+    examples/lightning_integration_examples/*.ipynb
+    examples/lightning_integration_examples/other_examples/*.ipynb
+    examples/parametric_programming/Part_5_cvxpy_layers.ipynb
+    examples/psl/systems.ipynb
+    examples/SDEs/sde_walkthrough.ipynb
+
+jobs:
+  notebooks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends graphviz
+          dot -V
+          python -m pip install --upgrade pip
+          python -m pip uninstall -y neuromancer || true
+          python -m pip install -e ".[examples]" nbconvert jupyter ipykernel
+
+      - name: Diagnostics
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+        run: |
+          set -euo pipefail
+          echo "::group::Environment"
+          pwd
+          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "GITHUB_SHA=$GITHUB_SHA"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "PR head=${{ github.event.pull_request.head.sha }}"
+            echo "PR base=${{ github.event.pull_request.base.sha }}"
+          fi
+          echo "checked_out=$(git rev-parse HEAD)"
+          test -d src/neuromancer
+          echo "src/neuromancer exists"
+          python --version
+          python -m pip --version
+          python -m pip list
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          import sys
+
+          import neuromancer
+
+          expected = (Path.cwd() / "src" / "neuromancer").resolve()
+          spec = importlib.util.find_spec("neuromancer")
+          origin = Path(spec.origin).resolve() if spec and spec.origin else None
+          print("python executable:", sys.executable)
+          print("sys.path:")
+          for entry in sys.path:
+              print(f"  {entry}")
+          print("neuromancer:", neuromancer.__file__)
+          print("neuromancer import spec:", origin)
+          if origin is None or not str(origin).startswith(str(expected)):
+              raise SystemExit(f"neuromancer did not resolve from checked-out src tree: {origin}")
+          PY
+          echo "::endgroup::"
+
+      - name: Register Jupyter kernel
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+        run: |
+          set -euo pipefail
+          python -m ipykernel install --user --name=ci-kernel
+          jupyter kernelspec list
+
+      - name: Select remaining example notebooks
+        id: notebooks
+        shell: bash
+        run: |
+          set -euo pipefail
+          list_file="$RUNNER_TEMP/example_notebooks.zlist"
+          find examples -type f -name "*.ipynb" \
+            ! -path "examples/control/*" \
+            ! -path "examples/domain_examples/*" \
+            ! -path "examples/ODEs/*" \
+            ! -path "examples/PDEs/*" \
+            ! -path "examples/function_encoder/*" \
+            ! -path "examples/neural_operators/*" \
+            ! -path "examples/parametric_programming/*" \
+            -print0 \
+            | LC_ALL=C sort -z > "$list_file"
+
+          mapfile -d '' -t notebooks < "$list_file"
+          echo "list_file=$list_file" >> "$GITHUB_OUTPUT"
+
+          if [ "${#notebooks[@]}" -eq 0 ]; then
+            echo "ERROR: no remaining notebooks found under examples/." >&2
+            exit 2
+          fi
+
+          echo "Remaining example notebooks selected from examples/:"
+          echo "Dedicated workflows test examples/control, examples/domain_examples, examples/ODEs, examples/PDEs, examples/function_encoder, examples/neural_operators, and examples/parametric_programming."
+          printf '  %s\n' "${notebooks[@]}"
+
+      - name: Run notebooks
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+          NOTEBOOK_LOG_TAIL_LINES: "300"
+        run: |
+          set -euo pipefail
+          bash ./run_notebooks.sh ci-kernel . 3600 "${{ steps.notebooks.outputs.list_file }}"

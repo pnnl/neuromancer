@@ -60,14 +60,15 @@ if __name__ == "__main__":
     """
     # # # Control policy
     """
-    nsteps = 20 # prediction horizon length    
+    nsteps = 20 # prediction horizon length
+    preview_steps = 5 # number of future steps of r, d previewed by the control policy
     integers = torch.arange(u_delta_min, u_delta_max+.1, dtype=torch.get_default_dtype()).unsqueeze(0) # vector of feasible integers
-    
-    net_continous = blocks.MLP_bounds(insize=nx+(nref+nd)*(nsteps+1), outsize=nu, hsizes=[64,64], # neural module for continous control inputs
+
+    net_continous = blocks.MLP_bounds(insize=nx+(nref+nd)*(preview_steps+1), outsize=nu, hsizes=[64,64], # neural module for continous control inputs
                              nonlin=activations['gelu'], min=u_c_min, max=u_c_max)
-    
+
     int_out_size = integers.shape[-1] if STE_method == 'softmax' else ndelta
-    net_integer = blocks.MLP(insize=nx+(nref+nd)*(nsteps+1), outsize=int_out_size, hsizes=[64,64], # neural module for integer control inputs
+    net_integer = blocks.MLP(insize=nx+(nref+nd)*(preview_steps+1), outsize=int_out_size, hsizes=[64,64], # neural module for integer control inputs
                              nonlin=activations['gelu'])
 
     """
@@ -75,9 +76,20 @@ if __name__ == "__main__":
     """
     dynamics_node = Node(dynamics, ['x','u','d'], ['x'], name='dynamics_model') # system dynamics
 
-    continous_policy_node = Node(net_continous, ['x','r','d'], ['u_c'], name='continous_input_policy')
-    integer_policy_node = Node(net_integer, ['x','r','d'], ['u_delta'], name='integer_input_policy')
-    
+    # Input map determines how much past/future information is fed to the
+    # Node function of the named variable, and how to deal with information
+    # requested outside of the provided, i.e. 2 steps from the end of the
+    # container how to provide 5 steps of future data.
+    input_preview_map = {
+        "r": {"past": 0, "future": preview_steps, "pad_mode": "reflect"},
+        "d": {"past": 0, "future": preview_steps, "pad_mode": "reflect"},
+    }
+
+    continous_policy_node = Node(net_continous, ['x','r','d'], ['u_c'], name='continous_input_policy',
+                                  input_map=input_preview_map)
+    integer_policy_node = Node(net_integer, ['x','r','d'], ['u_delta'], name='integer_input_policy',
+                                input_map=input_preview_map)
+
     # Define soft rounding nodes
     if STE_method == 'sigmoid':
         slope = 10
@@ -93,9 +105,7 @@ if __name__ == "__main__":
     # # # Closed-loop system
     """
     cl_system = SystemPreview([continous_policy_node, integer_policy_node, rounding_node, dynamics_node], # computational graph
-                              nsteps=nsteps, name='cl_system', pad_mode='reflect',
-                              preview_keys_map={'r': ['continous_input_policy', 'integer_input_policy'],  # preview references for both control policy modules
-                                                'd': ['continous_input_policy', 'integer_input_policy']} )# preview disturbance for both control policy modules
+                              nsteps=nsteps, name='cl_system')
 
     """
     # # # Training dataset

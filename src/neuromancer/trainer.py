@@ -23,6 +23,20 @@ def move_batch_to_device(batch, device="cpu"):
     return {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
 
+def detach_metric(value):
+    """
+    A metric's value, cut loose from the autograd graph that produced it.
+
+    Anything a trainer keeps across epochs must go through this: a loss tensor holds a
+    reference to the graph behind it, and the graph holds every activation it saved for
+    backward, so storing one undetached pins that whole epoch in memory for the run.
+
+    :param value: (Tensor or number) metric as it came out of the model
+    :return: detached tensor, or the value unchanged if it was not a tensor
+    """
+    return value.detach() if isinstance(value, torch.Tensor) else value
+
+
 class CustomEarlyStopping(EarlyStopping):
     """
     Custom early stopping callback inherited from PyTorch Lightning Early Stopping. 
@@ -223,6 +237,22 @@ class Trainer:
         self.best_model = deepcopy(self.model.state_dict())
         self.multi_fidelity=multi_fidelity
         self.device = device
+        self.loss_history = dict()
+        self.loss_history["train"] = []
+        self.loss_history["dev"] = []
+
+    def get_devloss(self):
+        """
+        Best value of eval_metric seen so far, as a plain Python float.
+
+        best_devloss itself may be a tensor (on whatever device the model is on) or a number,
+        depending on whether an epoch has improved on the initial value yet; this is the
+        one call to make when the number is wanted for logging, comparison or serialisation.
+
+        :return: (float)
+        """
+        best = self.best_devloss
+        return best.item() if isinstance(best, torch.Tensor) else float(best)
 
     def train(self):
         """
@@ -267,14 +297,16 @@ class Trainer:
                             d_batch = move_batch_to_device(d_batch, self.device)
                             eval_output = self.model(d_batch)
                             losses.append(eval_output[self.dev_metric])
-                        eval_output[f'mean_{self.dev_metric}'] = torch.mean(torch.stack(losses))
+                        mean_dev_loss = torch.mean(torch.stack(losses))
+                        self.loss_history["dev"].append(detach_metric(mean_dev_loss))
+                        eval_output[f"mean_{self.dev_metric}"] = mean_dev_loss
                         output = {**output, **eval_output}
                     self.callback.begin_eval(self, output)  # Used for alternate dev evaluation
 
                     if (self._eval_min and output[self.eval_metric] < self.best_devloss)\
                             or (not self._eval_min and output[self.eval_metric] > self.best_devloss):
                         self.best_model = deepcopy(self.model.state_dict())
-                        self.best_devloss = output[self.eval_metric]
+                        self.best_devloss = detach_metric(output[self.eval_metric])
                         self.badcount = 0
                     else:
                         if i > self.warmup:
@@ -283,6 +315,7 @@ class Trainer:
                         self.logger.log_metrics(output, step=i)
                     else:
                         mean_loss = output[f'mean_{self.train_metric}']
+                        self.loss_history["train"].append(detach_metric(mean_loss))
                         if i % (self.epoch_verbose) == 0:
                             print(f'epoch: {i}  {self.train_metric}: {mean_loss}')
 
@@ -304,10 +337,13 @@ class Trainer:
         self.model.load_state_dict(self.best_model)
 
         if self.logger is not None:
-            self.logger.log_artifacts({
-                "best_model_state_dict.pth": self.best_model,
-                "best_model.pth": self.model,
-            })
+            # check if logger has save_weights
+            # flag before saving, default is to save
+            if getattr(self.logger, 'save_weights', True):
+                self.logger.log_artifacts({
+                    "best_model_state_dict.pth": self.best_model,
+                    "best_model.pth": self.model,
+                })
         return self.best_model
 
     def test(self, best_model):

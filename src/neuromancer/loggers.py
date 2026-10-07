@@ -132,7 +132,7 @@ class MLFlowLogger(BasicLogger):
     def __init__(self, args=None, savedir='test', verbosity=1, id=None,
                  stdout=('nstep_dev_loss','loop_dev_loss','best_loop_dev_loss',
                          'nstep_dev_ref_loss','loop_dev_ref_loss'),
-                 logout=None):
+                 logout=None, nested=False, save_weights=True):
         # Lazy import so module import works even if mlflow isn't installed
         try:
             import mlflow  # noqa: F401
@@ -147,14 +147,32 @@ class MLFlowLogger(BasicLogger):
         self._mlflow = mlflow
         self._mlflow.set_tracking_uri(args.location)
         self._mlflow.set_experiment(args.exp)
-        self._mlflow.start_run(run_name=args.run, run_id=id)
+        
+        # Nested allows for parent/child runs for 
+        # hyperparameter optimization and nice logging.
+        # saving the run output allows for downstream
+        # processes to get the run_id and point users
+        # to the save folder more easily
+        self.run = self._mlflow.start_run(
+            run_name=args.run, 
+            run_id=id,
+            nested=nested,
+        )
+
+        # Whether or not to save the model output, 
+        # this may be false if we are doing hyperparameter
+        # optimization and running small test trials.
+        self.save_weights = save_weights
 
         super().__init__(args=args, savedir=savedir, verbosity=verbosity, stdout=stdout)
         self.logout = logout
 
     def log_parameters(self):
         params = {k: getattr(self.args, k) for k in vars(self.args)}
-        print({k: type(v) for k, v in params.items()})
+        # add option to *not* print metrics to stdout
+        # useful for hyperparameter optimization, to avoid clutter
+        if self.verbosity > 0:
+            print({k: type(v) for k, v in params.items()})
         self._mlflow.log_params(params)
 
     def log_weights(self, model):
@@ -162,26 +180,42 @@ class MLFlowLogger(BasicLogger):
         self._mlflow.log_metric('nparams', float(nweights))
 
     def log_metrics(self, output, step=0):
-        super().log_metrics(output, step)
+        # add option to *not* print metrics to stdout
+        # useful for hyperparameter optimization, to avoid clutter
+        # the metrics are still stored by the logger
+        if self.verbosity > 0:
+            super().log_metrics(output, step)
         keys = set(output.keys())
         if self.logout is not None:
             keys = {k for k in keys if any(p in k for p in self.logout)}
         for k in keys:
             v = output[k]
             if isinstance(v, torch.Tensor) and torch.numel(v) == 1:
-                self._mlflow.log_metric(k, v.item())
+                self._mlflow.log_metric(k, v.item(), step=step)
             elif isinstance(v, np.ndarray) and v.size == 1:
-                self._mlflow.log_metric(k, float(v))
+                self._mlflow.log_metric(k, float(v), step=step)
             elif isinstance(v, numbers.Number):
-                self._mlflow.log_metric(k, v)
+                self._mlflow.log_metric(k, v, step=step)
 
     def log_artifacts(self, artifacts=dict()):
         super().log_artifacts(artifacts)
         self._mlflow.log_artifacts(self.savedir)
 
+    def log_dict(self, data, name):
+        if isinstance(data, dict):
+            self._mlflow.log_dict(
+                data,
+                artifact_file=name,
+            )
+        elif hasattr(data, "__dict__"):
+            self._mlflow.log_dict(
+                vars(data),
+                artifact_file=name,
+            )
+        else:
+            raise ValueError("Object was not easily converted to dict")
+        return
+
     def clean_up(self):
         shutil.rmtree(self.savedir)
         self._mlflow.end_run()
-
-
-

@@ -209,6 +209,11 @@ class Problem(nn.Module):
             input_dict = {**input_dict, **output_dict}
         return input_dict
 
+    def predict(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        with torch.no_grad():
+            output_dict = self.step(data)
+        return {k: v for k,v in output_dict.items()}
+
     def graph(self, include_objectives=True):
         self._check_unique_names()
         graph = pydot.Dot("problem", graph_type="digraph", splines="spline", rankdir="LR")

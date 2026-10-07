@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import pydot
 import itertools
-from neuromancer.system import Node, System, MovingHorizon
+from neuromancer.system import Node, System, MovingHorizon, SystemPreview
 from collections import defaultdict
 
 
@@ -565,3 +565,366 @@ def test_graph_generation_invalid_node_lists(get_nodes_and_edges):
                 assert edges != expected_edges
 
 
+"""
+############################## TESTING FUNCTIONS FOR NODE INPUT MAP ####################################
+"""
+class TestNodeInputMap:
+    def setup_method(self):
+        self.f = lambda x1, x2: x1 + x2
+        self.sample_data = {
+            'x1': torch.tensor([[1.0, 2.0]]),
+            'x2': torch.tensor([[3.0, 4.0]])
+        }
+
+    def test_default_input_map_is_empty_dict(self):
+        node = Node(self.f, ['x1', 'x2'], ['y1'])
+        assert node.input_map == {}
+
+    def test_input_map_stored_on_node(self):
+        imap = {'x1': {'past': 2, 'future': 1, 'pad_mode': 'nearest'}}
+        node = Node(self.f, ['x1', 'x2'], ['y1'], input_map=imap)
+        assert node.input_map == imap
+
+    def test_input_map_partial_coverage(self):
+        # only x1 is mapped; x2 will receive only the current timestep
+        imap = {'x1': {'past': 1, 'future': 0}}
+        node = Node(self.f, ['x1', 'x2'], ['y1'], input_map=imap)
+        assert 'x1' in node.input_map
+        assert 'x2' not in node.input_map
+
+    def test_input_map_does_not_affect_node_forward(self):
+        # Node.forward slices by input_keys only; input_map is consumed by SystemPreview
+        # So Node.forward should be unaffected by input_map
+        imap = {'x1': {'past': 2, 'future': 1}}
+        node_with_map = Node(self.f, ['x1', 'x2'], ['y1'], input_map=imap)
+        node_no_map = Node(self.f, ['x1', 'x2'], ['y1'])
+        result_with = node_with_map(self.sample_data)
+        result_no = node_no_map(self.sample_data)
+        assert torch.equal(result_with['y1'], result_no['y1'])
+
+
+"""
+############################## TESTING FUNCTIONS FOR SYSTEMPREVIEW CLASS ####################################
+"""
+class TestSystemPreviewGetMappedData:
+    def setup_method(self):
+        torch.manual_seed(0)
+        self.batch, self.T, self.dim = 2, 5, 3
+        self.data = torch.rand(self.batch, self.T, self.dim)
+        # minimal SystemPreview just to access get_mapped_data
+        self.system = SystemPreview(nodes=[Node(lambda x: x, ['x1'], ['y1'])])
+
+    def _get(self, iteration, input_map):
+        return self.system.get_mapped_data(self.data, iteration, input_map)
+
+    def test_output_shape_matches_window(self):
+        # Get Mapped Data should return correct dimension
+        # of (batch, dimension * (past_steps + present (1) + future_steps))
+        past, future = 1, 2
+        result = self._get(2, {'past': past, 'future': future})
+        assert result.shape == (self.batch, self.dim * (past + 1 + future))
+
+    def test_correct_values_no_boundary(self):
+        # Flattened data vector is correctly constructed with no wrapping
+        result = self._get(2, {'past': 1, 'future': 1})
+        expected = torch.cat([self.data[:, 1], self.data[:, 2], self.data[:, 3]], dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_zero_window_returns_single_timestep(self):
+        # This should perform no slicing or repackaging
+        result = self._get(2, {'past': 0, 'future': 0})
+        assert torch.allclose(result, self.data[:, 2])
+
+    def test_nearest_is_default_pad_mode(self):
+        result_default = self._get(0, {'past': 3, 'future': 0})
+        result_nearest = self._get(0, {'past': 3, 'future': 0, 'pad_mode': 'nearest'})
+        assert torch.allclose(result_default, result_nearest)
+
+    def test_nearest_padding_clamps_left_boundary(self):
+        # indices [-2, -1, 0] all clamp to 0 -> first frame repeated three times
+        result = self._get(0, {'past': 2, 'future': 0, 'pad_mode': 'nearest'})
+        expected = torch.cat([self.data[:, 0]] * 3, dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_nearest_padding_clamps_right_boundary(self):
+        # indices [4, 5, 6] all clamp to 4 -> last frame repeated three times
+        result = self._get(4, {'past': 0, 'future': 2, 'pad_mode': 'nearest'})
+        expected = torch.cat([self.data[:, 4]] * 3, dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_cyclic_padding(self):
+        # iteration=0, past=2: indices [-2, -1, 0] -> %5 = [3, 4, 0]
+        result = self._get(0, {'past': 2, 'future': 0, 'pad_mode': 'cyclic'})
+        expected = torch.cat([self.data[:, 3], self.data[:, 4], self.data[:, 0]], dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_reflect_padding(self):
+        # iteration=0, past=2: indices [-2, -1, 0] -> reflected over [0, T-1] -> [2, 1, 0]
+        result = self._get(0, {'past': 2, 'future': 0, 'pad_mode': 'reflect'})
+        expected = torch.cat([self.data[:, 2], self.data[:, 1], self.data[:, 0]], dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_constant_padding_default_fill_is_zero(self):
+        # iteration=0, past=2: indices [-2, -1] are out-of-bounds, filled with 0.0
+        result = self._get(0, {'past': 2, 'future': 0, 'pad_mode': 'constant'})
+        expected = torch.cat([
+            torch.zeros(self.batch, self.dim),
+            torch.zeros(self.batch, self.dim),
+            self.data[:, 0]
+        ], dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_constant_padding_custom_fill(self):
+        fill = -99.0
+        result = self._get(0, {'past': 2, 'future': 0, 'pad_mode': 'constant', 'fill': fill})
+        expected = torch.cat([
+            torch.full((self.batch, self.dim), fill),
+            torch.full((self.batch, self.dim), fill),
+            self.data[:, 0]
+        ], dim=-1)
+        assert torch.allclose(result, expected)
+
+    def test_missing_past_key_raises_value_error(self):
+        with pytest.raises(ValueError):
+            self._get(2, {'future': 1})
+
+    def test_missing_future_key_raises_value_error(self):
+        with pytest.raises(ValueError):
+            self._get(2, {'past': 1})
+
+    def test_negative_past_raises_value_error(self):
+        with pytest.raises(ValueError):
+            self._get(2, {'past': -1, 'future': 0})
+
+    def test_negative_future_raises_value_error(self):
+        with pytest.raises(ValueError):
+            self._get(2, {'past': 0, 'future': -1})
+
+    def test_unknown_pad_mode_raises_value_error(self):
+        with pytest.raises(ValueError):
+            self._get(2, {'past': 1, 'future': 1, 'pad_mode': 'blah'})
+
+
+def test_system_preview_forward_no_input_map_matches_system():
+    """Without input_map and start_iter=0, SystemPreview produces identical output to System."""
+    def make_nodes():
+        return [
+            Node(lambda x: x * 2, ['x1'], ['y1'], name='node_1'),
+            Node(lambda y: y + 1, ['y1'], ['y2'], name='node_2'),
+        ]
+
+    nstep, batch = 3, 2
+    data = {'x1': torch.rand(batch, nstep, 1)}
+
+    result_system = System(nodes=make_nodes(), nsteps=nstep)(data)
+    result_preview = SystemPreview(nodes=make_nodes(), nsteps=nstep)(data)
+
+    assert dict_equals(result_system, result_preview)
+
+
+def test_system_preview_forward_with_input_map():
+    """A node with input_map receives the temporally expanded input, not just the current step."""
+    past, future, dim = 1, 1, 2
+    window = past + 1 + future  # = 3
+    nsteps, batch = 4, 2
+
+    # nn.Linear will raise a RuntimeError on size mismatch if the wrong input is passed
+    net = nn.Linear(dim * window, dim)
+    input_map = {'x1': {'past': past, 'future': future}}
+    node = Node(net, ['x1'], ['y1'], input_map=input_map)
+    system = SystemPreview(nodes=[node], nsteps=nsteps)
+    data = {'x1': torch.rand(batch, nsteps, dim)}
+    result = system(data)
+
+    assert 'y1' in result
+    assert result['y1'].shape == (batch, nsteps, dim)
+
+
+def test_system_preview_start_iter():
+    """Rollout begins at start_iter and produces exactly nsteps outputs."""
+    start, nsteps, batch = 2, 3, 2
+    T = start + nsteps
+    node = Node(lambda x: x * 2, ['x1'], ['y1'])
+    system = SystemPreview(nodes=[node], nsteps=nsteps, start_iter=start)
+    data = {'x1': torch.rand(batch, T, 1)}
+    result = system(data)
+
+    assert 'y1' in result
+    assert result['y1'].shape == (batch, nsteps, 1)
+    # y1 at step t should equal 2 * x1[start + t]
+    for t in range(nsteps):
+        assert torch.allclose(result['y1'][:, t], 2.0 * data['x1'][:, start + t])
+
+
+"""
+############ TESTING THE BUFFERED ROLLOUT AGAINST THE ORIGINAL cat ROLLOUT ############
+"""
+def reference_rollout(system, input_dict):
+    """
+    The rollout as it was before RolloutBuffers: every key is a 3-d tensor that System.cat
+    grows by one step per node output. forward now accumulates per-step tensors and stacks
+    once at the end, and must agree with this exactly, gradients included.
+
+    Serves both System and SystemPreview: for System every node's input_map is empty and
+    there is no start_iter, so the preview branches are simply never taken.
+    """
+    data = system.init(input_dict.copy())
+    start = getattr(system, 'start_iter', 0)
+    nsteps = system.nsteps if system.nsteps is not None else data[system.nstep_key].shape[1] - start
+    for i in range(start, start + nsteps):
+        for node in system.nodes:
+            indata = {k: (system.get_mapped_data(data[k], i, node.input_map[k])
+                          if k in node.input_map else data[k][:, i])
+                      for k in node.input_keys}
+            data = system.cat(data, node(indata))
+    return data
+
+
+def closed_loop_system(nsteps, system_class=System, input_map=None, **kwargs):
+    """Closed loop with feedback: policy -> dynamics -> observation, x fed back to the policy."""
+    torch.manual_seed(0)
+    window = 1 if input_map is None else input_map['d']['past'] + 1 + input_map['d']['future']
+    policy_net = nn.Linear(4 + 3 * window, 2)
+    dynamics_net = nn.Linear(4 + 2, 4)
+    nodes = [
+        Node(lambda x, d: policy_net(torch.cat([x, d], dim=-1)), ['x', 'd'], ['u'],
+             name='policy', input_map=input_map),
+        Node(lambda x, u: dynamics_net(torch.cat([x, u], dim=-1)), ['x', 'u'], ['x'],
+             name='dynamics'),
+        Node(lambda x: x[:, :1], ['x'], ['y'], name='observation'),
+    ]
+    return system_class(nodes, nsteps=nsteps, **kwargs)
+
+
+@pytest.mark.parametrize('nsteps', [0, 1, 5, 20])
+def test_system_forward_matches_reference_rollout(nsteps):
+    """The buffered rollout is bit-identical to growing the tensors with cat."""
+    system = closed_loop_system(nsteps)
+    data = {'x': torch.rand(3, 1, 4), 'd': torch.rand(3, max(nsteps, 1), 3)}
+    assert dict_equals(system(dict(data)), reference_rollout(system, dict(data)))
+
+
+def test_system_forward_matches_reference_when_output_key_is_also_input_data():
+    """A key given as full input data and also written by a node keeps the append semantics."""
+    system = closed_loop_system(5)
+    data = {'x': torch.rand(3, 1, 4), 'd': torch.rand(3, 5, 3), 'y': torch.rand(3, 5, 1)}
+    assert dict_equals(system(dict(data)), reference_rollout(system, dict(data)))
+
+
+def test_system_forward_does_not_mutate_the_callers_dict():
+    """collapse returns a new dict rather than writing rollout outputs back into the input."""
+    system = closed_loop_system(5)
+    data = {'x': torch.rand(3, 1, 4), 'd': torch.rand(3, 5, 3)}
+    system(data)
+    assert set(data) == {'x', 'd'}
+    assert data['x'].shape == (3, 1, 4)
+
+
+@pytest.mark.parametrize('pad_mode', ['nearest', 'cyclic', 'reflect', 'constant'])
+@pytest.mark.parametrize('past,future', [(0, 0), (2, 0), (0, 2), (2, 3)])
+def test_preview_forward_matches_reference_rollout(pad_mode, past, future):
+    """The full SystemPreview rollout agrees with the reference for every padding mode."""
+    input_map = {'d': {'past': past, 'future': future, 'pad_mode': pad_mode, 'fill': -1.0}}
+    system = closed_loop_system(6, system_class=SystemPreview, input_map=input_map)
+    data = {'x': torch.rand(3, 1, 4), 'd': torch.rand(3, 6, 3)}
+    assert dict_equals(system(dict(data)), reference_rollout(system, dict(data)))
+
+
+@pytest.mark.parametrize('system_class', [System, SystemPreview])
+def test_system_forward_gradients_match_reference_rollout(system_class):
+    """Backward through the stacked outputs gives the same parameter gradients."""
+    input_map = {'d': {'past': 1, 'future': 1}} if system_class is SystemPreview else None
+    system = closed_loop_system(8, system_class=system_class, input_map=input_map)
+    data = {'x': torch.rand(3, 1, 4), 'd': torch.rand(3, 8, 3)}
+
+    grads = []
+    for rollout in [system, lambda d: reference_rollout(system, d)]:
+        system.zero_grad()
+        rollout(dict(data))['y'].square().sum().backward()
+        grads.append([p.grad.clone() for p in system.parameters()])
+
+    for buffered, reference in zip(*grads):
+        assert torch.equal(buffered, reference)
+
+
+@pytest.mark.parametrize('pad_mode', ['nearest', 'cyclic', 'reflect', 'constant'])
+@pytest.mark.parametrize('past,future', [(0, 0), (2, 0), (0, 2), (2, 3)])
+def test_get_mapped_steps_matches_get_mapped_data(pad_mode, past, future):
+    """
+    get_mapped_steps reads the same window from the rollout buffers that get_mapped_data
+    reads from a 3-d tensor.
+    """
+    input_map = {'d': {'past': past, 'future': future, 'pad_mode': pad_mode, 'fill': -1.0}}
+    system = closed_loop_system(6, system_class=SystemPreview, input_map=input_map)
+    data = torch.rand(3, 6, 3)
+    for iteration in range(6):
+        assert torch.allclose(
+            system.get_mapped_steps(list(torch.unbind(data, dim=1)), iteration, input_map['d']),
+            system.get_mapped_data(data, iteration, input_map['d']))
+
+
+def test_system_preview_nsteps_inferred_with_start_iter():
+    """When nsteps is not given, it is inferred as T - start_iter from the nstep_key tensor."""
+    start, T, batch = 2, 6, 2
+    node = Node(lambda x: x, ['x1'], ['y1'])
+    system = SystemPreview(nodes=[node], start_iter=start, nstep_key='x1')
+    data = {'x1': torch.rand(batch, T, 1)}
+    result = system(data)
+
+    assert result['y1'].shape == (batch, T - start, 1)
+
+
+
+
+"""
+############ SystemPreview: CONNECTED NODES WITH A ROLLOUT THAT STARTS AFTER STEP ZERO ############
+"""
+def test_system_preview_start_iter_chains_generated_keys():
+    """A node reads, at step i, the value an earlier node generated at step i."""
+    system = SystemPreview([
+        Node(lambda x: 2 * x, ['x'], ['y'], name='first'),
+        Node(lambda y: y + 1, ['y'], ['z'], name='second'),
+    ], start_iter=2, nsteps=3)
+    result = system({'x': torch.arange(5.).reshape(1, 5, 1)})
+
+    assert torch.equal(result['y'], torch.tensor([4., 6., 8.]).reshape(1, 3, 1))
+    assert torch.equal(result['z'], torch.tensor([5., 7., 9.]).reshape(1, 3, 1))
+
+
+def test_system_preview_start_iter_matches_start_zero_on_shifted_data():
+    """Starting at step 2 gives the rollout that starting at step 0 gives on the data from step 2 on."""
+    def nodes():
+        return [Node(lambda x: 2 * x, ['x'], ['y'], name='first'),
+                Node(lambda y, x: y + x, ['y', 'x'], ['z'], name='second')]
+    x = torch.rand(2, 6, 3)
+    late = SystemPreview(nodes(), start_iter=2, nsteps=4)({'x': x})
+    early = SystemPreview(nodes(), start_iter=0, nsteps=4)({'x': x[:, 2:]})
+
+    assert torch.equal(late['y'], early['y'])
+    assert torch.equal(late['z'], early['z'])
+
+
+def test_system_preview_start_iter_window_over_generated_key():
+    """A past window over a generated key is taken from the values generated so far."""
+    system = SystemPreview([
+        Node(lambda x: 2 * x, ['x'], ['y'], name='first'),
+        Node(lambda y: y, ['y'], ['w'], name='window', input_map={'y': {'past': 1, 'future': 0}}),
+    ], start_iter=2, nsteps=3)
+    result = system({'x': torch.arange(5.).reshape(1, 5, 1)})
+
+    # y is 4, 6, 8 at steps 2, 3, 4; the first window has no earlier y and repeats the nearest
+    expected = torch.tensor([[4., 4.], [4., 6.], [6., 8.]]).reshape(1, 3, 2)
+    assert torch.equal(result['w'], expected)
+
+
+def test_system_preview_start_iter_state_feedback():
+    """A state supplied up to start_iter is advanced from there."""
+    system = SystemPreview([
+        Node(lambda x, u: x + u, ['x', 'u'], ['x'], name='integrator'),
+        Node(lambda x: 10 * x, ['x'], ['y'], name='output'),
+    ], start_iter=2, nsteps=2, nstep_key='u')
+    data = {'x': torch.tensor([0., 1., 2.]).reshape(1, 3, 1), 'u': torch.ones(1, 4, 1)}
+    result = system(data)
+
+    assert torch.equal(result['x'], torch.tensor([0., 1., 2., 3., 4.]).reshape(1, 5, 1))
+    assert torch.equal(result['y'], torch.tensor([20., 30.]).reshape(1, 2, 1))

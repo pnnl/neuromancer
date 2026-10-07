@@ -198,6 +198,21 @@ def test_problem_graph_generation():
     assert edges == expected_edges
 
 
+def test_problem_predict():
+    """Check predict attribute, and asserts ensure grad is off and keys are same."""
+    objectives, constraints, components, loss, _ = example_1()
+    problem = Problem(components, loss)
+    batch = {"a": torch.randn(2, 1), "p": torch.randn(2, 1)}
+
+    step_output = problem.step(batch)
+    predict_output = problem.predict(batch)
+
+    assert set(predict_output.keys()) == set(step_output.keys())
+    for key in predict_output:
+        assert torch.allclose(predict_output[key], step_output[key])
+        assert predict_output[key].requires_grad is False
+
+
 def test_problem_step():
     objectives, constraints, components, loss, edges = example_1()
     problem = Problem(components, loss, grad_inference=True, check_overwrite=True)
@@ -270,7 +285,4 @@ def test_check_unique_names():
     # should throw an error because node2 has a duplicate name
     with pytest.raises(AssertionError):
         problem2 = Problem(nodes=new_components, loss=loss, grad_inference=True, check_overwrite=True)
-
-
-
 

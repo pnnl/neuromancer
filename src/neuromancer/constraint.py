@@ -338,6 +338,8 @@ class Variable(nn.Module):
         """
 
         :param input_variables: (Variable or torch.Tensor) The Variable arguments to be used in the callable.
+                                A string is used as the key of an input Variable, so Variable("x") is
+                                the same as Variable(key="x")
         :param func: (Callable) Ideally this callable will take in Tensors and return Tensors
         :param key: (str) Used for retrieving values from a dictionary of {str: Tensor}
                     if key is provided _is_input set to True
@@ -346,6 +348,13 @@ class Variable(nn.Module):
                        Value for the node. Can be a trainable parameter
         """
         super().__init__()
+
+        # Variable("x") is an input Variable with key "x", not a Variable whose inputs are the characters of "x"
+        if isinstance(input_variables, str):
+            if key is not None:
+                raise TypeError(f'input_variables must be an iterable of inputs, got the string {input_variables!r}. '
+                                'Pass the key alone, as Variable("x") or Variable(key="x").')
+            key, input_variables = input_variables, []
 
         self._func = func
         if isinstance(value, torch.Tensor) and value.requires_grad:
@@ -584,7 +593,7 @@ class Variable(nn.Module):
         This is useful for unpacking results of functions that return multiple values such as `torch.linalg.svd`:
 
         ```
-        m = Variable("m", torch.ones(10,10))
+        m = variable(torch.ones(10, 10), display_name="m")
         u, s, v = torch.linalg.svd(m).unpack(["u","s","v"])
         ```
         """

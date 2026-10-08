@@ -1,0 +1,38 @@
+[server]
+headless = true
+port = 8501
+# The watcher probes __path__ on every loaded module, which triggers transformers'
+fileWatcherType = "none"
+address = "127.0.0.1"
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#60a5fa"
+
+showWidgetBorder = true
+
+baseRadius = "full"
+buttonRadius = "full"
+
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
+baseFontWeight = 400
+baseFontSize = 14
+
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
+headingFontWeights = [600, 600, 600, 200, 600, 200]
+headingFontSizes = ["3rem", "1.5rem", "1rem", "1rem", "0.8rem", "0.8rem"]
+
+[theme.light]
+textColor = "#3f3f46"
+backgroundColor = "#fafafa"
+secondaryBackgroundColor = "#ffffff"
+borderColor = "#eeeef0"
+
+[theme.dark]
+textColor = "#e4e4e7"
+backgroundColor = "#0f1117"
+secondaryBackgroundColor = "#1a1d24"
+borderColor = "#27272a"

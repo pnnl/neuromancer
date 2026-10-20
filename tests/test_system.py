@@ -928,3 +928,18 @@ def test_system_preview_start_iter_state_feedback():
 
     assert torch.equal(result['x'], torch.tensor([0., 1., 2., 3., 4.]).reshape(1, 5, 1))
     assert torch.equal(result['y'], torch.tensor([20., 30.]).reshape(1, 2, 1))
+
+
+def test_graph_draws_feedback_into_a_node_without_state():
+    """A node that reads a key only a later node writes, here a policy reading the state
+    a model steps, gets that key's feedback edge from the later node, beside its edge from
+    the initial condition: the policy reads x from the data at step 0 and from the model's
+    previous step after that."""
+    policy = Node(nn.Linear(1, 1), ['x'], ['u'], name='policy')
+    model = Node(nn.Linear(2, 1), ['x', 'u'], ['x'], name='model')
+    edges = {(e.get_source(), e.get_destination(), e.get_label())
+             for e in System([policy, model]).system_graph.get_edges()}
+    assert ('in', 'policy', 'x') in edges
+    assert ('model', 'policy', 'x') in edges
+    assert ('policy', 'model', 'u') in edges
+    assert ('model', 'model', 'x') in edges

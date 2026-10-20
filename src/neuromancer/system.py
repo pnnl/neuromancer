@@ -251,12 +251,10 @@ class System(nn.Module):
                         unique_common_keys.add(key)
 
         # build I/O and node loop connections
-        loop_keys = []
         init_keys = []
         previous_output_keys = []
         for idx_node, node in enumerate(self.nodes):
             node_loop_keys = set(node.input_keys) & set(node.output_keys)
-            loop_keys += node_loop_keys
             init_keys += set(node.input_keys) - set(previous_output_keys)
             previous_output_keys += node.output_keys
 
@@ -266,14 +264,14 @@ class System(nn.Module):
             # build connections to the dataset
             for key in set(node.input_keys) & set(init_keys):
                 graph.add_edge(pydot.Edge("in", node.name, label=key))
-            # build feedback connections for init nodes
+            # build feedback connections: a key no earlier node writes is read from the
+            # previous step's value, written by the last node after this one that writes it
             feedback_src_nodes = reverse_order_nodes[:-1-idx_node]
-            if len(set(node.input_keys) & set(loop_keys) & set(init_keys)) > 0:
-                for key in node.input_keys:
-                    for src in feedback_src_nodes:
-                        if key in src.output_keys and key not in previous_output_keys:
-                            graph.add_edge(pydot.Edge(src.name, node.name, label=key))
-                            break
+            for key in node.input_keys:
+                for src in feedback_src_nodes:
+                    if key in src.output_keys and key not in previous_output_keys:
+                        graph.add_edge(pydot.Edge(src.name, node.name, label=key))
+                        break
 
         # build connections to the output of the system in a reversed order
         previous_output_keys = []

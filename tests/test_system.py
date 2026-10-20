@@ -874,3 +874,15 @@ def test_system_preview_nsteps_inferred_with_start_iter():
     assert result['y1'].shape == (batch, T - start, 1)
 
 
+
+
+def test_graph_draws_feedback_into_a_node_without_state():
+    """A node that reads a key only a later node writes, here a policy reading the state
+    a model steps, gets that key's feedback edge from the later node."""
+    policy = Node(nn.Linear(1, 1), ['x'], ['u'], name='policy')
+    model = Node(nn.Linear(2, 1), ['x', 'u'], ['x'], name='model')
+    edges = {(e.get_source(), e.get_destination(), e.get_label())
+             for e in System([policy, model]).system_graph.get_edges()}
+    assert ('model', 'policy', 'x') in edges
+    assert ('policy', 'model', 'u') in edges
+    assert ('model', 'model', 'x') in edges

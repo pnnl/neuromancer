@@ -22,7 +22,7 @@ copyright = '2023, Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James K
 author = 'Aaron Tuor, Jan Drgona, Mia Skomski, Stefan Dernbach, James Koch, Zhao Chen, Christian Møldrup Legaard, Draguna Vrabie, Madelyn Shapiro'
 
 # The full version, including alpha/beta/rc tags
-release = '1.3.3'
+release = '1.5.7'
 
 
 # -- General configuration ---------------------------------------------------

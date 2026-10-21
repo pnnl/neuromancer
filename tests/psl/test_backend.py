@@ -32,3 +32,10 @@ def test_building(system):
     data2 = sys2.simulate(nsim=2, x0=sys2.x0, U=sys2.U[:3], D=sys2._D[:2])
     data3 = sys3.simulate(nsim=2, x0=sys3.x0, U=sys3.U[:3], D=sys3._D[:2])
     assert np.isclose(data2['X'], data3['X'], rtol=1e-04, atol=1e-05).all(), f'{system} failed'
+
+@pytest.mark.parametrize("backend", ["numpy", "torch"])
+def test_lotka_volterra_populations_stay_positive(backend):
+    system = autonomous.LotkaVolterra(backend=backend)
+    X = np.asarray(system.simulate(nsim=1000)['X'])
+    assert np.isfinite(X).all()
+    assert (X > 0).all(), X.min(axis=0)

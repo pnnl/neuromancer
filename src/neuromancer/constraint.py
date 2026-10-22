@@ -457,10 +457,10 @@ class Variable(nn.Module):
         return Variable(input_variables=[other, self], func=lambda x, y: x - y, display_name="-")
 
     def __mul__(self, other):
-        return Variable(input_variables=[self, other], func=lambda x, y: x * y, display_name="∗")
+        return Variable(input_variables=[self, other], func=lambda x, y: x * y, display_name="*")
 
     def __rmul__(self, other):
-        return Variable(input_variables=[other, self], func=lambda x, y: x * y, display_name="∗")
+        return Variable(input_variables=[other, self], func=lambda x, y: x * y, display_name="*")
 
     def __matmul__(self, other):
         return Variable(input_variables=[self, other], func=lambda x, y: x @ y, display_name="@")

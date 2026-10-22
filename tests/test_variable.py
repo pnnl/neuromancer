@@ -125,6 +125,15 @@ def test_arithmetic():
     assert torch.equal((a**b)(), v1**v2)
 
 
+def test_product_display_name_is_the_python_operator():
+    # The display name is the default name of a constraint or objective over
+    # the product, so it stays the ASCII operator like every other arithmetic.
+    a = variable("a")
+    assert (a * a).display_name == "*"
+    assert (2 * a).display_name == "*"
+    assert (a * 2).display_name == "*"
+
+
 def test_builtins():
     v1 = torch.randn(1, requires_grad=True)
     a = variable(v1)

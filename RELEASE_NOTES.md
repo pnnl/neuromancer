@@ -2,6 +2,12 @@
 ##  Release notes
 
 
+### Unreleased
+
++ Fixed bug: a product of `Variable`s was named with the Unicode `∗`; it is named `*` like the
+  other operators, so the default name of a constraint or objective over a product changes
+
+
 ### Version 1.5.7 Release Notes
 
 + New feature: Neural operators in `neuromancer.modules.operators`: wrappers for FNO, SFNO, TFNO, GINO, and UNO from the `neuraloperator` package, and DeepONet examples

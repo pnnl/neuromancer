@@ -72,3 +72,12 @@ tests = ["pytest", "hypothesis"]
 examples = ["imageio", "gpytorch", "openpyxl", "gym"]
 docs = ["sphinx", "sphinx-rtd-theme"]
 tracking = ["mlflow>=2.12,<3", "wandb"]
+assistant = [
+    "streamlit>=1.40,<2",
+    "chromadb>=1.0,<2",
+    "rank-bm25>=0.2.2,<0.3",
+    "sentence-transformers>=3.0,<6",
+    "ollama>=0.4,<1",
+    "openai>=1.40,<3",
+    "tqdm>=4.66",
+]

@@ -175,3 +175,10 @@ cython_debug/
 
 building_parameters/
 
+
+assistant/chroma_store/
+assistant/knowledge/
+assistant/__pycache__/
+assistant/app/__pycache__/
+assistant/preprocessing/__pycache__/
+

@@ -394,7 +394,9 @@ class Variable(nn.Module):
                 _input_variables += [i]
             else:
                 _input_variables += [copy.copy(i)]
-        edges = [(i, self) for i in _input_variables]
+        # Record each input's argument position on its edge. The order of in_edges is not preserved
+        # once graphs are composed, so get_value uses this to call self._func with arguments in order.
+        edges = [(i, self, {'arg_index': idx}) for idx, i in enumerate(_input_variables)]
         g.add_edges_from(edges)
         # self Can't be part of ordered nodes since this will make a loop when retrieving parameters
         ordered_nodes = nn.ModuleList(nx.topological_sort(g))[:-1]
@@ -558,7 +560,8 @@ class Variable(nn.Module):
     def get_value(self, n, datadict):
         if not n._is_input:
             if n._func is not None:
-                args = [src._value for src, _ in self._g.in_edges(n)]
+                in_edges = sorted(self._g.in_edges(n, data='arg_index', default=0), key=lambda e: e[2])
+                args = [src._value for src, _, _ in in_edges]
                 n._value = n._func(*args)
         else:
             n._value = datadict[n._key]

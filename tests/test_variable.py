@@ -1,6 +1,6 @@
 import itertools
 import torch
-from neuromancer.constraint import variable
+from neuromancer.constraint import variable, Variable
 import pytest
 import torch.nn as nn
 import torch.nn.functional as F
@@ -277,3 +277,20 @@ def test_slice_index(key):
     assert torch.equal(sliced(data), data['x'][key])
     assert 'slice_index' not in sliced.state_dict()
     assert not list(sliced.parameters()) and not list(sliced.buffers())
+
+
+def test_string_input_variables_is_key():
+    # Variable("x") should be an input Variable keyed "x", like Variable(key="x")
+    x = Variable('x')
+    assert x._is_input
+    assert x.key == 'x'
+    assert x.keys == ['x']
+    assert len(x.ordered_nodes) == 0
+    data = {'x': torch.randn(3, 2)}
+    assert torch.equal(x(data), data['x'])
+    assert torch.equal((x + 1.)(data), data['x'] + 1.)
+
+
+def test_string_input_variables_with_key_raises():
+    with pytest.raises(TypeError):
+        Variable('x', key='y')
